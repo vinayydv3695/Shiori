@@ -167,7 +167,10 @@ function ShelfCard({
     ? PRESET_ICONS[shelf.icon]
     : shelf.isSmart ? Zap : (shelf.shelfType === 'favorites' ? Heart : BookMarked);
 
-  const color = shelf.color || (shelf.shelfType === 'favorites' ? '#f43f5e' : shelf.isSmart ? '#a855f7' : '#6366f1');
+  const isCustomColor = Boolean(shelf.color && !['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa', '#6366f1'].includes(shelf.color.toLowerCase()));
+  const color = isCustomColor 
+    ? shelf.color! 
+    : (shelf.shelfType === 'favorites' ? '#f43f5e' : shelf.isSmart ? '#a855f7' : 'hsl(var(--primary))');
   const count = shelf.bookCount ?? 0;
   const hasCover = covers.length > 0;
   const isFavorite = shelf.shelfType === 'favorites';
@@ -575,7 +578,7 @@ export function ShelfGrid({
                 placeholder="Search shelves..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9.5 pr-8 py-2 text-xs sm:text-sm font-semibold bg-background/80 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                className="w-full pl-10 pr-8 py-2 text-xs sm:text-sm font-semibold bg-background/80 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
               />
               {searchQuery && (
                 <button

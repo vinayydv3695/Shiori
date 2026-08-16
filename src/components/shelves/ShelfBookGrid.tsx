@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Book, Shelf, api, ReadingProgress } from '../../lib/tauri';
 import { 
   Star, 
@@ -87,7 +87,11 @@ function ShelfBookCardGridItem({
           : "border-border/60 hover:border-primary/50 hover:shadow-xl hover:-translate-y-1"
       )}
       style={{
-        boxShadow: isSelected ? `0 8px 30px ${shelfColor}40` : undefined,
+        boxShadow: isSelected 
+          ? (shelfColor.startsWith('hsl') || shelfColor.startsWith('var') 
+              ? `0 8px 30px hsl(var(--primary) / 0.35)` 
+              : `0 8px 30px ${shelfColor}40`) 
+          : undefined,
       }}
     >
       {/* Fallback gradient if no cover image */}
@@ -277,13 +281,39 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
   const [sortType, setSortType] = useState<ShelfBookSortType>('title-asc');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<number>>(new Set());
+  const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [isRemovingBatch, setIsRemovingBatch] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({});
+  const [columns, setColumns] = useState(6);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { handleOpenBook } = useBookOpen();
   const toast = useToast();
   const isMobile = useIsMobile();
-  const shelfColor = shelf.color || '#3b82f6';
+  const isCustomColor = Boolean(shelf.color && !['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa', '#6366f1'].includes(shelf.color.toLowerCase()));
+  const shelfColor = isCustomColor ? shelf.color! : 'hsl(var(--primary))';
+
+  // Calculate dynamic columns based on container width
+  useEffect(() => {
+    const updateColumns = () => {
+      if (!containerRef.current) return;
+      const width = containerRef.current.offsetWidth;
+      if (width < 640) setColumns(2);
+      else if (width < 768) setColumns(3);
+      else if (width < 1024) setColumns(4);
+      else if (width < 1280) setColumns(5);
+      else setColumns(6);
+    };
+
+    updateColumns();
+    const ro = new ResizeObserver(updateColumns);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener('resize', updateColumns);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateColumns);
+    };
+  }, []);
 
   // Load progress batch
   useEffect(() => {
@@ -329,6 +359,15 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
 
     return list;
   }, [books, progressMap, searchQuery, sortType]);
+
+  // Chunk books into rows based on responsive column count
+  const rows = useMemo(() => {
+    const r: Book[][] = [];
+    for (let i = 0; i < filteredAndSortedBooks.length; i += columns) {
+      r.push(filteredAndSortedBooks.slice(i, i + columns));
+    }
+    return r;
+  }, [filteredAndSortedBooks, columns]);
 
   const toggleBookSelection = (id: number) => {
     setSelectedBookIds(prev => {
@@ -553,20 +592,170 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
             <p className="text-sm font-semibold">No books matching &quot;{searchQuery}&quot;</p>
           </div>
         ) : viewMode === 'grid' ? (
-          /* Grid View */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
-            {filteredAndSortedBooks.map((book) => (
-              <ShelfBookCardGridItem
-                key={book.id}
-                book={book}
-                progress={book.id !== undefined ? progressMap[book.id] : undefined}
-                isSelected={book.id !== undefined && selectedBookIds.has(book.id)}
-                isSelectionMode={isSelectionMode}
-                onToggleSelect={() => book.id !== undefined && toggleBookSelection(book.id)}
-                onClick={() => book.id && void handleOpenBook(book.id)}
-                shelfColor={shelfColor}
-              />
-            ))}
+          /* Grid View with Inline Expanded Book Details Card */
+          <div ref={containerRef} className="space-y-4 sm:space-y-6">
+            {rows.map((rowBooks, rowIndex) => {
+              const selectedIndexInRow = rowBooks.findIndex(b => b.id === selectedBookId);
+              const hasSelected = selectedIndexInRow !== -1;
+              const selectedBook = hasSelected ? rowBooks[selectedIndexInRow] : null;
+
+              return (
+                <React.Fragment key={rowIndex}>
+                  {/* Expanded Details Card */}
+                  <AnimatePresence>
+                    {hasSelected && selectedBook && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0, marginTop: -8 }}
+                        animate={{ height: 'auto', opacity: 1, marginTop: 0 }}
+                        exit={{ height: 0, opacity: 0, marginTop: -8 }}
+                        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden relative z-20 px-4 pt-1 pb-6 -mx-4 -mb-2"
+                      >
+                        <div 
+                          className="relative rounded-2xl p-4 sm:p-5 bg-card border border-border/70 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.12),0_4px_16px_-2px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_36px_-4px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+                          style={{ borderColor: isCustomColor ? `${shelfColor}50` : 'hsl(var(--primary) / 0.4)' }}
+                        >
+                          {/* Triangle Pointer pointing down to the book */}
+                          <div 
+                            className="absolute -bottom-3 w-6 h-6 rotate-45 border-r border-b bg-card"
+                            style={{
+                              left: `calc(${(selectedIndexInRow + 0.5) / columns * 100}% - 12px)`,
+                              borderColor: isCustomColor ? `${shelfColor}50` : 'hsl(var(--primary) / 0.4)',
+                              transition: 'left 0.3s ease-out'
+                            }}
+                          />
+
+                          {/* Top glowing line accent */}
+                          <div 
+                            className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl"
+                            style={{ 
+                              background: isCustomColor 
+                                ? `linear-gradient(90deg, transparent, ${shelfColor}, transparent)`
+                                : `linear-gradient(90deg, transparent, hsl(var(--primary)), transparent)`,
+                              opacity: 0.7
+                            }}
+                          />
+
+                          <div className="flex justify-between items-start mb-3 gap-4">
+                            <div className="pr-4 min-w-0">
+                              <h2 className="text-lg sm:text-xl font-bold text-foreground italic mb-1 truncate" style={{ fontFamily: 'var(--font-serif)' }}>
+                                {selectedBook.title}
+                              </h2>
+                              <div className="text-muted-foreground text-xs flex flex-wrap items-center gap-1.5 font-medium">
+                                <span>{selectedBook.authors && selectedBook.authors.length > 0 ? selectedBook.authors.map(a => a.name).join(', ') : 'Unknown Author'}</span>
+                                {selectedBook.pubdate && <span>· {new Date(selectedBook.pubdate).getFullYear()}</span>}
+                                {selectedBook.rating ? (
+                                  <span className="flex items-center gap-0.5 text-amber-500 font-bold">
+                                    · <Star className="w-3 h-3 fill-amber-500" /> {selectedBook.rating}
+                                  </span>
+                                ) : null}
+                                {pageCountLabel(selectedBook) ? (
+                                  <span>· {pageCountLabel(selectedBook)}</span>
+                                ) : null}
+                              </div>
+                            </div>
+                            
+                            {/* Actions Pill: Read | X */}
+                            <div className="flex bg-secondary/80 hover:bg-secondary rounded-full p-1 border border-border/60 shrink-0 items-center shadow-xs">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (selectedBook.id) void handleOpenBook(selectedBook.id);
+                                }}
+                                className="px-3 py-1 rounded-full text-foreground hover:bg-background/80 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              >
+                                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                <span>Read</span>
+                              </button>
+                              <div className="w-px h-3 bg-border/80 mx-1" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedBookId(null);
+                                }}
+                                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all cursor-pointer"
+                                title="Close"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {selectedBook.notes || (selectedBook as any).summary ? (
+                             <p className="text-foreground/85 text-xs sm:text-sm leading-relaxed max-w-4xl mb-4 line-clamp-3">
+                               {selectedBook.notes || (selectedBook as any).summary}
+                             </p>
+                          ) : (
+                             <p className="text-muted-foreground text-xs leading-relaxed max-w-4xl mb-4 italic">
+                               No description or notes available.
+                             </p>
+                          )}
+                          
+                          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
+                            {selectedBook.rating !== undefined && selectedBook.rating !== null && (
+                              <div className="flex items-center gap-1 text-foreground/90">
+                                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                                <span>{selectedBook.rating}</span>
+                              </div>
+                            )}
+                            
+                            {pageCountLabel(selectedBook) && (
+                              <div className="text-muted-foreground">
+                                {pageCountLabel(selectedBook)}
+                              </div>
+                            )}
+
+                            {selectedBook.tags && selectedBook.tags.length > 0 && (
+                              <div 
+                                className="px-2.5 py-0.5 rounded-full border text-[10px] font-bold"
+                                style={{ 
+                                  borderColor: shelf.color ? `${shelf.color}50` : 'hsl(var(--primary) / 0.4)', 
+                                  color: shelf.color || 'hsl(var(--primary))',
+                                  backgroundColor: shelf.color ? `${shelf.color}15` : 'hsl(var(--primary) / 0.15)' 
+                                }}
+                              >
+                                {selectedBook.tags[0].name}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Grid Row */}
+                  <div 
+                    className="grid gap-3 sm:gap-4 md:gap-5 relative z-10"
+                    style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+                  >
+                    {rowBooks.map((book) => {
+                      const isSelected = isSelectionMode 
+                        ? (book.id !== undefined && selectedBookIds.has(book.id))
+                        : (book.id === selectedBookId);
+
+                      return (
+                        <ShelfBookCardGridItem
+                          key={book.id}
+                          book={book}
+                          progress={book.id !== undefined ? progressMap[book.id] : undefined}
+                          isSelected={isSelected}
+                          isSelectionMode={isSelectionMode}
+                          onToggleSelect={() => book.id !== undefined && toggleBookSelection(book.id)}
+                          onClick={() => {
+                            if (book.id !== undefined) {
+                              setSelectedBookId(prev => (prev === book.id ? null : book.id!));
+                            }
+                          }}
+                          shelfColor={shelfColor}
+                        />
+                      );
+                    })}
+                  </div>
+                </React.Fragment>
+              );
+            })}
           </div>
         ) : (
           /* List View */

@@ -480,6 +480,38 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     }
   }, [annotations, pageNumber, pendingAnnotationId, setPendingAnnotationId]);
 
+  // Dedicated reactive retry listener for PDF annotation jumping on first click
+  useEffect(() => {
+    if (!pendingAnnotationId) return;
+
+    let attempts = 0;
+    const maxAttempts = 35;
+
+    const tryScroll = () => {
+      const root = containerRef.current;
+      if (!root) {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryScroll, 80);
+        }
+        return;
+      }
+
+      const scrolled = scrollToAnnotationMark(root, pendingAnnotationId);
+      if (scrolled) {
+        setPendingAnnotationId(null);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(tryScroll, 80);
+      } else {
+        setPendingAnnotationId(null);
+      }
+    };
+
+    const timerId = setTimeout(tryScroll, 50);
+    return () => clearTimeout(timerId);
+  }, [pendingAnnotationId, pageNumber, annotations, setPendingAnnotationId]);
+
   const scrollRenderWindow = useMemo(() => {
     if (numPages <= 0) {
       return { start: 1, end: 0 };

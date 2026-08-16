@@ -814,59 +814,49 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
   // ANNOTATION HIGHLIGHTS — render saved highlights into DOM
   // ────────────────────────────────────────────────────────────
+  const applyAnnotationsNow = useCallback(async () => {
+    const container = contentContainerRef.current;
+    if (!container || continuousFlow) return;
+
+    try {
+      const annotations = await api.getAnnotations(bookId);
+      const chapterLocation = `chapter_${currentIndexRef.current}`;
+      const chapterAnnotations = annotations.filter(
+        (a) =>
+          a.location === chapterLocation ||
+          a.location.startsWith(`${chapterLocation}:`)
+      );
+
+      applyHighlightsToDOM(container, chapterAnnotations);
+
+      const pendingId = useReaderUIStore.getState().pendingAnnotationId;
+      if (pendingId) {
+        const scrolled = scrollToAnnotationMark(container, pendingId);
+        if (scrolled) {
+          useReaderUIStore.getState().setPendingAnnotationId(null);
+        }
+      }
+    } catch {
+      // Silently ignore — highlights are non-critical
+    }
+  }, [bookId, continuousFlow]);
+
   useEffect(() => {
     if (!currentChapter || isLoading) return;
 
-    let cancelled = false;
+    // Ensure dangerouslySetInnerHTML content is in the DOM
+    const timerId = window.setTimeout(applyAnnotationsNow, 60);
 
-    const applyAnnotations = async () => {
-      const container = contentContainerRef.current;
-      if (!container || cancelled) return;
-
-      try {
-        const annotations = await api.getAnnotations(bookId);
-        if (cancelled) return;
-
-        if (continuousFlow) return; // ContinuousEpubView handles its own highlights
-
-        // Filter to annotations for the current chapter
-        const chapterLocation = `chapter_${currentIndex}`;
-        const chapterAnnotations = annotations.filter(
-          (a) =>
-            a.location === chapterLocation ||
-            a.location.startsWith(`${chapterLocation}:`)
-        );
-
-        applyHighlightsToDOM(container, chapterAnnotations);
-
-        // Immediate scroll to pending annotation if already mounted
-        const pendingId = useReaderUIStore.getState().pendingAnnotationId;
-        if (pendingId) {
-          const scrolled = scrollToAnnotationMark(container, pendingId);
-          if (scrolled) {
-            useReaderUIStore.getState().setPendingAnnotationId(null);
-          }
-        }
-      } catch {
-        // Silently ignore — highlights are non-critical
-      }
-    };
-
-    // Small delay to ensure dangerouslySetInnerHTML content is in the DOM
-    const timerId = window.setTimeout(applyAnnotations, 80);
-
-    // Also listen for annotation changes (e.g. new highlight created)
     const handleAnnotationChanged = () => {
-      window.setTimeout(applyAnnotations, 50);
+      window.setTimeout(applyAnnotationsNow, 50);
     };
     window.addEventListener('annotation-changed', handleAnnotationChanged);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(timerId);
       window.removeEventListener('annotation-changed', handleAnnotationChanged);
     };
-  }, [currentChapter, currentIndex, bookId, isLoading]);
+  }, [currentChapter, currentIndex, isLoading, applyAnnotationsNow]);
 
   // Dedicated reactive listener to smoothly scroll directly to the exact line of any clicked annotation
   const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
@@ -874,26 +864,48 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (!pendingAnnotationId) return;
 
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 35;
 
-    const tryScroll = () => {
+    const tryScroll = async () => {
       const container = contentContainerRef.current;
-      if (!container) return;
+      if (!container) {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryScroll, 80);
+        }
+        return;
+      }
 
-      const success = scrollToAnnotationMark(container, pendingAnnotationId);
+      // 1. Try to scroll to mark if already in DOM
+      let success = scrollToAnnotationMark(container, pendingAnnotationId);
       if (success) {
         useReaderUIStore.getState().setPendingAnnotationId(null);
-      } else if (attempts < maxAttempts) {
+        return;
+      }
+
+      // 2. If mark not found in DOM yet, re-apply highlights now to newly rendered content
+      try {
+        await applyAnnotationsNow();
+        success = scrollToAnnotationMark(container, pendingAnnotationId);
+        if (success) {
+          useReaderUIStore.getState().setPendingAnnotationId(null);
+          return;
+        }
+      } catch {
+        // continue to retry
+      }
+
+      if (attempts < maxAttempts) {
         attempts++;
-        setTimeout(tryScroll, 100);
+        setTimeout(tryScroll, 80);
       } else {
         useReaderUIStore.getState().setPendingAnnotationId(null);
       }
     };
 
-    const timerId = setTimeout(tryScroll, 60);
+    const timerId = setTimeout(tryScroll, 40);
     return () => clearTimeout(timerId);
-  }, [pendingAnnotationId, currentIndex, isLoading]);
+  }, [pendingAnnotationId, currentIndex, isLoading, applyAnnotationsNow]);
 
   const isHorizontalPaging = twoPageView || isPaginated;
 
@@ -1323,6 +1335,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 enabled={pageFlipEnabled}
                 animationStyle={animationStyle}
                 onFlipComplete={handleFlipComplete}
+                onRendered={applyAnnotationsNow}
                 className="premium-chapter-page"
               />
             ) : (

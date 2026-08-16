@@ -13,6 +13,7 @@ interface PageFlipEngineProps {
     enabled: boolean;
     animationStyle: 'slide' | 'fade' | 'none';
     onFlipComplete?: (direction: 'forward' | 'backward') => void;
+    onRendered?: () => void;
     className?: string;
 }
 
@@ -32,7 +33,7 @@ export interface PageFlipHandle {
  */
 export const PageFlipEngine = memo(
     forwardRef<PageFlipHandle, PageFlipEngineProps>(function PageFlipEngine(
-        { currentContent, chapterIndex = 0, nextContent, prevContent, flipSpeed, enabled, animationStyle, onFlipComplete, className },
+        { currentContent, chapterIndex = 0, nextContent, prevContent, flipSpeed, enabled, animationStyle, onFlipComplete, onRendered, className },
         ref
     ) {
         const isFlippingRef = useRef(false);
@@ -45,7 +46,12 @@ export const PageFlipEngine = memo(
                 setDirection(chapterIndex > prevIndexRef.current ? 1 : -1);
                 prevIndexRef.current = chapterIndex;
             }
-        }, [chapterIndex]);
+            // Trigger rendered notification on content/chapter change
+            const timer = setTimeout(() => {
+                onRendered?.();
+            }, 30);
+            return () => clearTimeout(timer);
+        }, [chapterIndex, currentContent, onRendered]);
 
         // ────────────────────────────────────────────────────────────
         // ANIMATION VARIANTS
@@ -172,6 +178,10 @@ export const PageFlipEngine = memo(
                         animate="center"
                         exit="exit"
                         transition={getTransition()}
+                        onAnimationComplete={() => {
+                            isFlippingRef.current = false;
+                            onRendered?.();
+                        }}
                         className="page-transition-page"
                     >
                         <div
@@ -188,5 +198,6 @@ export const PageFlipEngine = memo(
         prev.chapterIndex === next.chapterIndex &&
         prev.enabled === next.enabled &&
         prev.flipSpeed === next.flipSpeed &&
-        prev.animationStyle === next.animationStyle
+        prev.animationStyle === next.animationStyle &&
+        prev.onRendered === next.onRendered
 );

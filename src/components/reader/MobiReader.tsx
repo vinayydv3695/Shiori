@@ -324,21 +324,18 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
         let cancelled = false;
 
-        const applyAnnotations = async () => {
-            const container = contentRef.current;
-            if (!container || cancelled) return;
+        const applyAnnotationsNow = async () => {
+            const container = contentRef.current || containerRef.current;
+            if (!container) return;
 
             try {
                 const annotations = await api.getAnnotations(bookId);
-                if (cancelled) return;
-
                 const chapterLocation = `mobi-chapter-${currentIndex}`;
                 const chapterAnnotations = annotations.filter(
                     (a) => a.location === chapterLocation || a.location.startsWith(`${chapterLocation}:`)
                 );
                 applyHighlightsToDOM(container, chapterAnnotations);
 
-                // Immediate scroll to pending annotation if already mounted
                 const pendingId = useReaderUIStore.getState().pendingAnnotationId;
                 if (pendingId) {
                     const scrolled = scrollToAnnotationMark(container, pendingId);
@@ -351,8 +348,8 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             }
         };
 
-        const timerId = window.setTimeout(applyAnnotations, 80);
-        const handleAnnotationChanged = () => window.setTimeout(applyAnnotations, 50);
+        const timerId = window.setTimeout(applyAnnotationsNow, 60);
+        const handleAnnotationChanged = () => window.setTimeout(applyAnnotationsNow, 50);
         window.addEventListener('annotation-changed', handleAnnotationChanged);
 
         return () => {
@@ -368,26 +365,51 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         if (!pendingAnnotationId) return;
 
         let attempts = 0;
-        const maxAttempts = 20;
+        const maxAttempts = 35;
 
-        const tryScroll = () => {
+        const tryScroll = async () => {
             const container = contentRef.current || containerRef.current;
-            if (!container) return;
+            if (!container) {
+                if (attempts < maxAttempts) {
+                    attempts++;
+                    setTimeout(tryScroll, 80);
+                }
+                return;
+            }
 
-            const success = scrollToAnnotationMark(container, pendingAnnotationId);
+            let success = scrollToAnnotationMark(container, pendingAnnotationId);
             if (success) {
                 useReaderUIStore.getState().setPendingAnnotationId(null);
-            } else if (attempts < maxAttempts) {
+                return;
+            }
+
+            try {
+                const annotations = await api.getAnnotations(bookId);
+                const chapterLocation = `mobi-chapter-${currentIndex}`;
+                const chapterAnnotations = annotations.filter(
+                    (a) => a.location === chapterLocation || a.location.startsWith(`${chapterLocation}:`)
+                );
+                applyHighlightsToDOM(container, chapterAnnotations);
+                success = scrollToAnnotationMark(container, pendingAnnotationId);
+                if (success) {
+                    useReaderUIStore.getState().setPendingAnnotationId(null);
+                    return;
+                }
+            } catch {
+                // continue
+            }
+
+            if (attempts < maxAttempts) {
                 attempts++;
-                setTimeout(tryScroll, 100);
+                setTimeout(tryScroll, 80);
             } else {
                 useReaderUIStore.getState().setPendingAnnotationId(null);
             }
         };
 
-        const timerId = setTimeout(tryScroll, 60);
+        const timerId = setTimeout(tryScroll, 40);
         return () => clearTimeout(timerId);
-    }, [pendingAnnotationId, currentIndex, isLoading]);
+    }, [pendingAnnotationId, currentIndex, isLoading, bookId]);
 
     // ── Navigation ──
     const nextChapter = useCallback(() => {

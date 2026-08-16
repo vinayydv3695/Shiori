@@ -354,26 +354,59 @@ export function ContinuousEpubView({
     if (!pendingAnnotationId) return;
 
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 35;
 
-    const tryScroll = () => {
+    const tryScroll = async () => {
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) {
+        if (attempts < maxAttempts) {
+          attempts++;
+          setTimeout(tryScroll, 80);
+        }
+        return;
+      }
 
-      const success = scrollToAnnotationMark(container, pendingAnnotationId);
+      let success = scrollToAnnotationMark(container, pendingAnnotationId);
       if (success) {
         useReaderUIStore.getState().setPendingAnnotationId(null);
-      } else if (attempts < maxAttempts) {
+        return;
+      }
+
+      // Proactively ensure highlights are applied
+      try {
+        const annotations = await api.getAnnotations(bookId);
+        chapters.forEach((ch) => {
+          const el = chapterRefs.current.get(ch.index);
+          if (el) {
+            const chapterLocation = `chapter_${ch.index}`;
+            const chapterAnnotations = annotations.filter(
+              (a) =>
+                a.location === chapterLocation ||
+                a.location.startsWith(`${chapterLocation}:`)
+            );
+            applyHighlightsToDOM(el, chapterAnnotations);
+          }
+        });
+        success = scrollToAnnotationMark(container, pendingAnnotationId);
+        if (success) {
+          useReaderUIStore.getState().setPendingAnnotationId(null);
+          return;
+        }
+      } catch {
+        // continue
+      }
+
+      if (attempts < maxAttempts) {
         attempts++;
-        setTimeout(tryScroll, 100);
+        setTimeout(tryScroll, 80);
       } else {
         useReaderUIStore.getState().setPendingAnnotationId(null);
       }
     };
 
-    const timerId = setTimeout(tryScroll, 60);
+    const timerId = setTimeout(tryScroll, 40);
     return () => clearTimeout(timerId);
-  }, [pendingAnnotationId, chapters]);
+  }, [pendingAnnotationId, chapters, bookId]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (onScroll) onScroll(e);

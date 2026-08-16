@@ -34,7 +34,7 @@ export function applyHighlightsToDOM(
  * Remove all annotation <mark> elements, restoring original text nodes.
  */
 export function clearHighlightsFromDOM(container: HTMLElement): void {
-  const marks = container.querySelectorAll('mark.epub-highlight');
+  const marks = container.querySelectorAll('mark.epub-highlight, mark.pdf-highlight');
   marks.forEach((mark) => {
     const parent = mark.parentNode;
     if (!parent) return;
@@ -47,6 +47,19 @@ export function clearHighlightsFromDOM(container: HTMLElement): void {
 }
 
 /**
+ * Normalize Unicode characters (quotes, dashes, non-breaking spaces, zero-width chars)
+ * for fuzzy, robust text matching across diverse EPUB engines.
+ */
+function normalizeForMatch(str: string): string {
+  return str
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035`']/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036«»"]/g, '"')
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-')
+    .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000\t\n\r]+/g, ' ')
+    .replace(/[\u200B\u200C\u200D\uFEFF\u00AD]/g, '');
+}
+
+/**
  * Find annotation.selectedText within the container's text nodes
  * and wrap it in a <mark> element.
  */
@@ -54,7 +67,7 @@ function highlightTextInContainer(
   container: HTMLElement,
   annotation: Annotation
 ): void {
-  const searchText = annotation.selectedText;
+  const searchText = annotation.selectedText?.trim();
   if (!searchText) return;
 
   // Collect all text nodes in document order
@@ -67,22 +80,40 @@ function highlightTextInContainer(
   const textNodes: Text[] = [];
   let node: Text | null;
   while ((node = walker.nextNode() as Text | null)) {
+    // Skip empty or whitespace-only nodes from script/style
+    if (node.parentElement?.tagName === 'SCRIPT' || node.parentElement?.tagName === 'STYLE') {
+      continue;
+    }
     textNodes.push(node);
   }
 
-  // Strategy 1: Try single text-node match (most common case)
+  const normSearch = normalizeForMatch(searchText);
+
+  // Strategy 1: Single text-node match
   for (const textNode of textNodes) {
     const nodeText = textNode.textContent || '';
-    const directIndex = nodeText.indexOf(searchText);
-    let matchStart = directIndex;
+    if (!nodeText) continue;
+
+    // Direct match
+    let matchStart = nodeText.indexOf(searchText);
     let matchLength = searchText.length;
 
-    // Fallback: ignore whitespace differences + case while preserving original ranges
+    // Case-insensitive direct match
     if (matchStart === -1) {
-      const flexible = findFlexibleMatch(nodeText, searchText);
-      if (flexible) {
-        matchStart = flexible.start;
-        matchLength = flexible.length;
+      matchStart = nodeText.toLowerCase().indexOf(searchText.toLowerCase());
+    }
+
+    // Normalized Unicode match
+    if (matchStart === -1) {
+      const normNode = normalizeForMatch(nodeText);
+      const normIdx = normNode.toLowerCase().indexOf(normSearch.toLowerCase());
+      if (normIdx !== -1) {
+        // Find approximate position in original node text
+        const flex = findFlexibleMatch(nodeText, searchText);
+        if (flex) {
+          matchStart = flex.start;
+          matchLength = flex.length;
+        }
       }
     }
 
@@ -95,45 +126,52 @@ function highlightTextInContainer(
 
       const mark = createHighlightMark(annotation);
       range.surroundContents(mark);
-      return; // Done — found and wrapped
+      return; // Successfully wrapped in single node
     } catch {
-      // surroundContents can fail in edge cases; fall through to multi-node
-      break;
+      // Continue to next or fallback to multi-node
     }
   }
 
-  // Strategy 2: Multi-node match (selection spans across elements)
-  // Build a concatenated view of all text with node boundary tracking
+  // Strategy 2: Multi-node match (selection spans across elements/tags)
   let fullText = '';
-  const nodeMap: { node: Text; start: number; end: number }[] = [];
+  const nodeMap: { node: Text; start: number; end: number; text: string }[] = [];
   for (const textNode of textNodes) {
     const text = textNode.textContent || '';
     const start = fullText.length;
     fullText += text;
-    nodeMap.push({ node: textNode, start, end: fullText.length });
+    nodeMap.push({ node: textNode, start, end: fullText.length, text });
   }
 
-  const directIndex = fullText.indexOf(searchText);
-  const match = directIndex !== -1
-    ? { start: directIndex, length: searchText.length }
-    : findFlexibleMatch(fullText, searchText);
-  if (!match) return;
+  let matchStart = fullText.indexOf(searchText);
+  let matchLength = searchText.length;
 
-  const matchIndex = match.start;
-  const matchEnd = match.start + match.length;
+  if (matchStart === -1) {
+    matchStart = fullText.toLowerCase().indexOf(searchText.toLowerCase());
+  }
 
-  // Find which text nodes overlap with our match
+  if (matchStart === -1) {
+    const flex = findFlexibleMatch(fullText, searchText);
+    if (flex) {
+      matchStart = flex.start;
+      matchLength = flex.length;
+    }
+  }
+
+  if (matchStart === -1) return;
+
+  const matchEnd = matchStart + matchLength;
+
+  // Find overlapping text nodes
   const affectedNodes = nodeMap.filter(
-    (n) => n.start < matchEnd && n.end > matchIndex
+    (n) => n.start < matchEnd && n.end > matchStart
   );
   if (affectedNodes.length === 0) return;
 
-  // Process in reverse order so DOM modifications don't invalidate
-  // subsequent text node references
+  // Process in reverse order so DOM mutation doesn't invalidate offsets
   for (let i = affectedNodes.length - 1; i >= 0; i--) {
     const affected = affectedNodes[i];
     const nodeLen = affected.node.textContent?.length || 0;
-    const localStart = Math.max(0, matchIndex - affected.start);
+    const localStart = Math.max(0, matchStart - affected.start);
     const localEnd = Math.min(nodeLen, matchEnd - affected.start);
 
     if (localStart >= localEnd) continue;
@@ -146,7 +184,7 @@ function highlightTextInContainer(
       const mark = createHighlightMark(annotation);
       range.surroundContents(mark);
     } catch {
-      // Skip this node portion if wrapping fails
+      // Skip failed chunk
     }
   }
 }
@@ -158,15 +196,19 @@ function findFlexibleMatch(haystack: string, needle: string): { start: number; l
   const words = normalizedNeedle.split(/\s+/).map(escapeRegExp);
   if (words.length === 0) return null;
 
-  const pattern = words.join('\\s+');
-  const regex = new RegExp(pattern, 'i');
-  const match = regex.exec(haystack);
-  if (!match || match.index === undefined) return null;
+  const pattern = words.join('[\\s\\u00A0\\u2000-\\u200B\\u00AD]+');
+  try {
+    const regex = new RegExp(pattern, 'i');
+    const match = regex.exec(haystack);
+    if (!match || match.index === undefined) return null;
 
-  return {
-    start: match.index,
-    length: match[0].length,
-  };
+    return {
+      start: match.index,
+      length: match[0].length,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function escapeRegExp(value: string): string {
@@ -201,18 +243,6 @@ export function formatNotePreview(noteContent?: string): string {
   return noteContent;
 }
 
-function hexToRgba(hex: string, alpha: number): string {
-  if (!hex) return `rgba(251, 191, 36, ${alpha})`;
-  let c = hex.replace('#', '');
-  if (c.length === 3) c = c.split('').map(x => x + x).join('');
-  const num = parseInt(c, 16);
-  if (isNaN(num)) return hex;
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 /**
  * Create a styled <mark> element for an annotation.
  */
@@ -232,4 +262,37 @@ function createHighlightMark(annotation: Annotation): HTMLElement {
   }
 
   return mark;
+}
+
+/**
+ * Smoothly scroll to an exact annotation mark in the reader container
+ * and trigger a luminous pulse animation so the user immediately spots the exact line.
+ */
+export function scrollToAnnotationMark(
+  container: HTMLElement | Document | null,
+  annotationId: number | string | null | undefined
+): boolean {
+  if (!container || !annotationId) return false;
+  const mark = container.querySelector<HTMLElement>(
+    `mark.epub-highlight[data-annotation-id="${annotationId}"], mark.pdf-highlight[data-annotation-id="${annotationId}"], [data-annotation-id="${annotationId}"]`
+  );
+  if (!mark) return false;
+
+  try {
+    // Smoothly center the exact highlighted line in the viewport
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+    // Trigger visual pulse glow on target
+    mark.classList.remove('annotation-jump-focus');
+    // Force reflow to re-trigger animation if clicked repeatedly
+    void mark.offsetWidth;
+    mark.classList.add('annotation-jump-focus');
+
+    setTimeout(() => {
+      mark.classList.remove('annotation-jump-focus');
+    }, 2800);
+    return true;
+  } catch {
+    return false;
+  }
 }

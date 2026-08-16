@@ -17,7 +17,7 @@ import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
-import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
+import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
@@ -130,7 +130,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 : (scrollPositionsRef.current.get(index) || 0);
 
             const attemptScroll = () => {
-                if (!containerRef.current) return;
+                if (!containerRef.current || useReaderUIStore.getState().pendingAnnotationId) return;
                 const { scrollHeight, clientHeight } = containerRef.current;
                 
                 // If content is scrollable and we have a target ratio
@@ -338,12 +338,13 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 );
                 applyHighlightsToDOM(container, chapterAnnotations);
 
-                // Scroll to pending annotation if set
+                // Immediate scroll to pending annotation if already mounted
                 const pendingId = useReaderUIStore.getState().pendingAnnotationId;
                 if (pendingId) {
-                    const mark = container.querySelector(`mark.epub-highlight[data-annotation-id="${pendingId}"]`);
-                    if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    useReaderUIStore.getState().setPendingAnnotationId(null);
+                    const scrolled = scrollToAnnotationMark(container, pendingId);
+                    if (scrolled) {
+                        useReaderUIStore.getState().setPendingAnnotationId(null);
+                    }
                 }
             } catch {
                 // Silently ignore
@@ -360,6 +361,33 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             window.removeEventListener('annotation-changed', handleAnnotationChanged);
         };
     }, [currentChapter, currentIndex, bookId, isLoading]);
+
+    // Dedicated reactive listener to jump directly to exact clicked annotation mark
+    const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
+    useEffect(() => {
+        if (!pendingAnnotationId) return;
+
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        const tryScroll = () => {
+            const container = contentRef.current || containerRef.current;
+            if (!container) return;
+
+            const success = scrollToAnnotationMark(container, pendingAnnotationId);
+            if (success) {
+                useReaderUIStore.getState().setPendingAnnotationId(null);
+            } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(tryScroll, 100);
+            } else {
+                useReaderUIStore.getState().setPendingAnnotationId(null);
+            }
+        };
+
+        const timerId = setTimeout(tryScroll, 60);
+        return () => clearTimeout(timerId);
+    }, [pendingAnnotationId, currentIndex, isLoading]);
 
     // ── Navigation ──
     const nextChapter = useCallback(() => {

@@ -17,7 +17,7 @@ import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
 import { sanitizeBookContent, escapeHtml } from '@/lib/sanitize';
-import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
+import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
@@ -368,6 +368,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             const isHoriz = canvasRef.current.classList.contains('premium-reading-canvas--paginated') ||
                             canvasRef.current.classList.contains('premium-reading-canvas--two-page') ||
                             !continuousFlow;
+
+            const isPendingAnnotation = Boolean(useReaderUIStore.getState().pendingAnnotationId);
+            if (isPendingAnnotation) {
+              // Annotation jump will handle the precise line positioning
+              return;
+            }
 
             if (initialScrollRatio !== undefined && !termToHighlight) {
               if (isHoriz) {
@@ -833,14 +839,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
         applyHighlightsToDOM(container, chapterAnnotations);
 
-        // Scroll to pending annotation if set (from sidebar click)
+        // Immediate scroll to pending annotation if already mounted
         const pendingId = useReaderUIStore.getState().pendingAnnotationId;
         if (pendingId) {
-          const mark = container.querySelector(`mark.epub-highlight[data-annotation-id="${pendingId}"]`);
-          if (mark) {
-            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const scrolled = scrollToAnnotationMark(container, pendingId);
+          if (scrolled) {
+            useReaderUIStore.getState().setPendingAnnotationId(null);
           }
-          useReaderUIStore.getState().setPendingAnnotationId(null);
         }
       } catch {
         // Silently ignore — highlights are non-critical
@@ -862,6 +867,33 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       window.removeEventListener('annotation-changed', handleAnnotationChanged);
     };
   }, [currentChapter, currentIndex, bookId, isLoading]);
+
+  // Dedicated reactive listener to smoothly scroll directly to the exact line of any clicked annotation
+  const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
+  useEffect(() => {
+    if (!pendingAnnotationId) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const tryScroll = () => {
+      const container = contentContainerRef.current;
+      if (!container) return;
+
+      const success = scrollToAnnotationMark(container, pendingAnnotationId);
+      if (success) {
+        useReaderUIStore.getState().setPendingAnnotationId(null);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(tryScroll, 100);
+      } else {
+        useReaderUIStore.getState().setPendingAnnotationId(null);
+      }
+    };
+
+    const timerId = setTimeout(tryScroll, 60);
+    return () => clearTimeout(timerId);
+  }, [pendingAnnotationId, currentIndex, isLoading]);
 
   const isHorizontalPaging = twoPageView || isPaginated;
 

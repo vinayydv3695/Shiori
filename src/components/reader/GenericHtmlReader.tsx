@@ -20,7 +20,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { useDoodleStore } from '@/store/doodleStore';
 import { sanitizeBookContent } from '@/lib/sanitize';
-import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
+import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
@@ -389,6 +389,33 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             window.removeEventListener('annotation-changed', handleAnnotationChanged);
         };
     }, [content, bookId, isLoading, currentChapter, locationPrefix, format]);
+
+    // Dedicated reactive listener to jump directly to exact clicked annotation mark
+    const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
+    useEffect(() => {
+        if (!pendingAnnotationId) return;
+
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        const tryScroll = () => {
+            const container = contentRef.current || containerRef.current;
+            if (!container) return;
+
+            const success = scrollToAnnotationMark(container, pendingAnnotationId);
+            if (success) {
+                useReaderUIStore.getState().setPendingAnnotationId(null);
+            } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(tryScroll, 100);
+            } else {
+                useReaderUIStore.getState().setPendingAnnotationId(null);
+            }
+        };
+
+        const timerId = setTimeout(tryScroll, 60);
+        return () => clearTimeout(timerId);
+    }, [pendingAnnotationId, currentChapter, isLoading]);
 
     // Keyboard navigation matching Premium UI
     const nextPage = useCallback(() => {

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { api, type BookMetadata } from '@/lib/tauri';
 import { ChapterHtml, processEpubHtml } from './PremiumEpubReader';
-import { applyHighlightsToDOM } from '@/lib/highlightAnnotations';
+import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useDoodleStore } from '@/store/doodleStore';
+import { useReaderUIStore } from '@/store/premiumReaderStore';
 import DoodleCanvas from './DoodleCanvas';
 
 interface ContinuousEpubViewProps {
@@ -346,6 +347,33 @@ export function ContinuousEpubView({
       window.removeEventListener('annotation-changed', handleAnnotationChanged);
     };
   }, [chapters, bookId]);
+
+  // Dedicated reactive listener for continuous view to jump directly to exact clicked annotation mark
+  const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
+  useEffect(() => {
+    if (!pendingAnnotationId) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const tryScroll = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const success = scrollToAnnotationMark(container, pendingAnnotationId);
+      if (success) {
+        useReaderUIStore.getState().setPendingAnnotationId(null);
+      } else if (attempts < maxAttempts) {
+        attempts++;
+        setTimeout(tryScroll, 100);
+      } else {
+        useReaderUIStore.getState().setPendingAnnotationId(null);
+      }
+    };
+
+    const timerId = setTimeout(tryScroll, 60);
+    return () => clearTimeout(timerId);
+  }, [pendingAnnotationId, chapters]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (onScroll) onScroll(e);

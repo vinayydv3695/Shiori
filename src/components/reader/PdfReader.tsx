@@ -19,7 +19,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
-import { formatNotePreview } from '@/lib/highlightAnnotations';
+import { formatNotePreview, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
@@ -473,11 +473,10 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     });
 
     if (pendingAnnotationId) {
-      const target = root.querySelector<HTMLElement>(`mark.pdf-highlight[data-annotation-id="${pendingAnnotationId}"]`);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const scrolled = scrollToAnnotationMark(root, pendingAnnotationId);
+      if (scrolled) {
+        setPendingAnnotationId(null);
       }
-      setPendingAnnotationId(null);
     }
   }, [annotations, pageNumber, pendingAnnotationId, setPendingAnnotationId]);
 

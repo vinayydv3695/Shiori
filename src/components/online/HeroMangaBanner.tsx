@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { IconBookOpen } from '@/components/icons/ShioriIcons';
 import type { CarouselItem } from './ContentCarousel';
-import { getProxyUrl } from '@/lib/tauri';
+import { getProxyUrl, isAndroid } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
 interface HeroMangaBannerProps {
@@ -11,9 +11,16 @@ interface HeroMangaBannerProps {
   loading?: boolean;
   onReadClick?: (item: CarouselItem) => void;
   sourceId?: string;
+  actionLabel?: string;
 }
 
-export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'generic' }: HeroMangaBannerProps) {
+export function HeroMangaBanner({
+  items,
+  loading,
+  onReadClick,
+  sourceId = 'generic',
+  actionLabel,
+}: HeroMangaBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Auto rotate every 8 seconds
@@ -27,7 +34,7 @@ export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'gener
 
   if (loading) {
     return (
-      <div className="relative w-full h-[280px] sm:h-[320px] md:h-[360px] rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse mb-8" />
+      <div className="relative w-full h-[240px] sm:h-[300px] md:h-[360px] rounded-2xl sm:rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse mb-6 sm:mb-8" />
     );
   }
 
@@ -36,8 +43,12 @@ export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'gener
   const current = items[currentIndex] || items[0];
   const cover = current?.coverUrl ? getProxyUrl(sourceId, current.coverUrl) : null;
 
+  const defaultButtonLabel = (isAndroid || sourceId === 'generic') ? 'Download Now' : 'Read Now';
+  const buttonLabel = actionLabel || defaultButtonLabel;
+  const isDownloadAction = buttonLabel.toLowerCase().includes('download');
+
   return (
-    <div className="relative w-full h-[280px] sm:h-[320px] md:h-[360px] rounded-3xl overflow-hidden group border border-border/60 bg-card shadow-lg backdrop-blur-xl mb-8 select-none">
+    <div className="relative w-full h-[240px] sm:h-[300px] md:h-[360px] rounded-2xl sm:rounded-3xl overflow-hidden group border border-border/60 bg-card shadow-lg backdrop-blur-xl mb-6 sm:mb-8 select-none">
       {/* Visible Manga Cover Backdrop on the right & center */}
       {cover && (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -95,14 +106,14 @@ export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'gener
           )}
 
           {/* Action Buttons */}
-          <div className="pt-2 flex items-center gap-3">
+          <div className="pt-1 sm:pt-2 flex items-center gap-3">
             <Button
               size="lg"
-              className="rounded-xl font-bold gap-2 shadow-md shadow-primary/20 hover:scale-105 transition-all duration-200 cursor-pointer active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="h-10 sm:h-11 px-5 sm:px-6 rounded-xl font-bold gap-2 shadow-md shadow-primary/20 hover:scale-105 transition-all duration-200 cursor-pointer active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm"
               onClick={() => onReadClick?.(current)}
             >
-              <IconBookOpen size={18} />
-              Read Now
+              {isDownloadAction ? <Download size={17} /> : <IconBookOpen size={17} />}
+              {buttonLabel}
             </Button>
           </div>
         </div>

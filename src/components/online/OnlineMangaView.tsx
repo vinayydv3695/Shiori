@@ -1744,7 +1744,7 @@ export function OnlineMangaView() {
       <div
         className={cn(
           "flex-1 overflow-y-auto",
-          isMobile ? "pb-28 p-3 pt-8" : "p-6",
+          isMobile ? "pb-28 p-3 pt-3 sm:p-6" : "p-6",
         )}
       >
         <div className="max-w-7xl mx-auto">
@@ -1811,7 +1811,7 @@ export function OnlineMangaView() {
                       </div>
                     ) : (
                       <>
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 w-full max-w-[1920px] pb-12">
+                        <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6 w-full max-w-[1920px] pb-12">
                           {advancedBrowseResults.map((manga, i) => (
                           <div
                             key={`${manga.id}-${i}`}
@@ -1948,7 +1948,7 @@ export function OnlineMangaView() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6">
+                <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                   {visibleResults.map((manga) => (
                     <ModernBookCard
                       key={manga.id}
@@ -2010,7 +2010,7 @@ export function OnlineMangaView() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6">
+                <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                   {pluginResultWithTorboxSource.map(({ item: manga }) => (
                     <ModernBookCard
                       key={manga.id}

@@ -351,7 +351,7 @@ export function OnlineBooksView() {
       {!hasSearched ? (
         <OnlineBooksDashboard />
       ) : (
-        <div className={cn("flex-1 overflow-y-auto scroll-smooth", isMobile ? "pb-28 p-4 sm:p-6" : "p-6")}>
+        <div className={cn("flex-1 overflow-y-auto scroll-smooth", isMobile ? "pb-28 p-3 sm:p-6" : "p-6")}>
           <div className="max-w-[1600px] mx-auto">
             {error && (
               <div className="bg-red-500/10 text-red-500 p-4 rounded-lg mb-6 border border-red-500/20">
@@ -360,7 +360,7 @@ export function OnlineBooksView() {
             )}
 
             {results.length > 0 ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6">
+              <div className="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                 {results.map((book) => (
                   <ModernBookCard
                     key={`${book.source}-${book.id}`}

@@ -291,24 +291,24 @@ export function OnlineMangaDetailView({
       <div className="absolute top-0 left-0 right-0 h-[65vh] bg-gradient-to-b from-background/20 via-background/60 to-background pointer-events-none" />
 
       {/* Main Content Area */}
-      <div className="relative z-10 p-6 md:p-10 max-w-[1400px] mx-auto w-full pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] md:pt-10 pb-32 md:pb-16">
+      <div className="relative z-10 p-3.5 sm:p-6 md:p-10 max-w-[1400px] mx-auto w-full pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:pt-10 pb-32 md:pb-16">
         {/* Top Action Bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           {/* Back Button */}
           <button
             onClick={onBack}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/60 hover:bg-secondary text-foreground transition-all font-semibold text-xs sm:text-sm active:scale-95 border border-border/40 shadow-xs cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-secondary/80 hover:bg-secondary text-foreground transition-all font-semibold text-xs sm:text-sm active:scale-95 border border-border/40 shadow-xs cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> <span>Back to browse</span>
           </button>
         </div>
 
         {/* Hero Section */}
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-10 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] lg:grid-cols-[260px_1fr] gap-6 md:gap-10 mb-8 md:mb-12">
           
           {/* Left Column (Cover) */}
           <div className="w-full shrink-0 flex flex-col items-center md:items-start relative z-20">
-            <div className="w-[220px] md:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] border border-border/50 bg-card/50 backdrop-blur-sm relative group">
+            <div className="w-[180px] sm:w-[220px] md:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] border border-border/50 bg-card/50 backdrop-blur-sm relative group">
             {coverUrl ? (
               <>
                 <img src={getProxyUrl(sourceId || '', coverUrl)} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />
@@ -321,26 +321,26 @@ export function OnlineMangaDetailView({
           </div>
 
           {/* Right/Middle Column (Title, Description, Details) */}
-          <div className="flex flex-col min-w-0 pt-2 md:pt-4 relative z-20">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-xs font-bold tracking-widest uppercase">
+          <div className="flex flex-col min-w-0 pt-1 md:pt-4 relative z-20">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-primary/10 text-primary border border-primary/20 rounded-full text-[11px] sm:text-xs font-bold tracking-widest uppercase">
                 {status || 'RELEASING'}
               </span>
-              <span className="px-3 py-1 bg-secondary border border-border/50 text-foreground/80 rounded-full text-xs font-medium">
+              <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-secondary border border-border/50 text-foreground/80 rounded-full text-[11px] sm:text-xs font-medium">
                 {formatText}
               </span>
             </div>
             
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-3 leading-tight tracking-tight drop-shadow-md">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold text-foreground mb-2 sm:mb-3 leading-tight tracking-tight drop-shadow-md">
               {title}
             </h1>
             
-            <p className="text-sm md:text-base text-muted-foreground/80 mb-6 line-clamp-2 max-w-3xl" title={alternateTitles}>
+            <p className="text-xs sm:text-sm md:text-base text-muted-foreground/80 mb-4 sm:mb-6 line-clamp-2 max-w-3xl" title={alternateTitles}>
               {alternateTitles}
             </p>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5 sm:gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
               <div className="w-full sm:w-auto">
                 <Button onClick={() => {
                   if (resumeChapter) {
@@ -512,15 +512,15 @@ export function OnlineMangaDetailView({
                             height: `${virtualRow.size}px`,
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
-                          className={`flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border/30 hover:bg-secondary ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
+                          className={`flex items-center justify-between px-3 sm:px-4 py-3 cursor-pointer transition-colors border-b border-border/30 hover:bg-secondary ${isHighlighted ? 'bg-primary/10 border-l-2 border-l-primary' : 'border-l-2 border-l-transparent'}`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 pr-2">
                             {isHighlighted && <Play className="w-3.5 h-3.5 text-primary fill-primary shrink-0 drop-shadow-sm" />}
-                            <span className={`truncate text-sm ${isHighlighted ? 'text-primary font-bold' : 'text-foreground/90 font-medium'}`}>
+                            <span className={`truncate text-xs sm:text-sm ${isHighlighted ? 'text-primary font-bold' : 'text-foreground/90 font-medium'}`}>
                               {fullTitle || 'Chapter'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                             <div className="flex flex-col items-end">
                               {ch.scanlationGroup && (
                                 <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>

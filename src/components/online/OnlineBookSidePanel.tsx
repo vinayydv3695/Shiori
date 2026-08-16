@@ -183,18 +183,18 @@ export function OnlineBookSidePanel({
                 </div>
                 <button 
                   onClick={onDownload}
-                  className="shrink-0 h-9 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center justify-center gap-1.5 shadow-md transition-all text-xs"
+                  className="shrink-0 h-9 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center justify-center gap-1.5 shadow-md transition-all text-xs active:scale-95"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Download
+                  Download Now
                 </button>
               </div>
 
               {/* Header / Cover */}
-              <motion.div className="relative pt-6 pb-8 px-8 flex flex-col items-center border-b border-border/30" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+              <motion.div className="relative pt-4 pb-6 px-4 sm:pt-6 sm:pb-8 sm:px-8 flex flex-col items-center border-b border-border/30" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-30 pointer-events-none" />
                 
-                <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.4)] border border-border/50 mb-6 shrink-0">
+                <div className="relative w-36 sm:w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.35)] border border-border/50 mb-4 sm:mb-6 shrink-0">
                   {proxyUrl && !imgError ? (
                     <img 
                       src={proxyUrl} 
@@ -203,8 +203,8 @@ export function OnlineBookSidePanel({
                       onError={() => setImgError(true)}
                     />
                   ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center p-4 text-center">
-                      <span className="font-serif text-white/80">{book.title}</span>
+                    <div className="w-full h-full bg-muted flex items-center justify-center p-3 text-center">
+                      <span className="font-serif text-xs sm:text-sm text-white/80 line-clamp-4">{book.title}</span>
                     </div>
                   )}
                   
@@ -212,26 +212,28 @@ export function OnlineBookSidePanel({
                   <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)] pointer-events-none" />
                 </div>
 
-                <h2 className="text-2xl font-bold text-foreground text-center leading-tight mb-2 font-serif">
+                <h2 className="text-lg sm:text-2xl font-bold text-foreground text-center leading-snug mb-1 sm:mb-2 font-serif max-w-lg">
                   {book.title}
                 </h2>
                 {book.author && (
-                  <p className="text-muted-foreground text-lg text-center mb-4">
+                  <p className="text-muted-foreground text-sm sm:text-base text-center mb-3 sm:mb-4">
                     {book.author}
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  <span className="px-3 py-1 rounded-full bg-muted/50 text-foreground/80 text-xs font-medium uppercase tracking-wider border border-border/50">
-                    {book.format}
-                  </span>
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                  {book.format && (
+                    <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
+                      {book.format}
+                    </span>
+                  )}
                   {book.language && (
-                    <span className="px-3 py-1 rounded-full bg-muted/50 text-foreground/80 text-xs font-medium uppercase tracking-wider border border-border/50">
+                    <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
                       {book.language}
                     </span>
                   )}
                   {book.size && (
-                    <span className="px-3 py-1 rounded-full bg-muted/50 text-foreground/80 text-xs font-medium uppercase tracking-wider border border-border/50">
+                    <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
                       {book.size}
                     </span>
                   )}
@@ -239,13 +241,13 @@ export function OnlineBookSidePanel({
               </motion.div>
 
               {/* Actions (Main Download Button) */}
-              <motion.div className="p-8 flex flex-col gap-4 hidden sm:flex" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+              <motion.div className="p-4 sm:p-8 flex flex-col gap-3 sm:gap-4" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <button 
                   onClick={onDownload}
-                  className="w-full py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center justify-center gap-2 shadow-lg transition-all duration-300"
+                  className="w-full py-3 sm:py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-lg transition-all duration-300 text-sm sm:text-base active:scale-[0.98]"
                 >
-                  <Download className="w-5 h-5" />
-                  Download to Library
+                  <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                  Download Now
                 </button>
               </motion.div>
 

@@ -56,12 +56,12 @@ export function MangaContentRow({
   if (!loading && items.length === 0) return null;
 
   return (
-    <div className="space-y-3 mb-8">
+    <div className="space-y-2.5 sm:space-y-3 mb-6 sm:mb-8">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {icon}
-          <h2 className="text-lg md:text-xl font-extrabold tracking-tight text-foreground">{title}</h2>
+          <h2 className="text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-foreground">{title}</h2>
         </div>
 
         <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ export function MangaContentRow({
               variant="ghost"
               size="sm"
               onClick={onViewAll}
-              className="text-xs sm:text-sm font-semibold gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+              className="text-xs sm:text-sm font-semibold gap-1 text-muted-foreground hover:text-foreground cursor-pointer px-2 sm:px-3 h-8"
             >
               View All <ArrowRight className="w-3.5 h-3.5" />
             </Button>
@@ -103,17 +103,17 @@ export function MangaContentRow({
 
       {/* Horizontal Carousel */}
       {loading ? (
-        <div className="flex gap-4 overflow-hidden py-1">
+        <div className="flex gap-3 sm:gap-4 overflow-hidden py-1">
           <SkeletonGrid count={6} />
         </div>
       ) : (
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto custom-scrollbar-none scroll-smooth pb-2 pt-1 -mx-1 px-1"
+          className="flex gap-3 sm:gap-4 overflow-x-auto custom-scrollbar-none scroll-smooth pb-2 pt-1 -mx-3 px-3 sm:-mx-1 sm:px-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {items.map((item) => (
-            <div key={item.id} className="w-[135px] sm:w-[150px] md:w-[165px] lg:w-[175px] flex-shrink-0">
+            <div key={item.id} className="w-[125px] sm:w-[150px] md:w-[165px] lg:w-[175px] flex-shrink-0">
               <ModernBookCard
                 id={item.id}
                 title={item.title}

@@ -10,7 +10,7 @@ import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import { DownloadProgressBar } from './DownloadProgressBar';
 import { pluginApi } from '@/lib/pluginSources';
 import { logger } from '@/lib/logger';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import { fetchCoverForBook } from '@/online-books/openlibrary/api';
 
 interface Props {
@@ -206,26 +206,26 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content aria-describedby="libgen-dialog-description" className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-2xl w-[calc(100vw-2rem)] max-w-[600px] max-h-[90vh] flex flex-col z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 overflow-hidden">
+        <Dialog.Content aria-describedby="libgen-dialog-description" className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-2xl sm:rounded-[2rem] shadow-2xl w-[calc(100vw-2rem)] max-w-[600px] max-h-[90vh] flex flex-col z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 overflow-hidden">
           <Dialog.Description id="libgen-dialog-description" className="sr-only">
             Libgen book details and download options.
           </Dialog.Description>
           
-          <div className="flex-none bg-transparent backdrop-blur-xl border-b border-border/50 px-8 py-6 z-10 flex flex-col justify-between relative">
-            <Dialog.Title className="text-2xl font-black tracking-tight text-foreground pr-8">
+          <div className="flex-none bg-transparent backdrop-blur-xl border-b border-border/50 px-4 sm:px-8 py-4 sm:py-6 z-10 flex flex-col justify-between relative">
+            <Dialog.Title className="text-xl sm:text-2xl font-black tracking-tight text-foreground pr-8">
               {book.title}
             </Dialog.Title>
-            <Dialog.Description className="text-muted-foreground mt-1 font-medium">
+            <Dialog.Description className="text-muted-foreground mt-1 text-xs sm:text-sm font-medium">
               {author}
             </Dialog.Description>
             <Dialog.Close asChild>
-              <button className="absolute right-6 top-6 p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground" title="Close">
-                <X className="w-5 h-5" />
+              <button className="absolute right-4 sm:right-6 top-4 sm:top-6 p-2 sm:p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-xl sm:rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground cursor-pointer" title="Close">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </Dialog.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-6 custom-scrollbar">
             {/* Elegant Scraped Cover Rendering */}
             {coverUrl && (
               <div className="flex justify-center mb-4">
@@ -293,9 +293,9 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
             <DownloadProgressBar bookTitle={book.title} progress={downloadProgress} />
           </div>
 
-          <div className="flex-none p-6 border-t border-border/50 bg-muted/30 flex justify-end gap-3 backdrop-blur-md">
+          <div className="flex-none p-4 sm:p-6 border-t border-border/50 bg-muted/30 flex justify-end gap-2 sm:gap-3 backdrop-blur-md">
             <Dialog.Close asChild>
-              <Button variant="outline" className="rounded-2xl px-6">
+              <Button variant="outline" className="rounded-xl sm:rounded-2xl px-4 sm:px-6 h-9 sm:h-10 text-xs sm:text-sm">
                 Close
               </Button>
             </Dialog.Close>
@@ -304,10 +304,10 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
               variant="default" 
               onClick={handleDownload}
               disabled={isDownloading || isReading}
-              className="gap-2 rounded-2xl shadow-primary/20 shadow-lg hover:shadow-primary/30 transition-all"
+              className="gap-2 rounded-xl sm:rounded-2xl shadow-primary/20 shadow-lg hover:shadow-primary/30 transition-all h-9 sm:h-10 text-xs sm:text-sm"
             >
               {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              Add to Library
+              {isAndroid ? 'Download Now' : 'Add to Library'}
             </Button>
           </div>
 

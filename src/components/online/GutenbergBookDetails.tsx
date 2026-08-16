@@ -8,6 +8,7 @@ import { useToast } from '@/store/toastStore';
 import { useBookOpen } from '@/hooks/useBookOpen';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import { DownloadProgressBar } from './DownloadProgressBar';
+import { isAndroid } from '@/lib/tauri';
 
 interface Props {
   book: GutendexBook | null;
@@ -96,32 +97,32 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content aria-describedby="gutenberg-dialog-description" className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-2xl w-[calc(100vw-2rem)] max-w-[600px] max-h-[90vh] flex flex-col z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 overflow-hidden">
+        <Dialog.Content aria-describedby="gutenberg-dialog-description" className="dialog-content fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-card/40 backdrop-blur-2xl border border-border/50 rounded-2xl sm:rounded-[2rem] shadow-2xl w-[calc(100vw-2rem)] max-w-[600px] max-h-[90vh] flex flex-col z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-500 overflow-hidden">
           <Dialog.Description id="gutenberg-dialog-description" className="sr-only">
             Gutenberg book details and download options.
           </Dialog.Description>
           
-          <div className="flex-none bg-transparent backdrop-blur-xl border-b border-border/50 px-8 py-6 z-10 flex flex-col justify-between relative">
-            <Dialog.Title className="text-2xl font-black tracking-tight text-foreground pr-8">
+          <div className="flex-none bg-transparent backdrop-blur-xl border-b border-border/50 px-4 sm:px-8 py-4 sm:py-6 z-10 flex flex-col justify-between relative">
+            <Dialog.Title className="text-xl sm:text-2xl font-black tracking-tight text-foreground pr-8">
               {book.title}
             </Dialog.Title>
-            <Dialog.Description className="text-muted-foreground mt-1">
+            <Dialog.Description className="text-muted-foreground mt-1 text-xs sm:text-sm">
               {book.authors.map(a => a.name).join(', ') || 'Unknown Author'}
             </Dialog.Description>
             <Dialog.Close asChild>
-              <button className="absolute right-6 top-6 p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground" title="Close">
-                <X className="w-5 h-5" />
+              <button className="absolute right-4 sm:right-6 top-4 sm:top-6 p-2 sm:p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-xl sm:rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground cursor-pointer" title="Close">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </Dialog.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 sm:space-y-8 custom-scrollbar">
             {book.subjects.length > 0 && (
               <div>
-                <h3 className="font-semibold text-sm text-foreground tracking-tight mb-3">Subjects</h3>
-                <div className="flex flex-wrap gap-2">
+                <h3 className="font-semibold text-xs sm:text-sm text-foreground tracking-tight mb-2 sm:mb-3">Subjects</h3>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {book.subjects.map(subject => (
-                    <span key={subject} className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary border border-primary/20 text-xs font-medium">
+                    <span key={subject} className="px-2.5 py-1 rounded-lg sm:rounded-xl bg-primary/10 text-primary border border-primary/20 text-[11px] sm:text-xs font-medium">
                       {subject}
                     </span>
                   ))}
@@ -130,10 +131,10 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
             )}
 
             <div>
-              <h3 className="font-semibold text-sm text-foreground tracking-tight mb-3">Languages</h3>
+              <h3 className="font-semibold text-xs sm:text-sm text-foreground tracking-tight mb-2 sm:mb-3">Languages</h3>
               <div className="flex gap-2">
                 {book.languages.map(lang => (
-                  <span key={lang} className="uppercase text-xs font-bold tracking-wider px-2.5 py-1.5 rounded-lg bg-muted text-muted-foreground">
+                  <span key={lang} className="uppercase text-[10px] sm:text-xs font-bold tracking-wider px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-muted text-muted-foreground">
                     {lang}
                   </span>
                 ))}
@@ -141,9 +142,9 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
             </div>
 
             {!hasEpub && (
-              <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium flex items-center gap-3">
-                <div className="p-2 bg-destructive/20 rounded-xl">
-                  <X className="w-4 h-4" />
+              <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs sm:text-sm font-medium flex items-center gap-3">
+                <div className="p-1.5 sm:p-2 bg-destructive/20 rounded-lg sm:rounded-xl shrink-0">
+                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
                 This book is not available in EPUB format and cannot be read directly in the app.
               </div>
@@ -152,9 +153,9 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
             <DownloadProgressBar bookTitle={book.title} progress={downloadProgress} />
           </div>
 
-          <div className="flex-none p-6 border-t border-border/50 bg-muted/30 flex justify-end gap-3 backdrop-blur-md">
+          <div className="flex-none p-4 sm:p-6 border-t border-border/50 bg-muted/30 flex justify-end gap-2 sm:gap-3 backdrop-blur-md">
             <Dialog.Close asChild>
-              <Button variant="outline" className="rounded-2xl px-6">
+              <Button variant="outline" className="rounded-xl sm:rounded-2xl px-4 sm:px-6 h-9 sm:h-10 text-xs sm:text-sm">
                 Close
               </Button>
             </Dialog.Close>
@@ -164,10 +165,10 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
                   variant="default" 
                   onClick={handleDownload}
                   disabled={isDownloading || isReading}
-                  className="gap-2 rounded-2xl shadow-primary/20 shadow-lg hover:shadow-primary/30 transition-all"
+                  className="gap-2 rounded-xl sm:rounded-2xl shadow-primary/20 shadow-lg hover:shadow-primary/30 transition-all h-9 sm:h-10 text-xs sm:text-sm"
                 >
                   {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  Add to Library
+                  {isAndroid ? 'Download Now' : 'Add to Library'}
                 </Button>
               </>
             )}

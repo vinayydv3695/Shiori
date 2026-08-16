@@ -808,6 +808,16 @@ export function OnlineMangaView() {
             coverUrl: manga.coverUrl,
           });
         }
+      } else {
+        // Diagnostic: a card rendered without matching browse data is a
+        // silent no-op. If you see this in the console, the card's item id
+        // ({item.id}) doesn't exist in browseData — stale HMR/vite cache is
+        // the usual cause (clear node_modules/.vite and restart the dev server).
+        console.warn(
+          `[MangaView] card click ignored: no browse item for id "${item.id}" ` +
+            `(popular=${browseData.popular.length} latest=${browseData.latest.length} ` +
+            `recent=${browseData.recent.length} top=${browseData["top-rated"].length})`,
+        );
       }
     },
     [

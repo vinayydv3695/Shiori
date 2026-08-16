@@ -301,6 +301,7 @@ macro_rules! generate_shiori_handlers {
             // Cloudflare session commands
             cloudflare::commands::cf_session_status,
             cloudflare::commands::cf_solve,
+            cloudflare::commands::network_ipv6_diagnostics,
             cloudflare::commands::cf_invalidate_session,
             cloudflare::commands::cf_clear_all_sessions,
             cloudflare::commands::cf_list_sessions,

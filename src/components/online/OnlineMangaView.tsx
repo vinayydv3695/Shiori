@@ -56,6 +56,12 @@ import {
   type ChapterDownloadStatusMap,
 } from "./mangaDownloadUtils";
 
+interface NetIpv6Diagnostics {
+  hasGlobalIpv6: boolean;
+  attestationReachable: boolean;
+  suggestions: string[];
+}
+
 let onlineMangaSearchTimeout: number | undefined;
 const SUPPORTED_QUEUE_FORMATS = [
   "cbz",
@@ -197,6 +203,9 @@ export function OnlineMangaView() {
   const [cfVerifying, setCfVerifying] = useState(false);
   const [cfVerifyUrl, setCfVerifyUrl] = useState<string | null>(null);
   const [cfVerifyMsg, setCfVerifyMsg] = useState<string | null>(null);
+  const [netDiag, setNetDiag] = useState<NetIpv6Diagnostics | null>(null);
+  const [netDiagChecking, setNetDiagChecking] = useState(false);
+  const [netDiagError, setNetDiagError] = useState<string | null>(null);
   const [queueingManga, setQueueingManga] = useState<Record<string, boolean>>(
     {},
   );
@@ -1502,46 +1511,74 @@ export function OnlineMangaView() {
                   This source requires browser verification and cannot be
                   accessed automatically.
                 </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    if (!activeSource) return;
-                    setCfVerifying(true);
-                    setCfVerifyMsg(null);
-                    try {
-                      const verifyUrl =
-                        cfVerifyUrl ??
-                        getCfVerifyUrl(activeSource.id, activeSource.website);
-                      if (!verifyUrl) {
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      if (!activeSource) return;
+                      setCfVerifying(true);
+                      setCfVerifyMsg(null);
+                      try {
+                        const verifyUrl =
+                          cfVerifyUrl ??
+                          getCfVerifyUrl(activeSource.id, activeSource.website);
+                        if (!verifyUrl) {
+                          setCfVerifyMsg(
+                            "Verification failed: no source URL available",
+                          );
+                          return;
+                        }
+                        await solveCfChallenge(verifyUrl, "visible");
                         setCfVerifyMsg(
-                          "Verification failed: no source URL available",
+                          "Verification completed — retry your search now.",
                         );
-                        return;
+                      } catch (err) {
+                        console.warn("[CF] verify failed:", err);
+                        setCfVerifyMsg(
+                          `Verification failed: ${
+                            err instanceof Error ? err.message : String(err)
+                          }`,
+                        );
+                      } finally {
+                        setCfVerifying(false);
                       }
-                      await solveCfChallenge(verifyUrl, "visible");
-                      setCfVerifyMsg(
-                        "Verification completed — retry your search now.",
-                      );
-                    } catch (err) {
-                      console.warn("[CF] verify failed:", err);
-                      setCfVerifyMsg(
-                        `Verification failed: ${
-                          err instanceof Error ? err.message : String(err)
-                        }`,
-                      );
-                    } finally {
-                      setCfVerifying(false);
-                    }
-                  }}
-                  disabled={cfVerifying}
-                  className="gap-2"
-                >
-                  {cfVerifying && (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  )}
-                  {cfVerifying ? "Verifying…" : "Verify in browser"}
-                </Button>
+                    }}
+                    disabled={cfVerifying}
+                    className="gap-2"
+                  >
+                    {cfVerifying && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    {cfVerifying ? "Verifying…" : "Verify in browser"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={async () => {
+                      setNetDiagChecking(true);
+                      setNetDiagError(null);
+                      try {
+                        const result = await invoke<NetIpv6Diagnostics>(
+                          "network_ipv6_diagnostics",
+                        );
+                        setNetDiag(result);
+                      } catch (err) {
+                        console.warn("[CF] network check failed:", err);
+                        setNetDiagError(getErrorMessage(err));
+                      } finally {
+                        setNetDiagChecking(false);
+                      }
+                    }}
+                    disabled={netDiagChecking}
+                    className="gap-2"
+                  >
+                    {netDiagChecking && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    {netDiagChecking ? "Checking…" : "Check network"}
+                  </Button>
+                </div>
                 {cfVerifyMsg && (
                   <p
                     className={cn(
@@ -1553,6 +1590,41 @@ export function OnlineMangaView() {
                   >
                     {cfVerifyMsg}
                   </p>
+                )}
+                {netDiagError && (
+                  <p className="text-xs text-amber-500">
+                    Network check failed: {netDiagError}
+                  </p>
+                )}
+                {netDiag && (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
+                    <p
+                      className={cn(
+                        "text-xs",
+                        netDiag.attestationReachable
+                          ? "text-green-600"
+                          : "text-amber-500",
+                      )}
+                    >
+                      {!netDiag.hasGlobalIpv6
+                        ? "No IPv6 detected — Cloudflare verification cannot complete on this network."
+                        : netDiag.attestationReachable
+                          ? "IPv6 OK — verification should work; try the Verify button."
+                          : "IPv6 present, but Cloudflare's verification server is unreachable."}
+                    </p>
+                    {netDiag.suggestions.length > 0 && (
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {netDiag.suggestions.map((suggestion, i) => (
+                          <li
+                            key={i}
+                            className="text-xs text-amber-500 opacity-90"
+                          >
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
                 <p className="text-xs text-muted-foreground opacity-80">
                   After verifying, retry your search.

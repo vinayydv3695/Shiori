@@ -102,9 +102,9 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
         </div>
 
         {/* Type Tabs & Category Filter Row */}
-        <div className="flex items-center justify-between gap-2 mb-2.5">
+        <div className="flex items-center gap-2 mb-2.5 overflow-x-auto no-scrollbar pb-0.5">
           {/* Type Segmented Pill Control */}
-          <div className="flex items-center p-1 bg-muted/50 border border-border/50 rounded-2xl gap-1 shrink-0 overflow-x-auto no-scrollbar">
+          <div className="flex items-center p-1 bg-muted/50 border border-border/50 rounded-2xl gap-1 shrink-0">
             {tabs.map(tab => {
               const isActive = typeFilter === tab.id;
               return (
@@ -126,14 +126,14 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
           {/* Category Dropdown */}
           <div className="shrink-0">
             <DropdownMenu>
-              <DropdownMenuTrigger className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all shadow-xs outline-none cursor-pointer select-none ${
+              <DropdownMenuTrigger className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all shadow-xs outline-none cursor-pointer select-none shrink-0 ${
                 categoryFilter !== 'all'
                   ? 'bg-primary/15 text-primary border-primary/40'
                   : 'bg-muted/50 hover:bg-muted text-foreground border-border/60'
               }`}>
                 <Filter size={12} className={categoryFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
-                <span className="truncate max-w-[110px]">
-                  {categoryFilter === 'all' ? 'Category' : categories.find(c => c.id === categoryFilter)?.name || 'Category'}
+                <span className="whitespace-nowrap">
+                  {categoryFilter === 'all' ? 'Categories' : categories.find(c => c.id === categoryFilter)?.name || 'Category'}
                 </span>
                 <ChevronDown size={12} className="text-muted-foreground shrink-0" />
               </DropdownMenuTrigger>

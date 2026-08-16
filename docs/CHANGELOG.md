@@ -1,3 +1,13 @@
+# Release Notes (v2.3.30)
+
+## Bug Fixes & Android Layout Polish
+
+- **Theme-Aware Annotation & Definition Hover Tooltips** — Created `ReaderAnnotationTooltip` with dynamic reader theme color integration (`Black`, `Dark`, `Paper`, `Paper-Dark`, `Sepia`, `Light`), rendering words, IPA phonetic pronunciation, part-of-speech badge, audio player, numbered definitions with quotes/examples, translations, and markdown notes.
+- **Hardware-Accelerated 3D Realistic Page Flip Engine** — Upgraded `PageFlipEngine` with CSS 3D perspective (`perspective: 2400px`), realistic dual-leaf book curvature, dynamic ambient spine lighting and shadow overlays, and added '3D Flip' as the flagship default in Reader Settings.
+- **Android Annotations Categories Filter Visibility** — Resolved mobile clipping of the `Categories` filter button in `AnnotationsViewAndroid` by wrapping filter chips in a smooth horizontal scroll container with non-shrinking pills and whitespace preservation.
+- **Android & Desktop Series View Layout Polish** — Eliminated broken grid sizing and large list gaps by replacing fragile virtualizer measurement with clean responsive CSS Grid (`grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6`) and stacked list layouts, ensuring volumes are cleanly spaced and 2-column on mobile.
+- **Series Volume Jump Navigation** — Improved volume/chapter jump scrolling with smooth native scroll alignment and glowing ring animation.
+
 # Release Notes (v2.3.29)
 
 ## Features & Improvements

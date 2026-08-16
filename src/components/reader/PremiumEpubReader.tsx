@@ -13,6 +13,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
 import { sanitizeBookContent, escapeHtml } from '@/lib/sanitize';
@@ -1334,6 +1335,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           currentLocation={`chapter_${currentIndex}`}
         />
       )}
+
+      {/* Rich Hover Annotation / Definition Tooltip */}
+      <ReaderAnnotationTooltip />
 
 
 

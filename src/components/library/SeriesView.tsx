@@ -5,7 +5,6 @@ import {
   X, BookOpen, Layers, Search, SortDesc, SortAsc,
   Clock, CheckCircle2, Edit2, Trash2, List, LayoutGrid, Check, Play, MoreVertical
 } from 'lucide-react'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { cn, pageCountLabel, fetchWithRetry } from '@/lib/utils'
@@ -525,8 +524,6 @@ export const SeriesView = memo(function SeriesView({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   const [jumpInput, setJumpInput] = useState('')
-  const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null)
-  const [containerWidth, setContainerWidth] = useState<number>(0)
   const isMobile = useIsMobile()
   const toast = useToast()
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false)
@@ -538,36 +535,6 @@ export const SeriesView = memo(function SeriesView({
 
   const unreadCount = useMemo(() => (series?.books ?? []).filter(b => getBookReadStatus(b) !== 'completed').length, [series?.books]);
   const readCount = useMemo(() => (series?.books ?? []).length - unreadCount, [series?.books, unreadCount]);
-
-  useEffect(() => {
-    if (!parentEl) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(parentEl);
-    return () => observer.disconnect();
-  }, [parentEl]);
-
-  const densityColumnSize = useMemo(() => {
-    switch (density) {
-      case 'compact': return 130;
-      case 'spacious': return 210;
-      case 'comfortable':
-      default: return 160;
-    }
-  }, [density]);
-
-  const columns = useMemo(() => {
-    if (viewMode === 'list') return 1;
-    if (!containerWidth) return isMobile ? 3 : 5;
-    const padding = 32;
-    const gap = 12;
-    const availableWidth = containerWidth - padding;
-    const calculated = Math.floor((availableWidth + gap) / (densityColumnSize + gap));
-    return Math.max(1, calculated);
-  }, [containerWidth, densityColumnSize, isMobile, viewMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -588,27 +555,20 @@ export const SeriesView = memo(function SeriesView({
     const targetChapter = parseFloat(jumpInput);
     if (isNaN(targetChapter)) return;
     
-    const targetIndex = processedBooks.findIndex(b => {
+    const targetBook = processedBooks.find(b => {
       const idx = parseVolumeOrChapterNumber(b);
       return idx === targetChapter;
     });
 
-    if (targetIndex !== -1) {
-      const rowIndex = Math.floor(targetIndex / columns);
-      rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' });
-      
-      setTimeout(() => {
-        const targetBook = processedBooks[targetIndex];
-        if (targetBook && targetBook.id) {
-          const el = bookRefs.current.get(targetBook.id);
-          if (el) {
-            el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
-            setTimeout(() => {
-              el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
-            }, 2000);
-          }
-        }
-      }, 150);
+    if (targetBook && targetBook.id) {
+      const el = bookRefs.current.get(targetBook.id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
+        }, 2000);
+      }
       setJumpInput('');
     } else {
       toast.error('Not Found', `Volume/Chapter ${targetChapter} is not in this series or is filtered out.`);
@@ -642,29 +602,6 @@ export const SeriesView = memo(function SeriesView({
     });
     return result;
   }, [series, searchQuery, filterStatus, sortOrder]);
-
-  const estimatedRowHeight = useMemo(() => {
-    if (viewMode === 'list') return 90; // Approx height of list item + gap
-    
-    if (!containerWidth || columns === 0) {
-      const coverHeight = densityColumnSize * 1.5;
-      return Math.ceil(coverHeight + 8);
-    }
-    const horizontalPadding = 32; // p-4 md:p-6 (approx 16px to 24px each side)
-    const totalGapWidth = (columns - 1) * 12; // gap-3 is 12px
-    const availableWidth = containerWidth - horizontalPadding - totalGapWidth;
-    const actualColumnWidth = availableWidth / columns;
-    const actualCoverHeight = actualColumnWidth * 1.5;
-    return Math.ceil(actualCoverHeight + 12);
-  }, [containerWidth, columns, densityColumnSize, viewMode]);
-
-  const rowsCount = Math.ceil(processedBooks.length / columns);
-  const rowVirtualizer = useVirtualizer({
-    count: rowsCount,
-    getScrollElement: () => parentEl,
-    estimateSize: () => estimatedRowHeight,
-    overscan: 3,
-  });
 
   if (!series) return null;
 
@@ -754,7 +691,7 @@ export const SeriesView = memo(function SeriesView({
           </Dialog.Close>
           
           <ScrollArea className="flex-1 bg-background/50">
-            <div ref={setParentEl} className="flex flex-col min-h-full pb-16 md:pb-8">
+            <div className="flex flex-col min-h-full pb-16 md:pb-8">
             <DesktopSeriesHeader 
               series={series} 
               onFindMetadata={handleFindSeriesMetadata}
@@ -932,92 +869,59 @@ export const SeriesView = memo(function SeriesView({
                     </Button>
                   )}
                 </div>
-              ) : (
-                <div
-                  style={{
-                    height: `${rowVirtualizer.getTotalSize()}px`,
-                    width: '100%',
-                    position: 'relative',
-                  }}
-                >
-                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                    const startIndex = virtualRow.index * columns;
-                    const rowItems = processedBooks.slice(startIndex, startIndex + columns);
-
+              ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
+                  {processedBooks.map((book, idx) => {
+                    const volNum = book.series_index ?? parseVolumeOrChapterNumber(book);
                     return (
                       <div
-                        key={virtualRow.index}
-                        data-index={virtualRow.index}
-                        ref={rowVirtualizer.measureElement}
-                        style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '100%',
-                          height: `${virtualRow.size}px`,
-                          transform: `translateY(${virtualRow.start}px)`,
-                          display: 'flex',
-                          gap: viewMode === 'grid' ? '12px' : '8px',
-                          padding: viewMode === 'list' ? '4px 0' : '0',
-                        }}
+                        key={book.id ?? book.uuid}
+                        ref={(el) => { if (book.id && el) bookRefs.current.set(book.id, el); }}
+                        className="relative group transition-all duration-300"
                       >
-                        {rowItems.map((book, idx) => {
-                          const absoluteIndex = startIndex + idx;
-                          return (
-                            <div
-                              key={book.id ?? book.uuid}
-                              ref={(el) => { if (book.id && el) bookRefs.current.set(book.id, el); }}
-                              style={{ flex: '1 1 0', minWidth: 0 }}
-                              className="relative group transition-all duration-300"
-                            >
-                              {viewMode === 'grid' ? (
-                                <>
-                                  <PremiumBookCard
-                                    book={book}
-                                    isSelected={selectedBookIds?.has(book.id!) ?? false}
-                                    onSelect={onSelectBook}
-                                    onOpen={onOpenBook}
-                                    onViewDetails={onViewDetailsBook}
-                                    onEdit={onEditBook}
-                                    onDelete={onDeleteBook}
-                                    isFavorited={favoritedBookIds?.has(book.id!) ?? false}
-                                    onFavorite={onFavoriteBook}
-                                    animationDelay={absoluteIndex * 20}
-                                    coverSize={coverSize}
-                                    scrollRoot={parentEl}
-                                    forceVisible={true}
-                                  />
-                                  {getBookReadStatus(book) === 'completed' && (
-                                    <div className="absolute -top-2 -right-2 z-10 bg-green-500 rounded-full p-1 shadow-md shadow-green-500/20 animate-in zoom-in">
-                                      <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
-                                    </div>
-                                  )}
-                                  {(() => {
-                                    const volNum = book.series_index ?? parseVolumeOrChapterNumber(book);
-                                    return volNum !== null && volNum !== undefined ? (
-                                      <div className="absolute top-2 left-2 z-10 bg-background/90 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-black border border-border/50 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                        VOL {volNum}
-                                      </div>
-                                    ) : null;
-                                  })()}
-                                </>
-                              ) : (
-                                <ListBookCard
-                                  book={book}
-                                  isSelected={selectedBookIds?.has(book.id!) ?? false}
-                                  onSelect={onSelectBook}
-                                  onOpen={onOpenBook}
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
-                        {viewMode === 'grid' && Array.from({ length: columns - rowItems.length }).map((_, i) => (
-                          <div key={`empty-${i}`} style={{ flex: '1 1 0' }} />
-                        ))}
+                        <PremiumBookCard
+                          book={book}
+                          isSelected={selectedBookIds?.has(book.id!) ?? false}
+                          onSelect={onSelectBook}
+                          onOpen={onOpenBook}
+                          onViewDetails={onViewDetailsBook}
+                          onEdit={onEditBook}
+                          onDelete={onDeleteBook}
+                          isFavorited={favoritedBookIds?.has(book.id!) ?? false}
+                          onFavorite={onFavoriteBook}
+                          animationDelay={idx * 20}
+                          coverSize={coverSize}
+                          forceVisible={true}
+                        />
+                        {getBookReadStatus(book) === 'completed' && (
+                          <div className="absolute -top-1.5 -right-1.5 z-10 bg-green-500 rounded-full p-1 shadow-md shadow-green-500/20 animate-in zoom-in">
+                            <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                          </div>
+                        )}
+                        {volNum !== null && volNum !== undefined && (
+                          <div className="absolute top-2 left-2 z-10 bg-background/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-black border border-border/50 shadow-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                            VOL {volNum}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {processedBooks.map((book) => (
+                    <div
+                      key={book.id ?? book.uuid}
+                      ref={(el) => { if (book.id && el) bookRefs.current.set(book.id, el); }}
+                    >
+                      <ListBookCard
+                        book={book}
+                        isSelected={selectedBookIds?.has(book.id!) ?? false}
+                        onSelect={onSelectBook}
+                        onOpen={onOpenBook}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

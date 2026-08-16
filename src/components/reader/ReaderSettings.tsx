@@ -516,6 +516,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 <>
                   <div className="premium-settings-segment-group" style={{ marginTop: 8 }}>
                     {([
+                      { id: 'flip' as const, label: '3D Flip' },
                       { id: 'slide' as const, label: 'Slide' },
                       { id: 'fade' as const, label: 'Fade' },
                       { id: 'none' as const, label: 'Instant' },

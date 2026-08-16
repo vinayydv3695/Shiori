@@ -1393,20 +1393,32 @@ select {
 }
 
 /* ── Annotation highlights (rendered back into chapter content) ── */
-.epub-highlight {
-  border-radius: 2px;
-  padding: 0 1px;
+.epub-highlight,
+.pdf-highlight {
+  --highlight-base: var(--highlight-color, #fbbf24);
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin: 0 0.5px;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  color: inherit;
 }
 
-.epub-highlight:hover {
-  filter: brightness(0.9);
+.epub-highlight:hover,
+.pdf-highlight:hover {
+  filter: brightness(1.08) saturate(1.15);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--highlight-base) 55%, transparent), 0 2px 8px color-mix(in srgb, var(--highlight-base) 20%, transparent);
 }
 
+/* Notes & Vocabulary (Delicate, elegant dotted underline matching highlight color) */
 .epub-highlight[data-annotation-type="note"],
-.epub-highlight[data-has-note="true"] {
-  border-bottom: 2px dashed currentColor;
+.epub-highlight[data-has-note="true"],
+.pdf-highlight[data-annotation-type="note"],
+.pdf-highlight[data-has-note="true"] {
+  border-bottom: 2px dotted color-mix(in srgb, var(--highlight-base) 90%, currentColor);
+  padding-bottom: 1px;
 }
 
 .premium-search-results {

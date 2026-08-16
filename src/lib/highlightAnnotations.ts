@@ -174,18 +174,62 @@ function escapeRegExp(value: string): string {
 }
 
 /**
+ * Format note content into a clean, human-readable plain text preview.
+ * Prevents raw JSON from leaking into fallback tooltips or title attributes.
+ */
+export function formatNotePreview(noteContent?: string): string {
+  if (!noteContent) return '';
+  try {
+    const parsed = JSON.parse(noteContent);
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.type === 'define' && parsed.data) {
+        const word = parsed.data.word || '';
+        const phonetic = parsed.data.phonetic ? ` ${parsed.data.phonetic}` : '';
+        const firstMeaning = parsed.data.meanings?.[0];
+        const pos = firstMeaning?.part_of_speech ? `[${firstMeaning.part_of_speech}] ` : '';
+        const def = firstMeaning?.definitions?.[0]?.definition || '';
+        return `${word}${phonetic}: ${pos}${def}`.trim();
+      }
+      if (parsed.type === 'translate' && parsed.data) {
+        const trans = parsed.data.translated_text || '';
+        return `Translation: ${trans}`.trim();
+      }
+    }
+  } catch {
+    // Plain text note
+  }
+  return noteContent;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  if (!hex) return `rgba(251, 191, 36, ${alpha})`;
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map(x => x + x).join('');
+  const num = parseInt(c, 16);
+  if (isNaN(num)) return hex;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * Create a styled <mark> element for an annotation.
  */
 function createHighlightMark(annotation: Annotation): HTMLElement {
   const mark = document.createElement('mark');
   mark.className = 'epub-highlight';
-  mark.style.backgroundColor = annotation.color || '#fbbf24';
+  const color = annotation.color || '#fbbf24';
+  mark.style.setProperty('--highlight-color', color);
+  mark.style.backgroundColor = hexToRgba(color, 0.32);
   mark.dataset.annotationId = String(annotation.id || '');
   mark.dataset.annotationType = annotation.annotationType;
 
   if (annotation.noteContent) {
-    mark.title = annotation.noteContent;
     mark.dataset.hasNote = 'true';
+    mark.dataset.noteContent = annotation.noteContent;
+    // Format human-readable preview for fallback title attribute (no raw JSON!)
+    mark.title = formatNotePreview(annotation.noteContent);
   }
 
   return mark;

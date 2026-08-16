@@ -13,6 +13,7 @@ import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
@@ -591,6 +592,9 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 bookId={bookId}
                 currentLocation={currentPageId}
             />
+
+            {/* Rich Hover Annotation / Definition Tooltip */}
+            <ReaderAnnotationTooltip />
 
             {/* Doodle */}
             {isDoodleMode && (

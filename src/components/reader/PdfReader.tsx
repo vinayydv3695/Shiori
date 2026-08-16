@@ -18,6 +18,8 @@ import { PremiumSidebar } from './PremiumSidebar';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
+import { formatNotePreview } from '@/lib/highlightAnnotations';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
@@ -451,13 +453,15 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
             range.setEnd(textNode, startIndex + searchText.length);
             const mark = document.createElement('mark');
             mark.className = 'pdf-highlight';
-            mark.style.backgroundColor = annotation.color || '#fbbf24';
-            mark.style.padding = '0';
-            mark.style.borderRadius = '2px';
+            const color = annotation.color || '#fbbf24';
+            mark.style.setProperty('--highlight-color', color);
+            mark.style.backgroundColor = `color-mix(in srgb, ${color} 32%, transparent)`;
             mark.dataset.annotationId = String(annotation.id || '');
             mark.dataset.annotationType = annotation.annotationType;
-            if (annotation.annotationType === 'note') {
-              mark.title = annotation.noteContent || '';
+            if (annotation.noteContent) {
+              mark.dataset.hasNote = 'true';
+              mark.dataset.noteContent = annotation.noteContent;
+              mark.title = formatNotePreview(annotation.noteContent);
             }
             range.surroundContents(mark);
             break;
@@ -1100,6 +1104,8 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
         bookId={bookId}
         currentLocation={`page-${pageNumber}`}
       />
+
+      <ReaderAnnotationTooltip />
 
       {isDoodleMode && (
         <DoodleCanvas

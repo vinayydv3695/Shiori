@@ -14,6 +14,7 @@ import type { ReaderFormat } from './ReaderSettings';
 import type { ReaderContent } from './readerContent';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
+import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { TTSControlBar } from './TTSControlBar';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
@@ -593,6 +594,9 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                     currentLocation={`${locationPrefix}-chapter-${currentChapter}`}
                 />
             )}
+
+            {/* Rich Hover Annotation / Definition Tooltip */}
+            <ReaderAnnotationTooltip />
 
             {/* TTS Audiobook UI (mirrors PremiumEpubReader) */}
             <TTSControlBar

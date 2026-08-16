@@ -1,3 +1,12 @@
+# Release Notes (v2.3.29)
+
+## Features & Improvements
+
+- **Shelf Aesthetics & Glassmorphism** — Streamlined empty shelf presentation with soft ambient radial backdrops and floating frosted glass icon vessels.
+- **Dedicated Bookshelf Navigation Icon** — Created a bespoke `BookshelfIcon` in the desktop NavigationRail and mobile BottomNav for intuitive collection browsing.
+- **Inline Details Banner & Theme Lighting** — Restored dynamic inline book details banner in shelves view with active theme accent illumination, triangle caret indicator, and smooth unclipped ambient shadows.
+- **Input & Search Alignment** — Fixed search input icon padding and text overlap across shelf views.
+
 # Release Notes (v2.3.28)
 
 ## Features & Improvements

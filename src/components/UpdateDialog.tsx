@@ -79,7 +79,7 @@ export function UpdateDialog() {
   useEffect(() => {
     (window as any).__testUpdateDialog = (customVersion?: string, customNotes?: string) => {
       setUpdateInfo({
-        version: customVersion || '2.3.28',
+        version: customVersion || '2.3.29',
         notes: customNotes || DEFAULT_LATEST_RELEASE_NOTES,
       });
       setIsUpdateDialogOpen(true);

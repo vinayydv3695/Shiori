@@ -2424,7 +2424,7 @@ const AboutSettings = () => {
       if (import.meta.env.DEV || !isTauri) {
         const updateStore = useUpdateStore.getState()
         updateStore.setUpdateInfo({
-          version: '2.3.28',
+          version: '2.3.29',
           notes: '',
         })
         updateStore.setIsUpdateDialogOpen(true)

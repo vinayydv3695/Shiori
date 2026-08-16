@@ -11,7 +11,7 @@ import {
   Clock3,
   Loader2,
   Search,
-  Sparkles,
+  Layers,
   Trash2,
   type LucideIcon,
 } from 'lucide-react';
@@ -1673,7 +1673,7 @@ export function TorboxHubView({ initialTab = 'discover' }: TorboxHubViewProps) {
               <div className="flex items-center gap-2">
                 {preferredContentType === 'both' && (
                   <TabButton
-                    icon={Sparkles}
+                    icon={Layers}
                     label="All"
                     active={searchKind === 'all'}
                     onClick={() => setSearchKind('all')}

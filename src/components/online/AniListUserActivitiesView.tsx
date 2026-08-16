@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Clock, CheckCircle2, BookOpen, Bookmark, XCircle, PauseCircle, 
-  Sparkles, Activity, MessageSquare 
+  Activity, MessageSquare 
 } from 'lucide-react';
 import { getUserActivities, AnilistActivity } from '@/lib/anilist';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
@@ -92,7 +92,7 @@ function getActivityMeta(status?: string, progress?: string) {
     label: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Activity',
     badgeClass: 'bg-secondary text-foreground border-border/60',
     iconClass: 'bg-secondary text-primary border-border/60 ring-2 ring-primary/10',
-    Icon: Sparkles,
+    Icon: Activity,
   };
 }
 

@@ -17,7 +17,8 @@ import {
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 import { FeatureHint } from '../ui/FeatureHint';
 import { cn, pageCountLabel } from '@/lib/utils';
-import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
+import { EditorialSeriesCover } from './SeriesCard';
+import { useLibraryStore } from '../../store/libraryStore';
 
 function resolveCoverSrc(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -180,10 +181,12 @@ export const BookDetailsDialog = ({
                        className="w-full h-full object-cover transition-transform duration-500 sm:group-hover:scale-105"
                      />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-muted-foreground/30">
-                      <BookOpen className="w-16 h-16" />
-                      <span className="text-sm font-medium tracking-widest uppercase">No Cover</span>
-                    </div>
+                    <EditorialSeriesCover
+                      title={book.title}
+                      bookCount={1}
+                      authors={book.authors?.map((a) => a.name) || []}
+                      isRss={book.tags?.some((t: any) => t.name === 'RSS') || /rss|feed|daily reading|daily digest/i.test(book.title)}
+                    />
                   )}
                   {/* Subtle glass reflection overlay */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none" />
@@ -239,12 +242,12 @@ export const BookDetailsDialog = ({
                 {/* Quick Actions Row */}
                 <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center sm:justify-start gap-3 mt-8 sm:mt-10">
                   <FeatureHint featureId="metadata-search" title="Find Metadata" description="Search online for covers and details.">
-                    <Button variant="secondary" size="sm" className="w-full sm:w-auto rounded-full bg-secondary/50 hover:bg-secondary border border-border/50 shadow-sm" onClick={() => setMetadataDialogOpen(true)}>
+                    <Button variant="secondary" size="sm" className="w-full sm:auto rounded-full bg-secondary/50 hover:bg-secondary border border-border/50 shadow-sm" onClick={() => setMetadataDialogOpen(true)}>
                       <Search className="w-4 h-4 mr-2"/> Find Match
                     </Button>
                   </FeatureHint>
 
-                  {!['epub', 'online-manga'].includes(book.file_format.toLowerCase()) && (
+                  {book.file_format && !['epub', 'online-manga'].includes(book.file_format.toLowerCase()) && (
                     <ConvertToEpubMenuItem
                       bookId={bookId}
                       bookTitle={book.title}
@@ -286,13 +289,15 @@ export const BookDetailsDialog = ({
                       <Select
                         value={readingStatus}
                         onValueChange={async (newStatus) => {
-                          setReadingStatus(newStatus)
+                          setReadingStatus(newStatus);
                           try {
-                            await api.updateReadingStatus(bookId, newStatus)
-                            await loadBook()
+                            await api.updateReadingStatus(bookId, newStatus);
+                            await useLibraryStore.getState().loadInitialBooks();
+                            await loadBook();
+                            toast.success("Status Updated", `Set to ${newStatus.replace('_', ' ')}`);
                           } catch (err) {
-                            logger.error('Failed to update reading status:', err)
-                            setReadingStatus(book?.reading_status || 'planning')
+                            logger.error('Failed to update reading status:', err);
+                            setReadingStatus(book?.reading_status || 'planning');
                           }
                         }}
                       >

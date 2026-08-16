@@ -11,8 +11,8 @@
  */
 
 import { useState, useEffect, useRef, memo } from "react";
-import { Layers } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Layers, Rss } from "lucide-react";
+import { cn, formatRssOrDateTitle } from "@/lib/utils";
 import { useCoverImage } from "../common/hooks/useCoverImage";
 import type { SeriesCardProps } from "./types";
 import { IconBookOpen } from "@/components/icons/ShioriIcons";
@@ -27,6 +27,77 @@ import { useToast } from "@/store/toastStore";
 const CoverSkeleton = () => (
   <div className="absolute inset-0 shimmer rounded-t-[inherit]" />
 );
+
+export interface EditorialCoverProps {
+  title: string;
+  bookCount: number;
+  authors: string[];
+  isRss?: boolean;
+}
+
+export function EditorialSeriesCover({ title, bookCount, authors, isRss }: EditorialCoverProps) {
+  const authorStr = authors.filter(Boolean).join(", ") || (isRss ? "Daily RSS Feed" : "Unknown Author");
+  const parsedTitle = formatRssOrDateTitle(title);
+
+  return (
+    <div className="absolute inset-0 z-0 flex flex-col justify-between p-3.5 select-none overflow-hidden bg-card border border-border/50 text-foreground">
+      {/* Subtle Spine Accent */}
+      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary/35 pointer-events-none" />
+
+      {/* Top Header Label */}
+      <div className="relative z-10 flex items-center justify-between w-full pl-1">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          {isRss ? (
+            <Rss className="w-3.5 h-3.5 text-primary" />
+          ) : (
+            <Layers className="w-3.5 h-3.5 text-primary" />
+          )}
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+            {isRss ? "RSS Digest" : "Series"}
+          </span>
+        </div>
+
+        <span className="text-[10px] font-semibold text-muted-foreground">
+          {bookCount} {bookCount === 1 ? "Vol" : "Vols"}
+        </span>
+      </div>
+
+      {/* Center: Clean Icon + Title + Date */}
+      <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-1">
+        <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-2 shadow-xs">
+          {isRss ? (
+            <Rss className="w-4 h-4 text-primary" />
+          ) : (
+            <IconBookOpen size={18} className="text-primary" />
+          )}
+        </div>
+        
+        <h3 className="font-bold text-foreground text-xs sm:text-sm leading-snug line-clamp-2 tracking-tight">
+          {parsedTitle.mainTitle}
+        </h3>
+
+        {parsedTitle.dateSubtitle && (
+          <span className="text-[11px] font-bold text-primary mt-0.5 tracking-tight">
+            {parsedTitle.dateSubtitle}
+          </span>
+        )}
+        
+        {authorStr && (
+          <p className="text-[11px] text-muted-foreground truncate w-full text-center mt-1 opacity-80">
+            {authorStr}
+          </p>
+        )}
+      </div>
+
+      {/* Bottom Tag */}
+      <div className="relative z-10 flex items-center justify-center w-full pt-1">
+        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/40">
+          {isRss ? "Daily Reading" : "Collected Edition"}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // ─── Main Card ────────────────────────────────
 export const SeriesCard = memo(function SeriesCard({
@@ -100,6 +171,10 @@ export const SeriesCard = memo(function SeriesCard({
     visible ? firstBook?.id : undefined,
     firstBook?.cover_path
   );
+
+  const isRss = series.books.some((b) => b.tags?.some((t: any) => t.name === 'RSS')) ||
+    /rss|feed|daily reading|daily digest|newsletter/i.test(series.title);
+  const hasCover = !!coverUrl && !imgError;
 
   useEffect(() => {
     if (forceVisible) return;
@@ -200,28 +275,20 @@ export const SeriesCard = memo(function SeriesCard({
                     />
                   )}
 
-                  {/* Fallback (no cover) */}
-                  {(!coverUrl || imgError) && !imgLoaded && !coverLoading && (
-                    <div
-                      className={cn(
-                        "absolute inset-0 flex flex-col items-center justify-center gap-2",
-                        "bg-gradient-to-br from-muted to-muted/60",
-                      )}
-                    >
-                      <IconBookOpen
-                        size={32}
-                        className="text-muted-foreground/25"
-                      />
-                      <p className="text-[9px] text-muted-foreground/40 text-center px-2 line-clamp-2 font-medium">
-                        {series.title}
-                      </p>
-                    </div>
+                  {/* Editorial Fallback (no cover) */}
+                  {(!coverUrl || imgError) && !coverLoading && (
+                    <EditorialSeriesCover
+                      title={series.title}
+                      bookCount={series.bookCount}
+                      authors={Array.from(series.authors)}
+                      isRss={isRss}
+                    />
                   )}
 
                   {/* Hover overlay with "View Series" */}
                   <div
                     className={cn(
-                      "absolute inset-0 flex items-center justify-center",
+                      "absolute inset-0 flex items-center justify-center z-30",
                       "bg-background/60 backdrop-blur-[2px]",
                       "opacity-0 group-hover:opacity-100",
                       "transition-opacity duration-[150ms]",
@@ -242,7 +309,7 @@ export const SeriesCard = memo(function SeriesCard({
                     </div>
                   </div>
 
-                  {series.bookCount > 1 && (
+                  {series.bookCount > 1 && hasCover && (
                     <div
                       className={cn(
                         "absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded shadow-sm z-30",
@@ -255,30 +322,32 @@ export const SeriesCard = memo(function SeriesCard({
                     </div>
                   )}
 
-                  {/* ── Info Strip (Tachiyomi Style) ── */}
-                  <div className={cn(
-                    'absolute bottom-0 left-0 right-0 z-20',
-                    'flex flex-col justify-end',
-                    'bg-gradient-to-t from-black/95 via-black/80 to-transparent',
-                    'px-2 pt-8 pb-2 rounded-b-[inherit]',
-                  )}>
-                    <h3
-                      className={cn(
-                        'font-bold leading-tight drop-shadow-sm text-white/95 line-clamp-2 text-sm',
-                      )}
-                      title={series.title}
-                    >
-                      {series.title}
-                    </h3>
-                    <p
-                      className={cn(
-                        'truncate drop-shadow-sm text-white/75 font-medium mt-0.5 text-xs',
-                      )}
-                      title={Array.from(series.authors).join(", ")}
-                    >
-                      {Array.from(series.authors).join(", ") || "Unknown Author"}
-                    </p>
-                  </div>
+                  {/* ── Info Strip (Only when real cover image exists) ── */}
+                  {hasCover && (
+                    <div className={cn(
+                      'absolute bottom-0 left-0 right-0 z-20',
+                      'flex flex-col justify-end',
+                      'bg-gradient-to-t from-black/95 via-black/80 to-transparent',
+                      'px-2 pt-8 pb-2 rounded-b-[inherit]',
+                    )}>
+                      <h3
+                        className={cn(
+                          'font-bold leading-tight drop-shadow-sm text-white/95 line-clamp-2 text-sm',
+                        )}
+                        title={series.title}
+                      >
+                        {series.title}
+                      </h3>
+                      <p
+                        className={cn(
+                          'truncate drop-shadow-sm text-white/75 font-medium mt-0.5 text-xs',
+                        )}
+                        title={Array.from(series.authors).join(", ")}
+                      >
+                        {Array.from(series.authors).join(", ") || (isRss ? "Daily RSS Feed" : "Unknown Author")}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

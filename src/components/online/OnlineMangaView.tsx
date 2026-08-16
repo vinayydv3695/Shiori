@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
-import { BookOpen, Loader2, Download, ArrowRight } from "lucide-react";
+import { BookOpen, Loader2, Download, ArrowRight, Search, Filter, X, Flame, Clock, Trophy, Compass } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import {
   useMangaDex,
@@ -16,6 +16,8 @@ import { logger } from "@/lib/logger";
 import { useSourceStore } from "@/store/sourceStore";
 import { useOnlineSearchStore } from "@/store/onlineSearchStore";
 import { OnlineSearchHeader } from "./OnlineSearchHeader";
+import { OnlineSourceSelector } from "./OnlineSourceSelector";
+import { DownloadsButton } from "./DownloadQueuePanel";
 import {
   pluginApi,
   type Chapter as PluginChapter,
@@ -31,7 +33,8 @@ import {
   type UnifiedChapter,
 } from "./OnlineMangaDetailView";
 import { MangaBrowseNavBar } from "./MangaBrowseNavBar";
-import { MangaRankList } from "./MangaRankList";
+import { HeroMangaBanner } from "./HeroMangaBanner";
+import { MangaContentRow } from "./MangaContentRow";
 import { ModernBookCard } from "./ModernBookCard";
 import { SkeletonGrid } from "./SkeletonLoaders";
 import { type CarouselItem } from "./ContentCarousel";
@@ -1483,22 +1486,102 @@ export function OnlineMangaView() {
       {/* Download Progress Toast Overlay */}
       {downloadProgressToast}
       {tombstoneDialog}
-      <OnlineSearchHeader
-        kind="manga"
-        title="Online Manga"
-        subtitle="Search and explore manga from online providers"
-        searchValue={searchQuery}
-        loading={displayLoading}
-        disabled={!hasEnabledMangaSource}
-        disabledMessage="No active manga source. Enable MangaDex in Settings → Online Sources."
-        onSearchValueChange={scheduleSearch}
-        onSubmit={() => {
-          const q = searchQuery.trim();
-          if (!q) return;
-          void handleSearch(1, q);
-        }}
-        onMobileFilterClick={() => setMobileFilterOpen(true)}
-      />
+      {/* ── Mobile Search Header ── */}
+      <div className="md:hidden">
+        <OnlineSearchHeader
+          kind="manga"
+          title="Online Manga"
+          subtitle="Search and explore manga from online providers"
+          searchValue={searchQuery}
+          loading={displayLoading}
+          disabled={!hasEnabledMangaSource}
+          disabledMessage="No active manga source. Enable MangaDex in Settings → Online Sources."
+          onSearchValueChange={scheduleSearch}
+          onSubmit={() => {
+            const q = searchQuery.trim();
+            if (!q) return;
+            void handleSearch(1, q);
+          }}
+          onMobileFilterClick={() => setMobileFilterOpen(true)}
+        />
+      </div>
+
+      {/* ── Desktop Unified Compact Toolbar ── */}
+      <div className="hidden md:flex items-center justify-between gap-4 lg:gap-6 px-6 lg:px-10 py-3.5 border-b border-border/50 bg-background/85 dark:bg-background/85 backdrop-blur-2xl sticky top-0 z-30 transition-colors shadow-xs">
+        {/* Left: Source Selector Dropdown / Pill */}
+        <div className="flex items-center gap-2 shrink-0">
+          <OnlineSourceSelector 
+            kind="manga" 
+            variant="secondary" 
+            className="h-11 px-5 bg-card/85 hover:bg-card text-foreground border border-border/60 hover:border-primary/40 rounded-full shadow-xs backdrop-blur-xl text-sm font-bold transition-all cursor-pointer gap-2.5" 
+          />
+        </div>
+
+        {/* Center: Search Bar with Filters & Submit */}
+        <div className="flex-1 max-w-2xl lg:max-w-3xl relative group">
+          <div className="flex items-center bg-card/85 hover:bg-card focus-within:bg-card border border-border/60 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 rounded-2xl p-1.5 transition-all duration-300 shadow-xs backdrop-blur-xl">
+            <Search className="w-5 h-5 text-muted-foreground ml-3.5 shrink-0 transition-colors duration-300 group-focus-within:text-primary stroke-[2.2]" />
+            <input
+              value={searchQuery}
+              onChange={(e) => scheduleSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const q = searchQuery.trim();
+                  if (q) void handleSearch(1, q);
+                }
+              }}
+              placeholder="Search manga by title or author..."
+              className="w-full bg-transparent border-none outline-none text-sm md:text-base font-semibold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-2 px-3.5 h-10 transition-all"
+            />
+
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setHasSearched(false);
+                }}
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors mr-1.5 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 shrink-0 pr-1">
+              <button
+                type="button"
+                onClick={() => setMobileFilterOpen(true)}
+                className={cn(
+                  "p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer",
+                  isAdvancedFilterActive
+                    ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
+                )}
+                title="Filters"
+              >
+                <Filter className="w-4 h-4 stroke-[2.2]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const q = searchQuery.trim();
+                  if (q) void handleSearch(1, q);
+                }}
+                disabled={displayLoading || !searchQuery.trim()}
+                className="px-5 py-2 text-sm rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs shadow-primary/20 active:scale-95 cursor-pointer h-10"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Downloads Button */}
+        <div className="flex items-center gap-2 shrink-0">
+          <DownloadsButton />
+        </div>
+      </div>
 
       <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
         {mangadexError && (
@@ -1774,104 +1857,53 @@ export function OnlineMangaView() {
                   )}
                 </div>
                 ) : (
-                  <div className="flex-1 flex flex-col gap-8 min-w-0">
-                    {/* Popular Manga Carousel */}
-                    <div className="mb-10">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold tracking-tight text-foreground">
-                          {isMangaDexEnabled ? "Trending This Week" : "Popular"}
-                        </h2>
-                        <Button variant="ghost" className="text-sm font-medium gap-1 text-muted-foreground hover:text-foreground" onClick={() => setActiveMode('popular')}>
-                          View All <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
-                        {browseLoading.popular ? (
-                          <SkeletonGrid count={5} />
-                        ) : (
-                          toCarouselItems(browseData.popular)
-                            .slice(0, 5)
-                            .map((item) => (
-                              <ModernBookCard
-                                key={item.id}
-                                id={item.id}
-                                title={item.title}
-                                coverUrl={item.coverUrl}
-                                author={item.subtitle}
-                                onClick={() => handleCarouselItemClick(item)}
-                              />
-                            ))
-                        )}
-                      </div>
-                    </div>
+                  <div className="w-full flex flex-col min-w-0">
+                    {/* Featured Hero Spotlight Banner */}
+                    <HeroMangaBanner
+                      items={toCarouselItems(browseData.popular)}
+                      loading={browseLoading.popular}
+                      onReadClick={handleCarouselItemClick}
+                      sourceId={activeSource?.id || ''}
+                    />
 
-                    {/* Latest Updates Carousel */}
-                    <div className="mb-10">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold tracking-tight text-foreground">Latest Updates</h2>
-                        <Button variant="ghost" className="text-sm font-medium gap-1 text-muted-foreground hover:text-foreground" onClick={() => setActiveMode('latest')}>
-                          View All <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
-                        {browseLoading.latest ? (
-                          <SkeletonGrid count={5} />
-                        ) : (
-                          toCarouselItems(browseData.latest)
-                            .slice(0, 5)
-                            .map((item) => (
-                              <ModernBookCard
-                                key={item.id}
-                                id={item.id}
-                                title={item.title}
-                                coverUrl={item.coverUrl}
-                                author={item.subtitle}
-                                onClick={() => handleCarouselItemClick(item)}
-                              />
-                            ))
-                        )}
-                      </div>
-                    </div>
+                    {/* Trending / Popular Rail */}
+                    <MangaContentRow
+                      title={isMangaDexEnabled ? "Trending This Week" : "Popular"}
+                      icon={<Flame className="w-5 h-5 text-primary" />}
+                      items={toCarouselItems(browseData.popular)}
+                      loading={browseLoading.popular}
+                      onItemClick={handleCarouselItemClick}
+                      onViewAll={() => setActiveMode('popular')}
+                    />
 
-                    {/* You Should Read (Recent) */}
-                    <div className="mb-10">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold tracking-tight text-foreground">
-                          {isMangaDexEnabled
-                            ? "Staff Picks / You Should Read"
-                            : "Recent"}
-                        </h2>
-                      </div>
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
-                        {browseLoading.recent ? (
-                          <SkeletonGrid count={5} />
-                        ) : (
-                          toCarouselItems(browseData.recent)
-                            .slice(0, 5)
-                            .map((item) => (
-                              <ModernBookCard
-                                key={item.id}
-                                id={item.id}
-                                title={item.title}
-                                coverUrl={item.coverUrl}
-                                author={item.subtitle}
-                                onClick={() => handleCarouselItemClick(item)}
-                              />
-                            ))
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {/* Sidebar (Right) */}
-                {!isAdvancedFilterActive && (
-                  <div className="w-full xl:w-80 2xl:w-96 flex-shrink-0">
-                    <MangaRankList
-                      title="Top Rated"
+                    {/* Latest Updates Rail */}
+                    <MangaContentRow
+                      title="Latest Chapter Updates"
+                      icon={<Clock className="w-5 h-5 text-primary" />}
+                      items={toCarouselItems(browseData.latest)}
+                      loading={browseLoading.latest}
+                      onItemClick={handleCarouselItemClick}
+                      onViewAll={() => setActiveMode('latest')}
+                    />
+
+                    {/* Top Rated Favorites Rail */}
+                    <MangaContentRow
+                      title="Top Rated & Community Favorites"
+                      icon={<Trophy className="w-5 h-5 text-primary" />}
                       items={toCarouselItems(browseData["top-rated"])}
                       loading={browseLoading["top-rated"]}
                       onItemClick={handleCarouselItemClick}
-                      sourceId={activeSource?.id || ''}
+                      onViewAll={() => setActiveMode('top-rated')}
+                    />
+
+                    {/* Staff Picks / Hidden Gems Rail */}
+                    <MangaContentRow
+                      title={isMangaDexEnabled ? "Staff Picks & Hidden Gems" : "Recently Added"}
+                      icon={<Compass className="w-5 h-5 text-primary" />}
+                      items={toCarouselItems(browseData.recent)}
+                      loading={browseLoading.recent}
+                      onItemClick={handleCarouselItemClick}
+                      onViewAll={() => setActiveMode('recent')}
                     />
                   </div>
                 )}

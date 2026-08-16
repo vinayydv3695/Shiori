@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ttsEngine } from '@/lib/ttsEngine';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { useToastStore } from '@/store/toastStore';
-import { Settings2, Volume2, Globe, ExternalLink, Download, Loader2, Search, Sparkles, Check, Filter } from 'lucide-react';
+import { Settings2, Volume2, Globe, ExternalLink, Download, Loader2, Search, Check, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,

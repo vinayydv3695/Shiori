@@ -4,7 +4,8 @@ import {
   formatFileSize,
   truncate,
   parsePageUrl,
-  formatRelativeTime
+  formatRelativeTime,
+  formatRssOrDateTitle
 } from '@/lib/utils';
 
 describe('utils.ts', () => {
@@ -106,6 +107,24 @@ describe('utils.ts', () => {
       }
 
       vi.useRealTimers();
+    });
+  });
+
+  describe('formatRssOrDateTitle', () => {
+    it('should cleanly format ISO dates into human readable strings', () => {
+      const res1 = formatRssOrDateTitle('Daily Reading - 2026-08-07');
+      expect(res1.mainTitle).toBe('Daily Reading');
+      expect(res1.dateSubtitle).toBe('Aug 7, 2026');
+      expect(res1.fullFormattedTitle).toBe('Daily Reading — Aug 7, 2026');
+
+      const res2 = formatRssOrDateTitle('Daily Reading - 2026-08-14');
+      expect(res2.mainTitle).toBe('Daily Reading');
+      expect(res2.dateSubtitle).toBe('Aug 14, 2026');
+
+      const res3 = formatRssOrDateTitle('Normal Book Title');
+      expect(res3.mainTitle).toBe('Normal Book Title');
+      expect(res3.dateSubtitle).toBeUndefined();
+      expect(res3.fullFormattedTitle).toBe('Normal Book Title');
     });
   });
 });

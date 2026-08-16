@@ -229,3 +229,52 @@ export function proxyExternalCover(url: string): string {
   
   return `${baseUrl}?source=${sourceId}&url=${encodeURIComponent(url)}`;
 }
+
+/**
+ * Parses and formats RSS and date-stamped titles (e.g. "Daily Reading - 2026-08-07")
+ * into clean, elegant typography without awkward hyphenation breaks.
+ */
+export function formatRssOrDateTitle(title: string): { 
+  mainTitle: string; 
+  dateSubtitle?: string; 
+  fullFormattedTitle: string 
+} {
+  if (!title) {
+    return { mainTitle: '', fullFormattedTitle: '' };
+  }
+
+  // Matches "Daily Reading - 2026-08-07" or "Daily Reading 2026-08-07" or "2026-08-07"
+  const dateMatch = title.match(/^(.*?)(?:\s*[-–—:]\s*)?(\d{4})[-/](\d{2})[-/](\d{2})(.*)$/);
+  if (dateMatch) {
+    const prefix = dateMatch[1].trim();
+    const year = parseInt(dateMatch[2], 10);
+    const month = parseInt(dateMatch[3], 10);
+    const day = parseInt(dateMatch[4], 10);
+    const suffix = dateMatch[5].trim();
+
+    try {
+      const dateObj = new Date(year, month - 1, day);
+      if (!isNaN(dateObj.getTime())) {
+        const formattedDate = dateObj.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        const main = prefix || 'Daily Reading';
+        const full = suffix ? `${main} — ${formattedDate} (${suffix})` : `${main} — ${formattedDate}`;
+        return {
+          mainTitle: main,
+          dateSubtitle: formattedDate,
+          fullFormattedTitle: full
+        };
+      }
+    } catch {
+      // fallback
+    }
+  }
+
+  return {
+    mainTitle: title,
+    fullFormattedTitle: title
+  };
+}

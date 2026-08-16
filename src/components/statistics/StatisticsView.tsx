@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, isTauri } from '@/lib/tauri';
-import type { DailyReadingStats, ReadingStreak, ReadingGoal, Book } from '@/lib/tauri';
-import { X, RotateCw, 
-  Library, Clock, BookCheck,
+import type { DailyReadingStats, ReadingStreak, ReadingGoal, Book, BookReadingStats } from '@/lib/tauri';
+import { 
+  X, RotateCw, Library, Clock, BookCheck,
   BookDashed, PlayCircle, HardDrive,
   Layers, BookText, Image as ImageIcon,
-  Activity, Star, Link2, Flame, Trophy, CheckCircle2 
+  Activity, Star, Link2, Trophy, CheckCircle2,
+  TrendingUp, BookOpen, ChevronRight, BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
@@ -15,25 +16,51 @@ import { Skeleton } from '../ui/skeleton';
 import { motion } from 'framer-motion';
 import { useLibraryStore } from '@/store/libraryStore';
 import { Input } from '../ui/input';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { useCoverImage } from '@/components/common/hooks/useCoverImage';
 import { toast } from 'sonner';
 import { useToast } from '@/store/toastStore';
 
 interface StatisticsViewProps {
   onClose: () => void;
+  onOpenBook?: (bookId: number, location?: string) => void;
+}
+
+function StatBookCover({ book }: { book: Book }) {
+  const { coverUrl, error } = useCoverImage(book.id, book.cover_path);
+  const [imgError, setImgError] = useState(false);
+
+  if (coverUrl && !imgError && !error) {
+    return (
+      <img 
+        src={coverUrl} 
+        alt={book.title} 
+        onError={() => setImgError(true)} 
+        className="w-full h-full object-cover" 
+        loading="lazy" 
+      />
+    );
+  }
+
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary">
+      <BookOpen size={16} />
+    </div>
+  );
 }
 
 const StatSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="flex flex-col gap-2.5">
     <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest ml-1">{title}</h3>
-    <div className="bg-card/70 backdrop-blur-2xl border border-border/50 rounded-2xl p-4 grid grid-cols-3 gap-3 shadow-lg">
+    <div className="bg-card/75 backdrop-blur-2xl border border-border/50 rounded-2xl p-4 grid grid-cols-3 gap-3 shadow-xs">
       {children}
     </div>
   </div>
 );
 
 const StatItem = ({ label, value, icon: Icon, iconColor }: { label: string, value: React.ReactNode, icon: any, iconColor?: string }) => (
-  <div className="bg-secondary/25 hover:bg-secondary/55 border border-border/40 rounded-xl p-3.5 flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 hover:scale-[1.02] shadow-sm group">
-    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm bg-primary/12 text-primary", iconColor)}>
+  <div className="bg-secondary/25 hover:bg-secondary/55 border border-border/40 rounded-xl p-3.5 flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 hover:scale-[1.02] shadow-xs group">
+    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 shadow-xs bg-primary/10 text-primary", iconColor)}>
       <Icon size={16} />
     </div>
     <div className="text-xl md:text-2xl font-extrabold text-foreground tracking-tight leading-none">{value}</div>
@@ -41,34 +68,18 @@ const StatItem = ({ label, value, icon: Icon, iconColor }: { label: string, valu
   </div>
 );
 
-// ──────────────────────────────────────────────────────────────────────────
-// Weekly trend — pure data → bars helper (B4)
-// ──────────────────────────────────────────────────────────────────────────
-
 export interface WeekBarDatum {
-  /** ISO-ish local date string (yyyy-mm-dd) of the day */
   date: string;
-  /** Short weekday label (e.g. "Mon") */
   label: string;
-  /** Total reading seconds that day */
   seconds: number;
-  /** Total pages read that day (book + manga) */
   pages: number;
-  /** 0-100, normalized against the week's max (0 when the week is empty) */
   secondsPct: number;
-  /** 0-100, normalized against the week's max (0 when the week is empty) */
   pagesPct: number;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-/**
- * Build the last 7 days (today + 6 prior) as bar chart data, zero-filled for
- * days with no stats. Percentages normalize each series against its own max;
- * a fully-empty week yields all-zero percentages (caller shows an empty state).
- */
-// eslint-disable-next-line react-refresh/only-export-components -- pure helper, unit-tested directly
 export function buildWeeklyBars(stats: DailyReadingStats[], now: Date = new Date()): WeekBarDatum[] {
   const byDate = new Map(stats.map(s => [s.date, s]));
   const days: Omit<WeekBarDatum, 'secondsPct' | 'pagesPct'>[] = [];
@@ -102,7 +113,7 @@ const formatMinutes = (seconds: number) => {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 };
 
-/** Pure CSS bar chart — no dependencies. Two series per day: pages & reading time. */
+/** Interactive weekly trend chart with hover tooltips */
 export function WeeklyTrendChart({ data }: { data: DailyReadingStats[] }) {
   const bars = useMemo(() => buildWeeklyBars(data), [data]);
   const hasAny = bars.some(b => b.seconds > 0 || b.pages > 0);
@@ -119,21 +130,26 @@ export function WeeklyTrendChart({ data }: { data: DailyReadingStats[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-3 h-36 pt-4 px-2">
+      <div className="flex items-end justify-between gap-3 h-40 pt-6 px-2">
         {bars.map(b => (
-          <div key={b.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end min-w-0 group">
+          <div key={b.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end min-w-0 group relative">
+            
+            {/* Interactive Floating Tooltip */}
+            <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-popover text-popover-foreground text-[10px] font-bold py-1 px-2.5 rounded-xl border border-border/80 shadow-xl pointer-events-none z-30 whitespace-nowrap text-center">
+              <div className="text-primary">{b.pages} pages read</div>
+              <div className="text-muted-foreground">{formatMinutes(b.seconds)} read time</div>
+            </div>
+
             <div className="flex items-end justify-center gap-1.5 w-full flex-1 relative">
               {/* Pages Read Bar */}
               <div
-                className="w-3 md:w-4 rounded-t-lg bg-gradient-to-t from-primary/50 to-primary transition-all duration-500 shadow-sm group-hover:scale-y-105"
+                className="w-3 md:w-4 rounded-t-lg bg-gradient-to-t from-primary/50 to-primary transition-all duration-500 shadow-xs group-hover:brightness-110"
                 style={{ height: `${b.pages > 0 ? Math.max(8, b.pagesPct) : 0}%` }}
-                title={`${b.date} · ${b.pages} pages read`}
               />
               {/* Reading Time Bar */}
               <div
-                className="w-3 md:w-4 rounded-t-lg bg-gradient-to-t from-primary/20 to-primary/40 transition-all duration-500 shadow-sm group-hover:scale-y-105"
+                className="w-3 md:w-4 rounded-t-lg bg-gradient-to-t from-primary/20 to-primary/40 transition-all duration-500 shadow-xs group-hover:brightness-110"
                 style={{ height: `${b.seconds > 0 ? Math.max(8, b.secondsPct) : 0}%` }}
-                title={`${b.date} · ${formatMinutes(b.seconds)} reading time`}
               />
             </div>
             <span className="text-[11px] text-muted-foreground font-bold tracking-tight group-hover:text-foreground transition-colors truncate">
@@ -143,20 +159,21 @@ export function WeeklyTrendChart({ data }: { data: DailyReadingStats[] }) {
         ))}
       </div>
       <div className="flex items-center justify-center gap-6 text-xs font-semibold text-muted-foreground pt-2 border-t border-border/30">
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-md bg-gradient-to-t from-primary/50 to-primary shadow-sm" />Pages read</span>
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-md bg-gradient-to-t from-primary/20 to-primary/40 shadow-sm" />Reading time</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-md bg-gradient-to-t from-primary/50 to-primary shadow-xs" />Pages read</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded-md bg-gradient-to-t from-primary/20 to-primary/40 shadow-xs" />Reading time</span>
       </div>
     </div>
   );
 }
 
-export function StatisticsView({ onClose }: StatisticsViewProps) {
+export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [allStats, setAllStats] = useState<DailyReadingStats[]>([]);
   const [streak, setStreak] = useState<ReadingStreak | null>(null);
   const [goal, setGoal] = useState<ReadingGoal | null>(null);
+  const [topBookStats, setTopBookStats] = useState<Array<{ book: Book; stats: BookReadingStats }>>([]);
   const books = useLibraryStore(s => s.books);
   
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -204,7 +221,7 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
         ];
         setAllStats(dummyStats);
         setStreak({ current_streak: 4, longest_streak: 12, total_reading_days: 45 });
-        setGoal({ daily_minutes_target: 30, is_active: true, created_at: '', updated_at: '' });
+        setGoal({ daily_minutes_target: 30, yearly_books_target: 20, is_active: true, created_at: '', updated_at: '' });
         setLoading(false);
         return;
       }
@@ -218,12 +235,31 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
       setAllStats(stats);
       setStreak(currentStreak);
       setGoal(currentGoal);
+
+      // Fetch stats for top recent books to showcase
+      const candidateBooks = books.slice(0, 15);
+      const topStatsPromises = candidateBooks.map(async b => {
+        if (!b.id) return null;
+        try {
+          const bStats = await api.getBookReadingStats(b.id);
+          return { book: b, stats: bStats };
+        } catch {
+          return null;
+        }
+      });
+      const topResults = await Promise.all(topStatsPromises);
+      const validTop = topResults
+        .filter((item): item is { book: Book; stats: BookReadingStats } => item !== null && item.stats.total_seconds > 0)
+        .sort((a, b) => b.stats.total_seconds - a.stats.total_seconds)
+        .slice(0, 6);
+      
+      setTopBookStats(validTop);
     } catch (err) {
       setError(err instanceof Error ? err.message : (typeof err === 'object' ? JSON.stringify(err) : String(err)));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [books]);
 
   useEffect(() => {
     loadData();
@@ -259,15 +295,15 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
     : "0";
   const usedTrackers = books.some(b => b.anilist_id) ? 1 : 0;
 
-  // ── Daily goal celebration (A5) ──
+  // Daily goal calculation
   const { success: showGoalToast } = useToast();
   const todayStr = toDateStr(new Date());
   const todaySeconds = allStats.find(s => s.date === todayStr)?.total_seconds ?? 0;
   const goalMinutes = goal?.daily_minutes_target ?? 0;
   const goalActive = goal?.is_active !== false;
   const goalReached = goalActive && goalMinutes > 0 && todaySeconds >= goalMinutes * 60;
+  const dailyProgressPct = goalMinutes > 0 ? Math.min(100, Math.round((todaySeconds / (goalMinutes * 60)) * 100)) : 0;
 
-  // Toast ONCE per day (localStorage date key survives remounts/session restarts).
   useEffect(() => {
     if (!goalReached) return;
     const storageKey = `shiori:daily-goal-reached:${todayStr}`;
@@ -275,29 +311,35 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
       if (localStorage.getItem(storageKey) === '1') return;
       localStorage.setItem(storageKey, '1');
     } catch {
-      // Storage unavailable — still toast for this session.
+      // Storage unavailable
     }
-    showGoalToast('Daily goal reached! 🎉', `You read ${Math.round(todaySeconds / 60)} minutes today — goal: ${goalMinutes} min.`);
+    showGoalToast('Daily goal reached!', `You read ${Math.round(todaySeconds / 60)} minutes today.`);
   }, [goalReached, todayStr, goalMinutes, todaySeconds, showGoalToast]);
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
+      
+      {/* ── Top Header Bar ── */}
       <div className="flex-none sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40">
         <div className="max-w-6xl mx-auto flex items-center justify-between p-4 md:p-6">
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-xl md:text-2xl font-light text-foreground tracking-tight">Statistics</h1>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+              <BarChart3 size={20} />
             </div>
-            
-            {/* Minimal Badges */}
-            <div className="hidden sm:flex items-center gap-3 ml-2">
+            <div>
+              <h1 className="text-xl md:text-2xl font-extrabold text-foreground tracking-tight">Statistics</h1>
+              <p className="text-xs text-muted-foreground">Detailed reading insights and habits</p>
+            </div>
+
+            {/* Minimal Badges in Header */}
+            <div className="hidden sm:flex items-center gap-2.5 ml-4">
               {isEditingGoal ? (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-card border border-primary/40 rounded-full">
-                  <Trophy size={14} className="text-yellow-500" />
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-card border border-primary/40 rounded-full shadow-xs">
+                  <Trophy size={13} className="text-primary" />
                   <Input 
                     autoFocus
                     type="number" 
-                    className="w-12 h-6 text-xs bg-transparent border-none p-0 focus-visible:ring-0 text-center" 
+                    className="w-12 h-5 text-xs bg-transparent border-none p-0 focus-visible:ring-0 text-center font-bold text-foreground" 
                     value={newGoalInput}
                     onChange={e => setNewGoalInput(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleUpdateGoal()}
@@ -305,38 +347,39 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                   />
                 </div>
               ) : (
-                <div 
-                  className="flex items-center gap-1.5 px-3 py-1 bg-card border border-border/40 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 cursor-pointer transition-colors"
+                <button
+                  type="button"
                   onClick={() => {
-                    setNewGoalInput(goal?.yearly_books_target?.toString() || "");
+                    setNewGoalInput(goal?.yearly_books_target?.toString() || "20");
                     setIsEditingGoal(true);
                   }}
-                  title="Yearly Goal"
+                  className="flex items-center gap-1.5 px-3 py-1 bg-card/80 hover:bg-card border border-border/50 hover:border-primary/40 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer transition-colors shadow-xs"
+                  title="Yearly Reading Goal (Click to edit)"
                 >
-                  <Trophy size={14} className="text-yellow-500" />
-                  <span>{booksReadThisYear} / {goal?.yearly_books_target || 0}</span>
-                </div>
+                  <Trophy size={13} className="text-primary" />
+                  <span>{booksReadThisYear} / {goal?.yearly_books_target || 20}</span>
+                </button>
               )}
               
               <div 
-                className="flex items-center gap-1.5 px-3 py-1 bg-card border border-border/40 rounded-full text-xs font-medium text-muted-foreground"
-                title="Current Streak"
+                className="flex items-center px-3 py-1 bg-card/80 border border-border/50 rounded-full text-xs font-bold text-muted-foreground shadow-xs"
+                title={`Current Streak: ${streak?.current_streak || 0} days`}
               >
-                <Flame size={14} className={streak && streak.current_streak > 0 ? "text-orange-500" : "text-muted-foreground"} />
-                <span>{streak?.current_streak || 0}</span>
+                <span>{streak?.current_streak || 0}d streak</span>
               </div>
 
               {goalReached && (
                 <div 
-                  className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-xs font-medium text-green-600 dark:text-green-400 animate-in zoom-in"
+                  className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/25 rounded-full text-xs font-bold text-primary shadow-xs"
                   title={`Daily goal reached — ${goalMinutes} min read today`}
                 >
-                  <CheckCircle2 size={14} />
+                  <CheckCircle2 size={13} />
                   <span>Goal reached</span>
                 </div>
               )}
             </div>
           </div>
+          
           <div className="flex items-center gap-2">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
@@ -365,10 +408,11 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 bg-background">
-        <div className="max-w-6xl mx-auto space-y-6 pb-10">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-background">
+        <div className="max-w-6xl mx-auto space-y-6 pb-20">
+
           {error ? (
-            <div className="flex flex-col items-center justify-center py-10 bg-card rounded-xl border border-destructive/50 p-6 shadow-sm">
+            <div className="flex flex-col items-center justify-center py-10 bg-card rounded-2xl border border-destructive/50 p-6 shadow-xs">
               <p className="text-destructive mb-4 font-medium">{error}</p>
               <Button onClick={loadData} variant="destructive">
                 Retry
@@ -483,12 +527,45 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
                 </StatSection>
               </div>
 
+              {/* ── Top Read Books Showcase ── */}
+              {topBookStats.length > 0 && (
+                <div className="flex flex-col gap-2.5">
+                  <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest ml-1">
+                    Most Read Titles
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+                    {topBookStats.map(({ book, stats: bStats }) => {
+                      return (
+                        <div
+                          key={book.id}
+                          className="flex items-center gap-3.5 p-3 rounded-2xl bg-card/75 hover:bg-card border border-border/50 hover:border-primary/40 transition-all shadow-xs"
+                        >
+                          <div className="relative w-14 h-20 rounded-xl overflow-hidden bg-muted/40 border border-border/40 shrink-0 shadow-xs">
+                            <StatBookCover book={book} />
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <h4 className="font-extrabold text-xs text-foreground truncate leading-tight" title={book.title}>
+                              {book.title}
+                            </h4>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {book.authors?.[0]?.name || 'Unknown'}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-[11px] text-primary font-bold pt-0.5">
+                              <Clock size={11} />
+                              <span>{formatMinutes(bStats.total_seconds)} logged</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-
-              {/* Weekly Trend (B4) — real get_daily_reading_stats data, empty state when idle */}
+              {/* Weekly Trend with Interactive Bar Tooltips */}
               <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold text-muted-foreground tracking-wide ml-1">Weekly Trend</h3>
-                <div className="bg-card/40 backdrop-blur-md border border-border/40 rounded-xl p-4">
+                <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest ml-1">Weekly Trend</h3>
+                <div className="bg-card/75 backdrop-blur-md border border-border/50 rounded-2xl p-4 shadow-xs">
                   <WeeklyTrendChart data={allStats} />
                 </div>
               </div>
@@ -497,20 +574,20 @@ export function StatisticsView({ onClose }: StatisticsViewProps) {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 flex flex-col">
                   <div className="mb-4">
-                    <h2 className="text-lg font-medium text-foreground tracking-tight">Reading Activity</h2>
+                    <h2 className="text-lg font-bold text-foreground tracking-tight">Reading Activity</h2>
                     <p className="text-xs text-muted-foreground">Your journey over the last 365 days</p>
                   </div>
-                  <div className="flex-1 flex items-center">
+                  <div className="flex-1 flex items-center bg-card/75 p-4 rounded-2xl border border-border/50 shadow-xs">
                     <ActivityHeatmap data={allStats} currentStreak={streak?.current_streak} />
                   </div>
                 </div>
 
                 <div className="flex flex-col">
                   <div className="mb-4">
-                    <h2 className="text-lg font-medium text-foreground tracking-tight">Monthly Overview</h2>
+                    <h2 className="text-lg font-bold text-foreground tracking-tight">Monthly Overview</h2>
                     <p className="text-xs text-muted-foreground">Days active</p>
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 bg-card/75 p-4 rounded-2xl border border-border/50 shadow-xs">
                     <ReadingCalendar data={allStats} />
                   </div>
                 </div>

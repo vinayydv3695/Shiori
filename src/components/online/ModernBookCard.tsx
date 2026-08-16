@@ -163,25 +163,35 @@ export const ModernBookCard = memo(function ModernBookCard({
           </div>
         </div>
 
-        {/* Download Progress Overlay */}
+        {/* Download State Badges & Overlays */}
         {downloadState && (
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-md flex flex-col items-center justify-center z-30 animate-in fade-in">
+          <>
             {downloadState.status === 'downloading' && (
-              <>
-                <div className="relative w-14 h-14 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-[2.5px] flex flex-col items-center justify-center z-30 animate-in fade-in duration-200">
+                <div className="relative w-12 h-12 flex items-center justify-center">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-muted/40"
-                      strokeWidth="3"
+                      className="text-white/20"
+                      strokeWidth="3.5"
                       stroke="currentColor"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
-                    {progressPercent !== null && (
+                    {progressPercent !== null ? (
                       <path
                         className="text-primary transition-all duration-300 ease-out"
                         strokeDasharray={`${progressPercent}, 100`}
-                        strokeWidth="3"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    ) : (
+                      <path
+                        className="text-primary animate-spin"
+                        strokeDasharray="25, 100"
+                        strokeWidth="3.5"
                         strokeLinecap="round"
                         stroke="currentColor"
                         fill="none"
@@ -189,28 +199,34 @@ export const ModernBookCard = memo(function ModernBookCard({
                       />
                     )}
                   </svg>
-                  <div className="absolute text-foreground text-xs font-bold">
+                  <div className="absolute text-white text-[11px] font-extrabold drop-shadow-sm">
                     {progressPercent !== null ? `${progressPercent}%` : '...'}
                   </div>
                 </div>
-                <span className="text-foreground text-xs font-bold mt-2 animate-pulse">Downloading</span>
-              </>
+                <span className="text-white text-[11px] font-bold mt-2 tracking-wide drop-shadow-sm animate-pulse">
+                  Downloading
+                </span>
+              </div>
             )}
             
             {downloadState.status === 'completed' && (
-              <div className="flex flex-col items-center animate-in zoom-in">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-1.5" />
-                <span className="text-foreground text-xs font-extrabold">Ready in Library</span>
+              <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none animate-in zoom-in-75 duration-300">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/95 text-white backdrop-blur-md border border-emerald-400/40 text-[10px] font-extrabold flex items-center gap-1 shadow-md shadow-emerald-950/20">
+                  <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
+                  In Library
+                </span>
               </div>
             )}
             
             {downloadState.status === 'error' && (
-              <div className="flex flex-col items-center animate-in zoom-in">
-                <AlertCircle className="w-10 h-10 text-destructive mb-1.5" />
-                <span className="text-destructive text-xs font-bold">Download Failed</span>
+              <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none animate-in zoom-in-75 duration-300">
+                <span className="px-2.5 py-1 rounded-full bg-destructive/95 text-white backdrop-blur-md border border-destructive/40 text-[10px] font-extrabold flex items-center gap-1 shadow-md shadow-red-950/20">
+                  <AlertCircle className="w-3 h-3 stroke-[2.5]" />
+                  Retry
+                </span>
               </div>
             )}
-          </div>
+          </>
         )}
 
         {/* ── Info Strip (Vignette Style) ── */}

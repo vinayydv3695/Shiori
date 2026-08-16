@@ -198,18 +198,18 @@ export function NavigationRailDesktop({
                         : "bg-secondary/30 border-transparent text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                     )}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {/* Icon Badge Container */}
                       <div className={cn(
-                        "flex items-center justify-center w-8.5 h-8.5 rounded-xl transition-all duration-200 shrink-0",
+                        "flex items-center justify-center w-7.5 h-7.5 rounded-xl transition-all duration-200 shrink-0",
                         hasActiveChild
                           ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-105"
                           : "bg-secondary/80 text-muted-foreground group-hover:bg-primary/15 group-hover:text-primary group-hover:scale-105"
                       )}>
-                        <SectionIcon className="w-5 h-5" />
+                        <SectionIcon className="w-4 h-4" />
                       </div>
 
-                      <span className="tracking-wide text-sm font-bold truncate">{SECTION_TITLES[sectionKey]}</span>
+                      <span className="tracking-wide text-xs sm:text-[13px] font-bold truncate">{SECTION_TITLES[sectionKey]}</span>
 
                       <span className={cn(
                         "text-xs font-extrabold px-2 py-0.5 rounded-full border transition-colors shrink-0",

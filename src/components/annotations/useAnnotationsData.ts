@@ -3,6 +3,8 @@ import { api, AnnotationSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
 import { logger } from '@/lib/logger';
 
+export type AnnotationSortOrder = 'newest' | 'oldest' | 'book_order';
+
 export function useAnnotationsData() {
   const [annotations, setAnnotations] = useState<AnnotationSearchResult[]>([]);
   const [categories, setCategories] = useState<AnnotationCategory[]>([]);
@@ -13,6 +15,7 @@ export function useAnnotationsData() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [sortOrder, setSortOrder] = useState<AnnotationSortOrder>('newest');
   
   // Sidebar State
   const [selectedBookId, setSelectedBookId] = useState<number | 'all'>('all');
@@ -76,11 +79,54 @@ export function useAnnotationsData() {
     return Array.from(map.entries()).map(([id, data]) => ({ id, ...data })).sort((a, b) => a.title.localeCompare(b.title));
   }, [annotations]);
 
-  // Filtered Annotations for Main Pane
+  // Stats summary
+  const stats = useMemo(() => {
+    const targetSet = selectedBookId === 'all' ? annotations : annotations.filter(a => a.annotation.bookId === selectedBookId);
+    let highlights = 0;
+    let notes = 0;
+    let bookmarks = 0;
+    let vocabulary = 0;
+
+    for (const a of targetSet) {
+      const t = a.annotation.annotationType;
+      if (t === 'highlight') highlights++;
+      else if (t === 'note') notes++;
+      else if (t === 'bookmark') bookmarks++;
+
+      if (a.annotation.noteContent) {
+        try {
+          const v = JSON.parse(a.annotation.noteContent);
+          if (v && (v.type === 'define' || v.type === 'translate')) vocabulary++;
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    return {
+      total: targetSet.length,
+      highlights,
+      notes,
+      bookmarks,
+      vocabulary,
+      booksCount: uniqueBooks.length,
+    };
+  }, [annotations, selectedBookId, uniqueBooks]);
+
+  // Filtered & Sorted Annotations for Main Pane
   const displayedAnnotations = useMemo(() => {
-    if (selectedBookId === 'all') return annotations;
-    return annotations.filter(a => a.annotation.bookId === selectedBookId);
-  }, [annotations, selectedBookId]);
+    let list = selectedBookId === 'all' ? [...annotations] : annotations.filter(a => a.annotation.bookId === selectedBookId);
+
+    if (sortOrder === 'newest') {
+      list.sort((a, b) => new Date(b.annotation.createdAt || 0).getTime() - new Date(a.annotation.createdAt || 0).getTime());
+    } else if (sortOrder === 'oldest') {
+      list.sort((a, b) => new Date(a.annotation.createdAt || 0).getTime() - new Date(b.annotation.createdAt || 0).getTime());
+    } else if (sortOrder === 'book_order') {
+      list.sort((a, b) => (a.annotation.location || '').localeCompare(b.annotation.location || '', undefined, { numeric: true }));
+    }
+
+    return list;
+  }, [annotations, selectedBookId, sortOrder]);
 
   // Grouped Annotations (only used when 'all' is selected)
   const groupedAnnotations = useMemo(() => {
@@ -98,7 +144,8 @@ export function useAnnotationsData() {
   const tabs = [
     { id: 'all', label: 'All Notes' },
     { id: 'highlight', label: 'Highlights' },
-    { id: 'note', label: 'Notes' }
+    { id: 'note', label: 'Notes' },
+    { id: 'bookmark', label: 'Bookmarks' }
   ];
 
   return {
@@ -109,10 +156,12 @@ export function useAnnotationsData() {
     typeFilter, setTypeFilter,
     categoryFilter, setCategoryFilter,
     viewMode, setViewMode,
+    sortOrder, setSortOrder,
     selectedBookId, setSelectedBookId,
     exportDialogOpen, setExportDialogOpen,
     quoteCardData, setQuoteCardData,
     uniqueBooks,
+    stats,
     displayedAnnotations,
     groupedAnnotations,
     fetchAnnotations,

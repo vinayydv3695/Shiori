@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Folder, FolderOpen, Sparkles, MoreVertical, Plus, Trash2, Edit, FolderPlus, Search, Heart, Library, Star, Bookmark, BookOpen, Target, Lightbulb, Palette, Flame } from 'lucide-react';
+import { Folder, FolderOpen, Zap, MoreVertical, Plus, Trash2, Edit, FolderPlus, Search, Heart, Library, Star, Bookmark, BookOpen, Target, Lightbulb, Palette, Flame } from 'lucide-react';
 import { useShelfStore } from '../../store/shelfStore';
 import { useToast } from '../../store/toastStore';
 import { api, Shelf } from '../../lib/tauri';
@@ -179,7 +179,7 @@ const isDefaultBlueColor = (c?: string) => !c || c.toLowerCase() === '#3b82f6' |
                 <Folder className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               )}
               {shelf.isSmart && (
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <Zap className="w-3.5 h-3.5 text-primary" />
               )}
               <span
                 className="flex-1 text-sm font-medium truncate flex items-center gap-1.5"
@@ -191,7 +191,7 @@ const isDefaultBlueColor = (c?: string) => !c || c.toLowerCase() === '#3b82f6' |
                 {shelf.icon === 'bookmark' && <Bookmark className="w-3.5 h-3.5" />}
                 {shelf.icon === 'bookopen' && <BookOpen className="w-3.5 h-3.5" />}
                 {shelf.icon === 'target' && <Target className="w-3.5 h-3.5" />}
-                {shelf.icon === 'sparkles' && <Sparkles className="w-3.5 h-3.5" />}
+                {(shelf.icon === 'sparkles' || shelf.icon === 'zap') && <Zap className="w-3.5 h-3.5" />}
                 {shelf.icon === 'lightbulb' && <Lightbulb className="w-3.5 h-3.5" />}
                 {shelf.icon === 'palette' && <Palette className="w-3.5 h-3.5" />}
                 {shelf.icon === 'flame' && <Flame className="w-3.5 h-3.5" />}

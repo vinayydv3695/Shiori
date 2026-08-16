@@ -14,7 +14,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
-  BookOpen, Clock, Sparkles, ArrowRight,
+  BookOpen, Clock, ArrowRight,
   ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, BarChart2, ThumbsUp, Layers
 } from 'lucide-react'
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
@@ -487,7 +487,7 @@ export function HomePage({
           <div className="bento-widget flex items-center justify-center text-center p-8">
             <div className="flex flex-col items-center max-w-md gap-4">
               <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-2">
-                <Sparkles size={32} />
+                <BookOpen size={32} />
               </div>
               <h2 className="text-2xl font-bold">Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</h2>
               <p className="text-muted-foreground">

@@ -5,7 +5,7 @@ import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download } from '@/components/icons';
-import { StickyNote, ListTree, SearchX, Sparkles } from 'lucide-react';
+import { StickyNote, ListTree, SearchX } from 'lucide-react';
 import { parseTocLocationToIndex, findCurrentTocEntry } from '@/lib/toc';
 import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';

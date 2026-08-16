@@ -1,5 +1,6 @@
 import type { DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { BookmarkPlus } from '@/components/icons';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TranslationPopupProps {
   mode: 'translate' | 'define';
@@ -39,29 +40,53 @@ export function TranslationPopup({
             Define
           </button>
         </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {onAddVocabulary && !loading && !error && ((mode === 'translate' && translationResult) || (mode === 'define' && dictionaryResult)) && (
-            <button
-              className="text-selection-toolbar-btn"
-              onClick={onAddVocabulary}
-              title="Add to Vocabulary"
-              style={{ padding: '4px', width: 'auto', background: 'transparent' }}
-            >
-              <BookmarkPlus size={14} />
-            </button>
-          )}
-          <button
-            className="text-selection-toolbar-btn translation-popup-close-btn"
-            onClick={onClose}
-            title="Close"
-            style={{ padding: '4px', width: 'auto', background: 'transparent' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
+        <TooltipProvider delayDuration={150}>
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            {onAddVocabulary && !loading && !error && ((mode === 'translate' && translationResult) || (mode === 'define' && dictionaryResult)) && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="text-selection-toolbar-btn"
+                    onClick={onAddVocabulary}
+                    aria-label="Add to Vocabulary"
+                    style={{ padding: '4px', width: 'auto', background: 'transparent' }}
+                  >
+                    <BookmarkPlus size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="bottom"
+                  sideOffset={6}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-popover/95 border border-border/40 shadow-lg text-foreground backdrop-blur-md"
+                >
+                  Add to Vocabulary
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="text-selection-toolbar-btn translation-popup-close-btn"
+                  onClick={onClose}
+                  aria-label="Close"
+                  style={{ padding: '4px', width: 'auto', background: 'transparent' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="bottom"
+                sideOffset={6}
+                className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-popover/95 border border-border/40 shadow-lg text-foreground backdrop-blur-md"
+              >
+                Close
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </div>
       
       <div className="translation-popup-body">

@@ -1,4 +1,4 @@
-import { Book, ImageIcon, Sparkles, CheckCircle2, Shapes } from 'lucide-react';
+import { Book, ImageIcon, Layers, CheckCircle2, Shapes } from 'lucide-react';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { useOnboardingState } from '../hooks/useOnboardingState';
@@ -74,7 +74,7 @@ export function ContentTypeStep({ onBack, onNext }: ContentTypeStepProps) {
               }`}
             >
               <div className="flex items-center gap-6">
-                <Sparkles size={32} className={preferredContentType === 'both' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'} strokeWidth={1.5} />
+                <Layers size={32} className={preferredContentType === 'both' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'} strokeWidth={1.5} />
                 <span className={`text-xl font-medium tracking-tight ${preferredContentType === 'both' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Both</span>
               </div>
               <CheckCircle2 size={24} className={`transition-opacity duration-200 ${preferredContentType === 'both' ? 'opacity-100 text-primary' : 'opacity-0'}`} />

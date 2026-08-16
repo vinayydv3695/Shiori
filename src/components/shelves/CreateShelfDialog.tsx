@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Sparkles, BookMarked, Loader2, Library, Star, Heart, Bookmark, BookOpen, Target, Lightbulb, Palette, Flame, FolderOpen } from 'lucide-react';
+import { X, Zap, ImageIcon, BookMarked, Loader2, Library, Star, Heart, Bookmark, BookOpen, Target, Lightbulb, Palette, Flame, FolderOpen } from 'lucide-react';
 import { api, Shelf } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useShelfStore } from '../../store/shelfStore';
@@ -18,11 +18,11 @@ interface CreateShelfDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editShelf?: Shelf | null;
-  parentId?: number;
+  parentId?: number | null;
 }
 
 const PRESET_COLORS = [
-  '#3b82f6', // blue
+  '#3b82f6', // blue (default)
   '#ef4444', // red
   '#10b981', // green
   '#f59e0b', // amber
@@ -30,6 +30,8 @@ const PRESET_COLORS = [
   '#ec4899', // pink
   '#06b6d4', // cyan
   '#84cc16', // lime
+  '#f97316', // orange
+  '#6366f1', // indigo
 ];
 
 const PRESET_ICONS = [
@@ -39,7 +41,7 @@ const PRESET_ICONS = [
   { id: 'bookmark', icon: Bookmark },
   { id: 'bookopen', icon: BookOpen },
   { id: 'target', icon: Target },
-  { id: 'sparkles', icon: Sparkles },
+  { id: 'zap', icon: Zap },
   { id: 'lightbulb', icon: Lightbulb },
   { id: 'palette', icon: Palette },
   { id: 'flame', icon: Flame },
@@ -242,7 +244,7 @@ export const CreateShelfDialog = ({
                     {[
                       { id: 'mixed', label: 'Mixed', icon: FolderOpen },
                       { id: 'books', label: 'Books', icon: BookMarked },
-                      { id: 'manga', label: 'Manga', icon: Sparkles }
+                      { id: 'manga', label: 'Manga', icon: ImageIcon }
                     ].map(type => {
                       const Icon = type.icon;
                       const isActive = shelfType === type.id || (type.id === 'mixed' && shelfType === 'regular');

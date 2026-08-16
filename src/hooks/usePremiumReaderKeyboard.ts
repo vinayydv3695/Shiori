@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useReaderUIStore, useReadingSettings } from '@/store/premiumReaderStore';
 
-interface PremiumReaderKeyboardHandlers {
+export interface PremiumReaderKeyboardHandlers {
   onPrevChapter?: () => void;
   onNextChapter?: () => void;
   onPrevPage?: () => void;
   onNextPage?: () => void;
+  onScrollUp?: () => void;
+  onScrollDown?: () => void;
+  isPaginatedOrTwoPage?: boolean;
 }
 
 /**
@@ -21,10 +24,12 @@ interface PremiumReaderKeyboardHandlers {
  * - s: Toggle sidebar
  * - t: Open TOC sidebar
  * - Escape: Close sidebar or exit focus mode
- * - ArrowLeft / Left: Previous chapter
- * - ArrowRight / Right: Next chapter
- * - Space / PageDown: Next page/scroll
- * - Shift+Space / PageUp: Previous page/scroll
+ * - ArrowLeft / Left: Previous Page (in paginated/2-page) or Previous Chapter (in vertical mode)
+ * - ArrowRight / Right: Next Page (in paginated/2-page) or Next Chapter (in vertical mode)
+ * - ArrowUp / Up: Line scroll up (in vertical) or Previous Page (in paginated/2-page)
+ * - ArrowDown / Down: Line scroll down (in vertical) or Next Page (in paginated/2-page)
+ * - Space / PageDown: Next page / scroll down by screen
+ * - Shift+Space / PageUp: Previous page / scroll up by screen
  */
 export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers = {}) {
   // Use a ref for handlers to avoid re-registering the event listener on every render
@@ -118,36 +123,69 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
-      // ArrowLeft: Previous chapter
+      // ArrowLeft / Left: Previous Page in 2-page/paginated, or Previous Chapter in vertical mode
       if (key === 'ArrowLeft' || key === 'Left') {
         e.preventDefault();
-        handlersRef.current.onPrevChapter?.();
+        if (isMod) {
+          handlersRef.current.onPrevChapter?.();
+        } else if (handlersRef.current.isPaginatedOrTwoPage) {
+          handlersRef.current.onPrevPage?.();
+        } else {
+          handlersRef.current.onPrevChapter?.();
+        }
         return;
       }
 
-      // ArrowRight: Next chapter
+      // ArrowRight / Right: Next Page in 2-page/paginated, or Next Chapter in vertical mode
       if (key === 'ArrowRight' || key === 'Right') {
         e.preventDefault();
-        handlersRef.current.onNextChapter?.();
+        if (isMod) {
+          handlersRef.current.onNextChapter?.();
+        } else if (handlersRef.current.isPaginatedOrTwoPage) {
+          handlersRef.current.onNextPage?.();
+        } else {
+          handlersRef.current.onNextChapter?.();
+        }
         return;
       }
 
-      // Shift+Space / PageUp: Previous Page (must be checked BEFORE Space)
+      // ArrowUp / Up: Scroll line up in vertical mode, or Previous Page in 2-page/paginated mode
+      if (key === 'ArrowUp' || key === 'Up') {
+        e.preventDefault();
+        if (handlersRef.current.isPaginatedOrTwoPage) {
+          handlersRef.current.onPrevPage?.();
+        } else if (handlersRef.current.onScrollUp) {
+          handlersRef.current.onScrollUp();
+        } else {
+          handlersRef.current.onPrevPage?.();
+        }
+        return;
+      }
+
+      // ArrowDown / Down: Scroll line down in vertical mode, or Next Page in 2-page/paginated mode
+      if (key === 'ArrowDown' || key === 'Down') {
+        e.preventDefault();
+        if (handlersRef.current.isPaginatedOrTwoPage) {
+          handlersRef.current.onNextPage?.();
+        } else if (handlersRef.current.onScrollDown) {
+          handlersRef.current.onScrollDown();
+        } else {
+          handlersRef.current.onNextPage?.();
+        }
+        return;
+      }
+
+      // Shift+Space / PageUp: Previous Page / Scroll up by screen (must be checked BEFORE Space)
       if ((key === ' ' && e.shiftKey) || key === 'PageUp') {
-        if (handlersRef.current.onPrevPage) {
-          e.preventDefault();
-          handlersRef.current.onPrevPage();
-        }
+        e.preventDefault();
+        handlersRef.current.onPrevPage?.();
         return;
       }
 
-      // Space / PageDown: Next Page
+      // Space / PageDown: Next Page / Scroll down by screen
       if (key === ' ' || key === 'PageDown') {
-        // Only prevent default if we have a handler, otherwise let browser scroll
-        if (handlersRef.current.onNextPage) {
-          e.preventDefault();
-          handlersRef.current.onNextPage();
-        }
+        e.preventDefault();
+        handlersRef.current.onNextPage?.();
         return;
       }
     };

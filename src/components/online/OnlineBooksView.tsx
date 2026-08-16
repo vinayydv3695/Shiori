@@ -20,9 +20,8 @@ import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import { DownloadsButton } from './DownloadQueuePanel';
 import { useBookOpen } from '@/hooks/useBookOpen';
 import { invoke } from '@tauri-apps/api/core';
-import { api } from '@/lib/tauri';
-
-import { Globe, BookOpen, Library, Zap, type LucideIcon } from 'lucide-react';
+import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
+import { Globe, BookOpen, Library, Zap, Search, Filter, X, type LucideIcon } from 'lucide-react';
 
 const SOURCE_ICONS: Record<string, LucideIcon> = {
   all: Globe,
@@ -212,9 +211,13 @@ export function OnlineBooksView() {
     }
   };
 
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const hasFilters = Object.keys(filters || {}).length > 0;
+
   return (
     <div className="flex flex-col h-full bg-background relative z-10">
-      <div className="relative">
+      {/* ── Mobile Search Header ── */}
+      <div className="md:hidden">
         <OnlineSearchHeader 
           kind="books"
           title="Online Library"
@@ -231,48 +234,118 @@ export function OnlineBooksView() {
         />
       </div>
 
-      {/* Executive Source Selector Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto px-4 md:px-8 py-3 border-b border-border/40 bg-background/60 backdrop-blur-xl no-scrollbar z-10">
-        <button
-          onClick={() => {
-            setSource('all');
-            setPage(1);
-          }}
-          className={cn(
-            "relative flex items-center gap-2 shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 shadow-xs",
-            source === 'all'
-              ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-              : "bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card border border-border/50"
-          )}
-        >
-          <Globe className="w-3.5 h-3.5 stroke-[2.2]" />
-          <span>All Sources</span>
-        </button>
-        {enabledBookSources.map((s) => {
-          const IconComp = SOURCE_ICONS[s.id] || Globe;
-          const label = SOURCE_FILTER_LABELS[s.id] ?? s.name;
-          const isActive = source === s.id;
+      {/* ── Desktop Unified Compact Toolbar ── */}
+      <div className="hidden md:flex items-center justify-between gap-4 lg:gap-6 px-6 lg:px-10 py-3.5 border-b border-border/50 bg-background/85 dark:bg-background/85 backdrop-blur-2xl sticky top-0 z-30 transition-colors shadow-xs">
+        {/* Left: Segmented Source Selector Pills */}
+        <div className="flex items-center gap-1.5 p-1.5 bg-card/85 rounded-full border border-border/60 backdrop-blur-xl shadow-xs shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setSource('all');
+              setPage(1);
+            }}
+            className={cn(
+              "relative flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer select-none",
+              source === 'all'
+                ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+            )}
+          >
+            <Globe className="w-4 h-4 stroke-[2.2]" />
+            <span>All Sources</span>
+          </button>
+          {enabledBookSources.map((s) => {
+            const IconComp = SOURCE_ICONS[s.id] || Globe;
+            const label = SOURCE_FILTER_LABELS[s.id] ?? s.name;
+            const isActive = source === s.id;
 
-          return (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSource(s.id as BookSourceFilter);
-                setPage(1);
+            return (
+              <button
+                type="button"
+                key={s.id}
+                onClick={() => {
+                  setSource(s.id as BookSourceFilter);
+                  setPage(1);
+                }}
+                className={cn(
+                  "relative flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-bold transition-all duration-200 cursor-pointer select-none",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                )}
+              >
+                <IconComp className={cn("w-4 h-4 stroke-[2.2]", isActive ? "text-primary-foreground" : "text-primary")} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Center: Search Bar with Filters & Submit Action */}
+        <div className="flex-1 max-w-2xl lg:max-w-3xl relative group">
+          <div className="flex items-center bg-card/75 hover:bg-card focus-within:bg-card border border-border/50 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 rounded-2xl p-1.5 transition-all duration-300 shadow-xs backdrop-blur-xl">
+            <Search className="w-5 h-5 text-muted-foreground ml-3.5 shrink-0 transition-colors duration-300 group-focus-within:text-primary stroke-[2.2]" />
+            <input
+              value={searchQuery}
+              onChange={(e) => useOnlineSearchStore.getState().setQuery('online-books', e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') doSearch(1);
               }}
-              className={cn(
-                "relative flex items-center gap-2 shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all duration-200 shadow-xs",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
-                  : "bg-card/70 text-muted-foreground hover:text-foreground hover:bg-card border border-border/50"
-              )}
-            >
-              <IconComp className={cn("w-3.5 h-3.5 stroke-[2.2]", isActive ? "text-primary-foreground" : "text-primary")} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
+              placeholder="Search online books by title or author..."
+              className="w-full bg-transparent border-none outline-none text-sm md:text-base font-semibold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-2 px-3.5 h-10 transition-all"
+            />
+            
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  useOnlineSearchStore.getState().setQuery('online-books', '');
+                  setHasSearched(false);
+                }}
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors mr-1.5 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 shrink-0 pr-1">
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(true)}
+                className={cn(
+                  "p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer",
+                  hasFilters
+                    ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
+                )}
+                title="Advanced Filters"
+              >
+                <Filter className="w-4 h-4 stroke-[2.2]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => doSearch(1)}
+                disabled={loading || (!searchQuery.trim() && !hasFilters)}
+                className="px-5 py-2 text-sm rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs shadow-primary/20 active:scale-95 cursor-pointer h-10"
+              >
+                Search
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Downloads Button */}
+        <div className="flex items-center gap-2 shrink-0">
+          <DownloadsButton />
+        </div>
       </div>
+
+      <AdvancedOnlineSearchDialog 
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        onSearch={() => doSearch(1)}
+      />
 
       {!hasSearched ? (
         <OnlineBooksDashboard />

@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api, type Book } from '@/lib/tauri'
 import { useToast } from '@/store/toastStore'
+import { useLibraryStore } from '@/store/libraryStore'
+import { EditorialSeriesCover } from './SeriesCard'
 import { compareBooksNatural, parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
 
 function getBookReadStatus(book: Book) {
@@ -79,12 +81,16 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   const nextUnreadBook = useMemo(() => sortedBooks.find(b => getBookReadStatus(b) !== 'completed'), [sortedBooks]);
   const nextVolNum = nextUnreadBook ? (nextUnreadBook.series_index ?? parseVolumeOrChapterNumber(nextUnreadBook)) : null;
 
-  if (!series) return null;
-
+  const isRss = (series?.books ?? []).some((b) => b.tags?.some((t: any) => t.name === 'RSS')) ||
+    /rss|feed|daily reading|daily digest|newsletter/i.test(series?.title || '');
   const readBooks = series.books.length - sortedBooks.filter(b => getBookReadStatus(b) !== 'completed').length;
   const progressPercent = series.books.length > 0 ? Math.round((readBooks / series.books.length) * 100) : 0;
 
-  const status = 'Ongoing';
+  const status = readBooks === series.books.length && series.books.length > 0
+    ? 'Completed'
+    : readBooks > 0
+      ? 'Reading'
+      : 'Planning';
   const heroImage = coverUrl || anilistBanner;
 
   return (
@@ -108,9 +114,12 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
           {coverUrl ? (
             <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground/30 bg-muted">
-              <BookOpen className="w-10 h-10 mb-2" />
-            </div>
+            <EditorialSeriesCover
+              title={series.title}
+              bookCount={series.bookCount}
+              authors={Array.from(series.authors)}
+              isRss={isRss}
+            />
           )}
         </div>
 
@@ -284,12 +293,16 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   const nextUnreadBook = useMemo(() => sortedBooks.find(b => getBookReadStatus(b) !== 'completed'), [sortedBooks]);
   const nextVolNum = nextUnreadBook ? (nextUnreadBook.series_index ?? parseVolumeOrChapterNumber(nextUnreadBook)) : null;
 
-  if (!series) return null;
-
+  const isRss = (series?.books ?? []).some((b) => b.tags?.some((t: any) => t.name === 'RSS')) ||
+    /rss|feed|daily reading|daily digest|newsletter/i.test(series?.title || '');
   const readBooks = series.books.length - sortedBooks.filter(b => getBookReadStatus(b) !== 'completed').length;
   const progressPercent = series.books.length > 0 ? Math.round((readBooks / series.books.length) * 100) : 0;
 
-  const status = 'Ongoing';
+  const status = readBooks === series.books.length && series.books.length > 0
+    ? 'Completed'
+    : readBooks > 0
+      ? 'Reading'
+      : 'Planning';
   const heroImage = coverUrl || anilistBanner;
 
   return (
@@ -314,9 +327,12 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
             {coverUrl ? (
               <img src={coverUrl} alt={series.title} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 bg-muted">
-                <BookOpen className="w-7 h-7" />
-              </div>
+              <EditorialSeriesCover
+                title={series.title}
+                bookCount={series.bookCount}
+                authors={Array.from(series.authors)}
+                isRss={isRss}
+              />
             )}
           </div>
 
@@ -703,13 +719,14 @@ export const SeriesView = memo(function SeriesView({
     try {
       for (const book of series.books) {
         if (book.id && getBookReadStatus(book) !== 'completed') {
-          await api.updateBook({ ...book, reading_status: 'completed' });
+          await api.updateReadingStatus(book.id, 'completed');
         }
       }
-      toast.success('Updated', 'All volumes marked as read. Note: Refresh required to see changes.');
-     } catch (err) {
-       logger.error(err);
-       toast.error('Error', 'Failed to mark volumes as read.');
+      await useLibraryStore.getState().loadInitialBooks();
+      toast.success('Updated', 'All volumes marked as completed.');
+    } catch (err) {
+      logger.error(err);
+      toast.error('Error', 'Failed to mark volumes as read.');
     }
   };
 

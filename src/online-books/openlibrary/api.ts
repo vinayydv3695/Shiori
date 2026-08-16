@@ -11,8 +11,8 @@ export async function fetchTrendingBooks(): Promise<OpenLibraryWork[]> {
   return data.works;
 }
 
-export async function fetchSubjectBooks(subject: string): Promise<OpenLibrarySubjectResponse['works']> {
-  const response = await fetch(`${BASE_URL}/subjects/${encodeURIComponent(subject.toLowerCase())}.json?limit=12`);
+export async function fetchSubjectBooks(subject: string, limit: number = 30): Promise<OpenLibrarySubjectResponse['works']> {
+  const response = await fetch(`${BASE_URL}/subjects/${encodeURIComponent(subject.toLowerCase())}.json?limit=${limit}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch books for subject ${subject}`);
   }

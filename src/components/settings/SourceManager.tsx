@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useSourceStore } from '@/store/sourceStore';
 import { useSourceHealthStore } from '@/store/sourceHealthStore';
 import { pluginApi, type SourceHealth } from '@/lib/pluginSources';
-import { ChevronDown, ChevronUp, ExternalLink, Database, Globe, Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Database, Globe, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -310,7 +310,7 @@ export function SourceManager() {
       <motion.div variants={itemVariants} className="relative z-10">
         <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
           <div className="p-2 rounded-xl bg-primary/10 text-primary">
-            <Sparkles className="w-6 h-6" />
+            <Globe className="w-6 h-6" />
           </div>
           <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
             Plugin Community

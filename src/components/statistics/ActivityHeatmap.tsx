@@ -139,7 +139,7 @@ export function ActivityHeatmap({ data, currentStreak = 0 }: ActivityHeatmapProp
                         className={cn(
                           "w-full aspect-square rounded-[2px] transition-all cursor-pointer relative",
                           getIntensityClass(level),
-                          isStreak ? "ring-1 ring-orange-500/80 shadow-[0_0_8px_rgba(249,115,22,0.4)] z-10" : "hover:ring-1 ring-ring ring-offset-1 ring-offset-background"
+                          isStreak ? "ring-1 ring-primary/80 shadow-xs z-10" : "hover:ring-1 ring-ring ring-offset-1 ring-offset-background"
                         )}
                       />
                     </TooltipTrigger>

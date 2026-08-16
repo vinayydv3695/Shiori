@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useState, useCallback } from 'react'
-import { BookOpen, Clock, Sparkles, Rss } from 'lucide-react'
+import { BookOpen, Clock, PlusCircle, Rss } from 'lucide-react'
 import { StatsBar } from './StatsBar'
 import { HomeSection } from './HomeSection'
 import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
@@ -106,7 +106,7 @@ export function BooksHome({ onOpenBook, onViewRSS }: BooksHomeProps) {
 
             <div className="bento-widget">
                 <div className="bento-widget-header">
-                    <h2 className="bento-widget-title flex items-center gap-2"><Sparkles size={18} /> Recently Added</h2>
+                    <h2 className="bento-widget-title flex items-center gap-2"><PlusCircle size={18} /> Recently Added</h2>
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
                     {recentlyAdded.map((book) => (

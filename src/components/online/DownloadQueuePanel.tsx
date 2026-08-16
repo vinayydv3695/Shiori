@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { create } from 'zustand';
-import { Download, X, Inbox, Sparkles, CheckCircle2, Loader2 } from 'lucide-react';
+import { Download, X, Inbox, CheckCircle2, Loader2 } from 'lucide-react';
 import { useOnlineDownloadStore, type DownloadProgress } from '@/store/onlineDownloadStore';
 import { DownloadProgressBar } from './DownloadProgressBar';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ export const useDownloadQueueUI = create<DownloadQueueUIState>((set) => ({
 // DownloadsButton — icon + active-count badge; opens the queue panel.
 // ──────────────────────────────────────────────────────────────────────────
 
-export function DownloadsButton() {
+export function DownloadsButton({ className }: { className?: string } = {}) {
   const activeCount = useOnlineDownloadStore((s) => {
     let n = 0;
     for (const d of Object.values(s.downloads)) {
@@ -50,22 +50,27 @@ export function DownloadsButton() {
       onClick={() => setOpen(true)}
       title={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
       className={cn(
-        "relative flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-300 border shadow-xs outline-none group cursor-pointer",
+        "relative flex items-center gap-2.5 px-5 py-2 h-11 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 border shadow-xs outline-none group cursor-pointer select-none active:scale-95",
         activeCount > 0 
-          ? "bg-primary text-primary-foreground border-primary/50 shadow-md shadow-primary/25 scale-[1.02]" 
-          : "bg-card/75 hover:bg-card text-foreground border-border/50 hover:border-primary/40"
+          ? "bg-gradient-to-r from-primary via-primary/95 to-primary/85 text-primary-foreground border-primary/40 shadow-md shadow-primary/25 scale-[1.02]" 
+          : "bg-card/75 hover:bg-card text-foreground border-border/50 hover:border-primary/40 backdrop-blur-xl",
+        className
       )}
     >
       <div className="relative flex items-center justify-center">
-        <Download className={cn("w-3.5 h-3.5 transition-transform duration-300 group-hover:-translate-y-0.5", activeCount > 0 ? "text-primary-foreground" : "text-primary")} />
+        {activeCount > 0 ? (
+          <Loader2 className="w-4 h-4 animate-spin text-primary-foreground" />
+        ) : (
+          <Download className="w-4 h-4 transition-transform duration-200 group-hover:translate-y-[1px] text-primary" />
+        )}
         {activeCount > 0 && (
           <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
         )}
       </div>
-      <span className="hidden sm:inline">Downloads</span>
+      <span className="tracking-tight">Downloads</span>
       {totalCount > 0 && (
         <span className={cn(
-          "min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center border",
+          "min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-black flex items-center justify-center border shadow-2xs",
           activeCount > 0
             ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
             : "bg-primary/15 text-primary border-primary/25"

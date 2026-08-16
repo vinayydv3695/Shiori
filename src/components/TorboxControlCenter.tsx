@@ -26,7 +26,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Sparkles,
   RefreshCw,
   Trash2,
 } from 'lucide-react'

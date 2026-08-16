@@ -145,6 +145,7 @@ export function ViewRouter({
               onViewDetails={handleViewDetails}
               onEditBook={handleEditBook}
               onDeleteBook={handleDeleteBook}
+              onOpenStatistics={() => handleNavigate('statistics')}
               dialogs={dialogs}
             />
           </Suspense>

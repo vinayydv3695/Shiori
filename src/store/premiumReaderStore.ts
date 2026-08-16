@@ -149,7 +149,7 @@ import { isAndroid } from '@/lib/tauri';
 const defaultSettings = {
   theme: 'paper' as ReaderTheme,
   fontFamily: 'eb-garamond',
-  fontSize: isAndroid ? 16 : 14,
+  fontSize: isAndroid ? 16 : 24,
   lineHeight: isAndroid ? 1.8 : 1.6,
   paragraphSpacing: isAndroid ? '2em' : '1em',
   letterSpacing: isAndroid ? 'wide' : 'normal',
@@ -220,7 +220,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     fontFamily: normalizeLegacyFontPreference(
       typeof source.fontFamily === 'string' ? source.fontFamily : defaultSettings.fontFamily
     ),
-    fontSize: clampNumber(source.fontSize, defaultSettings.fontSize, 12, 32),
+    fontSize: clampNumber(source.fontSize, defaultSettings.fontSize, 12, 48),
     lineHeight: clampNumber(source.lineHeight, defaultSettings.lineHeight, 1.2, 3),
     paragraphSpacing: typeof source.paragraphSpacing === 'string' ? source.paragraphSpacing : defaultSettings.paragraphSpacing,
     letterSpacing: typeof source.letterSpacing === 'string' ? source.letterSpacing : defaultSettings.letterSpacing,
@@ -229,7 +229,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     textColor: typeof source.textColor === 'string' ? source.textColor : defaultSettings.textColor,
     width: clampStringEnum(source.width, defaultSettings.width, WIDTH_OPTIONS),
     margin: clampNumber(source.margin, defaultSettings.margin, 0, 80),
-    twoPageView: typeof source.twoPageView === 'boolean' ? source.twoPageView : defaultSettings.twoPageView,
+    twoPageView: false,
     isPaginated: typeof source.isPaginated === 'boolean' ? source.isPaginated : defaultSettings.isPaginated,
     continuousFlow: typeof source.continuousFlow === 'boolean' ? source.continuousFlow : defaultSettings.continuousFlow,
     keepScreenOn: typeof source.keepScreenOn === 'boolean' ? source.keepScreenOn : defaultSettings.keepScreenOn,
@@ -351,7 +351,10 @@ export const useReadingSettings = create<ReadingSettings>()(
         set({ width: widths[nextIndex] });
       },
 
-      toggleTwoPageView: () => set((state) => ({ twoPageView: !state.twoPageView })),
+      toggleTwoPageView: () => set((state) => ({
+        twoPageView: !state.twoPageView,
+        continuousFlow: !state.twoPageView ? false : state.continuousFlow,
+      })),
 
       setIsPaginated: (paginated) => {
         if (paginated) {

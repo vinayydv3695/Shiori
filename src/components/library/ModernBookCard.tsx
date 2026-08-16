@@ -14,7 +14,7 @@
 import { useState, useEffect, useRef, memo } from 'react'
 import { Heart, Info, Rss } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
+import { cn, formatRssOrDateTitle } from '@/lib/utils'
 import { type Book, type ReadingProgress } from '@/lib/tauri'
 import { requestReadingProgress } from '@/lib/readingProgressCache'
 import {
@@ -290,6 +290,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   }
 
   const authorStr = book.authors?.map((a) => a.name).join(', ') || 'Unknown Author'
+  const parsedTitle = formatRssOrDateTitle(book.title);
   const hue = (book.id || 0) * 137.508 % 360;
   const coverColor = `hsl(${hue}, 40%, 30%)`;
 
@@ -361,20 +362,47 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         {/* Fallback (no cover) */}
         {(!coverUrl || imgError) && imgLoaded === false && !coverLoading && (
           <div 
-            className="absolute inset-0 z-0 p-3 pt-9 flex flex-col justify-between"
-            style={{
-              background: `linear-gradient(135deg, ${coverColor} 0%, hsl(${hue}, 50%, 20%) 100%)`,
-            }}
+            className="absolute inset-0 z-0 p-4 pt-12 pb-3.5 flex flex-col items-center justify-between select-none overflow-hidden bg-card border border-border/50 text-foreground text-center"
           >
-            <div className={cn("font-serif text-white font-medium leading-tight line-clamp-4 drop-shadow-md text-left",
-              coverSize === 'small' ? 'text-xs' : coverSize === 'medium' ? 'text-sm' : 'text-base'
-            )}>
-              {book.title}
+            {/* Subtle Spine Accent */}
+            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary/35 pointer-events-none" />
+
+            {/* Center Area: Icon + Title + Date Subtitle + Author */}
+            <div className="relative z-10 my-auto flex flex-col items-center justify-center w-full px-1">
+              <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xs mb-2">
+                {isRss ? (
+                  <Rss className="w-4 h-4 text-primary" />
+                ) : (
+                  <BookOpen className="w-4 h-4 text-primary" />
+                )}
+              </div>
+
+              <h3 className={cn(
+                "font-bold text-foreground leading-snug line-clamp-2 text-center tracking-tight",
+                coverSize === 'small' ? 'text-xs' : coverSize === 'medium' ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
+              )}>
+                {parsedTitle.mainTitle}
+              </h3>
+
+              {parsedTitle.dateSubtitle && (
+                <span className="text-[11px] font-bold text-primary mt-0.5 tracking-tight">
+                  {parsedTitle.dateSubtitle}
+                </span>
+              )}
+
+              <p className={cn(
+                "text-muted-foreground font-medium truncate text-center w-full mt-1 opacity-80",
+                coverSize === 'small' ? 'text-[10px]' : 'text-xs'
+              )}>
+                {authorStr === 'Unknown Author' && isRss ? 'Daily RSS Feed' : authorStr}
+              </p>
             </div>
-            <div className={cn("mt-auto text-white/80 font-medium truncate text-left w-full",
-              coverSize === 'small' ? 'text-[10px]' : 'text-xs'
-            )}>
-              {authorStr}
+
+            {/* Bottom Tag */}
+            <div className="relative z-10 flex items-center justify-center w-full pt-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/40">
+                {isRss ? 'RSS Feed' : book.file_format.toUpperCase()}
+              </span>
             </div>
           </div>
         )}
@@ -410,6 +438,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         <button
           onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
           aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+          title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
           className={cn(
             'absolute top-2.5 right-2.5 z-10',
             'w-5 h-5 rounded flex items-center justify-center',
@@ -424,10 +453,12 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         </button>
 
         {/* Format badge */}
-        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
-          <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} onOpen={() => onOpen(book.id!)} />
-          {isRss && (
-            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-orange-500/90 text-white border border-white/20">
+        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5 pointer-events-none">
+          <div className="pointer-events-auto">
+            <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} onOpen={() => onOpen(book.id!)} />
+          </div>
+          {isRss && (coverUrl && !imgError) && (
+            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-orange-500/90 text-white border border-white/20 pointer-events-auto">
               <Rss size={10} />
               RSS
             </span>
@@ -453,9 +484,9 @@ export const PremiumBookCard = memo(function PremiumBookCard({
                 book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-xs sm:text-sm',
                 book.file_format !== 'online-manga' && coverSize === 'large' && 'text-sm sm:text-base',
               )}
-              title={book.title}
+              title={parsedTitle.fullFormattedTitle}
             >
-              {book.title}
+              {parsedTitle.fullFormattedTitle}
             </h3>
             {authorStr && authorStr !== 'Unknown Author' && (
               <p

@@ -1,3 +1,12 @@
+# Release Notes (v2.3.26)
+
+## Improvements & Fixes
+
+- **Reading Experience & Keyboard Navigation** — Disentangled `PageUp`/`PageDown` (page screen scrolling) from `Arrow` keys (line scrolling and chapter turns) across all reading modes.
+- **Enhanced Dictionary & Vocabulary Workflow** — Added theme-styled tooltips with backdrop blur to dictionary actions and automated graceful exit animations upon saving definitions directly to notes/vocabulary.
+- **Default Desktop Font Scaling** — Set default desktop book reader font size to 24px with enhanced typography scaling up to 48px.
+- **Navigation & Library Polish** — Maintained clean desktop navigation hierarchy, enhanced book and manga cover sizing, reading analytics hero statistics, and mini activity heatmap.
+
 # Release Notes (v2.3.25)
 
 ## Improvements

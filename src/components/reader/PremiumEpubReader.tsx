@@ -283,7 +283,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
-  const [adjacentChapter, setAdjacentChapter] = useState<Chapter | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -314,11 +313,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
       // Save current scroll position before navigating away
       if (canvasRef.current && currentChapter) {
-        const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
-        const scrollRatio = scrollHeight > clientHeight
-          ? scrollTop / (scrollHeight - clientHeight)
-          : 0;
-        scrollPositionsRef.current.set(currentIndex, scrollRatio);
+        const isHoriz = canvasRef.current.classList.contains('premium-reading-canvas--paginated') ||
+                        canvasRef.current.classList.contains('premium-reading-canvas--two-page') ||
+                        !continuousFlow;
+        if (isHoriz) {
+          const { scrollLeft, scrollWidth, clientWidth } = canvasRef.current;
+          const scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
+          scrollPositionsRef.current.set(currentIndex, scrollRatio);
+        } else {
+          const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
+          const scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
+          scrollPositionsRef.current.set(currentIndex, scrollRatio);
+        }
       }
 
       // Update search highlight state
@@ -337,20 +343,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
       setCurrentChapter(processedChapter);
       setCurrentIndex(index);
-
-      // Load next chapter for two-page view if enabled
-      const shouldRenderTwoPage = useReadingSettings.getState().twoPageView;
-      if (shouldRenderTwoPage && metadata && index < metadata.total_chapters - 1) {
-        try {
-          const processedNext = await loadProcessedChapter(bookId, index + 1, termToHighlight);
-          setAdjacentChapter(processedNext);
-        } catch {
-          setAdjacentChapter(null);
-        }
-      } else {
-        setAdjacentChapter(null);
-      }
-
       setIsLoading(false);
 
       const progressPercent = metadata
@@ -372,31 +364,32 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (canvasRef.current) {
-            if (initialScrollRatio !== undefined && initialScrollRatio > 0 && !termToHighlight) {
-              const isPag = canvasRef.current.classList.contains('premium-reading-canvas--paginated');
-              if (isPag) {
+            const isHoriz = canvasRef.current.classList.contains('premium-reading-canvas--paginated') ||
+                            canvasRef.current.classList.contains('premium-reading-canvas--two-page') ||
+                            !continuousFlow;
+
+            if (initialScrollRatio !== undefined && !termToHighlight) {
+              if (isHoriz) {
                 const { scrollWidth, clientWidth } = canvasRef.current;
                 canvasRef.current.scrollLeft = initialScrollRatio * (scrollWidth - clientWidth);
-              } else if (!continuousFlow) {
+              } else {
                 const { scrollHeight, clientHeight } = canvasRef.current;
                 canvasRef.current.scrollTop = initialScrollRatio * (scrollHeight - clientHeight);
               }
             } else {
               const savedPos = scrollPositionsRef.current.get(index);
               if (savedPos && savedPos > 0 && !termToHighlight) {
-                const isPag = canvasRef.current.classList.contains('premium-reading-canvas--paginated');
-                if (isPag) {
+                if (isHoriz) {
                   const { scrollWidth, clientWidth } = canvasRef.current;
                   canvasRef.current.scrollLeft = savedPos * (scrollWidth - clientWidth);
-                } else if (!continuousFlow) {
+                } else {
                   const { scrollHeight, clientHeight } = canvasRef.current;
                   canvasRef.current.scrollTop = savedPos * (scrollHeight - clientHeight);
                 }
               } else {
-                const isPag = canvasRef.current.classList.contains('premium-reading-canvas--paginated');
-                if (isPag) {
+                if (isHoriz) {
                   canvasRef.current.scrollLeft = 0;
-                } else if (!continuousFlow) {
+                } else {
                   canvasRef.current.scrollTop = 0;
                 }
               }
@@ -473,7 +466,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     let scrollRatio = scrollPositionsRef.current.get(chapterIndex) ?? 0;
 
     if (canvas) {
-      const isPag = canvas.classList.contains('premium-reading-canvas--paginated');
+      const isPag = canvas.classList.contains('premium-reading-canvas--paginated') ||
+                    canvas.classList.contains('premium-reading-canvas--two-page');
       if (isPag) {
         const { scrollLeft, scrollWidth, clientWidth } = canvas;
         scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
@@ -524,7 +518,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             }
             lastScrollTop = scrollTop;
 
-            const isPag = canvas.classList.contains('premium-reading-canvas--paginated');
+            const isPag = canvas.classList.contains('premium-reading-canvas--paginated') ||
+                          canvas.classList.contains('premium-reading-canvas--two-page');
             const scrollHeight = canvas.scrollHeight;
             const clientHeight = canvas.clientHeight;
             
@@ -732,13 +727,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const nextChapter = useCallback(() => {
     if (!metadata) return;
     if (currentIndex < metadata.total_chapters - 1) {
-      loadChapter(currentIndex + 1, null); // Clear search highlight when navigating manually
+      loadChapter(currentIndex + 1, null, 0); // Start at beginning of next chapter
     }
   }, [metadata, currentIndex, loadChapter]);
 
-  const prevChapter = useCallback(() => {
+  const prevChapter = useCallback((startAtEnd = false) => {
     if (currentIndex > 0) {
-      loadChapter(currentIndex - 1, null); // Clear search highlight when navigating manually
+      loadChapter(currentIndex - 1, null, startAtEnd ? 1.0 : 0); // If paging backward, start at end of previous chapter
     }
   }, [currentIndex, loadChapter]);
 
@@ -867,89 +862,170 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     };
   }, [currentChapter, currentIndex, bookId, isLoading]);
 
+  const isHorizontalPaging = twoPageView || isPaginated;
+
   const nextPage = useCallback(() => {
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(false);
     }
     
-    // Page flip mode: trigger flip animation instead of scroll
-    if (pageFlipEnabled && pageFlipRef.current) {
+    // Page flip mode: trigger flip animation between chapters ONLY if explicitly enabled AND not in two-page or paginated spread
+    if (pageFlipEnabled && !isHorizontalPaging && pageFlipRef.current) {
       const flipped = pageFlipRef.current.flipForward();
       if (!flipped) {
-        // No next content available or already flipping — try direct chapter nav
         nextChapter();
       }
       return;
     }
 
-    // Normal scroll mode or paginated mode
+    // Normal scroll mode or paginated / two-page mode
     if (canvasRef.current) {
-      if (isPaginated) {
+      if (isHorizontalPaging) {
         const { scrollLeft, scrollWidth, clientWidth } = canvasRef.current;
-        const isAtEnd = scrollLeft + clientWidth >= scrollWidth - 10;
-        
-        if (isAtEnd) {
+        const maxScroll = scrollWidth - clientWidth;
+        // If at or near the end of the chapter spreads, navigate to next chapter
+        if (maxScroll <= 20 || scrollLeft >= maxScroll - 30) {
           nextChapter();
         } else {
-          canvasRef.current.scrollBy({ left: clientWidth, behavior: 'smooth' }); // Un-optional page flip effect
+          const target = Math.min(maxScroll, scrollLeft + clientWidth);
+          canvasRef.current.scrollTo({ 
+            left: target, 
+            behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
+          });
         }
       } else {
         const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
-        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
-
-        if (isAtBottom) {
+        const maxScroll = scrollHeight - clientHeight;
+        if (maxScroll <= 20 || scrollTop >= maxScroll - 50) {
           nextChapter();
         } else {
-          canvasRef.current.scrollBy({ top: clientHeight * 0.85, behavior: animationStyle !== 'none' ? 'smooth' : 'auto' });
+          canvasRef.current.scrollBy({ 
+            top: clientHeight * 0.85, 
+            behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
+          });
         }
       }
     }
-  }, [nextChapter, pageFlipEnabled, isPaginated, animationStyle]);
+  }, [nextChapter, pageFlipEnabled, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
   const prevPage = useCallback(() => {
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(false);
     }
 
-    // Page flip mode: trigger flip animation instead of scroll
-    if (pageFlipEnabled && pageFlipRef.current) {
+    // Page flip mode: trigger flip animation between chapters ONLY if explicitly enabled AND not in two-page or paginated spread
+    if (pageFlipEnabled && !isHorizontalPaging && pageFlipRef.current) {
       const flipped = pageFlipRef.current.flipBackward();
       if (!flipped) {
-        prevChapter();
+        prevChapter(true);
       }
       return;
     }
 
-    // Normal scroll mode or paginated mode
+    // Normal scroll mode or paginated / two-page mode
     if (canvasRef.current) {
-      if (isPaginated) {
+      if (isHorizontalPaging) {
         const { scrollLeft, clientWidth } = canvasRef.current;
-        const isAtStart = scrollLeft <= 10;
-        
-        if (isAtStart) {
-          prevChapter();
+        if (scrollLeft <= 30) {
+          prevChapter(true);
         } else {
-          canvasRef.current.scrollBy({ left: -clientWidth, behavior: 'smooth' }); // Un-optional page flip effect
+          const target = Math.max(0, scrollLeft - clientWidth);
+          canvasRef.current.scrollTo({ 
+            left: target, 
+            behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
+          });
         }
       } else {
         const { scrollTop, clientHeight } = canvasRef.current;
-        const isAtTop = scrollTop <= 50;
-
-        if (isAtTop) {
-          prevChapter();
+        if (scrollTop <= 50) {
+          prevChapter(true);
         } else {
-          canvasRef.current.scrollBy({ top: -clientHeight * 0.85, behavior: animationStyle !== 'none' ? 'smooth' : 'auto' });
+          canvasRef.current.scrollBy({ 
+            top: -clientHeight * 0.85, 
+            behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
+          });
         }
       }
     }
-  }, [prevChapter, pageFlipEnabled, isPaginated, animationStyle]);
+  }, [prevChapter, pageFlipEnabled, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+
+  // Mouse wheel navigation: ONLY intercept in horizontal two-page or paginated mode
+  const lastWheelTimeRef = useRef(0);
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (!isHorizontalPaging) {
+      // In vertical scroll mode, let native browser scrolling happen naturally!
+      return;
+    }
+    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (Math.abs(delta) > 20) {
+      const now = Date.now();
+      if (now - lastWheelTimeRef.current > 250) {
+        lastWheelTimeRef.current = now;
+        if (delta > 0) {
+          nextPage();
+        } else {
+          prevPage();
+        }
+      }
+    }
+  }, [isHorizontalPaging, nextPage, prevPage]);
+
+  // Click zone handling: left 20% prev, right 20% next, center toggle top bar
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+      return;
+    }
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a, input, [role="button"], .premium-nav-arrow')) {
+      return;
+    }
+    if (isHorizontalPaging) {
+      const clickX = e.clientX;
+      const width = window.innerWidth;
+      if (clickX < width * 0.20) {
+        prevPage();
+        return;
+      }
+      if (clickX > width * 0.80) {
+        nextPage();
+        return;
+      }
+    }
+    if (!isFocusMode && !isTopBarShortcutOnly) {
+      setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
+    }
+  }, [isHorizontalPaging, prevPage, nextPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+
+  const scrollLineUp = useCallback(() => {
+    if (canvasRef.current) {
+      if (isHorizontalPaging) {
+        prevPage();
+      } else {
+        canvasRef.current.scrollBy({ top: -140, behavior: 'smooth' });
+      }
+    }
+  }, [isHorizontalPaging, prevPage]);
+
+  const scrollLineDown = useCallback(() => {
+    if (canvasRef.current) {
+      if (isHorizontalPaging) {
+        nextPage();
+      } else {
+        canvasRef.current.scrollBy({ top: 140, behavior: 'smooth' });
+      }
+    }
+  }, [isHorizontalPaging, nextPage]);
 
   // Keyboard shortcuts
   usePremiumReaderKeyboard({
-    onPrevChapter: prevPage,
-    onNextChapter: nextPage,
+    onPrevChapter: () => prevChapter(true),
+    onNextChapter: () => nextChapter(),
     onPrevPage: prevPage,
     onNextPage: nextPage,
+    onScrollUp: scrollLineUp,
+    onScrollDown: scrollLineDown,
+    isPaginatedOrTwoPage: isHorizontalPaging,
   });
 
   // Handle page flip completion — navigate to next/prev chapter
@@ -1164,20 +1240,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               <Highlighter className="premium-control-icon" />
             </button>
 
-            {!isAndroid && (
-              <button
-                type="button"
-                onClick={toggleTwoPageView}
-                className={`premium-control-button ${twoPageView ? 'premium-control-button--active' : ''}`}
-                aria-label="Two-page view"
-              >
-                <svg aria-hidden="true" className="premium-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="8" height="16" />
-                  <rect x="13" y="4" width="8" height="16" />
-                </svg>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={toggleDoodleMode}
@@ -1217,7 +1279,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         <div
           ref={canvasRef}
           onScroll={handleScroll as any}
-          className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${isPaginated ? 'premium-reading-canvas--paginated' : ''} ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'}`}
+          onWheel={handleWheel}
+          onClick={handleCanvasClick}
+          className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${twoPageView ? 'premium-reading-canvas--two-page' : isPaginated ? 'premium-reading-canvas--paginated' : ''} ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'}`}
         >
           <div
             ref={contentContainerRef}
@@ -1228,36 +1292,25 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             }}
             className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
           >
-            {twoPageView && adjacentChapter ? (
-            /* Two-page layout */
-            <>
+            {pageFlipEnabled && !isHorizontalPaging ? (
+              /* Page flip mode */
+              <PageFlipEngine
+                ref={pageFlipRef}
+                currentContent={currentChapter.content}
+                nextContent={nextChapterContent}
+                prevContent={prevChapterContent}
+                flipSpeed={pageFlipSpeed}
+                enabled={pageFlipEnabled}
+                animationStyle={animationStyle}
+                onFlipComplete={handleFlipComplete}
+                className="premium-chapter-page"
+              />
+            ) : (
+              /* Standard & Two-Page spread layout */
               <div className="premium-chapter-page">
                 <ChapterHtml content={currentChapter.content} />
               </div>
-
-              <div className="premium-chapter-page">
-                <ChapterHtml content={adjacentChapter.content} />
-              </div>
-            </>
-          ) : pageFlipEnabled ? (
-            /* Page flip mode */
-            <PageFlipEngine
-              ref={pageFlipRef}
-              currentContent={currentChapter.content}
-              nextContent={nextChapterContent}
-              prevContent={prevChapterContent}
-              flipSpeed={pageFlipSpeed}
-              enabled={pageFlipEnabled}
-              animationStyle={animationStyle}
-              onFlipComplete={handleFlipComplete}
-              className="premium-chapter-page"
-            />
-          ) : (
-            /* Standard single-page layout */
-            <div className="premium-chapter-page">
-              <ChapterHtml content={currentChapter.content} />
-            </div>
-          )}
+            )}
 
           {/* Doodle Canvas Overlay — must be inside the scrolling container to match its height */}
           {isDoodleMode && (

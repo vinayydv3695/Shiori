@@ -137,10 +137,28 @@ impl ReaderService {
             Some(conn.last_insert_rowid())
         };
 
-        let new_status = if progress_percent >= 100.0 {
+        let is_finished = progress_percent >= 98.0
+            || (current_page.is_some()
+                && total_pages.is_some()
+                && total_pages.unwrap() > 0
+                && current_page.unwrap() >= total_pages.unwrap());
+
+        let current_status: Option<String> = conn
+            .query_row(
+                "SELECT reading_status FROM books WHERE id = ?1",
+                params![book_id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let new_status = if is_finished {
             "completed"
-        } else {
+        } else if current_status.as_deref() == Some("completed") && progress_percent > 5.0 {
+            "completed"
+        } else if progress_percent > 0.0 {
             "reading"
+        } else {
+            "planning"
         };
 
         conn.execute(

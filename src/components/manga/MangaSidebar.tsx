@@ -36,7 +36,6 @@ import {
     FileDigit,
     FileText,
     Bookmark,
-    Sparkles,
     Infinity,
     ArrowLeftRight
 } from 'lucide-react';

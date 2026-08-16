@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shelf, api } from '../../lib/tauri';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { 
-  Sparkles, 
+  Zap, 
   Library, 
   Star, 
   Heart, 
@@ -28,7 +28,8 @@ const PRESET_ICONS: Record<string, React.ElementType> = {
   bookmark: Bookmark,
   bookopen: BookOpen,
   target: Target,
-  sparkles: Sparkles,
+  zap: Zap,
+  sparkles: Zap,
   lightbulb: Lightbulb,
   palette: Palette,
   flame: Flame,
@@ -108,7 +109,7 @@ function ShelfCard({
 }) {
   const Icon = shelf.icon && PRESET_ICONS[shelf.icon]
     ? PRESET_ICONS[shelf.icon]
-    : shelf.isSmart ? Sparkles : (shelf.shelfType === 'favorites' ? Heart : BookMarked);
+    : shelf.isSmart ? Zap : (shelf.shelfType === 'favorites' ? Heart : BookMarked);
 
   const color = shelf.color || (shelf.shelfType === 'favorites' ? '#f43f5e' : shelf.isSmart ? '#a855f7' : '#6366f1');
   const count = shelf.bookCount ?? 0;
@@ -176,7 +177,7 @@ function ShelfCard({
         {shelf.isSmart && (
           <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-md shadow-lg"
             style={{ background: `${color}30`, border: `1px solid ${color}40`, color }}>
-            <Sparkles className="w-3 h-3" />
+            <Zap className="w-3 h-3" />
             Smart
           </div>
         )}

@@ -406,6 +406,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         duration: 2000,
       });
       window.dispatchEvent(new CustomEvent('annotation-changed'));
+      setShowTranslation(false);
+      hideToolbar();
+      window.getSelection()?.removeAllRanges();
     } catch (err) {
       console.error('Failed to add vocabulary annotation:', err);
       useToastStore.getState().addToast({
@@ -414,7 +417,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'error',
       });
     }
-  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult]);
+  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult, categories, hideToolbar]);
 
   return (
     <AnimatePresence>
@@ -423,10 +426,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           ref={toolbarRef}
           className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''}`}
           style={isAndroid ? undefined : { left: position.x, top: position.y }}
-          initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 10, scale: 0.95 }}
-          animate={isAndroid ? { opacity: 1, y: 0 } : { opacity: 1, y: 0, scale: 1 }}
-          exit={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.95 }}
-          transition={{ duration: 0.15 }}
+          initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.96 }}
+          animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
+          exit={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 6, scale: 0.96 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           {/* Main action buttons */}
@@ -698,7 +701,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
               dictionaryResult={dictionaryResult}
               translationResult={translationResult}
               error={translationError}
-              onClose={() => setShowTranslation(false)}
+              onClose={() => {
+                hideToolbar();
+                window.getSelection()?.removeAllRanges();
+              }}
               onAddVocabulary={handleAddVocabulary}
               onSwitchMode={(mode) => {
                 if (mode === 'define') handleDefine();

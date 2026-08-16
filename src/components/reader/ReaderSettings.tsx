@@ -272,7 +272,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 <input
                   type="range"
                   min="12"
-                  max="32"
+                  max="48"
                   value={fontSize}
                   onChange={(e) => setFontSize(Number(e.target.value))}
                   className="premium-settings-slider"
@@ -280,7 +280,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 <button
                   onClick={() => setFontSize(fontSize + 1)}
                   className="premium-settings-slider-button"
-                  disabled={fontSize >= 32}
+                  disabled={fontSize >= 48}
                 >
                   <ChevronUp className="premium-settings-slider-icon" />
                 </button>
@@ -496,16 +496,6 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                 </svg>
                 <span>Continuous Flow</span>
               </button>
-
-              {!isAndroid && (
-                <button
-                  onClick={toggleTwoPageView}
-                  className={`premium-settings-toggle ${twoPageView ? 'premium-settings-toggle--active' : ''}`}
-                >
-                  <Columns className="premium-settings-icon" />
-                  <span>Two-Page View</span>
-                </button>
-              )}
             </div>
           )}
 

@@ -19,7 +19,7 @@ import {
 import { AniListIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { AnilistMediaListShelf, AnilistMediaList } from '@/lib/anilist';
-import { api, type Book } from '@/lib/tauri';
+import { api, isAndroid, type Book } from '@/lib/tauri';
 import { isErrorKind } from '@/lib/errors';
 import { useTombstoneConfirm } from '@/hooks/useTombstoneConfirm';
 import { pluginApi } from '@/lib/pluginSources';
@@ -209,8 +209,10 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
 
   /** Helper to search multiple online manga sources with timeout protection and title fallbacks */
   const searchMangaOnline = async (candidateTitles: string[]): Promise<{ sourceId: string; resultId: string; coverUrl?: string } | null> => {
-    // Prioritize MangaFire first, then high-uptime manga sources
-    const sources = ['mangafire', 'toongod', 'manhwaread'];
+    // Prioritize MangaDex on desktop, MangaFire on Android
+    const sources = isAndroid
+      ? ['mangafire', 'toongod', 'manhwaread']
+      : ['mangadex', 'mangafire', 'toongod', 'manhwaread'];
     
     for (const sourceId of sources) {
       for (const title of candidateTitles) {

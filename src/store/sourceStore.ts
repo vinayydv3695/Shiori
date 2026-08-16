@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { pluginApi } from '@/lib/pluginSources';
+import { isAndroid } from '@/lib/tauri';
 
 export type SourceKind = 'manga' | 'books';
 export type SourceStatus = 'active' | 'planned';
@@ -19,7 +20,7 @@ export interface SourceConfig {
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 8;
+const SOURCE_STORE_VERSION = 9;
 
 const MANDATORY_SOURCE_IDS = new Set<string>();
 
@@ -177,7 +178,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {
   books: 'gutenberg',
-  manga: 'mangafire',
+  manga: isAndroid ? 'mangafire' : 'mangadex',
 };
 
 function mergeSources(persistedSources?: Partial<SourceConfig>[]): SourceConfig[] {
@@ -346,6 +347,13 @@ export const useSourceStore = create<SourceStore>()(
         if (typeof version === 'number' && version < 8) {
           if (typedPersisted.sources) {
             typedPersisted.sources = typedPersisted.sources.map(s => ({ ...s, enabled: true }));
+          }
+        }
+
+        if (typeof version === 'number' && version < 9 && !isAndroid) {
+          const primary = typedPersisted.primarySourceByKind;
+          if (primary && primary.manga === 'mangafire') {
+            typedPersisted.primarySourceByKind = { ...primary, manga: 'mangadex' };
           }
         }
 

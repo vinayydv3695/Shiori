@@ -1,3 +1,15 @@
+# Release Notes (v2.3.27)
+
+## Bug Fixes
+
+- **AnnotationsViewDesktop** — Fixed `QuoteCardDialog` props to use correct `open`, `onOpenChange`, and `annotationData` interface.
+- **HistoryView** — Corrected `saveReadingProgress` calls from object literal to positional arguments.
+- **MangaHome** — Fixed Book property names (`file_format`, `added_date`), switched to per-book `getReadingProgress`, and corrected `StatsBar`/`ContinueReadingCard` props.
+- **BookDetailsDialog** — Added missing `ConvertToEpubMenuItem` import.
+- **SeriesView** — Added null guards for series in `DesktopSeriesHeader` and `MobileSeriesHeader`.
+- **OnlineBooksView** — Added missing `api` import from `@/lib/tauri`.
+- **OnlineMangaView** — Fixed `setSearchQuery` to pass required `'manga'` kind argument.
+
 # Release Notes (v2.3.26)
 
 ## Improvements & Fixes

@@ -560,7 +560,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
             }}
             disabled={!isAvailable}
             title={!isAvailable ? 'Text-to-speech not available' : 'Audiobook Mode'}
-            className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] right-4 md:right-8 z-50 p-4 rounded-full backdrop-blur-xl shadow-2xl transition-all duration-300 flex items-center justify-center ${
+            className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] right-4 md:right-8 z-50 p-4 rounded-full backdrop-blur-xl shadow-2xl transition-all duration-300 flex items-center justify-center ${
               !isAvailable
                 ? 'opacity-50 cursor-not-allowed' 
                 : 'hover:scale-105 active:scale-95'
@@ -584,7 +584,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 150, opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-            className="fixed z-[100] flex flex-col backdrop-blur-2xl shadow-2xl rounded-3xl bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 right-4 mx-auto max-w-[380px] md:bottom-8 md:right-8 md:left-auto p-5 border"
+            className="fixed z-[100] flex flex-col backdrop-blur-2xl shadow-2xl rounded-3xl bottom-[calc(env(safe-area-inset-bottom,0px)+1rem)] left-4 right-4 mx-auto max-w-[380px] md:bottom-8 md:right-8 md:left-auto p-5 border"
             style={{
               backgroundColor: 'var(--bg-elevated)',
               borderColor: 'var(--ui-border)',

@@ -740,11 +740,11 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
 
   return (
     <div 
-      className={`flex h-full flex-col bg-background text-foreground relative overflow-hidden ${isMobile ? 'pb-4' : 'p-4 md:p-6'}`}
+      className={`flex h-full flex-col bg-background text-foreground relative overflow-hidden ${isMobile ? 'pb-28' : 'p-4 md:p-6 pb-28 md:pb-6'}`}
       style={{
-        paddingTop: isMobile ? '8px' : '16px',
-        paddingLeft: isMobile ? 'env(safe-area-inset-left, 0px)' : '16px',
-        paddingRight: isMobile ? 'env(safe-area-inset-right, 0px)' : '16px'
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 8px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 8px)'
       }}
     >
       <header className="relative z-10 flex items-center justify-between gap-4 pb-4 px-4 md:px-0">

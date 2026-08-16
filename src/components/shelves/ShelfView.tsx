@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useShelfStore } from '../../store/shelfStore';
 import { useUIStore } from '../../store/uiStore';
 import { CreateShelfDialog } from './CreateShelfDialog';
+import { AddBooksToShelfDialog } from './AddBooksToShelfDialog';
 import { ShelfGrid } from './ShelfGrid';
 import { ShelfBookGrid } from './ShelfBookGrid';
 import { Shelf, Book, api } from '../../lib/tauri';
@@ -21,6 +22,7 @@ export function ShelfView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editShelf, setEditShelf] = useState<Shelf | null>(null);
   const [parentId, setParentId] = useState<number | undefined>(undefined);
+  const [addBooksShelf, setAddBooksShelf] = useState<Shelf | null>(null);
 
   const [books, setBooks] = useState<Book[]>([]);
   const [loadingBooks, setLoadingBooks] = useState(false);
@@ -125,6 +127,7 @@ export function ShelfView() {
             onCreateShelf={() => handleCreateShelf()} 
             onEditShelf={handleEditShelf}
             onDeleteShelf={handleDeleteShelf}
+            onAddBooks={(shelf) => setAddBooksShelf(shelf)}
           />
         ) : loadingBooks ? (
           <div className="flex items-center justify-center h-full">
@@ -146,6 +149,19 @@ export function ShelfView() {
         editShelf={editShelf}
         parentId={parentId}
       />
+
+      {addBooksShelf && (
+        <AddBooksToShelfDialog
+          open={!!addBooksShelf}
+          onOpenChange={(open) => {
+            if (!open) setAddBooksShelf(null);
+          }}
+          shelf={addBooksShelf}
+          onBooksUpdated={() => {
+            loadShelfs();
+          }}
+        />
+      )}
     </div>
   );
 }

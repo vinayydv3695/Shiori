@@ -44,10 +44,17 @@ export function OnlineSearchHeader({
   const setCurrentView = useUIStore(state => state.setCurrentView);
 
   return (
-    <div className={cn(
-      "flex-shrink-0 relative overflow-hidden z-20 transition-colors duration-500",
-      isMobile ? "sticky top-0 pt-2 pb-2 px-3 bg-background/80 backdrop-blur-xl border-b border-border/40" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
-    )}>
+    <div 
+      className={cn(
+        "flex-shrink-0 relative overflow-hidden z-20 transition-colors duration-500",
+        isMobile ? "sticky top-0 pb-2 px-3 bg-background/90 backdrop-blur-xl border-b border-border/40 shadow-2xs" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
+      )}
+      style={isMobile ? {
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 10px)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+      } : undefined}
+    >
       {/* Subtle ambient glass glow */}
       {!isMobile && <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />}
       
@@ -72,27 +79,25 @@ export function OnlineSearchHeader({
 
           <div className="relative group">
             {isMobile ? (
-              // Mobile Premium Search Bar (Precision Noir)
-              <div className="flex items-center bg-card/80 backdrop-blur-xl border border-border/50 rounded-full p-1.5 focus-within:border-primary/50 focus-within:bg-card transition-all duration-300 shadow-sm">
+              // Mobile Search Bar
+              <div className="flex items-center bg-card/85 backdrop-blur-xl border border-border/50 rounded-2xl p-1 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 transition-all duration-300 shadow-xs">
                 
                 {/* Left side actions */}
-                <div className="flex items-center gap-1 pl-1 shrink-0">
-                  <Search className="w-4 h-4 text-muted-foreground ml-2 mr-1 hidden sm:block stroke-[2.2]" />
-                  
+                <div className="flex items-center gap-1 pl-0.5 shrink-0">
                   {/* Filter Option */}
                   {(kind === 'books' || kind === 'manga') && (
                     <button 
                       onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
                       className={cn(
-                        "w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0",
+                        "w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95",
                         (kind === 'books' && hasFilters) || kind === 'manga'
-                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/25" 
+                          ? "bg-primary text-primary-foreground shadow-xs" 
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-secondary/40"
                       )}
                       disabled={disabled}
                       title="Filters"
                     >
-                      <Filter className="w-4 h-4 stroke-[2.2]" />
+                      <Filter className="w-3.5 h-3.5 stroke-[2.2]" />
                     </button>
                   )}
 
@@ -100,7 +105,8 @@ export function OnlineSearchHeader({
                   <OnlineSourceSelector 
                     kind={kind} 
                     variant="ghost" 
-                    className="w-9 h-9 p-0 rounded-full flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0 max-md:[&>span]:hidden" 
+                    iconOnly={true}
+                    className="w-8 h-8 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0" 
                   />
                 </div>
                 
@@ -111,22 +117,29 @@ export function OnlineSearchHeader({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') onSubmit();
                   }}
-                  placeholder={kind === 'books' ? 'Search books by title or author...' : 'Search manga by title...'}
-                  className="flex-1 bg-transparent border-none outline-none text-[15px] font-medium text-foreground placeholder:text-muted-foreground/60 focus:ring-0 py-2 px-3 min-w-0"
+                  placeholder={kind === 'books' ? 'Search books...' : 'Search manga...'}
+                  className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-foreground placeholder:text-muted-foreground/60 focus:ring-0 py-1.5 px-2.5 min-w-0"
                   disabled={disabled}
                 />
                 
                 {/* Right side actions */}
-                <div className="flex items-center pr-1 shrink-0">
-                  {searchValue.trim() && (
-                    <button 
-                      onClick={onSubmit} 
-                      disabled={loading || disabled}
-                      className="px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all shadow-md shadow-primary/25 active:scale-95"
+                <div className="flex items-center pr-1 gap-1 shrink-0">
+                  {searchValue && (
+                    <button
+                      type="button"
+                      onClick={() => onSearchValueChange('')}
+                      className="p-1 rounded-full text-muted-foreground hover:text-foreground"
                     >
-                      Go
+                      <Search className="w-3.5 h-3.5 opacity-0 pointer-events-none" />
                     </button>
                   )}
+                  <button 
+                    onClick={onSubmit} 
+                    disabled={loading || disabled || !searchValue.trim()}
+                    className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs active:scale-95"
+                  >
+                    Go
+                  </button>
                 </div>
               </div>
             ) : (

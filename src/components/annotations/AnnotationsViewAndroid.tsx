@@ -56,7 +56,7 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
         {/* Top App Bar */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground truncate">Annotations</h1>
+            <h1 className="text-xl font-bold tracking-tight text-foreground truncate">Annotations</h1>
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
               {displayedAnnotations.length}
             </span>

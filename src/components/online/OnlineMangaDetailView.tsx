@@ -297,18 +297,9 @@ export function OnlineMangaDetailView({
           {/* Back Button */}
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors font-medium text-sm"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/60 hover:bg-secondary text-foreground transition-all font-semibold text-xs sm:text-sm active:scale-95 border border-border/40 shadow-xs cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to browse
-          </button>
-
-          {/* Close (RAB) Button */}
-          <button
-            onClick={onBack}
-            className="flex md:hidden items-center justify-center w-11 h-11 rounded-full bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-all shadow-md active:scale-95"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" /> <span>Back to browse</span>
           </button>
         </div>
 

@@ -152,7 +152,14 @@ export function RecycleBinView() {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 md:p-6 space-y-4 md:space-y-6">
+    <div 
+      className="h-full flex flex-col p-4 md:p-6 space-y-4 md:space-y-6 pb-24 md:pb-6"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)'
+      }}
+    >
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="p-2 bg-destructive/10 text-destructive rounded-lg shrink-0">

@@ -1,3 +1,14 @@
+# Release Notes (v2.3.28)
+
+## Features & Improvements
+
+- **Shelves Overhaul (Desktop & Android)** — 3D book spine mockups, dynamic cover fan stacks, rich empty cards with "+ Add Books" actions, 3-dot action menus, search & filter chips bar (`All`, `Favorites`, `Smart`, `With Books`, `Empty`), and sort dropdowns.
+- **Smart Shelf Presets** — 1-click templates for Currently Reading, Top Favorites, Manga & Comics, Novels & Fiction, and Plan to Read in shelf creation.
+- **Inside-Shelf View** — Added Grid vs. List view switcher, in-shelf search/sort, reading progress % badges, and batch multi-select book removal.
+- **Platform Separation & Touch Polish** — Android touch isolation for History (`HistoryViewAndroid`), Annotations, and Shelf cards with touch targets (≥36px).
+- **Safe-Area Inset & Navigation Clearance** — Unified safe-area insets (`env(safe-area-inset-*)`) and bottom clearance (`pb-28`) across Library, Shelves, Online Manga, Online Books, and fullscreen dialogs.
+- **Performance Optimization** — Collapsed sequential progress checks in Home tab to `getReadingProgressBatch()`, eliminating 20 IPC roundtrips per load.
+
 # Release Notes (v2.3.27)
 
 ## Bug Fixes

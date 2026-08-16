@@ -395,7 +395,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
         </div>
 
         {/* Profile Info Bar */}
-        <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8 relative z-20">
+        <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8 relative z-20 pb-28 md:pb-12">
           <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-4 -mt-16 md:-mt-20 mb-6">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}

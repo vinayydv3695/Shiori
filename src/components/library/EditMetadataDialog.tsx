@@ -402,7 +402,10 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 p-4 sm:p-6 border-t border-border bg-card sticky bottom-0 z-10 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.3)]">
+          <div 
+            className="flex items-center justify-end gap-3 p-4 sm:p-6 border-t border-border bg-card sticky bottom-0 z-10 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.3)]"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+          >
             <Dialog.Close asChild>
               <Button variant="ghost" disabled={saving} className="rounded-full px-6 font-semibold hover:bg-muted">
                 Cancel

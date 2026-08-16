@@ -21,22 +21,31 @@ export function MangaHome({ onOpenManga }: MangaHomeProps) {
         return allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || ''))
     }, [allBooks])
 
-    // Load reading progress for manga
+    // Load reading progress for manga (single batch query)
     const loadProgress = useCallback(async () => {
-        const openedManga = mangaList.filter((b) => b.last_opened && b.id)
-        const map: Record<number, ReadingProgress> = {}
+        const openedMangaIds = mangaList
+            .filter((b) => b.last_opened && b.id)
+            .slice(0, 20)
+            .map((b) => b.id!)
 
-        for (const book of openedManga.slice(0, 20)) {
-            try {
-                const progress = await api.getReadingProgress(book.id!)
-                if (progress && progress.progressPercent > 0 && progress.progressPercent < 100) {
-                    map[book.id!] = progress
-                }
-            } catch {
-                // Skip books with no progress
-            }
+        if (openedMangaIds.length === 0) {
+            setProgressMap({})
+            return
         }
-        setProgressMap(map)
+
+        try {
+            const rawMap = await api.getReadingProgressBatch(openedMangaIds)
+            const filteredMap: Record<number, ReadingProgress> = {}
+            for (const [idStr, progress] of Object.entries(rawMap)) {
+                const id = Number(idStr)
+                if (progress && progress.progressPercent > 0 && progress.progressPercent < 100) {
+                    filteredMap[id] = progress
+                }
+            }
+            setProgressMap(filteredMap)
+        } catch {
+            // Skip on error
+        }
     }, [mangaList])
 
     useEffect(() => {

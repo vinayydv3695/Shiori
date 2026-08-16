@@ -158,16 +158,22 @@ export const BookDetailsDialog = ({
           </div>
 
           {/* Floating Close Button */}
-          <div className="absolute top-4 right-4 z-50">
+          <div 
+            className="absolute top-4 right-4 z-50"
+            style={{ top: 'max(env(safe-area-inset-top, 0px) + 12px, 16px)' }}
+          >
              <Dialog.Close asChild>
-               <button className="bg-secondary/80 hover:bg-secondary border border-border/50 text-muted-foreground hover:text-foreground p-2.5 rounded-full backdrop-blur-xl transition-all duration-200 shadow-md hover:scale-105 active:scale-95" title="Close">
+               <button className="bg-secondary/80 hover:bg-secondary border border-border/50 text-muted-foreground hover:text-foreground p-2.5 rounded-full backdrop-blur-xl transition-all duration-200 shadow-md hover:scale-105 active:scale-95 cursor-pointer" title="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          <div 
+            className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px) + 16px, 16px)' }}
+          >
             <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 p-6 sm:p-10 min-h-full">
               
               {/* Left Column: Cover & Primary Action */}

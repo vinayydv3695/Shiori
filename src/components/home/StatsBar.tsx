@@ -34,11 +34,19 @@ export function StatsBar({ books, domain }: StatsBarProps) {
     }, [books, domain])
 
     return (
-        <div className="stats-bar">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full">
             {stats.map((stat) => (
-                <div key={stat.label} className="stat-card" data-domain={domain}>
-                    <div className="stat-value">{stat.value}</div>
-                    <div className="stat-label">{stat.label}</div>
+                <div 
+                    key={stat.label} 
+                    className="stat-card p-2.5 sm:p-4 rounded-2xl border border-border/60 bg-card/85 shadow-2xs flex flex-col justify-center min-w-0" 
+                    data-domain={domain}
+                >
+                    <div className="stat-value text-base sm:text-2xl font-extrabold text-foreground truncate leading-tight">
+                        {stat.value}
+                    </div>
+                    <div className="stat-label text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-1 truncate">
+                        {stat.label}
+                    </div>
                 </div>
             ))}
         </div>

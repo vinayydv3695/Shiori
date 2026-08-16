@@ -632,7 +632,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       </div>
 
       {/* Feed List Grid */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 pb-28 sm:pb-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="w-8 h-8 animate-spin text-primary" />

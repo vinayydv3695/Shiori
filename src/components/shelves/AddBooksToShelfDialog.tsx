@@ -245,7 +245,10 @@ export function AddBooksToShelfDialog({
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 bg-secondary/30 border-t border-border/40 flex items-center justify-end gap-2">
+        <DialogFooter 
+          className="px-6 py-4 bg-secondary/30 border-t border-border/40 flex items-center justify-end gap-2"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+        >
           <Button
             type="button"
             variant="ghost"

@@ -50,7 +50,7 @@ export function BulkActionBar({ visibleBookIds, onConvert, onAddToShelf }: BulkA
   if (count === 0) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[65]">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-[65] max-w-[95vw]">
       <div className="flex items-center gap-1.5 px-2 py-2 rounded-2xl border border-border/60 bg-background/90 backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
         <span className="px-3 text-sm font-semibold text-foreground whitespace-nowrap tabular-nums">
           {count} selected

@@ -692,7 +692,10 @@ export const MetadataSearchDialog = ({
               </div>
             </div>
 
-            <div className="p-6 border-t border-border bg-muted/30 flex justify-between items-center">
+            <div 
+              className="p-6 border-t border-border bg-muted/30 flex justify-between items-center"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+            >
               <div className="text-sm text-muted-foreground space-y-0.5">
                 <div className="font-medium">
                   {batchProgress.summary || (
@@ -920,7 +923,10 @@ export const MetadataSearchDialog = ({
                 </div>
               </div>
             </div>
-            <div className="p-6 border-t border-border bg-muted/10 flex flex-col sm:flex-row gap-3 justify-end items-center mt-auto">
+            <div 
+              className="p-6 border-t border-border bg-muted/10 flex flex-col sm:flex-row gap-3 justify-end items-center mt-auto"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+            >
               <Button variant="ghost" onClick={handleClosePreview} className="w-full sm:w-auto">Cancel</Button>
               <Button variant="outline" onClick={() => executeApply(false)} className="w-full sm:w-auto hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors">Apply Metadata Only</Button>
               <Button onClick={() => executeApply(true)} className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all">Apply + Save Cover</Button>

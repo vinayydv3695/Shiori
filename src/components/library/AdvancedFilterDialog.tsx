@@ -435,7 +435,10 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               </AnimatePresence>
             </div>
           </div>
-          <div className="p-4 sm:p-6 border-t border-border/50 bg-background/95 backdrop-blur-xl shrink-0 flex flex-col gap-4">
+          <div 
+            className="p-4 sm:p-6 border-t border-border/50 bg-background/95 backdrop-blur-xl shrink-0 flex flex-col gap-4"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+          >
             {/* Top row: Match count & Secondary Actions */}
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-muted-foreground">

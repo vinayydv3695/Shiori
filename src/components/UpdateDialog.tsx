@@ -10,10 +10,10 @@ import { isAndroid } from '@/lib/tauri';
 import { 
   Download, 
   RefreshCw, 
-  Palette, 
-  Layers,
-  SlidersHorizontal, 
-  BookX,
+  FolderKanban,
+  Sparkles,
+  Smartphone,
+  Zap,
   X
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
@@ -36,35 +36,34 @@ interface HighlightItem {
 
 const DEFAULT_HIGHLIGHTS: HighlightItem[] = [
   {
-    icon: SlidersHorizontal,
-    title: 'Smooth Filter Tab Transitions',
-    desc: 'Switching between General, Metadata, Organization, and Status tabs now fades and glides with a spring-animated sidebar pill highlight.',
+    icon: FolderKanban,
+    title: '3D Shelves & Collection Overhaul',
+    desc: 'Dynamic 3D cover presentations, 3-dot touch menus, live search & filter chips (All, Favorites, Smart, Empty), and sort dropdowns.',
   },
   {
-    icon: Layers,
-    title: 'Date Picker Works in Dialogs',
-    desc: 'The calendar date picker now fully responds to clicks inside Radix dialogs — selecting a date works correctly on all platforms.',
+    icon: Sparkles,
+    title: 'Smart Shelf Templates & Inside View',
+    desc: '1-click shelf creation templates, Grid vs. List view switcher, reading progress badges, and batch multi-select book removal.',
   },
   {
-    icon: Palette,
-    title: 'Collection Pills & Scrollbar Polish',
-    desc: 'Home dashboard pills have crisp rounded borders, and scrollbar sliders are now hidden across the app while keeping full scroll.',
+    icon: Smartphone,
+    title: 'Dedicated Android Touch Experience',
+    desc: 'Platform-isolated touch flows for History, Annotations, safe-area inset fallbacks, and bottom navigation clearance across all views.',
   },
   {
-    icon: BookX,
-    title: 'Theme Persistence Fix',
-    desc: 'Fixed a ReferenceError that blocked theme switching during onboarding and from the settings panel.',
+    icon: Zap,
+    title: 'Performance & Progress Optimization',
+    desc: 'Instant Home dashboard rendering using batch reading progress queries, collapsing 20 IPC roundtrips into a single query.',
   },
 ];
 
 const DEFAULT_LATEST_RELEASE_NOTES = `
-* **Smooth Advanced Filter Tab Transitions**: Switching between General, Metadata, Organization, and Status tabs now fades and glides with spring-animated sidebar pill highlights and a cross-fade panel transition.
-* **Date Picker Fix**: Calendar date selection now works correctly inside Radix dialogs on all platforms.
-* **Rating Section Layout**: Min/Max rating rows are stacked full-width with a numeric value badge, preventing star rows from being clipped at the dialog edge.
-* **Hidden Scrollbars**: Scrollbar sliders removed across main content, Home, and filter panels while keeping full scroll functionality.
-* **Collection Pills Fix**: Favorites, Reading, Completed, and On Hold pill borders are now crisp and unclipped.
-* **Theme Persistence Fix**: Fixed a \`isDarkTheme\` ReferenceError that blocked theme switching during onboarding and from settings.
-* **Recommended Icon**: Recommended widget now shows a ThumbsUp icon.
+* **Shelves Overhaul (Desktop & Android)**: 3D book spine mockups, dynamic cover fan stacks, rich empty cards with "+ Add Books" actions, 3-dot action menus, search & filter chips bar (All, Favorites, Smart, With Books, Empty), and sort dropdowns.
+* **Smart Shelf Presets**: 1-click templates for Currently Reading, Top Favorites, Manga & Comics, Novels & Fiction, and Plan to Read in shelf creation.
+* **Inside-Shelf View & Batch Actions**: Added Grid vs. List view switcher, in-shelf search/sort, reading progress % badges, and batch multi-select book removal.
+* **Platform Separation & Touch Polish**: Android touch isolation for History, Annotations, and Shelf cards with touch targets (≥36px).
+* **Safe-Area Inset & Navigation Clearance**: Unified safe-area insets (\`env(safe-area-inset-*)\`) and bottom clearance (\`pb-28\`) across Library, Shelves, Online Manga, Online Books, and fullscreen dialogs.
+* **Performance Optimization**: Collapsed sequential progress checks in Home tab to \`getReadingProgressBatch()\`, eliminating 20 IPC roundtrips per load.
 `;
 
 export function UpdateDialog() {
@@ -80,7 +79,7 @@ export function UpdateDialog() {
   useEffect(() => {
     (window as any).__testUpdateDialog = (customVersion?: string, customNotes?: string) => {
       setUpdateInfo({
-        version: customVersion || '2.3.7',
+        version: customVersion || '2.3.28',
         notes: customNotes || DEFAULT_LATEST_RELEASE_NOTES,
       });
       setIsUpdateDialogOpen(true);

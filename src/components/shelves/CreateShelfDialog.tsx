@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Zap, ImageIcon, BookMarked, Loader2, Library, Star, Heart, Bookmark, BookOpen, Target, Lightbulb, Palette, Flame, FolderOpen } from 'lucide-react';
+import { X, Zap, ImageIcon, BookMarked, Loader2, Library, Star, Heart, Bookmark, BookOpen, Target, Lightbulb, Palette, Flame, FolderOpen, Sparkles } from 'lucide-react';
 import { api, Shelf } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import { useShelfStore } from '../../store/shelfStore';
@@ -45,6 +45,44 @@ const PRESET_ICONS = [
   { id: 'lightbulb', icon: Lightbulb },
   { id: 'palette', icon: Palette },
   { id: 'flame', icon: Flame },
+];
+
+const SHELF_TEMPLATES = [
+  {
+    name: 'Currently Reading',
+    description: 'Books and manga I am actively reading',
+    color: '#3b82f6',
+    icon: 'bookopen',
+    shelfType: 'mixed' as const,
+  },
+  {
+    name: 'Top Favorites',
+    description: 'My highest rated stories and all-time favorites',
+    color: '#f59e0b',
+    icon: 'star',
+    shelfType: 'mixed' as const,
+  },
+  {
+    name: 'Manga & Comics',
+    description: 'Manga series, comics, and graphic novels',
+    color: '#ef4444',
+    icon: 'library',
+    shelfType: 'manga' as const,
+  },
+  {
+    name: 'Novels & Fiction',
+    description: 'Literature, light novels, and EPUBs',
+    color: '#06b6d4',
+    icon: 'bookmark',
+    shelfType: 'books' as const,
+  },
+  {
+    name: 'Plan to Read',
+    description: 'My reading backlog and upcoming reading goals',
+    color: '#8b5cf6',
+    icon: 'target',
+    shelfType: 'mixed' as const,
+  },
 ];
 
 export const CreateShelfDialog = ({
@@ -105,6 +143,14 @@ export const CreateShelfDialog = ({
     setErrors({});
   };
 
+  const handleApplyTemplate = (template: typeof SHELF_TEMPLATES[0]) => {
+    setName(template.name);
+    setDescription(template.description);
+    setColor(template.color);
+    setIcon(template.icon);
+    setShelfType(template.shelfType);
+    setErrors({});
+  };
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -172,23 +218,45 @@ export const CreateShelfDialog = ({
           aria-describedby={undefined} 
           className="fixed left-[50%] top-[50%] z-[200] w-[95vw] max-w-[800px] translate-x-[-50%] translate-y-[-50%] bg-background/95 backdrop-blur-2xl p-6 md:p-10 shadow-2xl border border-border rounded-3xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] max-h-[90vh] overflow-y-auto"
         >
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <Dialog.Title className="text-2xl font-bold tracking-tight text-foreground">
               {editShelf ? 'Edit Shelf' : 'Create Shelf'}
             </Dialog.Title>
             <Dialog.Close asChild>
-              <button className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+              <button className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer">
                 <X className="h-5 w-5" />
                 <span className="sr-only">Close</span>
               </button>
             </Dialog.Close>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-10 mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
+          {/* Quick Presets (Only when creating a new shelf) */}
+          {!editShelf && (
+            <div className="mb-6 pb-6 border-b border-border/50">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" /> Quick Presets
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SHELF_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.name}
+                    type="button"
+                    onClick={() => handleApplyTemplate(tmpl)}
+                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-secondary/80 hover:bg-secondary text-foreground border border-border/50 shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: tmpl.color }} />
+                    <span>{tmpl.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
               {/* Left Column: Text Inputs */}
-              <div className="space-y-8">
-                <div className="space-y-3">
+              <div className="space-y-6">
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground ml-1">Name</label>
                   <input
                     type="text"
@@ -198,7 +266,7 @@ export const CreateShelfDialog = ({
                       setErrors(prev => ({ ...prev, name: undefined }));
                     }}
                     className={cn(
-                      "flex w-full rounded-2xl bg-muted/50 border px-5 py-4 text-base text-foreground placeholder:text-muted-foreground transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                      "flex w-full rounded-2xl bg-muted/50 border px-4 py-3 text-sm sm:text-base text-foreground placeholder:text-muted-foreground transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50",
                       errors.name ? "border-destructive/50 bg-destructive/10" : "border-border hover:border-primary/50 hover:bg-muted"
                     )}
                     placeholder="e.g. Science Fiction"
@@ -207,26 +275,26 @@ export const CreateShelfDialog = ({
                   {errors.name && <p className="text-xs text-destructive ml-1">{errors.name}</p>}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground ml-1">Description (Optional)</label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="flex min-h-[140px] w-full rounded-2xl bg-muted/50 border border-border px-5 py-4 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50 hover:border-primary/50 hover:bg-muted resize-none leading-relaxed"
+                    className="flex min-h-[120px] w-full rounded-2xl bg-muted/50 border border-border px-4 py-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50 hover:border-primary/50 hover:bg-muted resize-none leading-relaxed"
                     placeholder="What's this shelf about?"
                   />
                 </div>
               </div>
 
               {/* Right Column: Selectors */}
-              <div className="space-y-8">
-                <div className="space-y-3">
+              <div className="space-y-6">
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground ml-1">Parent Shelf (Optional)</label>
                   <Select
                     value={selectedParentId ? String(selectedParentId) : 'none'}
                     onValueChange={(val) => setSelectedParentId(val === 'none' ? null : Number(val))}
                   >
-                    <SelectTrigger className="w-full h-12 rounded-2xl px-5">
+                    <SelectTrigger className="w-full h-11 rounded-2xl px-4 text-xs sm:text-sm">
                       <SelectValue placeholder="None (Top Level)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -238,9 +306,9 @@ export const CreateShelfDialog = ({
                   </Select>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground ml-1">Content Type</label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { id: 'mixed', label: 'Mixed', icon: FolderOpen },
                       { id: 'books', label: 'Books', icon: BookMarked },
@@ -254,13 +322,13 @@ export const CreateShelfDialog = ({
                           type="button"
                           onClick={() => setShelfType(type.id as any)}
                           className={cn(
-                            "flex flex-col items-center justify-center gap-2.5 py-4 rounded-2xl border text-xs font-medium transition-all duration-300",
+                            "flex flex-col items-center justify-center gap-2 py-3 rounded-2xl border text-xs font-semibold transition-all duration-300 cursor-pointer",
                             isActive 
                               ? "bg-primary text-primary-foreground border-primary shadow-md" 
                               : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                           )}
                         >
-                          <Icon className={cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "")} />
+                          <Icon className={cn("w-4 h-4 transition-transform duration-300", isActive ? "scale-110" : "")} />
                           {type.label}
                         </button>
                       )
@@ -269,16 +337,16 @@ export const CreateShelfDialog = ({
                 </div>
 
                 {/* Theme Color */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground ml-1">Color Theme</label>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2.5">
                     {PRESET_COLORS.map((presetColor) => (
                       <button
                         key={presetColor}
                         type="button"
                         onClick={() => setColor(presetColor)}
                         className={cn(
-                          "w-9 h-9 rounded-full transition-all duration-300 outline-none ring-offset-background",
+                          "w-8 h-8 rounded-full transition-all duration-300 outline-none ring-offset-background cursor-pointer",
                           color === presetColor ? "ring-2 ring-foreground ring-offset-2 scale-110 shadow-lg" : "opacity-40 hover:opacity-100 hover:scale-110 hover:ring-2 hover:ring-foreground/30 hover:ring-offset-2"
                         )}
                         style={{ backgroundColor: presetColor, boxShadow: color === presetColor ? `0 0 20px ${presetColor}60` : 'none' }}
@@ -288,18 +356,18 @@ export const CreateShelfDialog = ({
                 </div>
 
                 {/* SVG Icon Picker */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <label className="text-sm font-semibold text-foreground ml-1">Icon Symbol</label>
-                  <div className="flex flex-wrap gap-2.5">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => setIcon('')}
                       className={cn(
-                        "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border",
+                        "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 border cursor-pointer",
                         !icon ? "bg-primary border-primary text-primary-foreground shadow-lg" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-4 h-4" />
                     </button>
                     {PRESET_ICONS.map((preset) => {
                       const IconComponent = preset.icon;
@@ -309,11 +377,11 @@ export const CreateShelfDialog = ({
                           type="button"
                           onClick={() => setIcon(preset.id)}
                           className={cn(
-                            "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border",
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 border cursor-pointer",
                             icon === preset.id ? "bg-primary border-primary text-primary-foreground shadow-lg" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                           )}
                         >
-                          <IconComponent className="w-5 h-5" />
+                          <IconComponent className="w-4 h-4" />
                         </button>
                       )
                     })}
@@ -322,11 +390,11 @@ export const CreateShelfDialog = ({
               </div>
             </div>
 
-            <div className="flex justify-end pt-6 mt-4 border-t border-border/50">
+            <div className="flex justify-end pt-4 border-t border-border/50">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full md:w-auto px-8 py-3 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full md:w-auto px-8 py-3 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-md"
               >
                 {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                 {loading ? 'Saving...' : editShelf ? 'Update Shelf' : 'Create Shelf'}

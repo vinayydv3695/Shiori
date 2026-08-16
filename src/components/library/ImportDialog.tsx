@@ -632,7 +632,10 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
 
             {/* Footer */}
             {status !== 'importing' && status !== 'error' && (
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border/50 bg-secondary/30 shrink-0">
+              <div 
+                className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border/50 bg-secondary/30 shrink-0"
+                style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+              >
                 {status === 'idle' && (
                   <>
                     <Dialog.Close asChild>

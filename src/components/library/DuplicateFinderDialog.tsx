@@ -581,7 +581,10 @@ export function DuplicateFinderDialog({
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-border bg-muted/30 flex justify-between items-center">
+            <div 
+              className="p-6 border-t border-border bg-muted/30 flex justify-between items-center"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+            >
               <div className="text-sm text-muted-foreground">
                 {currentStep === 'criteria' && (
                   <span>Select criteria and scan your library</span>

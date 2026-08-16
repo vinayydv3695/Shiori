@@ -754,7 +754,7 @@ export const SeriesView = memo(function SeriesView({
           </Dialog.Close>
           
           <ScrollArea className="flex-1 bg-background/50">
-            <div ref={setParentEl} className="flex flex-col min-h-full">
+            <div ref={setParentEl} className="flex flex-col min-h-full pb-16 md:pb-8">
             <DesktopSeriesHeader 
               series={series} 
               onFindMetadata={handleFindSeriesMetadata}

@@ -351,7 +351,7 @@ export function OnlineBooksView() {
       {!hasSearched ? (
         <OnlineBooksDashboard />
       ) : (
-        <div className={cn("flex-1 overflow-y-auto scroll-smooth", isMobile ? "pb-24 p-6" : "p-6")}>
+        <div className={cn("flex-1 overflow-y-auto scroll-smooth", isMobile ? "pb-28 p-4 sm:p-6" : "p-6")}>
           <div className="max-w-[1600px] mx-auto">
             {error && (
               <div className="bg-red-500/10 text-red-500 p-4 rounded-lg mb-6 border border-red-500/20">

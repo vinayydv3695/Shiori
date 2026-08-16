@@ -433,8 +433,9 @@ export function AniListMangaDetailsView({
             {/* Floating Glass Back Button */}
             <button 
               onClick={onClose} 
+              style={{ top: 'max(env(safe-area-inset-top, 0px) + 12px, 20px)' }}
               className={cn(
-                "absolute top-5 z-30 flex items-center gap-2 bg-secondary/80 hover:bg-secondary backdrop-blur-xl border border-border/60 text-foreground font-extrabold rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm group",
+                "absolute z-30 flex items-center gap-2 bg-secondary/80 hover:bg-secondary backdrop-blur-xl border border-border/60 text-foreground font-extrabold rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all text-xs sm:text-sm group cursor-pointer",
                 isMobile ? "left-4 px-3.5 py-2" : "left-6 md:left-16 px-4 py-2.5"
               )}
             >
@@ -445,7 +446,7 @@ export function AniListMangaDetailsView({
             {/* Hero Header Area */}
             <section className={cn(
               "relative flex items-end",
-              isMobile ? "min-h-[360px] px-5 pb-6 pt-16" : "min-h-[380px] md:min-h-[420px] px-6 md:px-16 pb-8 pt-16"
+              isMobile ? "min-h-[360px] px-5 pb-6 pt-[calc(env(safe-area-inset-top,0px)+4.5rem)]" : "min-h-[380px] md:min-h-[420px] px-6 md:px-16 pb-8 pt-16"
             )}>
               <div className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-end">
                 {/* Cover Image */}

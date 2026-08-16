@@ -71,12 +71,12 @@ export function AnnotationCard({ result, categories, onOpenBook, setQuoteCardDat
             </div>
           </div>
           
-          {/* Quick Actions (Hover) */}
-          <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-1.5 -mt-1 -mr-1">
+          {/* Quick Actions (Always visible on mobile/touch, hover on desktop) */}
+          <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 flex items-center gap-1 -mt-1 -mr-1 shrink-0">
             {result.annotation.selectedText && (
               <button 
                 onClick={() => setQuoteCardData(result)}
-                className="p-2 hover:bg-primary/10 rounded-xl text-muted-foreground hover:text-primary transition-all duration-200"
+                className="w-8 h-8 flex items-center justify-center bg-muted/40 md:bg-transparent hover:bg-primary/10 rounded-xl text-muted-foreground hover:text-primary transition-all duration-200 active:scale-95 cursor-pointer"
                 title="Create Quote Card"
               >
                 <Share2 size={14} />
@@ -85,7 +85,7 @@ export function AnnotationCard({ result, categories, onOpenBook, setQuoteCardDat
             {onOpenBook && (
               <button 
                 onClick={() => onOpenBook(result.annotation.bookId, result.annotation.location)}
-                className="p-2 hover:bg-primary/10 rounded-xl text-muted-foreground hover:text-primary transition-all duration-200"
+                className="w-8 h-8 flex items-center justify-center bg-muted/40 md:bg-transparent hover:bg-primary/10 rounded-xl text-muted-foreground hover:text-primary transition-all duration-200 active:scale-95 cursor-pointer"
                 title="Jump to location"
               >
                 <ExternalLink size={14} />

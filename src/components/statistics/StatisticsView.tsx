@@ -52,19 +52,19 @@ function StatBookCover({ book }: { book: Book }) {
 const StatSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="flex flex-col gap-2.5">
     <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest ml-1">{title}</h3>
-    <div className="bg-card/75 backdrop-blur-2xl border border-border/50 rounded-2xl p-4 grid grid-cols-3 gap-3 shadow-xs">
+    <div className="bg-card/75 backdrop-blur-2xl border border-border/50 rounded-2xl p-2.5 sm:p-4 grid grid-cols-3 gap-2 sm:gap-3 shadow-xs">
       {children}
     </div>
   </div>
 );
 
 const StatItem = ({ label, value, icon: Icon, iconColor }: { label: string, value: React.ReactNode, icon: any, iconColor?: string }) => (
-  <div className="bg-secondary/25 hover:bg-secondary/55 border border-border/40 rounded-xl p-3.5 flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 hover:scale-[1.02] shadow-xs group">
-    <div className={cn("w-8 h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 shadow-xs bg-primary/10 text-primary", iconColor)}>
-      <Icon size={16} />
+  <div className="bg-secondary/25 hover:bg-secondary/55 border border-border/40 rounded-xl p-2 sm:p-3.5 flex flex-col items-center justify-center text-center gap-1.5 sm:gap-2 transition-all duration-200 hover:scale-[1.02] shadow-xs group min-w-0">
+    <div className={cn("w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all group-hover:scale-110 shadow-xs bg-primary/10 text-primary shrink-0", iconColor)}>
+      <Icon size={15} />
     </div>
-    <div className="text-xl md:text-2xl font-extrabold text-foreground tracking-tight leading-none">{value}</div>
-    <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider line-clamp-1">{label}</div>
+    <div className="text-base sm:text-2xl font-extrabold text-foreground tracking-tight leading-none truncate max-w-full">{value}</div>
+    <div className="text-[9px] sm:text-[10px] text-muted-foreground font-bold uppercase tracking-wider line-clamp-1 truncate max-w-full">{label}</div>
   </div>
 );
 
@@ -320,7 +320,14 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       
       {/* ── Top Header Bar ── */}
-      <div className="flex-none sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40">
+      <div 
+        className="flex-none sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40"
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 0px)',
+          paddingLeft: 'env(safe-area-inset-left, 0px)',
+          paddingRight: 'env(safe-area-inset-right, 0px)'
+        }}
+      >
         <div className="max-w-6xl mx-auto flex items-center justify-between p-4 md:p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
@@ -409,7 +416,7 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 lg:p-8 bg-background">
-        <div className="max-w-6xl mx-auto space-y-6 pb-20">
+        <div className="max-w-6xl mx-auto space-y-6 pb-28 md:pb-20">
 
           {error ? (
             <div className="flex flex-col items-center justify-center py-10 bg-card rounded-2xl border border-destructive/50 p-6 shadow-xs">

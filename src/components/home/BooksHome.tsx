@@ -43,22 +43,31 @@ export function BooksHome({ onOpenBook, onViewRSS }: BooksHomeProps) {
             .slice(0, 12)
     }, [books])
 
-    // Load reading progress for books that have been opened
+    // Load reading progress for books that have been opened (single batch query)
     const loadProgress = useCallback(async () => {
-        const openedBooks = books.filter((b) => b.last_opened && b.id)
-        const map: Record<number, ReadingProgress> = {}
+        const openedBookIds = books
+            .filter((b) => b.last_opened && b.id)
+            .slice(0, 20)
+            .map((b) => b.id!)
 
-        for (const book of openedBooks.slice(0, 20)) {
-            try {
-                const progress = await api.getReadingProgress(book.id!)
-                if (progress && progress.progressPercent > 0 && progress.progressPercent < 100) {
-                    map[book.id!] = progress
-                }
-            } catch {
-                // Skip books with no progress
-            }
+        if (openedBookIds.length === 0) {
+            setProgressMap({})
+            return
         }
-        setProgressMap(map)
+
+        try {
+            const rawMap = await api.getReadingProgressBatch(openedBookIds)
+            const filteredMap: Record<number, ReadingProgress> = {}
+            for (const [idStr, progress] of Object.entries(rawMap)) {
+                const id = Number(idStr)
+                if (progress && progress.progressPercent > 0 && progress.progressPercent < 100) {
+                    filteredMap[id] = progress
+                }
+            }
+            setProgressMap(filteredMap)
+        } catch {
+            // Skip on error
+        }
     }, [books])
 
     useEffect(() => {

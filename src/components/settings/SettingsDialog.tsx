@@ -318,7 +318,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           // the frosted look while making the background unreadable.
           preferences?.transparentSettings ?? false ? "bg-background/95 backdrop-blur-2xl" : "bg-background"
         )}>
-          <div className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3">
+          <div 
+            className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3"
+            style={{ paddingTop: isMobile ? 'max(env(safe-area-inset-top, 0px), 16px)' : undefined }}
+          >
             {isMobile && mobileView === 'detail' ? (
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={() => { triggerHaptic(50); setMobileView('root'); }} className="-ml-2">
@@ -437,7 +440,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       transition: { duration: 0.2, staggerChildren: 0.05, delayChildren: 0.05 } 
                     }
                   }}
-                  className="absolute inset-0 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto custom-scrollbar"
+                  className="absolute inset-0 p-4 md:p-8 pb-32 md:pb-8 overflow-y-auto custom-scrollbar"
                 >
                   {selectedTab === 'general' && (
                     <GeneralSettings
@@ -2421,7 +2424,7 @@ const AboutSettings = () => {
       if (import.meta.env.DEV || !isTauri) {
         const updateStore = useUpdateStore.getState()
         updateStore.setUpdateInfo({
-          version: '2.3.7',
+          version: '2.3.28',
           notes: '',
         })
         updateStore.setIsUpdateDialogOpen(true)

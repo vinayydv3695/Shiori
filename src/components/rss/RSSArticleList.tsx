@@ -207,7 +207,7 @@ export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId = n
       )}
 
       {/* Article Grid Container */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 pb-28 sm:pb-6">
         {articles.length === 0 && !isLoading ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4 text-center">
             <div className="w-16 h-16 rounded-3xl bg-secondary/40 border border-border/50 flex items-center justify-center text-primary shadow-inner">

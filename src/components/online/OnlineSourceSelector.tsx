@@ -16,9 +16,10 @@ interface OnlineSourceSelectorProps {
   kind: SourceKind;
   className?: string;
   variant?: "link" | "default" | "destructive" | "outline" | "secondary" | "ghost";
+  iconOnly?: boolean;
 }
 
-export function OnlineSourceSelector({ kind, className, variant = "outline" }: OnlineSourceSelectorProps) {
+export function OnlineSourceSelector({ kind, className, variant = "outline", iconOnly = false }: OnlineSourceSelectorProps) {
   const allSources = useSourceStore((state) => state.sources);
   const primarySourceByKind = useSourceStore((state) => state.primarySourceByKind);
   const setPrimarySource = useSourceStore((state) => state.setPrimarySource);
@@ -46,14 +47,21 @@ export function OnlineSourceSelector({ kind, className, variant = "outline" }: O
       <DropdownMenuTrigger asChild>
         <Button 
           variant={variant} 
+          title={sourceLabel}
           className={cn(
-            "group gap-2.5 outline-none select-none transition-all duration-200", 
+            iconOnly 
+              ? "w-9 h-9 p-0 flex items-center justify-center rounded-full outline-none select-none transition-all duration-200 shrink-0"
+              : "group gap-2.5 outline-none select-none transition-all duration-200", 
             className
           )}
         >
           <Globe className="w-4 h-4 text-primary shrink-0" />
-          <span className="truncate max-w-[160px] font-bold">{sourceLabel}</span>
-          <ChevronDown className="w-3.5 h-3.5 opacity-50 shrink-0 group-hover:opacity-100 transition-opacity ml-0.5" />
+          {!iconOnly && (
+            <>
+              <span className="truncate max-w-[160px] font-bold">{sourceLabel}</span>
+              <ChevronDown className="w-3.5 h-3.5 opacity-50 shrink-0 group-hover:opacity-100 transition-opacity ml-0.5" />
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
       

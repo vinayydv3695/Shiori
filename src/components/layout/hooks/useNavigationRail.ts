@@ -8,11 +8,10 @@ import {
   Library,
   Trash2,
   History,
-  FolderOpen,
   BarChart2,
   Settings,
 } from "lucide-react"
-import { AniListIcon, TorboxIcon } from "@/components/icons"
+import { AniListIcon, TorboxIcon, BookshelfIcon } from "@/components/icons"
 
 export type NavSection = 'NAVIGATE' | 'DISCOVER' | 'WORKSPACE' | 'SYSTEM';
 
@@ -43,7 +42,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Shelves",
     targetView: "shelves",
     isActive: (view) => view === "shelves",
-    icon: FolderOpen,
+    icon: BookshelfIcon,
     section: "NAVIGATE",
   },
   {

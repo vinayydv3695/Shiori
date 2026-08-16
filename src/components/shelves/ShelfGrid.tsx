@@ -66,6 +66,58 @@ interface ShelfCovers {
   [shelfId: number]: string[];
 }
 
+function EmptyShelfMockup({
+  icon: Icon,
+  color,
+  onAddBooks,
+  isSmart,
+}: {
+  icon: React.ElementType;
+  color: string;
+  onAddBooks?: () => void;
+  isSmart?: boolean;
+}) {
+  return (
+    <div className="relative w-full h-full flex flex-col items-center justify-center p-4 select-none">
+      {/* Soft ambient background glow */}
+      <div 
+        className="absolute inset-0 opacity-40 group-hover:opacity-75 transition-opacity duration-500 pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at 50% 45%, ${color}35 0%, transparent 65%)`,
+        }}
+      />
+
+      {/* Floating glass icon container */}
+      <div
+        className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center backdrop-blur-xl border transition-all duration-300 group-hover:scale-105 group-hover:-translate-y-0.5 shadow-sm group-hover:shadow-md mb-3"
+        style={{
+          background: `color-mix(in srgb, var(--card) 90%, ${color} 10%)`,
+          borderColor: `${color}30`,
+          color: color,
+          boxShadow: `0 8px 24px -6px ${color}25`,
+        }}
+      >
+        <Icon className="w-7 h-7 sm:w-8 sm:h-8 transition-transform duration-300 group-hover:scale-110" strokeWidth={1.75} />
+      </div>
+
+      {/* Add Books Action */}
+      {onAddBooks && !isSmart && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddBooks();
+          }}
+          className="relative z-10 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-background/80 hover:bg-background text-foreground/90 hover:text-foreground border border-border/60 hover:border-primary/40 shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5 text-primary" />
+          <span>Add Books</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SingleBookMockup({ cover, color }: { cover: string; color: string }) {
   return (
     <div className="relative w-full h-full flex items-center justify-center p-3" style={{ perspective: '1000px' }}>
@@ -219,32 +271,13 @@ function ShelfCard({
             </div>
           </>
         ) : (
-          /* Rich Empty State */
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center p-4 gap-2.5"
-            style={{ background: `radial-gradient(circle at 50% 40%, ${color}15, transparent 75%)` }}
-          >
-            <div
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border shadow-md transition-transform group-hover:scale-105"
-              style={{ background: `${color}15`, borderColor: `${color}35`, color, boxShadow: `0 8px 24px ${color}15` }}
-            >
-              <Icon className="w-7 h-7 sm:w-8 sm:h-8 opacity-90" strokeWidth={1.75} />
-            </div>
-
-            {onAddBooks && !shelf.isSmart && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddBooks();
-                }}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-secondary/80 hover:bg-secondary text-foreground border border-border/50 shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
-              >
-                <Plus className="w-3 h-3 text-primary" />
-                <span>Add Books</span>
-              </button>
-            )}
-          </div>
+          /* Rich 3D Bookshelf Empty State */
+          <EmptyShelfMockup
+            icon={Icon}
+            color={color}
+            onAddBooks={onAddBooks}
+            isSmart={shelf.isSmart}
+          />
         )}
 
         {/* Gradient overlay bottom */}
@@ -728,14 +761,23 @@ export function ShelfGrid({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(filteredAndSortedShelves.length * 0.05, 0.4) + 0.05, duration: 0.4 }}
                   onClick={onCreateShelf}
-                  className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed transition-all duration-300 h-full min-h-[190px] border-border hover:border-primary/50 hover:bg-muted/40 cursor-pointer"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="group relative flex flex-col text-left rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-card/40 hover:bg-card border border-dashed border-border/70 hover:border-primary/50 w-full cursor-pointer select-none"
                 >
-                  <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center group-hover:bg-primary/20 group-hover:border-primary/50 transition-all duration-300">
-                    <Plus className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <div className="relative w-full aspect-[5/4] flex flex-col items-center justify-center p-4">
+                    <div className="w-12 h-12 rounded-2xl bg-secondary/80 border border-border/60 flex items-center justify-center group-hover:bg-primary/15 group-hover:border-primary/40 group-hover:scale-110 transition-all duration-300 shadow-xs">
+                      <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
-                  <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground transition-colors">New Shelf</span>
+                  <div className="relative z-10 p-3 sm:p-4 bg-card/60 border-t border-border/40 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors leading-tight">
+                        New Shelf
+                      </h3>
+                      <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 font-medium">
+                        Create collection
+                      </p>
+                    </div>
+                  </div>
                 </motion.button>
               )}
             </div>

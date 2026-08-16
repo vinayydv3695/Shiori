@@ -66,3 +66,4 @@ export {
 
 export { AniListIcon } from './AniListIcon'
 export { TorboxIcon } from './TorboxIcon'
+export { BookshelfIcon } from './BookshelfIcon'

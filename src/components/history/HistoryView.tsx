@@ -194,12 +194,7 @@ export function HistoryView({
 
   const handleRemoveFromHistory = async (bookId: number) => {
     try {
-      await api.saveReadingProgress({
-        bookId,
-        currentLocation: '',
-        progressPercent: 0,
-        lastRead: '',
-      });
+      await api.saveReadingProgress(bookId, '', 0);
 
       setBooks(prev => prev.filter(b => b.id !== bookId));
       useToastStore.getState().addToast({
@@ -219,12 +214,7 @@ export function HistoryView({
     try {
       for (const book of books) {
         if (book.id) {
-          await api.saveReadingProgress({
-            bookId: book.id,
-            currentLocation: '',
-            progressPercent: 0,
-            lastRead: '',
-          });
+          await api.saveReadingProgress(book.id, '', 0);
         }
       }
       setBooks([]);

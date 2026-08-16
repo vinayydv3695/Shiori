@@ -589,8 +589,9 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
       {/* Quote Card Dialog */}
       {quoteCardData && (
         <QuoteCardDialog
-          result={quoteCardData}
-          onClose={() => setQuoteCardData(null)}
+          open={!!quoteCardData}
+          onOpenChange={(open) => { if (!open) setQuoteCardData(null); }}
+          annotationData={quoteCardData}
         />
       )}
     </div>

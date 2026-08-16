@@ -13,70 +13,71 @@ interface MangaHomeProps {
 const MANGA_FORMATS = ['cbz', 'cbr', 'zip', 'online-manga']
 
 export function MangaHome({ onOpenManga }: MangaHomeProps) {
-    const { books } = useLibraryStore()
-    const [inProgress, setInProgress] = useState<Array<{ book: Book; progress: ReadingProgress }>>([])
-    const [loading, setLoading] = useState(true)
+    const allBooks = useLibraryStore((s) => s.books)
+    const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
 
     // Filter manga only
     const mangaList = useMemo(() => {
-        return books.filter((b) => MANGA_FORMATS.includes(b.format?.toLowerCase() || ''))
-    }, [books])
+        return allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || ''))
+    }, [allBooks])
 
     // Load reading progress for manga
     const loadProgress = useCallback(async () => {
-        try {
-            const allProgress = await api.getAllReadingProgress()
-            const bookProgressMap = new Map(allProgress.map((p) => [p.book_id, p]))
+        const openedManga = mangaList.filter((b) => b.last_opened && b.id)
+        const map: Record<number, ReadingProgress> = {}
 
-            const inProgressManga: Array<{ book: Book; progress: ReadingProgress }> = []
-            for (const book of mangaList) {
-                const progress = bookProgressMap.get(book.id)
-                if (progress && progress.status === 'reading' && progress.progress > 0 && progress.progress < 1) {
-                    inProgressManga.push({ book, progress })
+        for (const book of openedManga.slice(0, 20)) {
+            try {
+                const progress = await api.getReadingProgress(book.id!)
+                if (progress && progress.progressPercent > 0 && progress.progressPercent < 100) {
+                    map[book.id!] = progress
                 }
+            } catch {
+                // Skip books with no progress
             }
-
-            // Sort by last read
-            inProgressManga.sort((a, b) => {
-                const dateA = a.progress.last_read ? new Date(a.progress.last_read).getTime() : 0
-                const dateB = b.progress.last_read ? new Date(b.progress.last_read).getTime() : 0
-                return dateB - dateA
-            })
-
-            setInProgress(inProgressManga.slice(0, 6))
-        } catch (e) {
-            console.error('Failed to load reading progress:', e)
-        } finally {
-            setLoading(false)
         }
+        setProgressMap(map)
     }, [mangaList])
 
     useEffect(() => {
         loadProgress()
     }, [loadProgress])
 
+    // Manga that have been opened and have progress
+    const continueReading = useMemo(() => {
+        return mangaList
+            .filter((b) => b.last_opened && b.id && progressMap[b.id])
+            .sort((a, b) => {
+                const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
+                const dateB = b.last_opened ? new Date(b.last_opened).getTime() : 0
+                return dateB - dateA
+            })
+            .slice(0, 6)
+    }, [mangaList, progressMap])
+
     // Recently added manga
     const recentlyAdded = useMemo(() => {
         return [...mangaList]
-            .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+            .sort((a, b) => new Date(b.added_date).getTime() - new Date(a.added_date).getTime())
             .slice(0, 10)
     }, [mangaList])
 
     return (
         <div className="home-dashboard">
-            <StatsBar />
+            <StatsBar books={mangaList} domain="manga_comics" />
 
-            {inProgress.length > 0 && (
+            {continueReading.length > 0 && (
                 <div className="bento-widget">
                     <div className="bento-widget-header">
                         <h2 className="bento-widget-title flex items-center gap-2"><BookOpen size={18} /> Continue Reading</h2>
                     </div>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(115px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 md:gap-6 mt-4">
-                        {inProgress.map(({ book, progress }) => (
+                        {continueReading.map((book) => (
                             <ContinueReadingCard
                                 key={book.id}
                                 book={book}
-                                progress={progress}
+                                progress={progressMap[book.id!]!}
+                                domain="manga_comics"
                                 onClick={onOpenManga}
                             />
                         ))}

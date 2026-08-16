@@ -19,6 +19,7 @@ import { FeatureHint } from '../ui/FeatureHint';
 import { cn, pageCountLabel } from '@/lib/utils';
 import { EditorialSeriesCover } from './SeriesCard';
 import { useLibraryStore } from '../../store/libraryStore';
+import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
 
 function resolveCoverSrc(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;

@@ -41,6 +41,7 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   onOpenBook: (id: number) => void
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  if (!series) return null;
 
   // Find next unread book & natural first book for cover artwork
   const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
@@ -253,6 +254,7 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   onOpenBook: (id: number) => void
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  if (!series) return null;
 
   // Find next unread book & natural first book for cover artwork
   const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);

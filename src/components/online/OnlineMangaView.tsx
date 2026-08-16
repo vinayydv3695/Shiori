@@ -1538,7 +1538,7 @@ export function OnlineMangaView() {
               <button
                 type="button"
                 onClick={() => {
-                  setSearchQuery("");
+                  setSearchQuery("manga", "");
                   setHasSearched(false);
                 }}
                 className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors mr-1.5 cursor-pointer"

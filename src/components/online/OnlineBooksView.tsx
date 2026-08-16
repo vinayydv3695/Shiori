@@ -20,6 +20,7 @@ import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import { DownloadsButton } from './DownloadQueuePanel';
 import { useBookOpen } from '@/hooks/useBookOpen';
 import { invoke } from '@tauri-apps/api/core';
+import { api } from '@/lib/tauri';
 import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
 import { Globe, BookOpen, Library, Zap, Search, Filter, X, type LucideIcon } from 'lucide-react';
 

@@ -1,3 +1,12 @@
+# Release Notes (v2.3.31)
+
+## Features & Improvements
+
+- **Reader Sidebar Tab Reordering** — Reorganized reader sidebar navigation to `Search` → `TOC` → `Notes` → `Highlights` for immediate search-first access.
+- **Android Online Books Action Routing** — Replaced "Read Now" with "Download Now" on Android across Online Books spotlight banner, search cards, side panels, and Gutenberg/LibGen details dialogs.
+- **Responsive Mobile & Android Catalog Grids** — Upgraded book and manga grids to adaptive CSS Grid (`grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6`) eliminating awkward auto-fill wraps on mobile viewports.
+- **Online Manga Detail & Carousel Polish** — Refined hero header typography, mobile cover sizing, touch-friendly chapter row margins, and full-bleed horizontal content rows on mobile.
+
 # Release Notes (v2.3.30)
 
 ## Bug Fixes & Android Layout Polish

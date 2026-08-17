@@ -582,49 +582,56 @@ export const MetadataSearchDialog = ({
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] md:w-[90vw] max-w-5xl max-h-[85vh] md:max-h-[90vh] z-50 flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
-              <div className="flex flex-col">
-                <Dialog.Title className="text-xl font-bold text-foreground">
-                  Batch Fetch Metadata
-                </Dialog.Title>
-                <p className="text-sm text-muted-foreground">Searching metadata for {bookIds.length} items</p>
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[240] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content 
+            aria-describedby={undefined} 
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-5xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl z-[250] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/60 backdrop-blur-xl shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs shrink-0">
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className="min-w-0">
+                  <Dialog.Title className="text-base sm:text-lg font-extrabold text-foreground tracking-tight">
+                    Batch Fetch Metadata
+                  </Dialog.Title>
+                  <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 font-medium">
+                    Searching metadata for {bookIds.length} items
+                  </Dialog.Description>
+                </div>
               </div>
               <Dialog.Close asChild>
-                <button className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-muted transition-colors">
-                  <X className="h-5 w-5" />
+                <button className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" title="Close">
+                  <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </button>
               </Dialog.Close>
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Toolbar */}
-              <div className="p-4 border-b border-border flex flex-wrap gap-4 items-center justify-between bg-card">
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="font-medium text-muted-foreground">Providers:</span>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={providers.anilist} onChange={e => setProviders(p => ({...p, anilist: e.target.checked}))} className="rounded border-border" />
+              <div className="p-3.5 sm:p-4 border-b border-border/50 flex flex-wrap gap-3 sm:gap-4 items-center justify-between bg-muted/20">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                  <span className="font-bold text-muted-foreground uppercase text-[10px] sm:text-xs tracking-wider">Providers:</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-foreground">
+                    <input type="checkbox" checked={providers.anilist} onChange={e => setProviders(p => ({...p, anilist: e.target.checked}))} className="rounded border-border accent-primary" />
                     AniList (Manga)
                   </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={providers.openlibrary} onChange={e => setProviders(p => ({...p, openlibrary: e.target.checked}))} className="rounded border-border" />
+                  <label className="flex items-center gap-1.5 cursor-pointer font-medium text-foreground">
+                    <input type="checkbox" checked={providers.openlibrary} onChange={e => setProviders(p => ({...p, openlibrary: e.target.checked}))} className="rounded border-border accent-primary" />
                     OpenLibrary (Books)
-                  </label>
-                  <label className="flex items-center gap-2 opacity-50 cursor-not-allowed" title="Not available">
-                    <input type="checkbox" checked={false} disabled className="rounded border-border" />
-                    Google Books
                   </label>
                 </div>
                 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {!batchProgress.isRunning && pendingCount > 0 && (
-                    <Button onClick={performBatchSearch} className="gap-2">
-                      <Search className="h-4 w-4" /> Start Batch Search
+                    <Button onClick={performBatchSearch} className="rounded-full px-4 h-9 font-bold shadow-md shadow-primary/20 bg-primary text-primary-foreground gap-1.5 text-xs sm:text-sm active:scale-95 transition-all">
+                      <Search className="h-3.5 w-3.5" /> Start Batch Search
                     </Button>
                   )}
                   {batchProgress.isRunning && (
-                    <Button variant="destructive" onClick={() => cancelRef.current = true}>
+                    <Button variant="destructive" onClick={() => cancelRef.current = true} className="rounded-full px-4 h-9 text-xs sm:text-sm">
                       Cancel Search
                     </Button>
                   )}
@@ -633,57 +640,61 @@ export const MetadataSearchDialog = ({
 
               {/* Progress Bar */}
               {batchProgress.isRunning && batchProgress.total > 0 && (
-                <div className="px-6 py-3 border-b border-border bg-muted/20">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span>Searching {batchProgress.current} of {batchProgress.total}...</span>
-                    <span>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
+                <div className="px-4 sm:px-6 py-3 border-b border-border/50 bg-primary/5">
+                  <div className="flex justify-between text-xs font-semibold mb-1.5">
+                    <span className="text-foreground">Searching {batchProgress.current} of {batchProgress.total}...</span>
+                    <span className="text-primary font-bold">{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                    <div className="bg-primary h-2 transition-all duration-300 ease-out" style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }} />
+                    <div className="bg-primary h-2 rounded-full transition-all duration-300 ease-out" style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }} />
                   </div>
                 </div>
               )}
 
               {/* Results Table */}
-              <div className="flex-1 overflow-y-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-muted-foreground uppercase bg-muted/50 sticky top-0 z-10 backdrop-blur-md">
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <table className="w-full text-xs sm:text-sm text-left">
+                  <thead className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase bg-muted/40 sticky top-0 z-10 backdrop-blur-md border-b border-border/50">
                     <tr>
-                      <th className="px-6 py-3 font-medium">Book File</th>
-                      <th className="px-6 py-3 font-medium">Matched Title</th>
-                      <th className="px-6 py-3 font-medium">Provider</th>
-                      <th className="px-6 py-3 font-medium">Confidence</th>
-                      <th className="px-6 py-3 font-medium text-right">Status</th>
+                      <th className="px-4 sm:px-6 py-3">Book File</th>
+                      <th className="px-4 sm:px-6 py-3">Matched Title</th>
+                      <th className="px-4 sm:px-6 py-3">Provider</th>
+                      <th className="px-4 sm:px-6 py-3">Confidence</th>
+                      <th className="px-4 sm:px-6 py-3 text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/50">
+                  <tbody className="divide-y divide-border/40">
                     {resultsArray.map((r) => (
                       <tr key={r.book.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-4 font-medium truncate max-w-[200px]" title={r.book.title}>{r.book.title}</td>
-                        <td className="px-6 py-4 truncate max-w-[250px] text-muted-foreground">
+                        <td className="px-4 sm:px-6 py-3.5 font-semibold text-foreground truncate max-w-[180px] sm:max-w-[220px]" title={r.book.title}>{r.book.title}</td>
+                        <td className="px-4 sm:px-6 py-3.5 truncate max-w-[200px] sm:max-w-[260px] text-muted-foreground">
                           {r.bestMatch ? r.bestMatch.mappedMetadata.title : '-'}
                         </td>
-                        <td className="px-6 py-4">
-                          {r.bestMatch ? (r.bestMatch.provider === 'anilist' ? 'AniList' : 'OpenLibrary') : '-'}
-                        </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-3.5">
                           {r.bestMatch ? (
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              r.bestMatch.confidence > 80 ? 'bg-green-500/10 text-green-500' :
-                              r.bestMatch.confidence >= 50 ? 'bg-yellow-500/10 text-yellow-500' :
-                              'bg-red-500/10 text-red-500'
+                            <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                              {r.bestMatch.provider === 'anilist' ? 'AniList' : 'OpenLibrary'}
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td className="px-4 sm:px-6 py-3.5">
+                          {r.bestMatch ? (
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold border ${
+                              r.bestMatch.confidence > 80 ? 'bg-green-500/10 text-green-500 border-green-500/20' :
+                              r.bestMatch.confidence >= 50 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                              'bg-red-500/10 text-red-500 border-red-500/20'
                             }`}>
                               {r.bestMatch.confidence}%
                             </span>
                           ) : '-'}
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          {r.status === 'pending' && <span className="text-muted-foreground">Pending</span>}
+                        <td className="px-4 sm:px-6 py-3.5 text-right">
+                          {r.status === 'pending' && <span className="text-muted-foreground text-xs">Pending</span>}
                           {r.status === 'searching' && <Loader2 className="w-4 h-4 animate-spin ml-auto text-primary" />}
-                          {r.status === 'review' && <span className="text-blue-500">Ready</span>}
+                          {r.status === 'review' && <span className="text-primary font-semibold text-xs">Ready</span>}
                           {r.status === 'applied' && <CheckCircle className="w-4 h-4 ml-auto text-green-500" />}
-                          {r.status === 'error' && <span title={r.error}><AlertTriangle className="w-4 h-4 ml-auto text-red-500" /></span>}
-                          {r.status === 'skipped' && <span className="text-muted-foreground">Skipped</span>}
+                          {r.status === 'error' && <span title={r.error}><AlertTriangle className="w-4 h-4 ml-auto text-destructive" /></span>}
+                          {r.status === 'skipped' && <span className="text-muted-foreground text-xs">Skipped</span>}
                         </td>
                       </tr>
                     ))}
@@ -692,42 +703,43 @@ export const MetadataSearchDialog = ({
               </div>
             </div>
 
+            {/* Footer */}
             <div 
-              className="p-6 border-t border-border bg-muted/30 flex justify-between items-center"
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+              className="p-3.5 sm:p-5 border-t border-border/50 bg-card/80 backdrop-blur-xl flex flex-col sm:flex-row justify-between items-center gap-3"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
             >
-              <div className="text-sm text-muted-foreground space-y-0.5">
+              <div className="text-xs sm:text-sm text-muted-foreground space-y-0.5">
                 <div className="font-medium">
                   {batchProgress.summary || (
                     <>
                       {reviewCount > 0 && <span>Ready: {reviewCount} ({highConfidenceCount} high, {mediumConfidenceCount} medium)</span>}
-                      {appliedCount > 0 && <span className="ml-3 text-green-500">Applied: {appliedCount}</span>}
-                      {errorCount > 0 && <span className="ml-3 text-red-500">Errors: {errorCount}</span>}
+                      {appliedCount > 0 && <span className="ml-3 text-green-500 font-semibold">Applied: {appliedCount}</span>}
+                      {errorCount > 0 && <span className="ml-3 text-destructive font-semibold">Errors: {errorCount}</span>}
                       {reviewCount === 0 && appliedCount === 0 && errorCount === 0 && <span>No matches yet</span>}
                     </>
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                 <Dialog.Close asChild>
-                  <Button variant="ghost">Close</Button>
+                  <Button variant="ghost" className="rounded-full px-4 h-9 text-xs sm:text-sm font-semibold">Close</Button>
                 </Dialog.Close>
                 {highConfidenceCount > 0 && (
                   <Button
                     variant="outline"
                     onClick={applyHighConfidence} 
                     disabled={batchProgress.isRunning}
-                    className="gap-2"
+                    className="rounded-full px-4 h-9 text-xs sm:text-sm font-semibold gap-1.5"
                   >
-                    <FastForward className="w-4 h-4" /> Apply {highConfidenceCount} High ({'>'}80%)
+                    <FastForward className="w-3.5 h-3.5" /> Apply {highConfidenceCount} High ({'>'}80%)
                   </Button>
                 )}
                 <Button 
                   onClick={applyAllReviewed} 
                   disabled={reviewCount === 0 || batchProgress.isRunning}
-                  className="gap-2"
+                  className="rounded-full px-5 h-9 text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 bg-primary text-primary-foreground gap-1.5"
                 >
-                  <CheckCircle className="w-4 h-4" /> Apply All {reviewCount} Matches
+                  <CheckCircle className="w-3.5 h-3.5" /> Apply All {reviewCount} Matches
                 </Button>
               </div>
             </div>
@@ -742,83 +754,154 @@ export const MetadataSearchDialog = ({
     <>
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] md:w-[90vw] max-w-3xl max-h-[85vh] md:max-h-[90vh] z-50 flex flex-col overflow-x-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
-              <Dialog.Title className="text-lg font-semibold text-foreground">
-                Fetch Metadata from {isManga ? 'AniList' : 'Open Library'}
-              </Dialog.Title>
-               <Dialog.Close asChild>
-                 <button className="text-muted-foreground hover:text-foreground transition-colors" title="Close metadata search"><X className="h-5 w-5" /></button>
-               </Dialog.Close>
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[240] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content 
+            aria-describedby={undefined} 
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-3xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl z-[250] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/60 backdrop-blur-xl shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs shrink-0">
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className="min-w-0">
+                  <Dialog.Title className="text-base sm:text-lg font-extrabold text-foreground tracking-tight">
+                    Find Metadata Match
+                  </Dialog.Title>
+                  <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 font-medium">
+                    Search {isManga ? 'AniList' : 'Open Library'} for covers and details
+                  </Dialog.Description>
+                </div>
+              </div>
+              <Dialog.Close asChild>
+                <button className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" title="Close">
+                  <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                </button>
+              </Dialog.Close>
             </div>
             
-            <div className="p-6 border-b border-border flex-shrink-0">
+            {/* Search Input Bar */}
+            <div className="p-3.5 sm:p-5 border-b border-border/50 bg-muted/20 shrink-0 space-y-2">
               <div className="flex gap-2">
                 <div className="flex-1 relative">
                   <input
                     type="text"
-                    placeholder={`Search ${isManga ? 'manga' : 'books'}...`}
+                    placeholder={`Search ${isManga ? 'manga title' : 'book title or author'}...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && performSingleSearch()}
-                    className="w-full px-4 py-2 bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full h-10 px-3.5 pr-9 bg-background/80 border border-border/50 rounded-xl text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all shadow-xs"
                   />
-                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" />
                 </div>
-                <Button onClick={performSingleSearch} disabled={searching} className="min-w-24">
-                  {searching ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Searching...</> : <><Search className="h-4 w-4 mr-2" />Search</>}
+                <Button 
+                  onClick={performSingleSearch} 
+                  disabled={searching} 
+                  className="rounded-full px-5 h-10 font-bold shadow-md shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 text-xs sm:text-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  {searching ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-3.5 w-3.5" />
+                      <span>Search</span>
+                    </>
+                  )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">Currently searching for: <span className="font-medium text-foreground">{bookTitle}</span></p>
+              {bookTitle && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span>Searching for:</span>
+                  <span className="font-semibold text-foreground truncate max-w-sm">{bookTitle}</span>
+                </p>
+              )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            {/* Results List */}
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 custom-scrollbar">
               {searching ? (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-4 p-4 border border-border/40 rounded-lg bg-muted/10">
-                      <Skeleton className="w-16 h-24 sm:w-24 sm:h-36 rounded-md shrink-0" />
-                      <div className="flex-1 space-y-3 py-1">
-                        <Skeleton className="h-5 w-3/4 rounded-md" />
-                        <Skeleton className="h-4 w-1/2 rounded-md" />
-                        <Skeleton className="h-3 w-1/4 mt-4 rounded-md" />
+                    <div key={i} className="flex gap-3 sm:gap-4 p-3.5 sm:p-4 border border-border/40 rounded-2xl bg-muted/20 animate-pulse">
+                      <Skeleton className="w-16 h-24 sm:w-20 sm:h-28 rounded-xl shrink-0" />
+                      <div className="flex-1 space-y-2.5 py-1">
+                        <Skeleton className="h-4 sm:h-5 w-3/4 rounded-lg" />
+                        <Skeleton className="h-3.5 w-1/2 rounded-lg" />
+                        <Skeleton className="h-3 w-1/4 mt-3 rounded-lg" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : results.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-foreground font-medium mb-1">No results found</p>
-                  <p className="text-sm text-muted-foreground">Try adjusting your search query</p>
+                <div className="text-center py-12 px-4">
+                  <div className="w-12 h-12 rounded-2xl bg-muted/40 border border-border/50 flex items-center justify-center mx-auto mb-3 text-muted-foreground">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <p className="text-foreground font-bold text-sm sm:text-base mb-1">No matches found</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Try adjusting your search keywords above</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {results.map((result, index) => {
                     const isDownloading = downloading === index;
                     if (isMangaResult(result)) {
                       return (
-                        <div key={result.anilist_id} className="flex flex-col sm:flex-row gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
-                          <div className="flex gap-4 flex-1 min-w-0">
-                            <img src={result.cover_url_large} alt={result.title_romaji} className="w-24 h-36 object-contain bg-muted rounded flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-foreground mb-1 truncate">{result.title_english || result.title_romaji}</h3>
-                              {result.title_english && result.title_romaji && <p className="text-sm text-muted-foreground mb-2 truncate">{result.title_romaji}</p>}
-                              {result.description && <p className="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mb-2">{result.description.substring(0, 200)}...</p>}
-                              <div className="flex flex-wrap gap-2 mb-2">
-                                {result.genres && result.genres.slice(0, 4).map((genre) => <span key={genre} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded truncate max-w-full">{genre}</span>)}
+                        <div 
+                          key={result.anilist_id} 
+                          className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 p-3.5 sm:p-4 border border-border/40 hover:border-primary/40 rounded-2xl bg-muted/30 hover:bg-muted/40 transition-all duration-200 shadow-xs"
+                        >
+                          <div className="flex gap-3.5 flex-1 min-w-0">
+                            <div className="w-16 min-[380px]:w-20 sm:w-24 aspect-[2/3] rounded-xl overflow-hidden shadow-md bg-muted/40 border border-border/40 shrink-0">
+                              <img src={result.cover_url_large} alt={result.title_romaji} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <h3 className="font-bold text-foreground text-sm sm:text-base leading-snug truncate">
+                                {result.title_english || result.title_romaji}
+                              </h3>
+                              {result.title_english && result.title_romaji && (
+                                <p className="text-xs text-muted-foreground truncate">{result.title_romaji}</p>
+                              )}
+                              {result.description && (
+                                <p className="text-xs text-muted-foreground/90 line-clamp-2 leading-relaxed pt-0.5">
+                                  {result.description.replace(/<[^>]*>/g, '')}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-1 sm:gap-1.5 pt-1">
+                                {result.genres && result.genres.slice(0, 3).map((genre) => (
+                                  <span key={genre} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] sm:text-[11px] font-semibold rounded-full border border-primary/20">
+                                    {genre}
+                                  </span>
+                                ))}
                               </div>
-                              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] font-medium text-muted-foreground">
                                 {result.average_score && <span>⭐ {result.average_score}%</span>}
-                                {result.volumes && <span>📚 {result.volumes} vols</span>}
-                                {result.status && <span className="truncate">{result.status}</span>}
-                                {result.start_year && <span>{result.start_year}</span>}
+                                {result.volumes && <span>• 📚 {result.volumes} vols</span>}
+                                {result.status && <span>• {result.status}</span>}
+                                {result.start_year && <span>• {result.start_year}</span>}
                               </div>
                             </div>
                           </div>
-                          <div className="w-full sm:w-auto sm:flex-shrink-0 mt-2 sm:mt-0">
-                            <Button className="w-full sm:w-auto h-10 sm:h-auto" size="sm" onClick={() => handleSelectMetadata(result)} disabled={isDownloading}>
-                              {isDownloading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Applying...</> : <><Download className="h-3 w-3 mr-1" />Use This</>}
+                          <div className="w-full sm:w-auto sm:self-center shrink-0 pt-1 sm:pt-0">
+                            <Button 
+                              className="w-full sm:w-auto rounded-full px-5 h-9 sm:h-10 font-bold shadow-md shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm active:scale-95 transition-all cursor-pointer" 
+                              onClick={() => handleSelectMetadata(result)} 
+                              disabled={isDownloading}
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                                  <span>Applying...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                                  <span>Use This</span>
+                                </>
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -826,26 +909,61 @@ export const MetadataSearchDialog = ({
                     } else {
                       const bookResult = result as BookMetadata;
                       return (
-                        <div key={bookResult.open_library_id || index} className="flex flex-col sm:flex-row gap-4 p-4 border border-border rounded-lg hover:border-primary/50 transition-colors bg-card">
-                          <div className="flex gap-4 flex-1 min-w-0">
-                            {bookResult.cover_url_medium ? (
-                              <img src={bookResult.cover_url_medium} alt={bookResult.title} className="w-24 h-36 object-contain bg-muted rounded flex-shrink-0" />
-                            ) : (
-                              <div className="w-24 h-36 bg-muted rounded flex items-center justify-center text-muted-foreground flex-shrink-0"><span className="text-3xl">📚</span></div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-foreground mb-1 truncate">{bookResult.title}</h3>
-                              {bookResult.subtitle && <p className="text-sm text-muted-foreground mb-2 truncate">{bookResult.subtitle}</p>}
-                              {bookResult.authors && bookResult.authors.length > 0 && <p className="text-sm text-muted-foreground mb-2 truncate">by {bookResult.authors.map(a => a.name).join(', ')}</p>}
-                              {bookResult.description && <p className="text-sm text-muted-foreground line-clamp-2 md:line-clamp-3 mb-2">{bookResult.description.substring(0, 200)}...</p>}
-                              <div className="flex flex-wrap gap-2 mb-2">
-                                {bookResult.subjects && bookResult.subjects.slice(0, 3).map((subject, idx) => <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded truncate max-w-full">{subject}</span>)}
+                        <div 
+                          key={bookResult.open_library_id || index} 
+                          className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 p-3.5 sm:p-4 border border-border/40 hover:border-primary/40 rounded-2xl bg-muted/30 hover:bg-muted/40 transition-all duration-200 shadow-xs"
+                        >
+                          <div className="flex gap-3.5 flex-1 min-w-0">
+                            <div className="w-16 min-[380px]:w-20 sm:w-24 aspect-[2/3] rounded-xl overflow-hidden shadow-md bg-muted/40 border border-border/40 shrink-0 flex items-center justify-center">
+                              {bookResult.cover_url_medium ? (
+                                <img src={bookResult.cover_url_medium} alt={bookResult.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-2xl">📚</span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <h3 className="font-bold text-foreground text-sm sm:text-base leading-snug truncate">
+                                {bookResult.title}
+                              </h3>
+                              {bookResult.subtitle && (
+                                <p className="text-xs text-muted-foreground truncate">{bookResult.subtitle}</p>
+                              )}
+                              {bookResult.authors && bookResult.authors.length > 0 && (
+                                <p className="text-xs text-muted-foreground font-medium truncate">
+                                  by {bookResult.authors.map(a => a.name).join(', ')}
+                                </p>
+                              )}
+                              {bookResult.description && (
+                                <p className="text-xs text-muted-foreground/90 line-clamp-2 leading-relaxed pt-0.5">
+                                  {bookResult.description}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap gap-1 sm:gap-1.5 pt-1">
+                                {bookResult.subjects && bookResult.subjects.slice(0, 3).map((subject, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] sm:text-[11px] font-semibold rounded-full border border-primary/20">
+                                    {subject}
+                                  </span>
+                                ))}
                               </div>
                             </div>
                           </div>
-                          <div className="w-full sm:w-auto sm:flex-shrink-0 mt-2 sm:mt-0">
-                            <Button className="w-full sm:w-auto h-10 sm:h-auto" size="sm" onClick={() => handleSelectMetadata(bookResult)} disabled={isDownloading}>
-                              {isDownloading ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Applying...</> : <><Download className="h-3 w-3 mr-1" />Use This</>}
+                          <div className="w-full sm:w-auto sm:self-center shrink-0 pt-1 sm:pt-0">
+                            <Button 
+                              className="w-full sm:w-auto rounded-full px-5 h-9 sm:h-10 font-bold shadow-md shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm active:scale-95 transition-all cursor-pointer" 
+                              onClick={() => handleSelectMetadata(bookResult)} 
+                              disabled={isDownloading}
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                                  <span>Applying...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                                  <span>Use This</span>
+                                </>
+                              )}
                             </Button>
                           </div>
                         </div>
@@ -856,16 +974,22 @@ export const MetadataSearchDialog = ({
               )}
             </div>
 
-            <div className="flex items-center justify-between p-6 border-t border-border bg-muted/30 flex-shrink-0">
-              <p className="text-xs text-muted-foreground">
+            {/* Footer */}
+            <div 
+              className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-t border-border/50 bg-card/80 backdrop-blur-xl shrink-0 gap-3"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
+            >
+              <p className="text-[11px] sm:text-xs text-muted-foreground">
                 {isManga ? (
-                  <>Data from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void openExternal('https://anilist.co'); }} className="text-primary hover:underline inline-flex items-center gap-1">AniList<ExternalLink className="h-3 w-3" /></a></>
+                  <>Data from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void openExternal('https://anilist.co'); }} className="text-primary font-semibold hover:underline inline-flex items-center gap-1">AniList<ExternalLink className="h-3 w-3" /></a></>
                 ) : (
-                  <>Data from <a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void openExternal('https://openlibrary.org'); }} className="text-primary hover:underline inline-flex items-center gap-1">Open Library<ExternalLink className="h-3 w-3" /></a></>
+                  <>Data from <a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void openExternal('https://openlibrary.org'); }} className="text-primary font-semibold hover:underline inline-flex items-center gap-1">Open Library<ExternalLink className="h-3 w-3" /></a></>
                 )}
               </p>
               <Dialog.Close asChild>
-                <Button variant="outline">Close</Button>
+                <Button variant="ghost" className="rounded-full px-5 font-semibold text-muted-foreground hover:text-foreground text-xs sm:text-sm h-9 sm:h-10">
+                  Close
+                </Button>
               </Dialog.Close>
             </div>
           </Dialog.Content>
@@ -875,61 +999,139 @@ export const MetadataSearchDialog = ({
       {/* Preview Modal for Single Mode */}
       <Dialog.Root open={previewModalOpen} onOpenChange={handleClosePreview}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[60] animate-in fade-in" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-xl shadow-2xl w-[90vw] max-w-4xl max-h-[85vh] md:max-h-[90vh] md:max-h-[90vh] z-[60] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-border bg-muted/10">
-              <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">Review Metadata & Cover</Dialog.Title>
-               <Dialog.Close asChild>
-                 <button className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors" title="Close"><X className="h-5 w-5" /></button>
-               </Dialog.Close>
+          <Dialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[260] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content 
+            aria-describedby={undefined} 
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-4xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl z-[270] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/60 backdrop-blur-xl shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs shrink-0">
+                  <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className="min-w-0">
+                  <Dialog.Title className="text-base sm:text-lg font-extrabold text-foreground tracking-tight">
+                    Review Metadata & Cover
+                  </Dialog.Title>
+                  <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 font-medium">
+                    Confirm details before applying changes
+                  </Dialog.Description>
+                </div>
+              </div>
+              <button 
+                onClick={handleClosePreview}
+                className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" 
+                title="Close"
+              >
+                <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-8">
-              <div className="flex-1 space-y-6">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Metadata Changes</h3>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-7 custom-scrollbar flex flex-col md:flex-row gap-6 sm:gap-8">
+              <div className="flex-1 space-y-4 sm:space-y-5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">
+                  Metadata Changes
+                </h3>
                 {previewMetadata && (
-                  <div className="space-y-4">
-                    <div><label className="text-xs text-muted-foreground font-medium">Title</label><p className="text-foreground font-medium">{String(previewMetadata.title || 'Unknown Title')}</p></div>
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="bg-muted/30 border border-border/40 rounded-xl p-3 sm:p-3.5 space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Title</label>
+                      <p className="text-xs sm:text-sm font-bold text-foreground">{String(previewMetadata.title || 'Unknown Title')}</p>
+                    </div>
+
                     {previewMetadata.authors && Array.isArray(previewMetadata.authors) && previewMetadata.authors.length > 0 && (
-                      <div><label className="text-xs text-muted-foreground font-medium">Authors</label><p className="text-foreground">{previewMetadata.authors.join(', ')}</p></div>
-                    )}
-                    {previewMetadata.genres && Array.isArray(previewMetadata.genres) && previewMetadata.genres.length > 0 && (
-                      <div><label className="text-xs text-muted-foreground font-medium">Tags / Genres</label>
-                        <div className="flex flex-wrap gap-2 mt-1">{previewMetadata.genres.map((g: string) => <span key={g} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-md">{g}</span>)}</div>
+                      <div className="bg-muted/30 border border-border/40 rounded-xl p-3 sm:p-3.5 space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Authors</label>
+                        <p className="text-xs sm:text-sm font-semibold text-foreground">{previewMetadata.authors.join(', ')}</p>
                       </div>
                     )}
+
+                    {previewMetadata.genres && Array.isArray(previewMetadata.genres) && previewMetadata.genres.length > 0 && (
+                      <div className="bg-muted/30 border border-border/40 rounded-xl p-3 sm:p-3.5 space-y-1.5">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tags / Genres</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {previewMetadata.genres.map((g: string) => (
+                            <span key={g} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] sm:text-[11px] font-semibold rounded-full border border-primary/20">
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {previewMetadata.description && (
-                      <div><label className="text-xs text-muted-foreground font-medium">Description</label><p className="text-sm text-foreground/80 line-clamp-6 leading-relaxed mt-1">{String(previewMetadata.description)}</p></div>
+                      <div className="bg-muted/30 border border-border/40 rounded-xl p-3 sm:p-3.5 space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Description</label>
+                        <p className="text-xs sm:text-sm text-foreground/90 line-clamp-6 leading-relaxed">
+                          {String(previewMetadata.description)}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-              <div className="w-full md:w-72 flex-shrink-0 space-y-6">
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-2">Cover Comparison</h3>
-                <div className="space-y-6">
+
+              {/* Cover Comparison */}
+              <div className="w-full md:w-72 shrink-0 space-y-4 sm:space-y-5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40 pb-2">
+                  Cover Comparison
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-1 gap-4">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between"><span>Suggested Cover</span><span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">New</span></p>
-                    <div className="aspect-[2/3] w-full bg-muted rounded-lg overflow-hidden border-2 border-primary/30 shadow-sm relative group">
-                      {previewCoverUrl ? <img src={previewCoverUrl} alt="Preview Cover" className="w-full h-full object-contain bg-muted transition-transform duration-500 group-hover:scale-105" /> : <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2"><ImageIcon className="h-8 w-8 opacity-50" /><span className="text-xs font-medium">No cover found</span></div>}
+                    <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
+                      <span>Suggested Cover</span>
+                      <span className="text-[10px] bg-primary/20 text-primary font-bold px-2 py-0.5 rounded-full">New</span>
+                    </div>
+                    <div className="aspect-[2/3] w-full bg-muted/30 rounded-2xl overflow-hidden border-2 border-primary/40 shadow-md relative group">
+                      {previewCoverUrl ? (
+                        <img src={previewCoverUrl} alt="Preview Cover" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
+                          <ImageIcon className="h-8 w-8 opacity-40" />
+                          <span className="text-xs font-medium">No cover found</span>
+                        </div>
+                      )}
                     </div>
                   </div>
+
                   {currentCoverUrl && (
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center justify-between"><span>Current Cover</span><span className="text-[10px] bg-muted-foreground/20 px-2 py-0.5 rounded-full">Existing</span></p>
-                      <div className="aspect-[2/3] w-2/3 mx-auto bg-muted rounded-md overflow-hidden border border-border opacity-70">
-                        <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-cover bg-muted grayscale-[0.2]" />
+                      <div className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center justify-between">
+                        <span>Current Cover</span>
+                        <span className="text-[10px] bg-muted-foreground/20 text-muted-foreground font-bold px-2 py-0.5 rounded-full">Existing</span>
+                      </div>
+                      <div className="aspect-[2/3] w-full bg-muted/30 rounded-2xl overflow-hidden border border-border/50 opacity-70">
+                        <img src={currentCoverUrl} alt="Current Cover" className="w-full h-full object-cover" />
                       </div>
                     </div>
                   )}
                 </div>
               </div>
             </div>
+
+            {/* Actions Footer */}
             <div 
-              className="p-6 border-t border-border bg-muted/10 flex flex-col sm:flex-row gap-3 justify-end items-center mt-auto"
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+              className="p-3.5 sm:p-5 border-t border-border/50 bg-card/80 backdrop-blur-xl flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 justify-end items-center mt-auto"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 12px)' }}
             >
-              <Button variant="ghost" onClick={handleClosePreview} className="w-full sm:w-auto">Cancel</Button>
-              <Button variant="outline" onClick={() => executeApply(false)} className="w-full sm:w-auto hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors">Apply Metadata Only</Button>
-              <Button onClick={() => executeApply(true)} className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all">Apply + Save Cover</Button>
+              <Button variant="ghost" onClick={handleClosePreview} className="w-full sm:w-auto rounded-full px-5 h-9 sm:h-10 text-xs sm:text-sm font-semibold">
+                Cancel
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => executeApply(false)} 
+                className="w-full sm:w-auto rounded-full px-5 h-9 sm:h-10 text-xs sm:text-sm font-semibold border-border/60 hover:bg-primary/10 hover:text-primary transition-all"
+              >
+                Apply Metadata Only
+              </Button>
+              <Button 
+                onClick={() => executeApply(true)} 
+                className="w-full sm:w-auto rounded-full px-6 h-9 sm:h-10 text-xs sm:text-sm font-bold shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
+              >
+                Apply + Save Cover
+              </Button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

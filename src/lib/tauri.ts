@@ -6,6 +6,9 @@ import { logger } from '@/lib/logger'
 
 // Generate correct shiori-proxy URL based on platform
 export function getProxyUrl(sourceId: string, url: string): string {
+  if (!isTauri) {
+    return url;
+  }
   let baseProxyUrl = convertFileSrc('', 'shiori-proxy');
   if (baseProxyUrl.endsWith('/')) {
     baseProxyUrl = baseProxyUrl.slice(0, -1);

@@ -73,9 +73,23 @@ export function useAutoUpdate() {
           const update = await check();
           
           if (update && update.available && mounted) {
+            let notes = update.body || '';
+            if (!notes || notes.trim().length < 20) {
+              try {
+                const rawVer = update.version.replace(/^v/, '');
+                const res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori/releases/tags/v${rawVer}`);
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.body) notes = data.body;
+                }
+              } catch {
+                // fallback to default
+              }
+            }
+
             setUpdateInfo({
               version: update.version,
-              notes: update.body || 'No release notes provided.',
+              notes: notes || 'No release notes provided.',
               desktopUpdate: update
             });
             setIsUpdateDialogOpen(true);

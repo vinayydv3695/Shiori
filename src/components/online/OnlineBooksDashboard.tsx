@@ -11,7 +11,7 @@ import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import { Flame, Rocket, BookOpen, Compass, ArrowLeft, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { HeroMangaBanner } from './HeroMangaBanner';
+import { HeroBookBanner } from './HeroBookBanner';
 import { MangaContentRow } from './MangaContentRow';
 import { ModernBookCard } from './ModernBookCard';
 import type { CarouselItem } from './ContentCarousel';
@@ -23,28 +23,366 @@ interface ActiveCategory {
   items: CarouselItem[];
 }
 
-function toBookCarouselItems(books: any[]): CarouselItem[] {
-  return books.map((book) => {
+function launchCacheGet<T>(key: string): T | null {
+  try {
+    const item = localStorage.getItem(`shiori:${key}`);
+    return item ? JSON.parse(item) : null;
+  } catch {
+    return null;
+  }
+}
+
+function launchCacheSet<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(`shiori:${key}`, JSON.stringify(data));
+  } catch {}
+}
+
+const SPOTLIGHT_BANNER_ITEMS: CarouselItem[] = [
+  {
+    id: 'spotlight-1',
+    title: 'The Great Gatsby',
+    subtitle: 'F. Scott Fitzgerald',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
+  },
+  {
+    id: 'spotlight-2',
+    title: 'Pride and Prejudice',
+    subtitle: 'Jane Austen',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
+  },
+  {
+    id: 'spotlight-3',
+    title: 'Frankenstein',
+    subtitle: 'Mary Wollstonecraft Shelley',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
+  },
+  {
+    id: 'spotlight-4',
+    title: 'Dracula',
+    subtitle: 'Bram Stoker',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg',
+  },
+  {
+    id: 'spotlight-5',
+    title: 'The Picture of Dorian Gray',
+    subtitle: 'Oscar Wilde',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/174/pg174.cover.medium.jpg',
+  },
+];
+
+const DEFAULT_TRENDING_ITEMS: CarouselItem[] = [
+  {
+    id: 'trending-1',
+    title: 'Atomic Habits',
+    subtitle: 'James Clear',
+    coverUrl: 'https://covers.openlibrary.org/b/id/12843521-L.jpg',
+  },
+  {
+    id: 'trending-2',
+    title: 'Dune',
+    subtitle: 'Frank Herbert',
+    coverUrl: 'https://covers.openlibrary.org/b/id/9140341-L.jpg',
+  },
+  {
+    id: 'trending-3',
+    title: 'Project Hail Mary',
+    subtitle: 'Andy Weir',
+    coverUrl: 'https://covers.openlibrary.org/b/id/10958382-L.jpg',
+  },
+  {
+    id: 'trending-4',
+    title: 'The Hobbit',
+    subtitle: 'J.R.R. Tolkien',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8406786-L.jpg',
+  },
+  {
+    id: 'trending-5',
+    title: '1984',
+    subtitle: 'George Orwell',
+    coverUrl: 'https://covers.openlibrary.org/b/id/14555818-L.jpg',
+  },
+  {
+    id: 'trending-6',
+    title: 'The Three-Body Problem',
+    subtitle: 'Cixin Liu',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8259447-L.jpg',
+  },
+  {
+    id: 'trending-7',
+    title: 'Brave New World',
+    subtitle: 'Aldous Huxley',
+    coverUrl: 'https://covers.openlibrary.org/b/id/14457816-L.jpg',
+  },
+  {
+    id: 'trending-8',
+    title: 'To Kill a Mockingbird',
+    subtitle: 'Harper Lee',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8225261-L.jpg',
+  },
+  {
+    id: 'trending-9',
+    title: 'The Midnight Library',
+    subtitle: 'Matt Haig',
+    coverUrl: 'https://covers.openlibrary.org/b/id/10478065-L.jpg',
+  },
+  {
+    id: 'trending-10',
+    title: 'Fahrenheit 451',
+    subtitle: 'Ray Bradbury',
+    coverUrl: 'https://covers.openlibrary.org/b/id/14457802-L.jpg',
+  },
+  {
+    id: 'trending-11',
+    title: 'Sapiens: A Brief History of Humankind',
+    subtitle: 'Yuval Noah Harari',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8257842-L.jpg',
+  },
+  {
+    id: 'trending-12',
+    title: 'Foundation',
+    subtitle: 'Isaac Asimov',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235116-L.jpg',
+  },
+];
+
+const DEFAULT_SCIFI_ITEMS: CarouselItem[] = [
+  {
+    id: 'scifi-1',
+    title: 'Neuromancer',
+    subtitle: 'William Gibson',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8234342-L.jpg',
+  },
+  {
+    id: 'scifi-2',
+    title: 'Snow Crash',
+    subtitle: 'Neal Stephenson',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8231991-L.jpg',
+  },
+  {
+    id: 'scifi-3',
+    title: 'Hyperion',
+    subtitle: 'Dan Simmons',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8232938-L.jpg',
+  },
+  {
+    id: 'scifi-4',
+    title: 'Blindsight',
+    subtitle: 'Peter Watts',
+    coverUrl: 'https://covers.openlibrary.org/b/id/7222246-L.jpg',
+  },
+  {
+    id: 'scifi-5',
+    title: 'Do Androids Dream of Electric Sheep?',
+    subtitle: 'Philip K. Dick',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8234581-L.jpg',
+  },
+  {
+    id: 'scifi-6',
+    title: "Ender's Game",
+    subtitle: 'Orson Scott Card',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235224-L.jpg',
+  },
+  {
+    id: 'scifi-7',
+    title: 'The Left Hand of Darkness',
+    subtitle: 'Ursula K. Le Guin',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8234672-L.jpg',
+  },
+  {
+    id: 'scifi-8',
+    title: 'Altered Carbon',
+    subtitle: 'Richard K. Morgan',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8232573-L.jpg',
+  },
+  {
+    id: 'scifi-9',
+    title: "Childhood's End",
+    subtitle: 'Arthur C. Clarke',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8234411-L.jpg',
+  },
+  {
+    id: 'scifi-10',
+    title: 'The Stars My Destination',
+    subtitle: 'Alfred Bester',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8233812-L.jpg',
+  },
+];
+
+const DEFAULT_CLASSIC_ITEMS: CarouselItem[] = [
+  {
+    id: 'classic-1',
+    title: 'Pride and Prejudice',
+    subtitle: 'Jane Austen',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
+  },
+  {
+    id: 'classic-2',
+    title: 'Crime and Punishment',
+    subtitle: 'Fyodor Dostoevsky',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2554/pg2554.cover.medium.jpg',
+  },
+  {
+    id: 'classic-3',
+    title: 'The Great Gatsby',
+    subtitle: 'F. Scott Fitzgerald',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
+  },
+  {
+    id: 'classic-4',
+    title: 'Moby Dick',
+    subtitle: 'Herman Melville',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
+  },
+  {
+    id: 'classic-5',
+    title: 'The Picture of Dorian Gray',
+    subtitle: 'Oscar Wilde',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/174/pg174.cover.medium.jpg',
+  },
+  {
+    id: 'classic-6',
+    title: 'Meditations',
+    subtitle: 'Marcus Aurelius',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2680/pg2680.cover.medium.jpg',
+  },
+  {
+    id: 'classic-7',
+    title: 'Frankenstein',
+    subtitle: 'Mary Wollstonecraft Shelley',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
+  },
+  {
+    id: 'classic-8',
+    title: 'Dracula',
+    subtitle: 'Bram Stoker',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg',
+  },
+  {
+    id: 'classic-9',
+    title: 'A Tale of Two Cities',
+    subtitle: 'Charles Dickens',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/98/pg98.cover.medium.jpg',
+  },
+  {
+    id: 'classic-10',
+    title: 'Jane Eyre',
+    subtitle: 'Charlotte Brontë',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1260/pg1260.cover.medium.jpg',
+  },
+];
+
+const DEFAULT_FANTASY_ITEMS: CarouselItem[] = [
+  {
+    id: 'fantasy-1',
+    title: 'The Name of the Wind',
+    subtitle: 'Patrick Rothfuss',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235221-L.jpg',
+  },
+  {
+    id: 'fantasy-2',
+    title: 'The Way of Kings',
+    subtitle: 'Brandon Sanderson',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235223-L.jpg',
+  },
+  {
+    id: 'fantasy-3',
+    title: 'A Game of Thrones',
+    subtitle: 'George R.R. Martin',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235225-L.jpg',
+  },
+  {
+    id: 'fantasy-4',
+    title: 'The Eye of the World',
+    subtitle: 'Robert Jordan',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235227-L.jpg',
+  },
+  {
+    id: 'fantasy-5',
+    title: 'The Blade Itself',
+    subtitle: 'Joe Abercrombie',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235229-L.jpg',
+  },
+  {
+    id: 'fantasy-6',
+    title: 'The Lies of Locke Lamora',
+    subtitle: 'Scott Lynch',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235231-L.jpg',
+  },
+  {
+    id: 'fantasy-7',
+    title: 'Gardens of the Moon',
+    subtitle: 'Steven Erikson',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235233-L.jpg',
+  },
+  {
+    id: 'fantasy-8',
+    title: 'The Final Empire',
+    subtitle: 'Brandon Sanderson',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8235235-L.jpg',
+  },
+  {
+    id: 'fantasy-9',
+    title: "Assassin's Apprentice",
+    subtitle: 'Robin Hobb',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8232880-L.jpg',
+  },
+  {
+    id: 'fantasy-10',
+    title: 'The Priory of the Orange Tree',
+    subtitle: 'Samantha Shannon',
+    coverUrl: 'https://covers.openlibrary.org/b/id/8943210-L.jpg',
+  },
+];
+
+function toBookCarouselItems(works: any[]): CarouselItem[] {
+  if (!Array.isArray(works) || works.length === 0) return [];
+
+  return works.map((book) => {
+    if (book.id && book.coverUrl && !book.key) {
+      return book as CarouselItem;
+    }
+
     const coverId = book.cover_i || book.cover_id;
-    const authorName = Array.isArray(book.author_name) 
-      ? book.author_name[0] 
-      : (book.authors && book.authors[0]?.name);
+    const authorName = Array.isArray(book.author_name)
+      ? book.author_name[0]
+      : (book.authors && book.authors[0]?.name) || book.author;
+
+    const directCover = book.cover_url || book.coverUrl || (coverId
+      ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+      : book.imageLinks?.thumbnail);
 
     return {
-      id: book.key,
+      id: book.key || book.id || book.title,
       title: book.title,
       subtitle: authorName || (book.first_publish_year ? String(book.first_publish_year) : undefined),
-      coverUrl: coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg` : undefined,
+      coverUrl: directCover,
     };
   });
 }
 
 export function OnlineBooksDashboard() {
-  const [trending, setTrending] = useState<OpenLibraryWork[]>([]);
-  const [scifi, setScifi] = useState<any[]>([]);
-  const [classics, setClassics] = useState<any[]>([]);
-  const [fantasy, setFantasy] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [trending, setTrending] = useState<CarouselItem[]>(() => {
+    const cached = launchCacheGet<CarouselItem[]>('online-books:trending:v4');
+    return cached && cached.length > 0 ? cached : DEFAULT_TRENDING_ITEMS;
+  });
+
+  const [scifi, setScifi] = useState<CarouselItem[]>(() => {
+    const cached = launchCacheGet<CarouselItem[]>('online-books:scifi:v4');
+    return cached && cached.length > 0 ? cached : DEFAULT_SCIFI_ITEMS;
+  });
+
+  const [classics, setClassics] = useState<CarouselItem[]>(() => {
+    const cached = launchCacheGet<CarouselItem[]>('online-books:classics:v4');
+    return cached && cached.length > 0 ? cached : DEFAULT_CLASSIC_ITEMS;
+  });
+
+  const [fantasy, setFantasy] = useState<CarouselItem[]>(() => {
+    const cached = launchCacheGet<CarouselItem[]>('online-books:fantasy:v4');
+    return cached && cached.length > 0 ? cached : DEFAULT_FANTASY_ITEMS;
+  });
+
+  const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<ActiveCategory | null>(null);
   const [categorySearch, setCategorySearch] = useState('');
   
@@ -52,22 +390,51 @@ export function OnlineBooksDashboard() {
 
   useEffect(() => {
     let active = true;
-    
-    Promise.allSettled([
-      fetchTrendingBooks(),
-      fetchSubjectBooks('science_fiction', 36),
-      fetchSubjectBooks('classic_literature', 36),
-      fetchSubjectBooks('fantasy', 36)
-    ]).then(([trendRes, scifiRes, classicRes, fantasyRes]) => {
-      if (!active) return;
-      
-      if (trendRes.status === 'fulfilled') setTrending(trendRes.value.slice(0, 36));
-      if (scifiRes.status === 'fulfilled') setScifi(scifiRes.value);
-      if (classicRes.status === 'fulfilled') setClassics(classicRes.value);
-      if (fantasyRes.status === 'fulfilled') setFantasy(fantasyRes.value);
-      
-      setLoading(false);
-    });
+
+    // Progressive background refresh without blocking the UI
+    fetchTrendingBooks()
+      .then((works) => {
+        if (!active || !works || works.length === 0) return;
+        const items = toBookCarouselItems(works.slice(0, 36));
+        if (items.length > 0) {
+          setTrending(items);
+          launchCacheSet('online-books:trending:v4', items);
+        }
+      })
+      .catch(() => {});
+
+    fetchSubjectBooks('science_fiction', 36)
+      .then((works) => {
+        if (!active || !works || works.length === 0) return;
+        const items = toBookCarouselItems(works);
+        if (items.length > 0) {
+          setScifi(items);
+          launchCacheSet('online-books:scifi:v4', items);
+        }
+      })
+      .catch(() => {});
+
+    fetchSubjectBooks('classic_literature', 36)
+      .then((works) => {
+        if (!active || !works || works.length === 0) return;
+        const items = toBookCarouselItems(works);
+        if (items.length > 0) {
+          setClassics(items);
+          launchCacheSet('online-books:classics:v4', items);
+        }
+      })
+      .catch(() => {});
+
+    fetchSubjectBooks('fantasy', 36)
+      .then((works) => {
+        if (!active || !works || works.length === 0) return;
+        const items = toBookCarouselItems(works);
+        if (items.length > 0) {
+          setFantasy(items);
+          launchCacheSet('online-books:fantasy:v4', items);
+        }
+      })
+      .catch(() => {});
 
     return () => { active = false; };
   }, []);
@@ -216,10 +583,10 @@ export function OnlineBooksDashboard() {
     }
   };
 
-  const trendingItems = useMemo(() => toBookCarouselItems(trending), [trending]);
-  const scifiItems = useMemo(() => toBookCarouselItems(scifi), [scifi]);
-  const classicsItems = useMemo(() => toBookCarouselItems(classics), [classics]);
-  const fantasyItems = useMemo(() => toBookCarouselItems(fantasy), [fantasy]);
+  const trendingItems = trending;
+  const scifiItems = scifi;
+  const classicsItems = classics;
+  const fantasyItems = fantasy;
 
   // Filter items in active category view
   const filteredCategoryItems = useMemo(() => {
@@ -318,9 +685,9 @@ export function OnlineBooksDashboard() {
           /* ── Default Dashboard View with Rails ── */
           <>
             {/* Featured Hero Spotlight Banner */}
-            <HeroMangaBanner
-              items={trendingItems}
-              loading={loading}
+            <HeroBookBanner
+              items={SPOTLIGHT_BANNER_ITEMS}
+              loading={false}
               onReadClick={handleBookClick}
               sourceId="generic"
             />

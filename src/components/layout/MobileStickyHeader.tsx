@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils"
 import { IconBooks, IconManga, IconSearch, IconFilter } from "@/components/icons/ShioriIcons"
 import { useUIStore } from "@/store/uiStore"
 import { usePreferencesStore } from "@/store/preferencesStore"
+import { useTheme } from "@/hooks/useTheme"
 import { useLibraryStore, countActiveFilterCriteria } from "@/store/libraryStore"
 import { useState, useRef, useEffect } from "react"
 import { IconX, IconSun, IconMoon } from "@/components/icons/ShioriIcons"
@@ -17,15 +18,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   const currentDomain = useUIStore((s) => s.currentDomain)
   const setCurrentDomain = useUIStore((s) => s.setCurrentDomain)
   const preferences = usePreferencesStore((s) => s.preferences)
-  const updateTheme = usePreferencesStore((s) => s.updateTheme)
-
-  const isSepia = preferences?.theme === 'sepia'
-  
-  const toggleTheme = async () => {
-    if (preferences) {
-      await updateTheme(isSepia ? 'black' : 'sepia')
-    }
-  }
+  const { isDark, toggleTheme } = useTheme()
   
   const activeFilters = useLibraryStore((s) => s.activeFilters)
   const activeFilterCount = countActiveFilterCriteria(activeFilters)
@@ -113,7 +106,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
               onClick={toggleTheme}
               className="relative flex items-center justify-center h-12 w-12 rounded-ui-full border shadow-sm transition-all duration-200 touch-target bg-background text-foreground border-border hover:bg-accent flex-shrink-0"
             >
-              {isSepia ? <IconMoon size={16} /> : <IconSun size={16} />}
+              {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
             </button>
           )}
 

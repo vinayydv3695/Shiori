@@ -117,7 +117,7 @@ export const ModernToolbar = ({
   onDomainChange,
   onLibraryClick,
 }: ModernToolbarProps) => {
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme, isDark } = useTheme()
   const [searchQuery, setSearchQuery] = useState('')
 
   // Debounce search
@@ -266,7 +266,7 @@ export const ModernToolbar = ({
             onClick={toggleTheme}
             className="w-9 h-9"
           >
-            {theme === 'dark' ? (
+            {isDark ? (
               <Sun className="w-4 h-4" />
             ) : (
               <Moon className="w-4 h-4" />

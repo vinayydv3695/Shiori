@@ -20,8 +20,10 @@ import {
   IconMoon,
   IconX,
 } from '@/components/icons/ShioriIcons'
-import { Layers, Filter, HelpCircle, BarChart2, Rss, FolderPlus, FolderOpen, ChevronDown, Settings } from 'lucide-react'
+import { Layers, Filter, HelpCircle, BarChart2, Rss, FolderPlus, FolderOpen, ChevronDown, Settings, Library, History } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
+import { useLibraryStore } from '@/store/libraryStore'
+import { useTheme } from '@/hooks/useTheme'
 import { useShelfStore } from '@/store/shelfStore'
 import type { CurrentView } from '@/store/uiStore'
 import {
@@ -162,16 +164,9 @@ export function PremiumTopbar({
   searchPlaceholder,
 }: PremiumTopbarProps) {
   const preferences = usePreferencesStore((s) => s.preferences)
-  const updateTheme = usePreferencesStore((s) => s.updateTheme)
+  const totalCount = useLibraryStore((s) => s.totalCount)
   const shelves = useShelfStore((s) => s.shelves)
-
-  const isDark = preferences?.theme === 'dark'
-
-  const toggleTheme = async () => {
-    if (preferences) {
-      await updateTheme(isDark ? 'sepia' : 'dark')
-    }
-  }
+  const { isDark, toggleTheme } = useTheme()
 
   return (
     <TooltipProvider delayDuration={120}>
@@ -184,10 +179,10 @@ export function PremiumTopbar({
           'shrink-0 z-30 select-none max-md:hidden transition-all duration-200'
         )}
       >
-        {/* ── ZONE 1: Left Actions & Domain Segmented Control ── */}
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Domain Segmented Control */}
-          {preferences?.preferredContentType === 'both' && (
+        {/* ── ZONE 1: Left Actions & Domain Segmented Control / Quick Shelves ── */}
+        {preferences?.preferredContentType === 'both' ? (
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Domain Segmented Control */}
             <div className="relative flex items-center p-1 bg-secondary/80 border border-border/50 rounded-2xl h-11 shadow-inner">
               <div
                 className="absolute top-1 bottom-1 rounded-xl bg-primary shadow-md shadow-primary/25 transition-all duration-300 ease-out z-0"
@@ -221,11 +216,100 @@ export function PremiumTopbar({
                 <span>Manga</span>
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Shelves & Library Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2.5 h-11 px-3.5 rounded-2xl bg-secondary/70 hover:bg-secondary border border-border/50 text-foreground transition-all duration-200 shadow-xs cursor-pointer active:scale-95 group"
+                >
+                  <div className="w-7 h-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    {currentDomain === 'manga_comics' ? <IconManga size={15} /> : <IconBooks size={15} />}
+                  </div>
+                  <div className="flex flex-col items-start leading-none text-left">
+                    <span className="text-xs font-extrabold tracking-tight">
+                      {currentDomain === 'manga_comics' ? 'Manga & Comics' : 'Books Library'}
+                    </span>
+                    <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
+                      {totalCount > 0 ? `${totalCount} ${currentDomain === 'manga_comics' ? 'Items' : 'Books'}` : 'Collection'}
+                    </span>
+                  </div>
+                  <ChevronDown size={14} className="text-muted-foreground group-hover:text-foreground transition-colors ml-1" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={8} className="w-64 rounded-2xl border p-2 z-[100] shadow-xl">
+                <DropdownMenuLabel className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                  Quick Navigation
+                </DropdownMenuLabel>
+                
+                <DropdownMenuItem
+                  onClick={() => onNavigateToView?.('library')}
+                  className="gap-2.5 p-2 rounded-xl cursor-pointer text-xs font-semibold"
+                >
+                  <Library size={16} className="text-primary" />
+                  <span>All {currentDomain === 'manga_comics' ? 'Manga' : 'Books'}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => onNavigateToView?.('shelves')}
+                  className="gap-2.5 p-2 rounded-xl cursor-pointer text-xs font-semibold"
+                >
+                  <FolderOpen size={16} className="text-primary" />
+                  <span>Shelves & Collections</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => onNavigateToView?.('history')}
+                  className="gap-2.5 p-2 rounded-xl cursor-pointer text-xs font-semibold"
+                >
+                  <History size={16} className="text-primary" />
+                  <span>Reading History</span>
+                </DropdownMenuItem>
+
+                {shelves && shelves.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator className="my-1.5 bg-border/40" />
+                    <DropdownMenuLabel className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                      Your Shelves ({shelves.length})
+                    </DropdownMenuLabel>
+                    <div className="max-h-40 overflow-y-auto space-y-0.5">
+                      {shelves.map((shelf) => (
+                        <DropdownMenuItem
+                          key={shelf.id}
+                          onClick={() => onNavigateToView?.('shelves')}
+                          className="gap-2.5 p-2 rounded-xl cursor-pointer text-xs font-medium"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-primary/60" />
+                          <span className="truncate flex-1">{shelf.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-bold">{shelf.bookCount ?? 0}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {onCreateShelf && (
+                  <>
+                    <DropdownMenuSeparator className="my-1.5 bg-border/40" />
+                    <DropdownMenuItem
+                      onClick={onCreateShelf}
+                      className="gap-2.5 p-2 rounded-xl cursor-pointer text-xs font-semibold text-primary hover:bg-primary/10"
+                    >
+                      <FolderPlus size={16} />
+                      <span>Create New Shelf</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
         {/* ── ZONE 2: Center Search Bar ── */}
-        <div className="flex-1 max-w-2xl px-3">
+        <div className="flex-1 max-w-2xl px-2 min-w-0 transition-all duration-200">
           <SearchBar
             onSearch={onSearch}
             currentDomain={currentDomain}

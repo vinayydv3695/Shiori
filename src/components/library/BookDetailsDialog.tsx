@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/select';
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 import { FeatureHint } from '../ui/FeatureHint';
-import { cn, pageCountLabel } from '@/lib/utils';
-import { EditorialSeriesCover } from './SeriesCard';
+import { pageCountLabel } from '@/lib/utils';
+import { FallbackBookCover } from './FallbackBookCover';
 import { useLibraryStore } from '../../store/libraryStore';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
 
@@ -100,8 +100,8 @@ export const BookDetailsDialog = ({
       setLoading(true);
       const bookData = await api.getBook(bookId);
       setBook(bookData);
-     } catch (error) {
-       logger.error('Failed to load book:', error);
+    } catch (error) {
+      logger.error('Failed to load book:', error);
     } finally {
       setLoading(false);
     }
@@ -131,9 +131,9 @@ export const BookDetailsDialog = ({
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange}>
         <Dialog.Portal>
-          <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50" />
-          <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] bg-transparent outline-none border-none shadow-none z-50 flex items-center justify-center">
-             <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] transition-opacity" />
+          <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[210] w-[94vw] sm:w-[90vw] max-w-2xl bg-card border border-border rounded-3xl shadow-2xl flex items-center justify-center p-12 focus:outline-none">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
@@ -143,116 +143,134 @@ export const BookDetailsDialog = ({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 transition-all duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content 
           aria-describedby={undefined} 
-          className="fixed left-1/2 top-1/2 z-50 w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 h-[90vh] sm:h-auto sm:max-h-[85vh] bg-card/85 sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-border/50 backdrop-blur-3xl transition-all duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-top-[48%] duration-300"
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-3xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300"
         >
-          
-          {/* Blurred Background Header Art (Mobile Only) */}
-          <div className="absolute top-0 left-0 right-0 h-72 overflow-hidden pointer-events-none select-none -z-10 bg-background sm:hidden">
-            {coverSrc && (
-              <img src={coverSrc} className="w-full h-full object-cover blur-[60px] opacity-40 scale-125 saturate-150 transform-gpu" alt="" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-card/60 to-card" />
-          </div>
-
-          {/* Floating Close Button */}
-          <div 
-            className="absolute top-4 right-4 z-50"
-            style={{ top: 'max(env(safe-area-inset-top, 0px) + 12px, 16px)' }}
-          >
-             <Dialog.Close asChild>
-               <button className="bg-secondary/80 hover:bg-secondary border border-border/50 text-muted-foreground hover:text-foreground p-2.5 rounded-full backdrop-blur-xl transition-all duration-200 shadow-md hover:scale-105 active:scale-95 cursor-pointer" title="Close">
-                 <X className="h-5 w-5" />
-               </button>
-             </Dialog.Close>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/60 backdrop-blur-xl shrink-0">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs shrink-0">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+              <div className="min-w-0">
+                <Dialog.Title className="text-base sm:text-lg font-extrabold text-foreground tracking-tight">
+                  Book Details
+                </Dialog.Title>
+                <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 font-medium">
+                  {book.title}
+                </Dialog.Description>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => onOpenChange(false)}
+              className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+              title="Close"
+            >
+              <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            </button>
           </div>
 
           {/* Scrollable Content Area */}
           <div 
-            className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar"
-            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px) + 16px, 16px)' }}
+            className="flex-1 overflow-y-auto p-4 sm:p-7 custom-scrollbar space-y-4 sm:space-y-6"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
           >
-            <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 p-6 sm:p-10 min-h-full">
+            <div className="flex flex-col sm:flex-row gap-5 sm:gap-8 items-start">
               
               {/* Left Column: Cover & Primary Action */}
-              <div className="w-full sm:w-[260px] shrink-0 flex flex-col items-center gap-6 mt-6 sm:mt-0">
-                <div className="relative group w-[200px] sm:w-full aspect-[2/3] rounded-xl overflow-hidden shadow-2xl ring-1 ring-border/30 bg-muted/20">
-                   {coverSrc ? (
-                     <img
-                       src={coverSrc}
-                       alt={book.title}
-                       loading="lazy"
-                       decoding="async"
-                       className="w-full h-full object-cover transition-transform duration-500 sm:group-hover:scale-105"
-                     />
+              <div className="w-full sm:w-[220px] shrink-0 flex flex-col items-center gap-3 sm:gap-4">
+                <div className="relative group w-[140px] min-[380px]:w-[160px] min-[440px]:w-[180px] sm:w-full aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border border-border/50 bg-muted/20 hover:scale-[1.02] transition-all duration-300">
+                  {coverSrc ? (
+                    <img
+                      src={coverSrc}
+                      alt={book.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover transition-transform duration-500 sm:group-hover:scale-105"
+                    />
                   ) : (
-                    <EditorialSeriesCover
+                    <FallbackBookCover
                       title={book.title}
-                      bookCount={1}
-                      authors={book.authors?.map((a) => a.name) || []}
+                      author={book.authors?.map((a) => a.name).join(', ')}
+                      format={book.file_format}
                       isRss={book.tags?.some((t: any) => t.name === 'RSS') || /rss|feed|daily reading|daily digest/i.test(book.title)}
                     />
                   )}
-                  {/* Subtle glass reflection overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
                 </div>
                 
                 {/* Primary Action Button (Read) */}
                 {onRead && (
                   <Button 
                     size="lg" 
-                    className="w-full sm:w-full rounded-full text-lg font-bold h-14 shadow-xl shadow-primary/25 hover:shadow-primary/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" 
+                    className="w-full rounded-full text-xs sm:text-base font-bold h-10 sm:h-12 shadow-lg shadow-primary/20 hover:shadow-primary/30 bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer" 
                     onClick={() => { onOpenChange(false); onRead(); }}
                   >
-                    <BookOpen className="w-5 h-5 mr-2.5" /> 
-                    Read Now
+                    <BookOpen className="w-4 h-4 mr-0.5" /> 
+                    <span>Read Now</span>
                   </Button>
                 )}
               </div>
 
               {/* Right Column: Book Info */}
-              <div className="flex-1 flex flex-col pt-2 sm:pt-4">
+              <div className="flex-1 min-w-0 w-full space-y-4 sm:space-y-5">
                 
-                {/* Header Info */}
-                <div className="space-y-3 text-center sm:text-left">
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground leading-tight tracking-tight drop-shadow-sm [text-wrap:balance]">
+                {/* Title & Author */}
+                <div className="space-y-1 text-left">
+                  <h2 className="text-lg min-[380px]:text-xl sm:text-2xl lg:text-3xl font-black text-foreground leading-snug sm:leading-tight tracking-tight [text-wrap:balance]">
                     {book.title}
                   </h2>
                   {book.authors && book.authors.length > 0 && (
-                    <p className="text-lg sm:text-xl text-muted-foreground/80 font-medium tracking-wide">
+                    <p className="text-xs sm:text-base text-muted-foreground font-semibold">
                       {book.authors.map(a => a.name).join(', ')}
                     </p>
                   )}
                   
                   {/* Badges */}
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-2">
-                    {book.metadata_source && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 backdrop-blur-md">
-                        <Globe className="w-3 h-3 mr-1.5" />
-                        Source: {book.metadata_source}
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
+                    <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-muted text-muted-foreground border border-border/50 uppercase tracking-wider">
+                      {book.file_format}
+                    </span>
                     {book.rating && book.rating > 0 && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 backdrop-blur-md">
-                        <Star className="w-3.5 h-3.5 fill-current mr-1" />
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 backdrop-blur-md">
+                        <Star className="w-3 h-3 fill-current mr-1 text-amber-500" />
                         {book.rating} / {book.metadata_source === 'anilist' ? '10' : '5'}
                       </span>
                     )}
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary text-secondary-foreground border border-border backdrop-blur-md uppercase tracking-wider">
-                      {book.file_format}
-                    </span>
+                    {book.metadata_source && (
+                      <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20 backdrop-blur-md">
+                        <Globe className="w-3 h-3 mr-1" />
+                        {book.metadata_source}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Quick Actions Row */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center sm:justify-start gap-3 mt-8 sm:mt-10">
+                <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 pt-0.5">
                   <FeatureHint featureId="metadata-search" title="Find Metadata" description="Search online for covers and details.">
-                    <Button variant="secondary" size="sm" className="w-full sm:auto rounded-full bg-secondary/50 hover:bg-secondary border border-border/50 shadow-sm" onClick={() => setMetadataDialogOpen(true)}>
-                      <Search className="w-4 h-4 mr-2"/> Find Match
-                    </Button>
+                    <button 
+                      type="button"
+                      className="w-full sm:w-auto rounded-xl bg-card/70 hover:bg-card border border-border/70 hover:border-primary/40 text-foreground text-xs font-bold h-9 px-3 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95" 
+                      onClick={() => setMetadataDialogOpen(true)}
+                    >
+                      <Search className="w-3.5 h-3.5 text-primary shrink-0"/>
+                      <span>Find Match</span>
+                    </button>
                   </FeatureHint>
+
+                  <button 
+                    type="button"
+                    className="w-full sm:w-auto rounded-xl bg-card/70 hover:bg-card border border-border/70 hover:border-primary/40 text-foreground text-xs font-bold h-9 px-3 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50" 
+                    disabled={autoEnrichLoading} 
+                    onClick={() => api.enrichBookMetadata(bookId)}
+                  >
+                    {autoEnrichLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0"/> : <RefreshCw className="w-3.5 h-3.5 text-primary shrink-0"/>}
+                    <span>Auto-Enrich</span>
+                  </button>
 
                   {book.file_format && !['epub', 'online-manga'].includes(book.file_format.toLowerCase()) && (
                     <ConvertToEpubMenuItem
@@ -264,129 +282,133 @@ export const BookDetailsDialog = ({
                     />
                   )}
                   
-                  <Button variant="secondary" size="sm" className="w-full sm:w-auto rounded-full bg-secondary/50 hover:bg-secondary border border-border/50 shadow-sm" disabled={autoEnrichLoading} onClick={() => api.enrichBookMetadata(bookId)}>
-                    {autoEnrichLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <RefreshCw className="w-4 h-4 mr-2"/>}
-                    Auto-Enrich
-                  </Button>
-                  
                   {onEdit && (
-                    <Button variant="secondary" size="sm" className="w-full sm:w-auto rounded-full bg-secondary/50 hover:bg-secondary border border-border/50 shadow-sm" onClick={() => { onOpenChange(false); onEdit(); }}>
-                      <Pencil className="w-4 h-4 mr-2"/> Edit
-                    </Button>
+                    <button 
+                      type="button"
+                      className="w-full sm:w-auto rounded-xl bg-card/70 hover:bg-card border border-border/70 hover:border-primary/40 text-foreground text-xs font-bold h-9 px-3 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95" 
+                      onClick={() => { onOpenChange(false); onEdit(); }}
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-primary shrink-0"/>
+                      <span>Edit</span>
+                    </button>
                   )}
                   
                   {onDelete && (
-                    <Button variant="ghost" size="sm" className="w-full sm:w-auto rounded-full text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={() => { onOpenChange(false); onDelete(); }}>
-                      <Trash2 className="w-4 h-4 mr-2 sm:mr-0"/> <span className="sm:hidden">Delete</span>
-                    </Button>
+                    <button 
+                      type="button"
+                      className="w-full sm:w-auto rounded-xl bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive text-xs font-bold h-9 px-3 flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95" 
+                      onClick={() => { onOpenChange(false); onDelete(); }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 shrink-0"/>
+                      <span>Delete</span>
+                    </button>
                   )}
                 </div>
 
-                <div className="my-8 h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
-
-                {/* Details Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4 mb-8">
-                  {/* Reading Status Selector */}
-                  <div className="col-span-2 lg:col-span-3 bg-muted/30 rounded-xl p-4 border border-border/50 flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex items-center gap-3 text-foreground font-medium">
-                      <BookmarkCheck className="w-5 h-5 text-primary" />
-                      Status
-                    </div>
-                    <div className="flex-1">
-                      <Select
-                        value={readingStatus}
-                        onValueChange={async (newStatus) => {
-                          setReadingStatus(newStatus);
-                          try {
-                            await api.updateReadingStatus(bookId, newStatus);
-                            await useLibraryStore.getState().loadInitialBooks();
-                            await loadBook();
-                            toast.success("Status Updated", `Set to ${newStatus.replace('_', ' ')}`);
-                          } catch (err) {
-                            logger.error('Failed to update reading status:', err);
-                            setReadingStatus(book?.reading_status || 'planning');
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full h-10 rounded-xl font-semibold">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="planning">Planning to Read</SelectItem>
-                          <SelectItem value="reading">Currently Reading</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="on_hold">On Hold</SelectItem>
-                          <SelectItem value="dropped">Dropped</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                {/* Reading Status Selector */}
+                <div className="bg-card/70 hover:bg-card rounded-xl sm:rounded-2xl p-3 sm:p-3.5 border border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 transition-all shadow-xs">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-foreground uppercase tracking-wider">
+                    <BookmarkCheck className="w-4 h-4 text-primary shrink-0" />
+                    <span>Reading Status</span>
                   </div>
+                  <div className="w-full sm:w-48">
+                    <Select
+                      value={readingStatus}
+                      onValueChange={async (newStatus) => {
+                        setReadingStatus(newStatus);
+                        try {
+                          await api.updateReadingStatus(bookId, newStatus);
+                          await useLibraryStore.getState().loadInitialBooks();
+                          await loadBook();
+                          toast.success("Status Updated", `Set to ${newStatus.replace('_', ' ')}`);
+                        } catch (err) {
+                          logger.error('Failed to update reading status:', err);
+                          setReadingStatus(book?.reading_status || 'planning');
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full h-8 sm:h-9 rounded-lg sm:rounded-xl font-bold text-xs bg-background/90 border border-border/70 shadow-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[220]">
+                        <SelectItem value="planning">Planning to Read</SelectItem>
+                        <SelectItem value="reading">Currently Reading</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="on_hold">On Hold</SelectItem>
+                        <SelectItem value="dropped">Dropped</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-                  {book.series && (
-                    <div className="col-span-2 lg:col-span-3 flex items-start gap-3 bg-primary/5 rounded-xl p-4 border border-primary/10">
-                      <LayoutTemplate className="w-5 h-5 text-primary mt-0.5" />
-                      <div>
-                        <div className="text-xs font-semibold text-primary/80 uppercase tracking-wider mb-1">Series</div>
-                        <div className="text-base font-bold text-foreground">
-                          {book.series} {book.series_index ? <span className="text-primary opacity-80">#{book.series_index}</span> : ''}
-                        </div>
+                {/* Series Info */}
+                {book.series && (
+                  <div className="flex items-start gap-2.5 sm:gap-3 bg-primary/10 rounded-xl sm:rounded-2xl p-3 sm:p-3.5 border border-primary/20 shadow-xs">
+                    <LayoutTemplate className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Series</div>
+                      <div className="text-xs sm:text-sm font-bold text-foreground">
+                        {book.series} {book.series_index ? <span className="text-primary font-extrabold">#{book.series_index}</span> : ''}
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
+                {/* Details Attributes Grid */}
+                <div className="grid grid-cols-2 min-[440px]:grid-cols-3 gap-2 sm:gap-2.5">
                   {book.publisher && (
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Publisher</div>
-                      <div className="text-sm font-medium">{book.publisher}</div>
+                    <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl p-2.5 sm:p-3 flex flex-col gap-0.5 shadow-xs transition-all">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Publisher</span>
+                      <span className="text-xs font-semibold text-foreground truncate">{book.publisher}</span>
                     </div>
                   )}
 
                   {book.pubdate && (
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Published</div>
-                      <div className="text-sm font-medium">{formatDate(book.pubdate)}</div>
+                    <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl p-2.5 sm:p-3 flex flex-col gap-0.5 shadow-xs transition-all">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Published</span>
+                      <span className="text-xs font-semibold text-foreground truncate">{formatDate(book.pubdate)}</span>
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-1">
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Language</div>
-                    <div className="text-sm font-medium">{book.language || 'Unknown'}</div>
+                  <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl p-2.5 sm:p-3 flex flex-col gap-0.5 shadow-xs transition-all">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Language</span>
+                    <span className="text-xs font-semibold text-foreground truncate">{book.language || 'Unknown'}</span>
                   </div>
 
                   {book.file_size && (
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Size</div>
-                      <div className="text-sm font-medium">{formatFileSize(book.file_size)}</div>
+                    <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl p-2.5 sm:p-3 flex flex-col gap-0.5 shadow-xs transition-all">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Size</span>
+                      <span className="text-xs font-semibold text-foreground truncate">{formatFileSize(book.file_size)}</span>
                     </div>
                   )}
 
                   {book.page_count && (
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pages</div>
-                      <div className="text-sm font-medium">{pageCountLabel(book)}</div>
+                    <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl p-2.5 sm:p-3 flex flex-col gap-0.5 shadow-xs transition-all">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Pages</span>
+                      <span className="text-xs font-semibold text-foreground truncate">{pageCountLabel(book)}</span>
                     </div>
                   )}
 
                   {book.isbn && (
-                    <div className="flex flex-col gap-1">
-                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">ISBN</div>
-                      <div className="text-sm font-medium font-mono bg-muted px-2 py-0.5 rounded w-fit">{book.isbn}</div>
+                    <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl p-2.5 sm:p-3 flex flex-col gap-0.5 shadow-xs transition-all">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">ISBN</span>
+                      <span className="text-xs font-semibold text-foreground font-mono truncate">{book.isbn}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Tags */}
                 {book.tags && book.tags.length > 0 && (
-                  <div className="mb-8">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag className="w-4 h-4 text-muted-foreground" />
-                      <div className="text-sm font-bold text-foreground">Tags</div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      <Tag className="w-3.5 h-3.5 text-primary" />
+                      <span>Tags</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1 sm:gap-1.5">
                       {book.tags.map((tag, idx) => (
                         <span
                           key={idx}
-                          className="px-3 py-1 text-xs font-medium bg-secondary/40 border border-border text-secondary-foreground rounded-full"
+                          className="px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold bg-primary/10 border border-primary/20 text-primary rounded-full shadow-2xs"
                         >
                           {tag.name}
                         </span>
@@ -395,21 +417,21 @@ export const BookDetailsDialog = ({
                   </div>
                 )}
 
-                {/* Notes */}
+                {/* Notes & Summary */}
                 {book.notes && (
-                  <div className="mb-8">
-                    <div className="flex items-center gap-2 mb-3">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                      <div className="text-sm font-bold text-foreground">Notes & Summary</div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                      <FileText className="w-3.5 h-3.5 text-primary" />
+                      <span>Notes & Summary</span>
                     </div>
-                    <div className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap bg-muted/20 border border-border/50 p-4 rounded-xl">
+                    <div className="text-xs sm:text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap bg-card/70 border border-border/70 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-xs">
                       {book.notes}
                     </div>
                   </div>
                 )}
 
-                {/* Added Date */}
-                <div className="mt-auto text-xs text-muted-foreground/60 text-center sm:text-left pt-6 pb-2">
+                {/* Added Date Timestamp */}
+                <div className="pt-1 sm:pt-2 text-[10px] sm:text-[11px] text-muted-foreground/60">
                   Added to library {formatDate(book.added_date)}
                   {book.last_opened && ` • Last read ${formatDate(book.last_opened)}`}
                 </div>

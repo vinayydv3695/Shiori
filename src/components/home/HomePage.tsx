@@ -28,6 +28,7 @@ import { formatFileSize, isMangaDomain, proxyExternalCover } from '@/lib/utils'
 import { useTorboxStore } from '@/store/useTorboxStore'
 import { groupBooksBySeries, extractSeriesTitle, type GroupedItem, type SeriesGroup } from '@/hooks/useGroupedLibrary'
 import { parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 function getCoverUrl(path: string | null | undefined): string {
   if (!path) return '';
@@ -522,9 +523,20 @@ export function HomePage({
               <button onClick={handleViewLibrary} className="flex-1 py-3 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
                 Browse Library <ArrowRight size={16} />
               </button>
-              <button onClick={() => setCurrentView('statistics')} className="px-4 py-3 bg-muted/50 hover:bg-muted text-foreground font-bold rounded-xl transition-colors flex items-center justify-center" title="View Detailed Statistics">
-                <BarChart2 size={18} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => setCurrentView('statistics')} 
+                    className="px-4 py-3 bg-muted/50 hover:bg-muted text-foreground font-bold rounded-xl transition-colors flex items-center justify-center cursor-pointer active:scale-95 shadow-xs"
+                    aria-label="View Detailed Statistics"
+                  >
+                    <BarChart2 size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs font-semibold">
+                  View Detailed Statistics
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </div>

@@ -10,10 +10,8 @@ import { isAndroid } from '@/lib/tauri';
 import { 
   Download, 
   RefreshCw, 
-  FolderKanban,
   Sparkles,
-  Smartphone,
-  Zap,
+  Loader2,
   X
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
@@ -28,44 +26,6 @@ function stripEmojis(text: string): string {
     .trim();
 }
 
-interface HighlightItem {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  desc: string;
-}
-
-const DEFAULT_HIGHLIGHTS: HighlightItem[] = [
-  {
-    icon: FolderKanban,
-    title: '3D Shelves & Collection Overhaul',
-    desc: 'Dynamic 3D cover presentations, 3-dot touch menus, live search & filter chips (All, Favorites, Smart, Empty), and sort dropdowns.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Smart Shelf Templates & Inside View',
-    desc: '1-click shelf creation templates, Grid vs. List view switcher, reading progress badges, and batch multi-select book removal.',
-  },
-  {
-    icon: Smartphone,
-    title: 'Dedicated Android Touch Experience',
-    desc: 'Platform-isolated touch flows for History, Annotations, safe-area inset fallbacks, and bottom navigation clearance across all views.',
-  },
-  {
-    icon: Zap,
-    title: 'Performance & Progress Optimization',
-    desc: 'Instant Home dashboard rendering using batch reading progress queries, collapsing 20 IPC roundtrips into a single query.',
-  },
-];
-
-const DEFAULT_LATEST_RELEASE_NOTES = `
-* **Shelves Overhaul (Desktop & Android)**: 3D book spine mockups, dynamic cover fan stacks, rich empty cards with "+ Add Books" actions, 3-dot action menus, search & filter chips bar (All, Favorites, Smart, With Books, Empty), and sort dropdowns.
-* **Smart Shelf Presets**: 1-click templates for Currently Reading, Top Favorites, Manga & Comics, Novels & Fiction, and Plan to Read in shelf creation.
-* **Inside-Shelf View & Batch Actions**: Added Grid vs. List view switcher, in-shelf search/sort, reading progress % badges, and batch multi-select book removal.
-* **Platform Separation & Touch Polish**: Android touch isolation for History, Annotations, and Shelf cards with touch targets (≥36px).
-* **Safe-Area Inset & Navigation Clearance**: Unified safe-area insets (\`env(safe-area-inset-*)\`) and bottom clearance (\`pb-28\`) across Library, Shelves, Online Manga, Online Books, and fullscreen dialogs.
-* **Performance Optimization**: Collapsed sequential progress checks in Home tab to \`getReadingProgressBatch()\`, eliminating 20 IPC roundtrips per load.
-`;
-
 export function UpdateDialog() {
   const { isUpdateDialogOpen, setIsUpdateDialogOpen, updateInfo, setUpdateInfo } = useUpdateStore();
   const theme = usePreferencesStore(s => s.preferences?.theme ?? 'dark');
@@ -74,13 +34,74 @@ export function UpdateDialog() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<{ downloaded: number; total: number | null } | null>(null);
+  const [fetchedNotes, setFetchedNotes] = useState<string | null>(null);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+
+  // Fetch genuine release notes for this specific version from GitHub if missing or short
+  useEffect(() => {
+    if (!updateInfo) return;
+
+    // If updateInfo already has complete release notes (more than 40 chars and not generic fallback)
+    if (
+      updateInfo.notes &&
+      updateInfo.notes.trim().length > 40 &&
+      !updateInfo.notes.includes('No release notes provided') &&
+      !updateInfo.notes.includes('No release notes available')
+    ) {
+      setFetchedNotes(updateInfo.notes);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingNotes(true);
+
+    const fetchNotes = async () => {
+      try {
+        const rawVer = updateInfo.version?.replace(/^v/, '');
+        let res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori/releases/tags/v${rawVer}`);
+        if (!res.ok) {
+          res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori/releases/latest');
+        }
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data.body && data.body.trim().length > 0) {
+            setFetchedNotes(data.body);
+          }
+        }
+      } catch (err) {
+        logger.warn('[UpdateDialog] Could not fetch release notes from GitHub:', err);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingNotes(false);
+        }
+      }
+    };
+
+    fetchNotes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [updateInfo?.version, updateInfo?.notes]);
 
   // Expose a developer helper on window to test and preview the Update Dialog in local development
   useEffect(() => {
-    (window as any).__testUpdateDialog = (customVersion?: string, customNotes?: string) => {
+    (window as any).__testUpdateDialog = async (customVersion?: string, customNotes?: string) => {
+      let notes = customNotes;
+      if (!notes) {
+        try {
+          const res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori/releases/latest');
+          if (res.ok) {
+            const data = await res.json();
+            notes = data.body;
+          }
+        } catch {
+          // ignore
+        }
+      }
       setUpdateInfo({
-        version: customVersion || '2.3.29',
-        notes: customNotes || DEFAULT_LATEST_RELEASE_NOTES,
+        version: customVersion || '2.3.32',
+        notes: notes || '',
       });
       setIsUpdateDialogOpen(true);
     };
@@ -91,16 +112,11 @@ export function UpdateDialog() {
   }, [setUpdateInfo, setIsUpdateDialogOpen]);
 
   const cleanNotes = useMemo(() => {
-    if (!updateInfo?.notes) return '';
-    const parts = updateInfo.notes.split(/Download the appropriate installer for your platform:/i);
+    const raw = fetchedNotes || updateInfo?.notes || '';
+    if (!raw) return '';
+    const parts = raw.split(/Download the appropriate installer for your platform:/i);
     return stripEmojis(parts[0].trim());
-  }, [updateInfo?.notes]);
-
-  const isCustomMarkdown = useMemo(() => {
-    if (!cleanNotes || cleanNotes.length < 20) return false;
-    if (cleanNotes === `Shiori v${updateInfo?.version}` || cleanNotes === `v${updateInfo?.version}`) return false;
-    return true;
-  }, [cleanNotes, updateInfo?.version]);
+  }, [fetchedNotes, updateInfo?.notes]);
 
   if (!updateInfo) return null;
 
@@ -218,12 +234,12 @@ export function UpdateDialog() {
                         Update Available
                       </h2>
                       <span className={cn(
-                        "px-2 py-0.5 rounded-full text-[11px] font-medium border",
+                        "px-2 py-0.5 rounded-full text-[11px] font-semibold border",
                         isLight 
                           ? "bg-[#F0E6CE] text-[#5C4430] border-[#E2D5B8]" 
                           : "bg-white/10 text-zinc-300 border-white/10"
                       )}>
-                        v{updateInfo.version}
+                        v{updateInfo.version?.replace(/^v/, '')}
                       </span>
                     </div>
                     <p className={cn(
@@ -235,16 +251,16 @@ export function UpdateDialog() {
                   </div>
                 </div>
 
-                {/* What's New Highlights (Dedicated Header Strip & Clean Borders) */}
+                {/* What's New Highlights Box */}
                 <div className={cn(
                   "rounded-2xl border overflow-hidden flex flex-col max-h-[46vh]",
                   isLight 
                     ? "border-[#E2D5B8] bg-[#F7F2E6] text-[#2C1E0F]" 
                     : "border-white/10 bg-white/[0.02] text-white"
                 )}>
-                  {/* Clean Fixed Header Strip */}
+                  {/* Clean Header Strip */}
                   <div className={cn(
-                    "px-5 py-3 border-b shrink-0 flex items-center justify-between text-[11px] font-semibold tracking-wider uppercase",
+                    "px-5 py-2.5 border-b shrink-0 flex items-center justify-between text-[11px] font-bold tracking-wider uppercase",
                     isLight 
                       ? "bg-[#F0E6CE]/80 border-[#E2D5B8] text-[#7D634B]" 
                       : "bg-white/[0.04] border-white/10 text-zinc-400"
@@ -255,26 +271,54 @@ export function UpdateDialog() {
                     </span>
                   </div>
 
-                  {/* Padded Scrollable Content */}
-                  <div className="p-5 overflow-y-auto custom-scrollbar space-y-3.5 flex-1 min-h-0">
-                    {isCustomMarkdown && cleanNotes ? (
+                  {/* Scrollable Changelog Content */}
+                  <div className="p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                    {isLoadingNotes ? (
+                      <div className="flex items-center justify-center py-8 gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                        <span>Loading release notes...</span>
+                      </div>
+                    ) : cleanNotes ? (
                       <div className="prose prose-xs max-w-none">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            h1: ({node, children, ...props}) => <h3 className={cn("text-xs font-semibold mt-3 mb-1", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{stripEmojis(String(children))}</h3>,
-                            h2: ({node, children, ...props}) => <h3 className={cn("text-xs font-semibold mt-3 mb-1", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{stripEmojis(String(children))}</h3>,
-                            h3: ({node, children, ...props}) => <h4 className={cn("text-xs font-medium mt-2 mb-1", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>{stripEmojis(String(children))}</h4>,
-                            ul: ({node, ...props}) => <ul className="space-y-2.5 my-1 list-none p-0" {...props} />,
+                            h1: ({node, children, ...props}) => (
+                              <h3 className={cn("text-xs font-bold mt-2 mb-1.5 uppercase tracking-wide", isLight ? "text-[#A0522D]" : "text-amber-400")} {...props}>
+                                {children}
+                              </h3>
+                            ),
+                            h2: ({node, children, ...props}) => (
+                              <h3 className={cn("text-xs font-bold mt-2 mb-1.5 uppercase tracking-wide", isLight ? "text-[#A0522D]" : "text-amber-400")} {...props}>
+                                {children}
+                              </h3>
+                            ),
+                            h3: ({node, children, ...props}) => (
+                              <h4 className={cn("text-xs font-semibold mt-2 mb-1", isLight ? "text-[#5C4430]" : "text-zinc-200")} {...props}>
+                                {children}
+                              </h4>
+                            ),
+                            p: ({node, children, ...props}) => (
+                              <p className={cn("text-xs leading-relaxed my-1", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>
+                                {children}
+                              </p>
+                            ),
+                            ul: ({node, ...props}) => <ul className="space-y-2 my-1 list-none p-0" {...props} />,
                             li: ({node, children, ...props}) => (
                               <li className={cn("flex items-start gap-2.5 text-xs leading-relaxed", isLight ? "text-[#5C4430]" : "text-zinc-300")} {...props}>
                                 <span className={cn("w-1.5 h-1.5 rounded-full mt-1.5 shrink-0", isLight ? "bg-[#A0522D]" : "bg-amber-400/80")} />
                                 <div className="flex-1 min-w-0">{children}</div>
                               </li>
                             ),
-                            strong: ({node, children, ...props}) => <strong className={cn("font-medium", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>{children}</strong>,
+                            strong: ({node, children, ...props}) => (
+                              <strong className={cn("font-bold", isLight ? "text-[#2C1E0F]" : "text-white")} {...props}>
+                                {children}
+                              </strong>
+                            ),
                             code: ({node, children, ...props}) => (
-                              <span className={cn("font-mono text-[11px] px-1.5 py-0.5 rounded", isLight ? "bg-[#EAE0CB] text-[#2C1E0F]" : "bg-white/10 text-zinc-300")} {...props}>{children}</span>
+                              <span className={cn("font-mono text-[11px] px-1.5 py-0.5 rounded", isLight ? "bg-[#EAE0CB] text-[#2C1E0F]" : "bg-white/10 text-amber-300")} {...props}>
+                                {children}
+                              </span>
                             ),
                           }}
                         >
@@ -282,34 +326,8 @@ export function UpdateDialog() {
                         </ReactMarkdown>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {DEFAULT_HIGHLIGHTS.map((item, idx) => {
-                          const Icon = item.icon;
-                          return (
-                            <div key={idx} className="flex items-start gap-3 p-1 rounded-xl">
-                              <div className={cn(
-                                "p-1.5 rounded-lg mt-0.5 shrink-0",
-                                isLight ? "bg-[#F0E6CE] text-[#A0522D]" : "bg-white/5 text-amber-400"
-                              )}>
-                                <Icon className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="flex-1 min-w-0 text-xs">
-                                <div className={cn(
-                                  "font-medium tracking-tight",
-                                  isLight ? "text-[#2C1E0F]" : "text-white"
-                                )}>
-                                  {item.title}
-                                </div>
-                                <div className={cn(
-                                  "text-[11px] leading-relaxed mt-0.5",
-                                  isLight ? "text-[#7D634B]" : "text-zinc-400"
-                                )}>
-                                  {item.desc}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="py-6 text-center text-xs text-muted-foreground">
+                        <p>A new version is available with stability improvements and bug fixes.</p>
                       </div>
                     )}
                   </div>
@@ -350,7 +368,7 @@ export function UpdateDialog() {
                   </div>
                 )}
 
-                {/* Clean, single-divider footer */}
+                {/* Clean Footer Buttons */}
                 <div className={cn(
                   "pt-3 border-t flex items-center justify-between sm:justify-end gap-3",
                   isLight ? "border-[#E2D5B8]/60" : "border-white/10"
@@ -359,7 +377,7 @@ export function UpdateDialog() {
                     onClick={() => setIsUpdateDialogOpen(false)}
                     disabled={isUpdating}
                     className={cn(
-                      "h-10 px-4 rounded-xl text-xs font-medium transition-colors disabled:opacity-50",
+                      "h-10 px-4 rounded-xl text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer",
                       isLight 
                         ? "text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#EAE0CB]" 
                         : "text-zinc-400 hover:text-white hover:bg-white/5"

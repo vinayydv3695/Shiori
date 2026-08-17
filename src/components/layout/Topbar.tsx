@@ -7,7 +7,7 @@ import { api } from "../../lib/tauri"
 import { useLibraryStore } from "../../store/libraryStore"
 
 export function Topbar() {
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme, isDark } = useTheme()
 
   const handleImport = async () => {
     const files = await api.openFileDialog()
@@ -45,7 +45,7 @@ export function Topbar() {
           onClick={toggleTheme}
           className="rounded-full"
         >
-          {theme === "dark" ? (
+          {isDark ? (
             <Sun className="h-5 w-5" />
           ) : (
             <Moon className="h-5 w-5" />

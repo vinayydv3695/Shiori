@@ -10,11 +10,12 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, FolderPlus } from 'lucide-react';
+import { X, Check, Loader2, BookOpen, Star } from 'lucide-react';
+import { BookshelfIcon } from '@/components/icons';
 import { api, type Shelf } from '@/lib/tauri';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/store/toastStore';
 import { computeBulkShelfAssignments } from './bulkShelfAssignments';
+import { cn } from '@/lib/utils';
 
 interface BulkShelfDialogProps {
   open: boolean;
@@ -32,8 +33,6 @@ export function BulkShelfDialog({ open, onOpenChange, bookIds }: BulkShelfDialog
 
   useEffect(() => {
     if (!open) return;
-    // Intentional: reset + fetch shelves every time the dialog opens.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setSelectedIds(new Set());
     api
@@ -88,64 +87,126 @@ export function BulkShelfDialog({ open, onOpenChange, bookIds }: BulkShelfDialog
     }
   }, [saving, bookIds, selectedIds, shelves, toast, onOpenChange]);
 
+  const getShelfIcon = (shelf: Shelf) => {
+    if (shelf.icon === 'star') return <Star size={15} />;
+    if (shelf.icon === 'bookopen') return <BookOpen size={15} />;
+    return <BookshelfIcon className="w-4 h-4" />;
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[70] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-[70] grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg">
-          <div className="flex flex-col space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Dialog.Title className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-                <FolderPlus className="h-5 w-5" />
-                Add to Shelf
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-[200] w-[90vw] max-w-[420px] translate-x-[-50%] translate-y-[-50%] bg-card/95 backdrop-blur-2xl p-6 shadow-2xl border border-border/60 rounded-3xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-border/40">
+            <div>
+              <Dialog.Title className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <BookshelfIcon className="w-4 h-4" />
+                </div>
+                <span>Add to Shelf</span>
               </Dialog.Title>
-              <Dialog.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+              <Dialog.Description className="text-xs text-muted-foreground mt-0.5">
+                Add {bookIds.length} selected {bookIds.length === 1 ? 'item' : 'items'} to shelf
+              </Dialog.Description>
+            </div>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+              >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
-              </Dialog.Close>
-            </div>
-            <Dialog.Description className="text-sm text-muted-foreground">
-              Add {bookIds.length} selected book{bookIds.length === 1 ? '' : 's'} to the
-              shelf{selectedIds.size === 1 ? '' : 'es'} below.
-            </Dialog.Description>
+              </button>
+            </Dialog.Close>
           </div>
 
-          <div className="py-4 max-h-[60vh] overflow-y-auto">
+          {/* Shelf List */}
+          <div className="py-3 max-h-[50vh] overflow-y-auto space-y-1.5">
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="animate-spin h-6 w-6 text-primary" />
               </div>
             ) : shelves.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
+              <div className="text-center text-muted-foreground py-8 text-xs font-medium">
                 No shelves found. Create one from the sidebar.
               </div>
             ) : (
-              <div className="space-y-2">
-                {shelves.map((shelf) => (
-                  <label
+              shelves.map((shelf) => {
+                const isSelected = shelf.id !== undefined && selectedIds.has(shelf.id);
+                return (
+                  <button
                     key={shelf.id}
-                    className="flex items-center space-x-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors border border-transparent hover:border-border"
+                    type="button"
+                    onClick={() => shelf.id !== undefined && handleToggle(shelf.id)}
+                    className={cn(
+                      'w-full flex items-center justify-between p-2.5 rounded-2xl border transition-all duration-200 cursor-pointer select-none text-left',
+                      isSelected
+                        ? 'bg-primary/10 border-primary/40 shadow-xs'
+                        : 'bg-secondary/40 hover:bg-secondary/80 border-border/40'
+                    )}
                   >
-                    <input
-                      type="checkbox"
-                      checked={shelf.id !== undefined && selectedIds.has(shelf.id)}
-                      onChange={() => shelf.id !== undefined && handleToggle(shelf.id)}
-                      className="h-4 w-4 rounded border-primary text-primary focus:ring-primary bg-background accent-primary"
-                    />
-                    <span className="text-sm font-medium leading-none">{shelf.name}</span>
-                  </label>
-                ))}
-              </div>
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <div
+                        className={cn(
+                          'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground shadow-xs'
+                            : 'bg-secondary text-muted-foreground'
+                        )}
+                      >
+                        {getShelfIcon(shelf)}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs sm:text-sm font-bold text-foreground truncate">
+                          {shelf.name}
+                        </span>
+                        {shelf.bookCount !== undefined && (
+                          <span className="text-[10px] font-medium text-muted-foreground">
+                            {shelf.bookCount} {shelf.bookCount === 1 ? 'item' : 'items'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Custom Checkbox Pill */}
+                    <div
+                      className={cn(
+                        'w-5 h-5 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-200',
+                        isSelected
+                          ? 'bg-primary border-primary text-primary-foreground shadow-xs scale-105'
+                          : 'border-border/80 bg-background/60 text-transparent'
+                      )}
+                    >
+                      <Check size={12} strokeWidth={3} className={isSelected ? 'block' : 'opacity-0'} />
+                    </div>
+                  </button>
+                );
+              })
             )}
           </div>
 
-          <div className="flex items-center justify-end space-x-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={loading || saving || bookIds.length === 0}>
-              {saving ? 'Adding…' : 'Add to Shelf'}
-            </Button>
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/40">
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="px-4 py-2 rounded-2xl text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </Dialog.Close>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={loading || saving || bookIds.length === 0}
+              className="px-5 py-2 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm font-extrabold shadow-md shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{saving ? 'Adding…' : 'Add to Shelf'}</span>
+            </button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

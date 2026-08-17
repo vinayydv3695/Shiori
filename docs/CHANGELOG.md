@@ -1,3 +1,12 @@
+# Release Notes (v2.3.32)
+
+## Features & Improvements
+
+- **High-Definition Online Books Spotlight Banner & Ambient Color Trail** — Added rich atmospheric color trail effect sampling book cover palettes across the spotlight banner, un-magnified true-proportion illustrated book artwork, and elevated 3D foreground book card with glossy highlights.
+- **Dedicated Hero Book Banner Component** — Created `HeroBookBanner.tsx` for Online Books, isolating book banner presentation from Manga.
+- **Seamless Manga Hero Banner Blending** — Added alpha gradient masking and ambient glow to `HeroMangaBanner.tsx`, eliminating sharp rectangular edges.
+- **Google Books Primary Cover Resolver & 404 Localhost Proxy Fix** — Upgraded `fetchCoverForBook` to query Google Books API first with direct HTTPS support, resolving missing cover errors and avoiding invalid local proxy routing for public CDN book artwork.
+
 # Release Notes (v2.3.31)
 
 ## Features & Improvements

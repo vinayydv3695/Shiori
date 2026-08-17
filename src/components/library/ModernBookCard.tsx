@@ -30,6 +30,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Edit2, Pencil, Trash2, Layers, Globe, FolderPlus, Tag as TagIcon, BookOpen, FileOutput } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem'
+import { FallbackBookCover } from './FallbackBookCover'
 
 // ─── Format Badge ─────────────────────────────
 const fmtColors: Record<string, string> = {
@@ -335,7 +336,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
     >
       <div className="relative aspect-[2/3] bg-muted overflow-hidden rounded-[inherit]">
         {/* Skeleton */}
-        {(coverLoading || !imgLoaded) && !imgError && <CoverSkeleton />}
+        {Boolean(book.cover_path) && (coverLoading || !imgLoaded) && !imgError && <CoverSkeleton />}
 
         {/* Cover image */}
         {coverUrl && !imgError && (
@@ -360,51 +361,15 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         )}
 
         {/* Fallback (no cover) */}
-        {(!coverUrl || imgError) && imgLoaded === false && !coverLoading && (
-          <div 
-            className="absolute inset-0 z-0 p-4 pt-12 pb-3.5 flex flex-col items-center justify-between select-none overflow-hidden bg-card border border-border/50 text-foreground text-center"
-          >
-            {/* Subtle Spine Accent */}
-            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary/35 pointer-events-none" />
-
-            {/* Center Area: Icon + Title + Date Subtitle + Author */}
-            <div className="relative z-10 my-auto flex flex-col items-center justify-center w-full px-1">
-              <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xs mb-2">
-                {isRss ? (
-                  <Rss className="w-4 h-4 text-primary" />
-                ) : (
-                  <BookOpen className="w-4 h-4 text-primary" />
-                )}
-              </div>
-
-              <h3 className={cn(
-                "font-bold text-foreground leading-snug line-clamp-2 text-center tracking-tight",
-                coverSize === 'small' ? 'text-xs' : coverSize === 'medium' ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
-              )}>
-                {parsedTitle.mainTitle}
-              </h3>
-
-              {parsedTitle.dateSubtitle && (
-                <span className="text-[11px] font-bold text-primary mt-0.5 tracking-tight">
-                  {parsedTitle.dateSubtitle}
-                </span>
-              )}
-
-              <p className={cn(
-                "text-muted-foreground font-medium truncate text-center w-full mt-1 opacity-80",
-                coverSize === 'small' ? 'text-[10px]' : 'text-xs'
-              )}>
-                {authorStr === 'Unknown Author' && isRss ? 'Daily RSS Feed' : authorStr}
-              </p>
-            </div>
-
-            {/* Bottom Tag */}
-            <div className="relative z-10 flex items-center justify-center w-full pt-1">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/40">
-                {isRss ? 'RSS Feed' : book.file_format.toUpperCase()}
-              </span>
-            </div>
-          </div>
+        {(!book.cover_path || ((!coverUrl || imgError) && imgLoaded === false && !coverLoading)) && (
+          <FallbackBookCover
+            title={parsedTitle.mainTitle}
+            author={authorStr}
+            format={book.file_format}
+            isRss={isRss}
+            dateSubtitle={parsedTitle.dateSubtitle}
+            coverSize={coverSize}
+          />
         )}
 
         {/* Hover action overlay */}

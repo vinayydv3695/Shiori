@@ -40,12 +40,9 @@ export function EditorialSeriesCover({ title, bookCount, authors, isRss }: Edito
   const parsedTitle = formatRssOrDateTitle(title);
 
   return (
-    <div className="absolute inset-0 z-0 flex flex-col justify-between p-3.5 select-none overflow-hidden bg-card border border-border/50 text-foreground">
-      {/* Subtle Spine Accent */}
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary/35 pointer-events-none" />
-
+    <div className="absolute inset-0 z-0 flex flex-col justify-between p-3.5 select-none overflow-hidden bg-muted/25 border border-border/40 rounded-[inherit] text-foreground transition-all duration-300">
       {/* Top Header Label */}
-      <div className="relative z-10 flex items-center justify-between w-full pl-1">
+      <div className="relative z-10 flex items-center justify-between w-full">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           {isRss ? (
             <Rss className="w-3.5 h-3.5 text-primary" />
@@ -57,44 +54,37 @@ export function EditorialSeriesCover({ title, bookCount, authors, isRss }: Edito
           </span>
         </div>
 
-        <span className="text-[10px] font-semibold text-muted-foreground">
+        <span className="text-[10px] font-bold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full border border-border/40">
           {bookCount} {bookCount === 1 ? "Vol" : "Vols"}
         </span>
       </div>
 
       {/* Center: Clean Icon + Title + Date */}
       <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-1">
-        <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mb-2 shadow-xs">
-          {isRss ? (
-            <Rss className="w-4 h-4 text-primary" />
-          ) : (
-            <IconBookOpen size={18} className="text-primary" />
-          )}
-        </div>
+        {isRss ? (
+          <Rss className="w-7 h-7 text-primary/60 mb-2" />
+        ) : (
+          <Layers className="w-7 h-7 text-muted-foreground/40 mb-2" />
+        )}
         
-        <h3 className="font-bold text-foreground text-xs sm:text-sm leading-snug line-clamp-2 tracking-tight">
+        <h3 className="font-semibold text-foreground text-xs sm:text-sm leading-snug line-clamp-3">
           {parsedTitle.mainTitle}
         </h3>
 
         {parsedTitle.dateSubtitle && (
-          <span className="text-[11px] font-bold text-primary mt-0.5 tracking-tight">
+          <span className="text-[11px] font-medium text-muted-foreground mt-1">
             {parsedTitle.dateSubtitle}
           </span>
         )}
-        
-        {authorStr && (
-          <p className="text-[11px] text-muted-foreground truncate w-full text-center mt-1 opacity-80">
+
+        {authorStr && authorStr !== 'Unknown Author' && (
+          <p className="text-xs text-muted-foreground/80 truncate w-full text-center mt-1">
             {authorStr}
           </p>
         )}
       </div>
 
-      {/* Bottom Tag */}
-      <div className="relative z-10 flex items-center justify-center w-full pt-1">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80 bg-secondary/80 px-2 py-0.5 rounded-full border border-border/40">
-          {isRss ? "Daily Reading" : "Collected Edition"}
-        </span>
-      </div>
+      <div />
     </div>
   );
 }

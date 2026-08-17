@@ -2426,12 +2426,24 @@ const AboutSettings = () => {
     try {
       setIsChecking(true)
       
-      // In development mode, open the rich update preview dialog for instant testing
+      // In development mode or browser, open the rich update preview dialog with real GitHub release info
       if (import.meta.env.DEV || !isTauri) {
+        let latestVersion = '2.3.32';
+        let latestNotes = '';
+        try {
+          const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
+          if (res.ok) {
+            const data = await res.json();
+            latestVersion = data.tag_name?.replace(/^v/, '') || '2.3.32';
+            latestNotes = data.body || '';
+          }
+        } catch {
+          // ignore
+        }
         const updateStore = useUpdateStore.getState()
         updateStore.setUpdateInfo({
-          version: '2.3.29',
-          notes: '',
+          version: latestVersion,
+          notes: latestNotes,
         })
         updateStore.setIsUpdateDialogOpen(true)
         toast.success("Opening update dialog preview...")

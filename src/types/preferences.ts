@@ -155,7 +155,7 @@ export const DEFAULT_TTS_PREFERENCES: TtsPreferences = {
 };
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  theme: 'black',
+  theme: 'sepia',
   linuxTransparentWindow: true,
   book: DEFAULT_BOOK_PREFERENCES,
   manga: DEFAULT_MANGA_PREFERENCES,

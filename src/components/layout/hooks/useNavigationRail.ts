@@ -104,9 +104,10 @@ export function useNavigationRail() {
 
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (preferredContentType === 'books' && item.targetView === 'online-manga') return false;
+    if (preferredContentType === 'books' && item.targetView === 'anilist') return false;
+    if (preferredContentType === 'books' && item.targetView === 'torbox-discover') return false;
     if (preferredContentType === 'manga' && item.targetView === 'online-books') return false;
     if (preferredContentType === 'manga' && item.targetView === 'annotations') return false;
-    if (preferredContentType === 'books' && item.targetView === 'anilist') return false;
     return true;
   });
 

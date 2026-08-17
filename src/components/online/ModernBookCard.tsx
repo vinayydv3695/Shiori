@@ -27,7 +27,7 @@ export const ModernBookCard = memo(function ModernBookCard({
 }: ModernBookCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [proxyUrl, setProxyUrl] = useState<string | null>(null);
+  const [proxyUrl, setProxyUrl] = useState<string | null>(coverUrl || null);
   
   const downloadState = useOnlineDownloadStore((state) => state.downloads[id]);
 
@@ -82,10 +82,7 @@ export const ModernBookCard = memo(function ModernBookCard({
       fetchCoverForBook(title, author).then(fallbackUrl => {
         if (!active) return;
         if (fallbackUrl) {
-          const proxyUri = isAndroid 
-            ? `http://shiori-proxy.localhost?source=generic&url=${encodeURIComponent(fallbackUrl)}`
-            : fallbackUrl;
-          setProxyUrl(proxyUri);
+          setProxyUrl(fallbackUrl);
           setImgError(false);
         }
       });

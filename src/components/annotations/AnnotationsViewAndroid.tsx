@@ -101,43 +101,43 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
           )}
         </div>
 
-        {/* Type Tabs & Category Filter Row */}
-        <div className="flex items-center gap-2 mb-2.5 overflow-x-auto no-scrollbar pb-0.5">
-          {/* Type Segmented Pill Control */}
-          <div className="flex items-center p-1 bg-muted/50 border border-border/50 rounded-2xl gap-1 shrink-0">
-            {tabs.map(tab => {
-              const isActive = typeFilter === tab.id;
-              return (
-                <button 
-                  key={tab.id} 
-                  onClick={() => setTypeFilter(tab.id)} 
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap select-none ${
-                    isActive 
-                      ? 'bg-primary text-primary-foreground shadow-xs' 
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+        {/* Type Tabs Row (Full Width Grid) */}
+        <div className="grid grid-cols-4 p-1 bg-muted/50 border border-border/50 rounded-2xl gap-1 w-full mb-2.5">
+          {tabs.map(tab => {
+            const isActive = typeFilter === tab.id;
+            return (
+              <button 
+                key={tab.id} 
+                onClick={() => setTypeFilter(tab.id)} 
+                className={`py-1.5 px-1 rounded-xl text-xs font-bold transition-all text-center truncate select-none ${
+                  isActive 
+                    ? 'bg-primary text-primary-foreground shadow-xs' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
+        {/* Filters Row: Category Dropdown on the left + Book Chips scrolling */}
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-0.5">
           {/* Category Dropdown */}
           <div className="shrink-0">
             <DropdownMenu>
-              <DropdownMenuTrigger className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all shadow-xs outline-none cursor-pointer select-none shrink-0 ${
+              <DropdownMenuTrigger className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all shadow-xs outline-none cursor-pointer select-none shrink-0 ${
                 categoryFilter !== 'all'
                   ? 'bg-primary/15 text-primary border-primary/40'
                   : 'bg-muted/50 hover:bg-muted text-foreground border-border/60'
               }`}>
                 <Filter size={12} className={categoryFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
                 <span className="whitespace-nowrap">
-                  {categoryFilter === 'all' ? 'Categories' : categories.find(c => c.id === categoryFilter)?.name || 'Category'}
+                  {categoryFilter === 'all' ? 'All Categories' : categories.find(c => c.id === categoryFilter)?.name || 'Category'}
                 </span>
                 <ChevronDown size={12} className="text-muted-foreground shrink-0" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-popover !bg-popover !opacity-100 border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+              <DropdownMenuContent align="start" className="w-56 bg-popover !bg-popover !opacity-100 border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
                 <DropdownMenuItem
                   onClick={() => setCategoryFilter('all')}
                   className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${
@@ -162,13 +162,13 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
 
-        {/* Horizontal Book Chips Row */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-0.5">
+          <div className="h-4 w-px bg-border/60 shrink-0" />
+
+          {/* Book Chips */}
           <button
             onClick={() => setSelectedBookId('all')}
-            className={`flex-none px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 ${
+            className={`flex-none px-3 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 ${
               selectedBookId === 'all' 
                 ? 'bg-foreground text-background border-foreground shadow-xs font-bold' 
                 : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/50'
@@ -180,7 +180,7 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
             <button
               key={book.id}
               onClick={() => setSelectedBookId(book.id as number)}
-              className={`flex-none px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 max-w-[200px] truncate ${
+              className={`flex-none px-3 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0 max-w-[200px] truncate ${
                 selectedBookId === book.id 
                   ? 'bg-foreground text-background border-foreground shadow-xs font-bold' 
                   : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/50'

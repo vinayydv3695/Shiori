@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconBookOpen } from '@/components/icons/ShioriIcons';
 import type { CarouselItem } from './ContentCarousel';
-import { getProxyUrl, isAndroid } from '@/lib/tauri';
+import { getProxyUrl } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
 interface HeroMangaBannerProps {
@@ -11,16 +11,9 @@ interface HeroMangaBannerProps {
   loading?: boolean;
   onReadClick?: (item: CarouselItem) => void;
   sourceId?: string;
-  actionLabel?: string;
 }
 
-export function HeroMangaBanner({
-  items,
-  loading,
-  onReadClick,
-  sourceId = 'generic',
-  actionLabel,
-}: HeroMangaBannerProps) {
+export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'generic' }: HeroMangaBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Auto rotate every 8 seconds
@@ -34,7 +27,7 @@ export function HeroMangaBanner({
 
   if (loading) {
     return (
-      <div className="relative w-full h-[240px] sm:h-[300px] md:h-[360px] rounded-2xl sm:rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse mb-6 sm:mb-8" />
+      <div className="relative w-full h-[280px] sm:h-[320px] md:h-[360px] rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse mb-8" />
     );
   }
 
@@ -43,28 +36,34 @@ export function HeroMangaBanner({
   const current = items[currentIndex] || items[0];
   const cover = current?.coverUrl ? getProxyUrl(sourceId, current.coverUrl) : null;
 
-  const defaultButtonLabel = (isAndroid || sourceId === 'generic') ? 'Download Now' : 'Read Now';
-  const buttonLabel = actionLabel || defaultButtonLabel;
-  const isDownloadAction = buttonLabel.toLowerCase().includes('download');
-
   return (
-    <div className="relative w-full h-[240px] sm:h-[300px] md:h-[360px] rounded-2xl sm:rounded-3xl overflow-hidden group border border-border/60 bg-card shadow-lg backdrop-blur-xl mb-6 sm:mb-8 select-none">
+    <div className="relative w-full h-[280px] sm:h-[320px] md:h-[360px] rounded-3xl overflow-hidden group border border-border/60 bg-card shadow-lg backdrop-blur-xl mb-8 select-none">
       {/* Visible Manga Cover Backdrop on the right & center */}
       {cover && (
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {/* Main visible artwork spanning right side */}
-          <div className="absolute right-0 top-0 bottom-0 w-full sm:w-[75%] md:w-[65%] lg:w-[55%] h-full">
+          {/* Soft ambient glow across the banner */}
+          <div className="absolute inset-0 overflow-hidden">
+            <img
+              key={current.id + '-manga-ambient'}
+              src={cover}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover filter blur-3xl scale-125 opacity-30 dark:opacity-20 saturate-150 transition-all duration-700"
+            />
+          </div>
+
+          {/* Main visible artwork spanning right side with seamless alpha fade mask */}
+          <div className="absolute right-0 top-0 bottom-0 w-full sm:w-[80%] md:w-[70%] lg:w-[60%] h-full [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_25%,rgba(0,0,0,0.85)_60%,black_90%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_25%,rgba(0,0,0,0.85)_60%,black_90%)]">
             <img
               src={cover}
               alt=""
-              className="w-full h-full object-cover object-top opacity-70 dark:opacity-60 transition-all duration-700 group-hover:scale-105"
+              className="w-full h-full object-cover object-top opacity-85 dark:opacity-75 transition-all duration-700 group-hover:scale-105"
             />
           </div>
 
           {/* Smooth multi-stop gradient masks for clean text contrast */}
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 sm:via-card/75 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent opacity-90" />
-          <div className="absolute inset-0 bg-gradient-to-b from-card/30 via-transparent to-card/60" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 sm:via-card/75 to-transparent dark:from-background dark:via-background/85 dark:to-transparent [mask-image:linear-gradient(to_right,black_0%,black_45%,transparent_90%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_45%,transparent_90%)]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card/60 via-transparent to-card/20 dark:from-background/60 dark:via-transparent dark:to-background/20" />
         </div>
       )}
 
@@ -106,14 +105,14 @@ export function HeroMangaBanner({
           )}
 
           {/* Action Buttons */}
-          <div className="pt-1 sm:pt-2 flex items-center gap-3">
+          <div className="pt-2 flex items-center gap-3">
             <Button
               size="lg"
-              className="h-10 sm:h-11 px-5 sm:px-6 rounded-xl font-bold gap-2 shadow-md shadow-primary/20 hover:scale-105 transition-all duration-200 cursor-pointer active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm"
+              className="rounded-xl font-bold gap-2 shadow-md shadow-primary/20 hover:scale-105 transition-all duration-200 cursor-pointer active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => onReadClick?.(current)}
             >
-              {isDownloadAction ? <Download size={17} /> : <IconBookOpen size={17} />}
-              {buttonLabel}
+              <IconBookOpen size={18} />
+              Read Now
             </Button>
           </div>
         </div>

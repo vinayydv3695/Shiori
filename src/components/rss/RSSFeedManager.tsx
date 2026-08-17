@@ -602,31 +602,31 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
         </div>
 
         {/* Action Controls Toolbar */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar">
+        <div className="grid grid-cols-2 min-[480px]:flex min-[480px]:items-center gap-2 pt-0.5 pb-0.5">
           {onClose && (
             <button
               onClick={onClose}
-              className="shrink-0 flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-primary bg-primary/12 border border-primary/25 rounded-xl hover:bg-primary/20 transition-all"
+              className="flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-primary bg-primary/12 border border-primary/25 rounded-xl hover:bg-primary/20 transition-all cursor-pointer"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              View Articles
+              <BookOpen className="w-3.5 h-3.5 shrink-0" />
+              <span>View Articles</span>
             </button>
           )}
           <button
             onClick={handleUpdateAll}
             disabled={isUpdatingAll || feeds.length === 0}
-            className="shrink-0 flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-foreground bg-secondary/50 border border-border/50 rounded-xl hover:bg-secondary transition-all disabled:opacity-40"
+            className="flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-foreground bg-secondary/50 border border-border/50 rounded-xl hover:bg-secondary transition-all disabled:opacity-40 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingAll ? 'animate-spin text-primary' : ''}`} />
-            Update All
+            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isUpdatingAll ? 'animate-spin text-primary' : ''}`} />
+            <span>Update All</span>
           </button>
           <button
             onClick={handleGenerateDailyEpub}
             disabled={isGeneratingEpub || feeds.length === 0}
-            className="shrink-0 flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-foreground bg-secondary/50 border border-border/50 rounded-xl hover:bg-secondary transition-all disabled:opacity-40"
+            className={`${onClose ? 'col-span-2' : 'col-span-1'} min-[480px]:col-span-1 min-[480px]:shrink-0 flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-foreground bg-secondary/50 border border-border/50 rounded-xl hover:bg-secondary transition-all disabled:opacity-40 cursor-pointer`}
           >
-            <BookOpen className={`w-3.5 h-3.5 ${isGeneratingEpub ? 'animate-pulse text-primary' : ''}`} />
-            Generate Daily EPUB
+            <BookOpen className={`w-3.5 h-3.5 shrink-0 ${isGeneratingEpub ? 'animate-pulse text-primary' : ''}`} />
+            <span>Generate Daily EPUB</span>
           </button>
         </div>
       </div>

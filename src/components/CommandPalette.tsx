@@ -41,7 +41,7 @@ export const CommandPalette = ({
   const [search, setSearch] = useState('')
   const viewMode = useLibraryStore(state => state.viewMode)
   const setViewMode = useLibraryStore(state => state.setViewMode)
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme, isDark } = useTheme()
 
   // Toggle command palette with Cmd+K / Ctrl+K
   useEffect(() => {
@@ -282,14 +282,14 @@ export const CommandPalette = ({
                 'hover:bg-accent/50 transition-colors'
               )}
             >
-              {theme === 'dark' ? (
-                <Moon className="w-4 h-4 mr-3" />
-              ) : (
+              {isDark ? (
                 <Sun className="w-4 h-4 mr-3" />
+              ) : (
+                <Moon className="w-4 h-4 mr-3" />
               )}
               <span>Toggle Theme</span>
               <span className="ml-auto text-xs text-muted-foreground">
-                {theme === 'dark' ? 'Dark' : 'Light'}
+                {isDark ? 'Premium Dark' : 'Sepia'}
               </span>
             </Command.Item>
           </Command.Group>

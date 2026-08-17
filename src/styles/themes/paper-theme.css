@@ -75,7 +75,7 @@
 /* Top bar warm styling */
 [data-reader-theme="paper"] .premium-top-bar {
     background: #FAF7F2;
-    border-bottom-color: #D4C9B8;
+    border-color: #D4C9B8;
 }
 
 [data-reader-theme="paper"] .premium-sidebar {
@@ -131,7 +131,7 @@
 
 [data-reader-theme="paper-dark"] .premium-top-bar {
     background: #3A342D;
-    border-bottom-color: #4A4238;
+    border-color: #4A4238;
 }
 
 [data-reader-theme="paper-dark"] .premium-sidebar {

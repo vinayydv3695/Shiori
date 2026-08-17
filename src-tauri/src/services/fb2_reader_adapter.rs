@@ -1,5 +1,8 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
+use crate::services::renderer::{
+    build_search_snippet, clean_html_for_search, BookMetadata, BookReaderAdapter, Chapter,
+    SearchResult, TocEntry,
+};
 use async_trait::async_trait;
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
@@ -403,24 +406,6 @@ impl Fb2ReaderAdapter {
 
         (chapters, toc)
     }
-
-    /// UTF-8-safe search snippet extraction
-    fn safe_snippet(content: &str, match_pos: usize, query_char_len: usize) -> String {
-        let char_indices: Vec<(usize, char)> = content.char_indices().collect();
-        let char_idx = char_indices
-            .iter()
-            .position(|&(b_idx, _)| b_idx >= match_pos)
-            .unwrap_or(0);
-        let start_char = char_idx.saturating_sub(50);
-        let end_char = (char_idx + query_char_len + 50).min(char_indices.len());
-        let start_byte = char_indices.get(start_char).map(|&(b, _)| b).unwrap_or(0);
-        let end_byte = if end_char >= char_indices.len() {
-            content.len()
-        } else {
-            char_indices[end_char].0
-        };
-        format!("...{}...", &content[start_byte..end_byte])
-    }
 }
 
 unsafe impl Send for Fb2ReaderAdapter {}
@@ -490,37 +475,24 @@ impl BookReaderAdapter for Fb2ReaderAdapter {
     }
 
     fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let query_lower = query.to_lowercase();
-        let query_char_len = query.chars().count();
-        let mut results = Vec::new();
-
-        fn strip_html_tags(html: &str) -> String {
-            let mut plain_text = String::with_capacity(html.len());
-            let mut in_tag = false;
-            for c in html.chars() {
-                if c == '<' {
-                    in_tag = true;
-                } else if c == '>' {
-                    in_tag = false;
-                } else if !in_tag {
-                    plain_text.push(c);
-                }
-            }
-            plain_text
-                .replace("&nbsp;", " ")
-                .replace("&amp;", "&")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&quot;", "\"")
-                .replace("&#39;", "'")
+        let query_trim = query.trim();
+        if query_trim.is_empty() {
+            return Ok(Vec::new());
         }
 
+        let query_lower = query_trim.to_lowercase();
+        let query_char_len = query_trim.chars().count();
+        let mut results = Vec::new();
+
         for chapter in &self.chapters {
-            let content = strip_html_tags(&chapter.content);
+            let content = clean_html_for_search(&chapter.content);
+            if content.is_empty() {
+                continue;
+            }
             let content_lower = content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
             if !matches.is_empty() {
-                let snippet = Self::safe_snippet(&content, matches[0].0, query_char_len);
+                let snippet = build_search_snippet(&content, matches[0].0, query_char_len, 60);
                 results.push(SearchResult {
                     chapter_index: chapter.index,
                     chapter_title: chapter.title.clone(),

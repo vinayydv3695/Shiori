@@ -1,5 +1,8 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
+use crate::services::renderer::{
+    build_search_snippet, clean_html_for_search, BookMetadata, BookReaderAdapter, Chapter,
+    SearchResult, TocEntry,
+};
 use async_trait::async_trait;
 use epub::doc::EpubDoc;
 use std::sync::RwLock;
@@ -19,6 +22,30 @@ impl EpubAdapter {
             toc: Vec::new(),
             metadata: None,
         }
+    }
+
+    pub fn find_toc_title_for_spine(&self, spine_idx: usize) -> Option<String> {
+        fn search_toc(entries: &[TocEntry], spine_idx: usize) -> Option<String> {
+            let pattern1 = format!("/{}/", spine_idx);
+            let pattern2 = format!("/{})", spine_idx);
+            let pattern3 = format!("(/{})", spine_idx);
+            for entry in entries {
+                if entry.location.contains(&pattern1)
+                    || entry.location.contains(&pattern2)
+                    || entry.location.contains(&pattern3)
+                {
+                    let trimmed = entry.label.trim();
+                    if !trimmed.is_empty() {
+                        return Some(trimmed.to_string());
+                    }
+                }
+                if let Some(child_match) = search_toc(&entry.children, spine_idx) {
+                    return Some(child_match);
+                }
+            }
+            None
+        }
+        search_toc(&self.toc, spine_idx)
     }
 
     fn load_toc(&mut self) -> Result<()> {
@@ -216,7 +243,12 @@ impl BookReaderAdapter for EpubAdapter {
     }
 
     fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let query_lower = query.to_lowercase();
+        let query_trim = query.trim();
+        if query_trim.is_empty() {
+            return Ok(Vec::new());
+        }
+        let query_lower = query_trim.to_lowercase();
+        let query_char_count = query_trim.chars().count();
         let mut results = Vec::new();
 
         let doc_ref = self
@@ -232,65 +264,35 @@ impl BookReaderAdapter for EpubAdapter {
         })?;
         let spine_len = doc.get_num_chapters();
 
-        fn strip_html_tags(html: &str) -> String {
-            let mut plain_text = String::with_capacity(html.len());
-            let mut in_tag = false;
-            for c in html.chars() {
-                if c == '<' {
-                    in_tag = true;
-                } else if c == '>' {
-                    in_tag = false;
-                } else if !in_tag {
-                    plain_text.push(c);
-                }
-            }
-            plain_text
-                .replace("&nbsp;", " ")
-                .replace("&amp;", "&")
-                .replace("&lt;", "<")
-                .replace("&gt;", ">")
-                .replace("&quot;", "\"")
-                .replace("&#39;", "'")
-        }
-
         for i in 0..spine_len {
             doc.set_current_chapter(i);
             let (raw_content, _mime) = doc.get_current_str().unwrap_or_default();
-            let title = doc
-                .get_current_id()
-                .unwrap_or_else(|| format!("Chapter {}", i + 1));
-
-            let content = strip_html_tags(&raw_content);
+            let content = clean_html_for_search(&raw_content);
+            if content.is_empty() {
+                continue;
+            }
             let content_lower = content.to_lowercase();
             let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
 
             if !matches.is_empty() {
-                // Get snippet around first match
                 let first_match_pos = matches[0].0;
+                let snippet = build_search_snippet(&content, first_match_pos, query_char_count, 60);
 
-                // Safely slice strings using character boundaries to avoid panics on emoji/unicode
-                let char_indices: Vec<(usize, char)> = content.char_indices().collect();
-
-                // Find the index in our char array that corresponds to the byte position
-                let char_idx = char_indices
-                    .iter()
-                    .position(|&(b_idx, _)| b_idx >= first_match_pos)
-                    .unwrap_or(0);
-
-                let start_char_idx = char_idx.saturating_sub(50);
-                let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
-
-                let start_byte = char_indices
-                    .get(start_char_idx)
-                    .map(|&(b, _)| b)
-                    .unwrap_or(0);
-                let end_byte = if end_char_idx >= char_indices.len() {
-                    content.len()
-                } else {
-                    char_indices[end_char_idx].0
-                };
-
-                let snippet = format!("...{}...", &content[start_byte..end_byte]);
+                let title = self.find_toc_title_for_spine(i).unwrap_or_else(|| {
+                    let raw_id = doc.get_current_id().unwrap_or_default();
+                    let lower_id = raw_id.to_lowercase();
+                    if lower_id.ends_with(".xhtml")
+                        || lower_id.ends_with(".html")
+                        || lower_id.ends_with(".xml")
+                        || lower_id.starts_with("section0")
+                        || lower_id.starts_with("item")
+                        || raw_id.trim().is_empty()
+                    {
+                        format!("Chapter {}", i + 1)
+                    } else {
+                        raw_id
+                    }
+                });
 
                 results.push(SearchResult {
                     chapter_index: i,

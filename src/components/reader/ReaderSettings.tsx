@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useReadingSettings, type ReaderTheme, applyReaderThemeToElement } from '@/store/premiumReaderStore';
 import { Settings, Columns, ChevronDown, ChevronUp } from '@/components/icons';
@@ -25,6 +26,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isMobile = useIsMobile();
+  const dragControls = useDragControls();
 
   const {
     theme,
@@ -158,19 +160,47 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
         </button>
       </ReaderTooltip>
 
-      {isOpen && (
-        <PortalWrapper usePortal={isMobile}>
-          <div className="md:hidden fixed inset-0 bg-black/40 z-[105]" onClick={() => setIsOpen(false)} />
-          <div ref={panelRef} className="premium-settings-panel z-[110]">
-            {isMobile && (
-              <div 
-                className="w-full flex justify-center pb-4 cursor-pointer"
-                onClick={() => setIsOpen(false)}
+      <PortalWrapper usePortal={isMobile}>
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="md:hidden fixed inset-0 bg-black/40 z-[105]" 
+                onClick={() => setIsOpen(false)} 
+              />
+              <motion.div 
+                ref={panelRef}
+                drag={isMobile ? "y" : false}
+                dragControls={dragControls}
+                dragListener={false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={{ top: 0, bottom: 0.6 }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 60 || info.velocity.y > 250) {
+                    setIsOpen(false);
+                  }
+                }}
+                initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.94, y: -10 }}
+                animate={isMobile ? { y: 0 } : { opacity: 1, scale: 1, y: 0 }}
+                exit={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.94, y: -10 }}
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                className="premium-settings-panel z-[110] no-scrollbar"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                <div className="w-12 h-1.5 bg-[var(--text-tertiary)] opacity-30 rounded-full" />
-              </div>
-            )}
-            <div className="premium-settings-section">
+                {isMobile && (
+                  <div 
+                    className="w-full flex justify-center pb-3 pt-1 cursor-grab active:cursor-grabbing touch-none select-none"
+                    onPointerDown={(e) => dragControls.start(e)}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <div className="w-12 h-1.5 bg-[var(--text-tertiary)] opacity-40 hover:opacity-70 transition-opacity rounded-full pointer-events-none" />
+                  </div>
+                )}
+                <div className="premium-settings-section">
             <label className="premium-settings-label">View Mode</label>
             <div className="premium-settings-width-grid">
               {[
@@ -602,9 +632,11 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
               />
             </div>
           </div>
-        </div>
-        </PortalWrapper>
-      )}
+        </motion.div>
+        </>
+        )}
+      </AnimatePresence>
+      </PortalWrapper>
     </div>
   );
 }

@@ -124,3 +124,128 @@ pub struct SearchResult {
     pub location: String,
     pub match_count: usize,
 }
+
+/// Strip all HTML tags, styles, and scripts while preserving text and normalizing whitespace.
+pub fn clean_html_for_search(html: &str) -> String {
+    let lower = html.to_lowercase();
+    let mut output = String::with_capacity(html.len());
+    let mut pos = 0;
+    let bytes = html.as_bytes();
+    let len = bytes.len();
+
+    while pos < len {
+        if bytes[pos] == b'<' {
+            let rem = &lower[pos..];
+            if rem.starts_with("<style") {
+                if let Some(end_idx) = lower[pos..].find("</style>") {
+                    pos += end_idx + 8;
+                    continue;
+                } else {
+                    break;
+                }
+            } else if rem.starts_with("<script") {
+                if let Some(end_idx) = lower[pos..].find("</script>") {
+                    pos += end_idx + 9;
+                    continue;
+                } else {
+                    break;
+                }
+            } else if rem.starts_with("<head") {
+                if let Some(end_idx) = lower[pos..].find("</head>") {
+                    pos += end_idx + 7;
+                    continue;
+                } else {
+                    break;
+                }
+            } else {
+                if let Some(end_idx) = bytes[pos..].iter().position(|&b| b == b'>') {
+                    pos += end_idx + 1;
+                    if !output.ends_with(' ') {
+                        output.push(' ');
+                    }
+                    continue;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            let next_tag = bytes[pos..]
+                .iter()
+                .position(|&b| b == b'<')
+                .unwrap_or(len - pos);
+            if let Ok(text_slice) = std::str::from_utf8(&bytes[pos..pos + next_tag]) {
+                output.push_str(text_slice);
+            }
+            pos += next_tag;
+        }
+    }
+
+    let unescaped = output
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&mdash;", "—")
+        .replace("&ndash;", "–")
+        .replace("&hellip;", "…");
+
+    let mut normalized = String::with_capacity(unescaped.len());
+    let mut last_was_space = false;
+    for c in unescaped.chars() {
+        if c.is_whitespace() {
+            if !last_was_space {
+                normalized.push(' ');
+                last_was_space = true;
+            }
+        } else {
+            normalized.push(c);
+            last_was_space = false;
+        }
+    }
+
+    normalized.trim().to_string()
+}
+
+/// Safely construct a snippet around a search match index.
+pub fn build_search_snippet(
+    text: &str,
+    first_match_byte_pos: usize,
+    query_char_count: usize,
+    context_chars: usize,
+) -> String {
+    let char_indices: Vec<(usize, char)> = text.char_indices().collect();
+    if char_indices.is_empty() {
+        return String::new();
+    }
+
+    let char_idx = char_indices
+        .iter()
+        .position(|&(b_idx, _)| b_idx >= first_match_byte_pos)
+        .unwrap_or(0);
+
+    let start_char_idx = char_idx.saturating_sub(context_chars);
+    let end_char_idx = (char_idx + query_char_count + context_chars).min(char_indices.len());
+
+    let start_byte = char_indices
+        .get(start_char_idx)
+        .map(|&(b, _)| b)
+        .unwrap_or(0);
+    let end_byte = if end_char_idx >= char_indices.len() {
+        text.len()
+    } else {
+        char_indices[end_char_idx].0
+    };
+
+    let slice = text[start_byte..end_byte].trim();
+    let prefix = if start_char_idx > 0 { "..." } else { "" };
+    let suffix = if end_char_idx < char_indices.len() {
+        "..."
+    } else {
+        ""
+    };
+
+    format!("{}{}{}", prefix, slice, suffix)
+}

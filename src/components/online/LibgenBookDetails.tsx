@@ -25,7 +25,6 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [activeDownloadUrl, setActiveDownloadUrl] = useState<string | null>(null);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
-  const { handleOpenBook } = useBookOpen();
 
   // Backend emits progress keyed by target_id = first mirror URL (the epubUrl we pass in).
   // Per-download subscription: the store replaces the whole downloads object on
@@ -193,7 +192,7 @@ export function LibgenBookDetails({ book, open, onOpenChange }: Props) {
       }
 
       // 3. Open it via Reader integration
-      await handleOpenBook(foundBook.id);
+      window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: foundBook.id } }));
       onOpenChange(false);
     } catch (err) {
       showErrorToast('Failed to Open Reader', err instanceof Error ? err.message : 'Unknown error');

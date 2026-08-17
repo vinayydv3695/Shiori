@@ -11,7 +11,11 @@ import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useBackButton } from '@/hooks/useBackButton';
 
-export function ShelfView() {
+export interface ShelfViewProps {
+  onOpenBook?: (id: number) => void;
+}
+
+export function ShelfView({ onOpenBook }: ShelfViewProps = {}) {
   const setCurrentView = useUIStore(state => state.setCurrentView);
   const selectedShelf = useShelfStore(state => state.selectedShelf);
   const selectShelf = useShelfStore(state => state.selectShelf);
@@ -139,6 +143,7 @@ export function ShelfView() {
             books={books}
             onBack={() => selectShelf(null)}
             onRefreshBooks={loadBooks}
+            onOpenBook={onOpenBook}
           />
         )}
       </div>

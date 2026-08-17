@@ -39,6 +39,7 @@ interface ShelfBookGridProps {
   books: Book[];
   onBack: () => void;
   onRefreshBooks?: () => void;
+  onOpenBook?: (id: number) => void;
 }
 
 export type ShelfBookSortType = 'title-asc' | 'title-desc' | 'author' | 'progress' | 'recent';
@@ -274,7 +275,7 @@ function ShelfBookListItem({
   );
 }
 
-export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBookGridProps) {
+export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook }: ShelfBookGridProps) {
   const [addBooksDialogOpen, setAddBooksDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -287,7 +288,14 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
   const [columns, setColumns] = useState(6);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { handleOpenBook } = useBookOpen();
+  const triggerOpenBook = React.useCallback((bookId: number) => {
+    if (onOpenBook) {
+      onOpenBook(bookId);
+    } else {
+      window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId } }));
+    }
+  }, [onOpenBook]);
+
   const toast = useToast();
   const isMobile = useIsMobile();
   const isCustomColor = Boolean(shelf.color && !['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa', '#6366f1'].includes(shelf.color.toLowerCase()));
@@ -419,7 +427,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
 
   return (
     <div 
-      className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto pb-32 md:pb-12 custom-scrollbar relative"
+      className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden pb-32 md:pb-12 custom-scrollbar relative"
       style={{
         paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
@@ -609,7 +617,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
                         animate={{ height: 'auto', opacity: 1, marginTop: 0 }}
                         exit={{ height: 0, opacity: 0, marginTop: -8 }}
                         transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden relative z-20 px-4 pt-1 pb-6 -mx-4 -mb-2"
+                        className="overflow-hidden relative z-20 px-1 pt-1 pb-6 mb-2"
                       >
                         <div 
                           className="relative rounded-2xl p-4 sm:p-5 bg-card border border-border/70 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.12),0_4px_16px_-2px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_36px_-4px_rgba(0,0,0,0.6)] backdrop-blur-xl"
@@ -661,7 +669,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (selectedBook.id) void handleOpenBook(selectedBook.id);
+                                  if (selectedBook.id) triggerOpenBook(selectedBook.id);
                                 }}
                                 className="px-3 py-1 rounded-full text-foreground hover:bg-background/80 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                               >
@@ -768,7 +776,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks }: ShelfBoo
                 isSelected={book.id !== undefined && selectedBookIds.has(book.id)}
                 isSelectionMode={isSelectionMode}
                 onToggleSelect={() => book.id !== undefined && toggleBookSelection(book.id)}
-                onClick={() => book.id && void handleOpenBook(book.id)}
+                onClick={() => book.id && triggerOpenBook(book.id)}
                 onRemove={() => book.id && void handleRemoveSingleBook(book.id)}
               />
             ))}

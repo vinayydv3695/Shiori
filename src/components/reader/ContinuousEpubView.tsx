@@ -206,6 +206,42 @@ export function ContinuousEpubView({
     }
   }, [chapters, initialChapterIndex, initialScrollRatio]);
 
+  // Scroll to search highlight when search term is set/updated
+  useEffect(() => {
+    if (!searchTerm?.trim()) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryScrollToSearch = () => {
+      if (cancelled) return;
+      const container = containerRef.current;
+      if (!container) return;
+
+      const targetChapterEl = chapterRefs.current.get(initialChapterIndex) || container;
+      const highlight = targetChapterEl.querySelector<HTMLElement>('.search-highlight');
+
+      if (highlight) {
+        highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        highlight.classList.remove('search-highlight--active');
+        void highlight.offsetWidth;
+        highlight.classList.add('search-highlight--active');
+        setTimeout(() => {
+          highlight.classList.remove('search-highlight--active');
+        }, 2800);
+      } else if (attempts < 15) {
+        attempts++;
+        setTimeout(tryScrollToSearch, 60);
+      }
+    };
+
+    const timer = setTimeout(tryScrollToSearch, 40);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchTerm, initialChapterIndex, chapters]);
+
   // Setup IntersectionObserver to track active chapter and trigger lazy loading
   useEffect(() => {
     const container = containerRef.current;

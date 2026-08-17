@@ -153,7 +153,7 @@ export function ViewRouter({
 
         {currentView === 'shelves' && (
           <Suspense fallback={<LoadingSpinner className="py-24" />}>
-            <ShelfView />
+            <ShelfView onOpenBook={handleOpenBook} />
           </Suspense>
         )}
 

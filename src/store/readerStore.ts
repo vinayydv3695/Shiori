@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ReaderContent } from '@/components/reader/readerContent';
+import { useReaderUIStore } from './premiumReaderStore';
 
 export interface ReadingProgress {
   id?: number;
@@ -136,7 +137,11 @@ export const useReaderStore = create<ReaderState>((set) => ({
   explicitResumeTarget: null,
 
   // Actions
-  openBook: (bookId, bookPath, format, content) =>
+  openBook: (bookId, bookPath, format, content) => {
+    try {
+      useReaderUIStore.getState().closeSidebar();
+      useReaderUIStore.getState().setTopBarVisible(false);
+    } catch {}
     set({
       currentBookId: bookId,
       currentBookPath: bookPath,
@@ -145,9 +150,14 @@ export const useReaderStore = create<ReaderState>((set) => ({
       isReaderOpen: true,
       // Carry over startFromBeginning from content if supplied, otherwise keep existing value
       ...(content?.startFromBeginning !== undefined ? { startFromBeginning: content.startFromBeginning } : {}),
-    }),
+    });
+  },
 
-  closeBook: () =>
+  closeBook: () => {
+    try {
+      useReaderUIStore.getState().closeSidebar();
+      useReaderUIStore.getState().setTopBarVisible(false);
+    } catch {}
     set({
       currentBookId: null,
       currentBookPath: null,
@@ -161,7 +171,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
       sessionStartTime: null,
       startFromBeginning: false,
       explicitResumeTarget: null,
-    }),
+    });
+  },
 
   setProgress: (progress) => set({ progress }),
 

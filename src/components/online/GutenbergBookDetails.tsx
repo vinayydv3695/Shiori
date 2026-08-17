@@ -20,7 +20,6 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
-  const { handleOpenBook } = useBookOpen();
   // Per-download subscription: the store replaces the whole downloads object on
   // every progress tick, so a whole-object subscription re-renders this dialog
   // (and every other consumer) at tick rate. Select just this book's entry.
@@ -84,7 +83,7 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
       }
 
       // 3. Open it via Reader integration
-      await handleOpenBook(foundBook.id);
+      window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: foundBook.id } }));
       onOpenChange(false);
     } catch (err) {
       showErrorToast('Failed to Open Reader', err instanceof Error ? err.message : 'Unknown error');

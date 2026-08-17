@@ -73,265 +73,301 @@ const SPOTLIGHT_BANNER_ITEMS: CarouselItem[] = [
 
 const DEFAULT_TRENDING_ITEMS: CarouselItem[] = [
   {
-    id: 'trending-1',
-    title: 'Atomic Habits',
-    subtitle: 'James Clear',
-    coverUrl: 'https://covers.openlibrary.org/b/id/12843521-L.jpg',
-  },
-  {
-    id: 'trending-2',
-    title: 'Dune',
-    subtitle: 'Frank Herbert',
-    coverUrl: 'https://covers.openlibrary.org/b/id/9140341-L.jpg',
-  },
-  {
-    id: 'trending-3',
-    title: 'Project Hail Mary',
-    subtitle: 'Andy Weir',
-    coverUrl: 'https://covers.openlibrary.org/b/id/10958382-L.jpg',
-  },
-  {
-    id: 'trending-4',
-    title: 'The Hobbit',
-    subtitle: 'J.R.R. Tolkien',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8406786-L.jpg',
-  },
-  {
-    id: 'trending-5',
-    title: '1984',
-    subtitle: 'George Orwell',
-    coverUrl: 'https://covers.openlibrary.org/b/id/14555818-L.jpg',
-  },
-  {
-    id: 'trending-6',
-    title: 'The Three-Body Problem',
-    subtitle: 'Cixin Liu',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8259447-L.jpg',
-  },
-  {
-    id: 'trending-7',
-    title: 'Brave New World',
-    subtitle: 'Aldous Huxley',
-    coverUrl: 'https://covers.openlibrary.org/b/id/14457816-L.jpg',
-  },
-  {
-    id: 'trending-8',
-    title: 'To Kill a Mockingbird',
-    subtitle: 'Harper Lee',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8225261-L.jpg',
-  },
-  {
-    id: 'trending-9',
-    title: 'The Midnight Library',
-    subtitle: 'Matt Haig',
-    coverUrl: 'https://covers.openlibrary.org/b/id/10478065-L.jpg',
-  },
-  {
-    id: 'trending-10',
-    title: 'Fahrenheit 451',
-    subtitle: 'Ray Bradbury',
-    coverUrl: 'https://covers.openlibrary.org/b/id/14457802-L.jpg',
-  },
-  {
-    id: 'trending-11',
-    title: 'Sapiens: A Brief History of Humankind',
-    subtitle: 'Yuval Noah Harari',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8257842-L.jpg',
-  },
-  {
-    id: 'trending-12',
-    title: 'Foundation',
-    subtitle: 'Isaac Asimov',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235116-L.jpg',
-  },
-];
-
-const DEFAULT_SCIFI_ITEMS: CarouselItem[] = [
-  {
-    id: 'scifi-1',
-    title: 'Neuromancer',
-    subtitle: 'William Gibson',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8234342-L.jpg',
-  },
-  {
-    id: 'scifi-2',
-    title: 'Snow Crash',
-    subtitle: 'Neal Stephenson',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8231991-L.jpg',
-  },
-  {
-    id: 'scifi-3',
-    title: 'Hyperion',
-    subtitle: 'Dan Simmons',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8232938-L.jpg',
-  },
-  {
-    id: 'scifi-4',
-    title: 'Blindsight',
-    subtitle: 'Peter Watts',
-    coverUrl: 'https://covers.openlibrary.org/b/id/7222246-L.jpg',
-  },
-  {
-    id: 'scifi-5',
-    title: 'Do Androids Dream of Electric Sheep?',
-    subtitle: 'Philip K. Dick',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8234581-L.jpg',
-  },
-  {
-    id: 'scifi-6',
-    title: "Ender's Game",
-    subtitle: 'Orson Scott Card',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235224-L.jpg',
-  },
-  {
-    id: 'scifi-7',
-    title: 'The Left Hand of Darkness',
-    subtitle: 'Ursula K. Le Guin',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8234672-L.jpg',
-  },
-  {
-    id: 'scifi-8',
-    title: 'Altered Carbon',
-    subtitle: 'Richard K. Morgan',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8232573-L.jpg',
-  },
-  {
-    id: 'scifi-9',
-    title: "Childhood's End",
-    subtitle: 'Arthur C. Clarke',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8234411-L.jpg',
-  },
-  {
-    id: 'scifi-10',
-    title: 'The Stars My Destination',
-    subtitle: 'Alfred Bester',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8233812-L.jpg',
-  },
-];
-
-const DEFAULT_CLASSIC_ITEMS: CarouselItem[] = [
-  {
-    id: 'classic-1',
-    title: 'Pride and Prejudice',
-    subtitle: 'Jane Austen',
-    coverUrl: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
-  },
-  {
-    id: 'classic-2',
-    title: 'Crime and Punishment',
-    subtitle: 'Fyodor Dostoevsky',
-    coverUrl: 'https://www.gutenberg.org/cache/epub/2554/pg2554.cover.medium.jpg',
-  },
-  {
-    id: 'classic-3',
-    title: 'The Great Gatsby',
-    subtitle: 'F. Scott Fitzgerald',
-    coverUrl: 'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
-  },
-  {
-    id: 'classic-4',
-    title: 'Moby Dick',
-    subtitle: 'Herman Melville',
-    coverUrl: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
-  },
-  {
-    id: 'classic-5',
-    title: 'The Picture of Dorian Gray',
-    subtitle: 'Oscar Wilde',
-    coverUrl: 'https://www.gutenberg.org/cache/epub/174/pg174.cover.medium.jpg',
-  },
-  {
-    id: 'classic-6',
-    title: 'Meditations',
-    subtitle: 'Marcus Aurelius',
-    coverUrl: 'https://www.gutenberg.org/cache/epub/2680/pg2680.cover.medium.jpg',
-  },
-  {
-    id: 'classic-7',
+    id: 'gutenberg-84',
     title: 'Frankenstein',
     subtitle: 'Mary Wollstonecraft Shelley',
     coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
   },
   {
-    id: 'classic-8',
+    id: 'gutenberg-1342',
+    title: 'Pride and Prejudice',
+    subtitle: 'Jane Austen',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-64317',
+    title: 'The Great Gatsby',
+    subtitle: 'F. Scott Fitzgerald',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-345',
     title: 'Dracula',
     subtitle: 'Bram Stoker',
     coverUrl: 'https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg',
   },
   {
-    id: 'classic-9',
+    id: 'gutenberg-174',
+    title: 'The Picture of Dorian Gray',
+    subtitle: 'Oscar Wilde',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/174/pg174.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-1661',
+    title: 'The Adventures of Sherlock Holmes',
+    subtitle: 'Arthur Conan Doyle',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1661/pg1661.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-11',
+    title: "Alice's Adventures in Wonderland",
+    subtitle: 'Lewis Carroll',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/11/pg11.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-2701',
+    title: 'Moby-Dick; or, The Whale',
+    subtitle: 'Herman Melville',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-98',
     title: 'A Tale of Two Cities',
     subtitle: 'Charles Dickens',
     coverUrl: 'https://www.gutenberg.org/cache/epub/98/pg98.cover.medium.jpg',
   },
   {
-    id: 'classic-10',
+    id: 'gutenberg-5200',
+    title: 'Metamorphosis',
+    subtitle: 'Franz Kafka',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/5200/pg5200.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-43',
+    title: 'The Strange Case of Dr. Jekyll and Mr. Hyde',
+    subtitle: 'Robert Louis Stevenson',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/43/pg43.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-1952',
+    title: 'The Yellow Wallpaper',
+    subtitle: 'Charlotte Perkins Gilman',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1952/pg1952.cover.medium.jpg',
+  },
+];
+
+const DEFAULT_SCIFI_ITEMS: CarouselItem[] = [
+  {
+    id: 'gutenberg-35',
+    title: 'The Time Machine',
+    subtitle: 'H. G. Wells',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/35/pg35.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-36',
+    title: 'The War of the Worlds',
+    subtitle: 'H. G. Wells',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/36/pg36.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-164',
+    title: 'Twenty Thousand Leagues Under the Sea',
+    subtitle: 'Jules Verne',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/164/pg164.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-18857',
+    title: 'A Journey to the Centre of the Earth',
+    subtitle: 'Jules Verne',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/18857/pg18857.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-5230',
+    title: 'The Invisible Man',
+    subtitle: 'H. G. Wells',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/5230/pg5230.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-159',
+    title: 'The Island of Doctor Moreau',
+    subtitle: 'H. G. Wells',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/159/pg159.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-83',
+    title: 'From the Earth to the Moon',
+    subtitle: 'Jules Verne',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/83/pg83.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-103',
+    title: 'Around the World in Eighty Days',
+    subtitle: 'Jules Verne',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/103/pg103.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-62',
+    title: 'A Princess of Mars',
+    subtitle: 'Edgar Rice Burroughs',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/62/pg62.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-72',
+    title: 'The Gods of Mars',
+    subtitle: 'Edgar Rice Burroughs',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/72/pg72.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-139',
+    title: 'The Lost World',
+    subtitle: 'Arthur Conan Doyle',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/139/pg139.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-201',
+    title: 'Flatland: A Romance of Many Dimensions',
+    subtitle: 'Edwin Abbott Abbott',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/201/pg201.cover.medium.jpg',
+  },
+];
+
+const DEFAULT_CLASSIC_ITEMS: CarouselItem[] = [
+  {
+    id: 'gutenberg-1342',
+    title: 'Pride and Prejudice',
+    subtitle: 'Jane Austen',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-2554',
+    title: 'Crime and Punishment',
+    subtitle: 'Fyodor Dostoevsky',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2554/pg2554.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-64317',
+    title: 'The Great Gatsby',
+    subtitle: 'F. Scott Fitzgerald',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-2701',
+    title: 'Moby-Dick; or, The Whale',
+    subtitle: 'Herman Melville',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-174',
+    title: 'The Picture of Dorian Gray',
+    subtitle: 'Oscar Wilde',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/174/pg174.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-2680',
+    title: 'Meditations',
+    subtitle: 'Marcus Aurelius',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2680/pg2680.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-84',
+    title: 'Frankenstein',
+    subtitle: 'Mary Wollstonecraft Shelley',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-345',
+    title: 'Dracula',
+    subtitle: 'Bram Stoker',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-98',
+    title: 'A Tale of Two Cities',
+    subtitle: 'Charles Dickens',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/98/pg98.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-1260',
     title: 'Jane Eyre',
     subtitle: 'Charlotte Brontë',
     coverUrl: 'https://www.gutenberg.org/cache/epub/1260/pg1260.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-768',
+    title: 'Wuthering Heights',
+    subtitle: 'Emily Brontë',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/768/pg768.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-1400',
+    title: 'Great Expectations',
+    subtitle: 'Charles Dickens',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1400/pg1400.cover.medium.jpg',
   },
 ];
 
 const DEFAULT_FANTASY_ITEMS: CarouselItem[] = [
   {
-    id: 'fantasy-1',
-    title: 'The Name of the Wind',
-    subtitle: 'Patrick Rothfuss',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235221-L.jpg',
+    id: 'gutenberg-55',
+    title: 'The Wonderful Wizard of Oz',
+    subtitle: 'L. Frank Baum',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/55/pg55.cover.medium.jpg',
   },
   {
-    id: 'fantasy-2',
-    title: 'The Way of Kings',
-    subtitle: 'Brandon Sanderson',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235223-L.jpg',
+    id: 'gutenberg-16',
+    title: 'Peter and Wendy (Peter Pan)',
+    subtitle: 'J. M. Barrie',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/16/pg16.cover.medium.jpg',
   },
   {
-    id: 'fantasy-3',
-    title: 'A Game of Thrones',
-    subtitle: 'George R.R. Martin',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235225-L.jpg',
+    id: 'gutenberg-236',
+    title: 'The Jungle Book',
+    subtitle: 'Rudyard Kipling',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/236/pg236.cover.medium.jpg',
   },
   {
-    id: 'fantasy-4',
-    title: 'The Eye of the World',
-    subtitle: 'Robert Jordan',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235227-L.jpg',
+    id: 'gutenberg-120',
+    title: 'Treasure Island',
+    subtitle: 'Robert Louis Stevenson',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/120/pg120.cover.medium.jpg',
   },
   {
-    id: 'fantasy-5',
-    title: 'The Blade Itself',
-    subtitle: 'Joe Abercrombie',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235229-L.jpg',
+    id: 'gutenberg-2591',
+    title: "Grimms' Fairy Tales",
+    subtitle: 'Brothers Grimm',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/2591/pg2591.cover.medium.jpg',
   },
   {
-    id: 'fantasy-6',
-    title: 'The Lies of Locke Lamora',
-    subtitle: 'Scott Lynch',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235231-L.jpg',
+    id: 'gutenberg-113',
+    title: 'The Secret Garden',
+    subtitle: 'Frances Hodgson Burnett',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/113/pg113.cover.medium.jpg',
   },
   {
-    id: 'fantasy-7',
-    title: 'Gardens of the Moon',
-    subtitle: 'Steven Erikson',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235233-L.jpg',
+    id: 'gutenberg-219',
+    title: 'Heart of Darkness',
+    subtitle: 'Joseph Conrad',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/219/pg219.cover.medium.jpg',
   },
   {
-    id: 'fantasy-8',
-    title: 'The Final Empire',
-    subtitle: 'Brandon Sanderson',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8235235-L.jpg',
+    id: 'gutenberg-215',
+    title: 'The Call of the Wild',
+    subtitle: 'Jack London',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/215/pg215.cover.medium.jpg',
   },
   {
-    id: 'fantasy-9',
-    title: "Assassin's Apprentice",
-    subtitle: 'Robin Hobb',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8232880-L.jpg',
+    id: 'gutenberg-10148',
+    title: 'The Merry Adventures of Robin Hood',
+    subtitle: 'Howard Pyle',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/10148/pg10148.cover.medium.jpg',
   },
   {
-    id: 'fantasy-10',
-    title: 'The Priory of the Orange Tree',
-    subtitle: 'Samantha Shannon',
-    coverUrl: 'https://covers.openlibrary.org/b/id/8943210-L.jpg',
+    id: 'gutenberg-1837',
+    title: 'The Prince and the Pauper',
+    subtitle: 'Mark Twain',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1837/pg1837.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-54',
+    title: 'The Marvelous Land of Oz',
+    subtitle: 'L. Frank Baum',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/54/pg54.cover.medium.jpg',
+  },
+  {
+    id: 'gutenberg-1597',
+    title: "Andersen's Fairy Tales",
+    subtitle: 'Hans Christian Andersen',
+    coverUrl: 'https://www.gutenberg.org/cache/epub/1597/pg1597.cover.medium.jpg',
   },
 ];
 
@@ -348,12 +384,23 @@ function toBookCarouselItems(works: any[]): CarouselItem[] {
       ? book.author_name[0]
       : (book.authors && book.authors[0]?.name) || book.author;
 
-    const directCover = book.cover_url || book.coverUrl || (coverId
-      ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
-      : book.imageLinks?.thumbnail);
+    let gutenbergId = '';
+    if (typeof book.key === 'string' && book.key.startsWith('gutenberg-')) {
+      gutenbergId = book.key.replace('gutenberg-', '');
+    } else if (typeof book.id === 'string' && book.id.startsWith('gutenberg-')) {
+      gutenbergId = book.id.replace('gutenberg-', '');
+    } else if (typeof book.id === 'number') {
+      gutenbergId = String(book.id);
+    }
+
+    const directCover = book.cover_url || book.coverUrl || (gutenbergId 
+      ? `https://www.gutenberg.org/cache/epub/${gutenbergId}/pg${gutenbergId}.cover.medium.jpg`
+      : coverId
+        ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`
+        : book.imageLinks?.thumbnail);
 
     return {
-      id: book.key || book.id || book.title,
+      id: book.key || (gutenbergId ? `gutenberg-${gutenbergId}` : book.id) || book.title,
       title: book.title,
       subtitle: authorName || (book.first_publish_year ? String(book.first_publish_year) : undefined),
       coverUrl: directCover,
@@ -363,22 +410,22 @@ function toBookCarouselItems(works: any[]): CarouselItem[] {
 
 export function OnlineBooksDashboard() {
   const [trending, setTrending] = useState<CarouselItem[]>(() => {
-    const cached = launchCacheGet<CarouselItem[]>('online-books:trending:v4');
+    const cached = launchCacheGet<CarouselItem[]>('online-books:trending:v5');
     return cached && cached.length > 0 ? cached : DEFAULT_TRENDING_ITEMS;
   });
 
   const [scifi, setScifi] = useState<CarouselItem[]>(() => {
-    const cached = launchCacheGet<CarouselItem[]>('online-books:scifi:v4');
+    const cached = launchCacheGet<CarouselItem[]>('online-books:scifi:v5');
     return cached && cached.length > 0 ? cached : DEFAULT_SCIFI_ITEMS;
   });
 
   const [classics, setClassics] = useState<CarouselItem[]>(() => {
-    const cached = launchCacheGet<CarouselItem[]>('online-books:classics:v4');
+    const cached = launchCacheGet<CarouselItem[]>('online-books:classics:v5');
     return cached && cached.length > 0 ? cached : DEFAULT_CLASSIC_ITEMS;
   });
 
   const [fantasy, setFantasy] = useState<CarouselItem[]>(() => {
-    const cached = launchCacheGet<CarouselItem[]>('online-books:fantasy:v4');
+    const cached = launchCacheGet<CarouselItem[]>('online-books:fantasy:v5');
     return cached && cached.length > 0 ? cached : DEFAULT_FANTASY_ITEMS;
   });
 
@@ -398,7 +445,7 @@ export function OnlineBooksDashboard() {
         const items = toBookCarouselItems(works.slice(0, 36));
         if (items.length > 0) {
           setTrending(items);
-          launchCacheSet('online-books:trending:v4', items);
+          launchCacheSet('online-books:trending:v5', items);
         }
       })
       .catch(() => {});
@@ -409,7 +456,7 @@ export function OnlineBooksDashboard() {
         const items = toBookCarouselItems(works);
         if (items.length > 0) {
           setScifi(items);
-          launchCacheSet('online-books:scifi:v4', items);
+          launchCacheSet('online-books:scifi:v5', items);
         }
       })
       .catch(() => {});
@@ -420,7 +467,7 @@ export function OnlineBooksDashboard() {
         const items = toBookCarouselItems(works);
         if (items.length > 0) {
           setClassics(items);
-          launchCacheSet('online-books:classics:v4', items);
+          launchCacheSet('online-books:classics:v5', items);
         }
       })
       .catch(() => {});
@@ -431,7 +478,7 @@ export function OnlineBooksDashboard() {
         const items = toBookCarouselItems(works);
         if (items.length > 0) {
           setFantasy(items);
-          launchCacheSet('online-books:fantasy:v4', items);
+          launchCacheSet('online-books:fantasy:v5', items);
         }
       })
       .catch(() => {});
@@ -451,7 +498,33 @@ export function OnlineBooksDashboard() {
     }
 
     try {
-      showSuccessToast('Finding Book...', `Searching for "${title}" on Libgen`);
+      // 0. Direct Gutenberg download if it's a Gutenberg book
+      if (typeof bookKey === 'string' && bookKey.startsWith('gutenberg-')) {
+        const gId = bookKey.replace('gutenberg-', '');
+        const epubUrl = `https://www.gutenberg.org/ebooks/${gId}.epub3.images`;
+        showSuccessToast('Downloading...', `Downloading "${title}" from Project Gutenberg`);
+        useOnlineDownloadStore.getState().registerDownload(epubUrl, title);
+        try {
+          const result = await downloadAndImportGutenberg(epubUrl, title);
+          if (result.success.length > 0 || result.duplicates.length > 0) {
+            await useLibraryStore.getState().loadInitialBooks();
+            useOnlineDownloadStore.getState().setDownload(bookKey, {
+              target_id: bookKey,
+              status: 'completed',
+              downloaded_bytes: 1,
+              total_bytes: 1,
+              title,
+              unit: 'bytes',
+            });
+            showSuccessToast('Download Complete', `"${title}" downloaded from Project Gutenberg and added to your library.`);
+            return;
+          }
+        } catch (gErr) {
+          console.warn('Direct Gutenberg ID download failed, falling back to search:', gErr);
+        }
+      }
+
+      showSuccessToast('Finding Book...', `Searching for "${title}"`);
       useOnlineDownloadStore.getState().registerDownload(bookKey, title);
 
       // Clean query: remove subtitles or brackets if too long

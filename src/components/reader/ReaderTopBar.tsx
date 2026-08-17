@@ -7,6 +7,8 @@ import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
 
+import { isAndroid } from '@/lib/tauri';
+
 interface ReaderTopBarProps {
   bookId: number;
   title: string;
@@ -33,6 +35,19 @@ export function ReaderTopBar({
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = React.useState(false);
+
+  // Automatically ensure menus close whenever the topbar hides, sidebar opens, or book changes
+  React.useEffect(() => {
+    if (!isTopBarVisible || isSidebarOpen) {
+      setIsMoreMenuOpen(false);
+      setIsDesktopMenuOpen(false);
+    }
+  }, [isTopBarVisible, isSidebarOpen]);
+
+  React.useEffect(() => {
+    setIsMoreMenuOpen(false);
+    setIsDesktopMenuOpen(false);
+  }, [bookId]);
 
   const extraChildren = React.Children.toArray(
     React.isValidElement(rightExtra) && rightExtra.type === React.Fragment
@@ -76,71 +91,101 @@ export function ReaderTopBar({
         )}
 
         {/* ── RIGHT: Streamlined Reading Tools ── */}
-        <div className="premium-top-bar-right">
-          {/* Mobile More Options Dropdown */}
-          <div className="md:hidden flex items-center relative">
-            <button
-              className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
-              aria-label="More options"
-              onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-            >
-              <MoreVertical className="premium-control-icon" />
-            </button>
-            
+        <div className="premium-top-bar-right flex items-center gap-1">
+          {/* Primary Action Buttons (Search, TOC) */}
+          <div className="flex items-center gap-1">
+            {desktopPrimary}
+            <ReaderSettings format={format} />
+          </div>
+
+          {/* More Options Dropdown */}
+          <div className="relative flex items-center">
+            <ReaderTooltip content="More options">
+              <button
+                className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
+                aria-label="More options"
+                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+              >
+                <MoreVertical className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
             <AnimatePresence>
               {isMoreMenuOpen && (
                 <>
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="fixed inset-0 z-[95]" 
-                    onClick={() => setIsMoreMenuOpen(false)} 
+                    transition={{ duration: 0.15 }}
+                    className="fixed inset-0 z-[95]"
+                    onClick={() => setIsMoreMenuOpen(false)}
                   />
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute top-full right-0 mt-3 w-72 flex flex-col p-2 bg-[var(--bg-elevated)] border border-[var(--ui-border)] shadow-2xl rounded-2xl z-[100] backdrop-blur-2xl bg-opacity-95"
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    className="premium-dropdown-menu"
                   >
-                    <motion.div 
-                      className="flex flex-col gap-1.5 premium-mobile-menu-items"
-                      variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                    <motion.div
+                      className="flex flex-col gap-0.5"
+                      variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }}
                       initial="hidden"
                       animate="show"
                     >
-                      {extraChildren.map((child, i) => (
-                        <motion.div key={i} variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-                          {child}
-                        </motion.div>
-                      ))}
+                      {desktopSecondary.map((child, i) => {
+                        if (!React.isValidElement(child)) return null;
+                        const actualChild = (child.type === ReaderTooltip && (child.props as any).children)
+                          ? (child.props as any).children
+                          : child;
+                        const label = actualChild.props?.['aria-label'] || actualChild.props?.title || ((child.type === ReaderTooltip) ? (child.props as any).content : '');
 
-                      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-                        <button
+                        return (
+                          <motion.button
+                            key={i}
+                            type="button"
+                            variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+                            onClick={(e) => {
+                              setIsMoreMenuOpen(false);
+                              actualChild.props?.onClick?.(e);
+                            }}
+                            className="premium-menu-item"
+                          >
+                            {actualChild.props?.children}
+                            {label && <span className="premium-menu-item-label">{label}</span>}
+                          </motion.button>
+                        );
+                      })}
+
+                      {!isAndroid && (
+                        <motion.button
                           type="button"
+                          variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
                           onClick={() => {
                             toggleFullscreen();
                             setIsMoreMenuOpen(false);
                           }}
-                          className="premium-control-button premium-fullscreen-button"
+                          className="premium-menu-item"
                           aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                         >
                           {isFullscreen ? (
-                            <>
-                              <Minimize2 className="premium-control-icon" />
-                              <span className="premium-fullscreen-label">Exit Fullscreen</span>
-                            </>
+                            <Minimize2 className="premium-control-icon" />
                           ) : (
-                            <>
-                              <Maximize2 className="premium-control-icon" />
-                              <span className="premium-fullscreen-label">Fullscreen</span>
-                            </>
+                            <Maximize2 className="premium-control-icon" />
                           )}
-                        </button>
-                      </motion.div>
-                      <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                          <span className="premium-menu-item-label">
+                            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                          </span>
+                        </motion.button>
+                      )}
+
+                      <div className="my-1 border-t border-[var(--ui-border)] opacity-40" />
+
+                      <motion.div
+                        variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+                        onClick={() => setIsMoreMenuOpen(false)}
+                      >
                         <ConvertToEpubMenuItem
                           bookId={bookId}
                           bookTitle={title}
@@ -150,94 +195,10 @@ export function ReaderTopBar({
                         />
                       </motion.div>
                     </motion.div>
-                    <motion.div 
-                      className="w-full border-t border-[var(--ui-border)] mt-2 pt-2 flex flex-col gap-1 premium-mobile-menu-items"
-                      variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { delay: 0.15 } } }}
-                      initial="hidden"
-                      animate="show"
-                    >
-                      <ReaderSettings format={format} />
-                    </motion.div>
                   </motion.div>
                 </>
               )}
             </AnimatePresence>
-          </div>
-
-          {/* Desktop Streamlined Controls (Search, TOC, Appearance + More Dropdown) */}
-          <div className="hidden md:flex items-center gap-1.5">
-            {desktopPrimary}
-            <ReaderSettings format={format} />
-            
-            {/* Desktop More Options Dropdown */}
-            <div className="relative">
-              <ReaderTooltip content="More options">
-                <button
-                  className={`premium-control-button ${isDesktopMenuOpen ? 'premium-control-button--active' : ''}`}
-                  aria-label="More options"
-                  onClick={() => setIsDesktopMenuOpen(!isDesktopMenuOpen)}
-                >
-                  <MoreVertical className="premium-control-icon" />
-                </button>
-              </ReaderTooltip>
-
-              <AnimatePresence>
-                {isDesktopMenuOpen && (
-                  <>
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-[95]"
-                      onClick={() => setIsDesktopMenuOpen(false)}
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="absolute top-full right-0 mt-2.5 w-60 flex flex-col p-1.5 bg-[var(--bg-elevated)] border border-[var(--ui-border)] shadow-2xl rounded-2xl z-[100] backdrop-blur-2xl bg-opacity-95"
-                    >
-                      <div className="flex flex-col gap-1 premium-desktop-menu-items">
-                        {desktopSecondary.map((child, i) => (
-                          <div key={i} onClick={() => setIsDesktopMenuOpen(false)}>
-                            {child}
-                          </div>
-                        ))}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            toggleFullscreen();
-                            setIsDesktopMenuOpen(false);
-                          }}
-                          className="premium-control-button"
-                          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                        >
-                          {isFullscreen ? (
-                            <Minimize2 className="premium-control-icon" />
-                          ) : (
-                            <Maximize2 className="premium-control-icon" />
-                          )}
-                        </button>
-
-                        <div className="my-1 border-t border-[var(--ui-border)] opacity-50" />
-
-                        <div onClick={() => setIsDesktopMenuOpen(false)}>
-                          <ConvertToEpubMenuItem
-                            bookId={bookId}
-                            bookTitle={title}
-                            format={format}
-                            variant="menu"
-                            reopenOnSuccess
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
           </div>
         </div>
       </div>

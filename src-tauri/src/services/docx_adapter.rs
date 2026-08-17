@@ -1,5 +1,8 @@
 use crate::error::{Result, ShioriError};
-use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
+use crate::services::renderer::{
+    build_search_snippet, clean_html_for_search, BookMetadata, BookReaderAdapter, Chapter,
+    SearchResult, TocEntry,
+};
 use async_trait::async_trait;
 use docx_rs::*;
 use quick_xml::events::Event;
@@ -374,33 +377,25 @@ impl BookReaderAdapter for DocxAdapter {
     }
 
     fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let query_lower = query.to_lowercase();
-        let content_lower = self.html_content.to_lowercase();
+        let query_trim = query.trim();
+        if query_trim.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let query_lower = query_trim.to_lowercase();
+        let query_char_count = query_trim.chars().count();
         let mut results = Vec::new();
 
+        let content = clean_html_for_search(&self.html_content);
+        if content.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let content_lower = content.to_lowercase();
         let matches: Vec<_> = content_lower.match_indices(&query_lower).collect();
         if !matches.is_empty() {
             let first_match_pos = matches[0].0;
-
-            // Safely slice using character boundaries to avoid panics on multi-byte UTF-8
-            let char_indices: Vec<(usize, char)> = self.html_content.char_indices().collect();
-            let char_idx = char_indices
-                .iter()
-                .position(|&(b_idx, _)| b_idx >= first_match_pos)
-                .unwrap_or(0);
-            let start_char_idx = char_idx.saturating_sub(50);
-            let end_char_idx = (char_idx + query.chars().count() + 50).min(char_indices.len());
-            let start_byte = char_indices
-                .get(start_char_idx)
-                .map(|&(b, _)| b)
-                .unwrap_or(0);
-            let end_byte = if end_char_idx >= char_indices.len() {
-                self.html_content.len()
-            } else {
-                char_indices[end_char_idx].0
-            };
-
-            let snippet = format!("...{}...", &self.html_content[start_byte..end_byte]);
+            let snippet = build_search_snippet(&content, first_match_pos, query_char_count, 60);
 
             results.push(SearchResult {
                 chapter_index: 0,

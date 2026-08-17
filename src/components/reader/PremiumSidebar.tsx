@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useDragControls } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
@@ -102,6 +102,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const setSidebarTab = useReaderUIStore(state => state.setSidebarTab);
   const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
   const isMobile = useIsMobile();
+  const dragControls = useDragControls();
   
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);
@@ -282,6 +283,52 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       handleSearch(value);
     }, 350);
   }, [handleSearch]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  /** Map a search result to a human-friendly Chapter title */
+  const getChapterDisplayTitle = useCallback((result: BookSearchResult): string => {
+    const raw = result.chapter_title?.trim();
+    if (
+      raw &&
+      !raw.toLowerCase().endsWith('.xhtml') &&
+      !raw.toLowerCase().endsWith('.html') &&
+      !raw.toLowerCase().endsWith('.xml') &&
+      !raw.toLowerCase().startsWith('section0') &&
+      !raw.toLowerCase().startsWith('item')
+    ) {
+      return raw;
+    }
+
+    if (toc && toc.length > 0) {
+      const findInToc = (entries: TocEntry[]): string | null => {
+        for (const entry of entries) {
+          const idx = parseTocLocationToIndex(entry.location);
+          if (idx === result.chapter_index && entry.label?.trim()) {
+            return entry.label.trim();
+          }
+          if (entry.children) {
+            const childMatch = findInToc(entry.children);
+            if (childMatch) return childMatch;
+          }
+        }
+        return null;
+      };
+      const tocTitle = findInToc(toc);
+      if (tocTitle) return tocTitle;
+    }
+
+    return `Chapter ${result.chapter_index + 1}`;
+  }, [toc]);
 
   // Cleanup debounce timer
   useEffect(() => {
@@ -506,14 +553,25 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             animate={isMobile ? { y: 0 } : { x: 0 }}
             exit={isMobile ? { y: "100%" } : { x: "100%" }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+            drag={isMobile ? "y" : false}
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            onDragEnd={(_, info) => {
+              if (info.offset.y > 60 || info.velocity.y > 250) {
+                closeSidebar();
+              }
+            }}
           >
             {/* Header with tabs */}
             {isMobile && (
               <div 
-                className="w-full flex justify-center pt-3 pb-1 cursor-pointer"
+                className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none select-none"
+                onPointerDown={(e) => dragControls.start(e)}
                 onClick={closeSidebar}
               >
-                <div className="w-12 h-1.5 bg-[var(--text-tertiary)] opacity-30 rounded-full" />
+                <div className="w-12 h-1.5 bg-[var(--text-tertiary)] opacity-35 hover:opacity-70 transition-opacity rounded-full pointer-events-none" />
               </div>
             )}
             <div className="premium-sidebar-header">
@@ -524,29 +582,29 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
               { id: 'notes', label: 'Notes', icon: FileText },
               { id: 'highlights', label: 'Highlights', icon: Highlighter }
             ].map(tab => (
-              <motion.button
+              <button
                 key={tab.id}
+                type="button"
                 onClick={() => setSidebarTab(tab.id as any)}
                 className={`premium-sidebar-tab ${sidebarTab === tab.id ? 'premium-sidebar-tab--active' : ''}`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
               >
                 {sidebarTab === tab.id && (
                   <motion.div
                     layoutId="sidebar-tab-indicator"
                     style={{
                       position: 'absolute',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      background: 'var(--ui-active)',
-                      borderRadius: 'var(--radius-md)',
-                      zIndex: -1
+                      inset: 0,
+                      background: 'var(--bg-elevated)',
+                      borderRadius: '9999px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08)',
+                      zIndex: 0
                     }}
-                    transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
                   />
                 )}
                 <tab.icon className="premium-sidebar-tab-icon" />
                 <span>{tab.label}</span>
-              </motion.button>
+              </button>
             ))}
           </div>
           
@@ -853,9 +911,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                   placeholder="Search in book..."
                   className="premium-search-input"
                 />
-                {isSearching && (
+                {isSearching ? (
                   <Loader2 className="premium-search-spinner" style={{ animation: 'spin 1s linear infinite' }} />
-                )}
+                ) : searchQuery.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="premium-search-clear"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <X size={13} />
+                  </button>
+                ) : null}
               </div>
               
               {searchResults.length > 0 && (
@@ -876,18 +944,20 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
                     >
-                      <p className="premium-search-result-chapter">
-                        <FileText size={14} /> {result.chapter_title}
-                      </p>
+                      <div className="premium-search-result-header">
+                        <p className="premium-search-result-chapter">
+                          <FileText size={14} /> {getChapterDisplayTitle(result)}
+                        </p>
+                        <span className="premium-search-result-matches">
+                          {result.match_count} match{result.match_count !== 1 ? 'es' : ''}
+                        </span>
+                      </div>
                       <p
                         className="premium-search-result-snippet"
                         dangerouslySetInnerHTML={{
                           __html: DOMPurify.sanitize(highlightMatches(result.snippet, searchQuery)),
                         }}
                       />
-                      <span className="premium-search-result-matches">
-                        {result.match_count} match{result.match_count !== 1 ? 'es' : ''}
-                      </span>
                     </motion.div>
                   ))}
                 </motion.div>

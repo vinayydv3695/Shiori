@@ -60,7 +60,6 @@ export function OnlineBooksView() {
   }, [enabledBookSources, source]);
   
   const { success: showSuccessToast, error: showErrorToast } = useToast();
-  const { handleOpenBook } = useBookOpen();
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -177,7 +176,7 @@ export function OnlineBooksView() {
       const searchRes = await api.searchBooks({ query: book.title });
       if (searchRes.books.length > 0) {
         await useLibraryStore.getState().loadInitialBooks();
-        handleOpenBook(searchRes.books[0].id!);
+        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: searchRes.books[0].id! } }));
       } else {
         throw new Error('Could not find the imported book in library.');
       }

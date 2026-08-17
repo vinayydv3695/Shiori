@@ -1,3 +1,24 @@
+# Release Notes (v2.3.35)
+
+## Features & Improvements
+
+- **Smooth Floating Dynamic Island Pill Topbar on Mobile & Android** — Replaced full-width square bar with a rounded floating pill topbar across mobile devices and Android, eliminating sharp corners and integrating seamlessly into reading themes.
+- **Unified Mobile Reading Controls** — Populated topbar with direct one-tap access to Search, Table of Contents, Appearance Settings, and secondary action dropdown, eliminating empty space on mobile reader topbars.
+- **Reader Settings Dropdown Polish & Clean Typography** — Refined reader settings appearance modal with smooth circular aesthetics, removed redundant nested scroll tracks, and ensured opaque, theme-consistent backdrop styling.
+- **In-Book Search Engine & Rich Results** — Upgraded book search across EPUB, MOBI, AZW3, DOCX, FB2, and HTML formats with full HTML tag and script stripping, safe snippet generation, TOC chapter title resolution, and clear search input button.
+- **Theme-Adaptive Search Highlight & Single-Click Jump** — Replaced harsh neon search boxes with soft rounded theme-adaptive highlights (`color-mix`), added luminous jump pulse animation, and fixed two-tap navigation bug to jump instantly to the matched line on the first click across paginated and continuous flow readers.
+- **Sidebar Tab Bar Polish** — Redesigned sidebar tabs as an interactive segmented pill control with responsive equal grid distribution, preventing text truncation or overflow on any viewport size.
+
+# Release Notes (v2.3.34)
+
+## Features & Improvements
+
+- **Mobile Reader Menu & Android Fullscreen Cleanup** — Removed redundant fullscreen toggles on Android reader and manga topbars, and ensured the 3-dots action menu automatically resets and closes when navigating, changing books, or tapping actions.
+- **Library Mobile Scroll-to-Top Positioning** — Positioned the scroll-to-top button on the left in the mobile Library view so it never collides with or hides behind the primary `+` Import floating action button.
+- **Fixed "Read" Action in Shelves Section** — Unified book opening in Shelves view to route through global reader actions and dialogs, ensuring reading progress resumes smoothly and books open immediately on click.
+- **Removed Shelves Horizontal Slider / Overflow** — Eliminated unwanted horizontal scrollbar track and layout protrusion across Shelves grid and book details.
+- **High-Speed Project Gutenberg Catalog on Homepage** — Populated Online Books homepage rails (Trending, Sci-Fi, Classics, Fantasy/Adventure) with 100% verified Project Gutenberg books featuring direct CDN cover artwork and instantaneous direct Gutenberg EPUB downloads.
+
 # Release Notes (v2.3.33)
 
 ## Features & Improvements

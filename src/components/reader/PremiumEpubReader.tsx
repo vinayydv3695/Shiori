@@ -189,15 +189,21 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
   const style = doc.createElement('style');
   style.textContent = `
     .search-highlight {
-      background-color: #ffeb3b;
-      color: #000;
-      padding: 2px 0;
-      border-radius: 2px;
+      background-color: color-mix(in srgb, #fbbf24 38%, transparent) !important;
+      color: inherit !important;
+      border-radius: 6px !important;
+      padding: 1px 4px !important;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, #fbbf24 60%, transparent), 0 1px 4px color-mix(in srgb, #fbbf24 20%, transparent) !important;
       font-weight: 500;
+      display: inline;
+      transition: all 0.3s ease;
     }
-    [data-reader-theme="dark"] .search-highlight {
-      background-color: #f59e0b;
-      color: #000;
+    [data-reader-theme="dark"] .search-highlight,
+    [data-reader-theme="black"] .search-highlight,
+    [data-reader-theme="paper-dark"] .search-highlight {
+      background-color: color-mix(in srgb, #f59e0b 35%, transparent) !important;
+      color: inherit !important;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 60%, transparent), 0 0 10px color-mix(in srgb, #f59e0b 30%, transparent) !important;
     }
   `;
   doc.head.appendChild(style);
@@ -407,12 +413,38 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
       // If we have a highlight term, scroll to first highlight after content renders
       if (termToHighlight) {
-        setTimeout(() => {
-          const firstHighlight = canvasRef.current?.querySelector('.search-highlight');
-          if (firstHighlight) {
-            firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        let attempts = 0;
+        const scrollToSearch = () => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const highlight = canvas.querySelector<HTMLElement>('.search-highlight');
+          if (highlight) {
+            const isHoriz = canvas.classList.contains('premium-reading-canvas--paginated') ||
+                            canvas.classList.contains('premium-reading-canvas--two-page') ||
+                            !continuousFlow;
+            if (isHoriz) {
+              const clientWidth = canvas.clientWidth || 1;
+              const pageIdx = Math.floor(highlight.offsetLeft / clientWidth);
+              canvas.scrollTo({ left: pageIdx * clientWidth, behavior: 'smooth' });
+            } else {
+              highlight.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            }
+
+            highlight.classList.remove('search-highlight--active');
+            void highlight.offsetWidth;
+            highlight.classList.add('search-highlight--active');
+            setTimeout(() => {
+              highlight.classList.remove('search-highlight--active');
+            }, 2800);
+          } else if (attempts < 15) {
+            attempts++;
+            setTimeout(scrollToSearch, 60);
           }
-        }, 300);
+        };
+
+        requestAnimationFrame(() => {
+          setTimeout(scrollToSearch, 40);
+        });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load chapter');

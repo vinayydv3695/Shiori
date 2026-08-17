@@ -1,12 +1,13 @@
-# Release Notes (v2.3.35)
+# Release Notes (v2.3.36)
 
 ## Features & Improvements
 
 - **Smooth Floating Dynamic Island Pill Topbar on Mobile & Android** — Replaced full-width square bar with a rounded floating pill topbar across mobile devices and Android, eliminating sharp corners and integrating seamlessly into reading themes.
 - **Unified Mobile Reading Controls** — Populated topbar with direct one-tap access to Search, Table of Contents, Appearance Settings, and secondary action dropdown, eliminating empty space on mobile reader topbars.
 - **Reader Settings Dropdown Polish & Clean Typography** — Refined reader settings appearance modal with smooth circular aesthetics, removed redundant nested scroll tracks, and ensured opaque, theme-consistent backdrop styling.
-- **In-Book Search Engine & Rich Results** — Upgraded book search across EPUB, MOBI, AZW3, DOCX, FB2, and HTML formats with full HTML tag and script stripping, safe snippet generation, TOC chapter title resolution, and clear search input button.
+- **In-Book Search Engine & Chapter Title Resolution** — Upgraded book search with robust internal manifest ID filtering (e.g. `id1051`, `item01`) and preceding TOC chapter matching, ensuring clean chapter names rather than raw file IDs.
 - **Theme-Adaptive Search Highlight & Single-Click Jump** — Replaced harsh neon search boxes with soft rounded theme-adaptive highlights (`color-mix`), added luminous jump pulse animation, and fixed two-tap navigation bug to jump instantly to the matched line on the first click across paginated and continuous flow readers.
+- **Doodle & Drawing Mode Polish** — Redesigned the floating drawing toolbar with a mobile-responsive pill layout, compact color swatches, and width slider, preventing off-screen toolbar cutoff. Fixed drawing coordinate alignment and touch capture on Android and desktop.
 - **Sidebar Tab Bar Polish** — Redesigned sidebar tabs as an interactive segmented pill control with responsive equal grid distribution, preventing text truncation or overflow on any viewport size.
 
 # Release Notes (v2.3.34)

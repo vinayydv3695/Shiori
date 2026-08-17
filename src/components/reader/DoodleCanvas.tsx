@@ -6,27 +6,26 @@ import { logger } from '@/lib/logger';
 interface DoodleCanvasProps {
     bookId: number;
     pageId: string;
-    containerRef: React.RefObject<HTMLDivElement | null>;
+    containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
- * HTML5 Canvas overlay for doodle/drawing functionality.
+ * HTML5 / SVG Canvas overlay for doodle/drawing functionality.
  * - Renders on top of book content
  * - Captures pointer events (mouse, touch, stylus)
- * - Stores coordinates as percentages for zoom-safety
+ * - Stores coordinates as percentages (0..100) for zoom-safety
  * - Debounced persistence to SQLite
  */
 export const DoodleCanvas = memo(function DoodleCanvas({
     bookId,
     pageId,
-    containerRef,
 }: DoodleCanvasProps) {
     const isDrawingRef = useRef(false);
     const currentStrokeRef = useRef<[number, number, number][]>([]);
     const saveTimeoutRef = useRef<number | null>(null);
     const lastFrameRef = useRef<number>(0);
-    const containerRectRef = useRef<{w: number, h: number}>({w: 1, h: 1});
     const localSvgRef = useRef<SVGSVGElement>(null);
+    const [, setForceRender] = useState(0);
 
     const {
         isDoodleMode,
@@ -59,10 +58,10 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 } else {
                     loadStrokes(pageId, []);
                 }
-             } catch (err) {
-                 logger.warn('[DoodleCanvas] Failed to load doodles:', err);
-                 loadStrokes(pageId, []);
-             }
+            } catch (err) {
+                logger.warn('[DoodleCanvas] Failed to load doodles:', err);
+                loadStrokes(pageId, []);
+            }
         };
 
         loadFromDb();
@@ -83,11 +82,10 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 const currentStrokes = useDoodleStore.getState().strokesMap[pageId] || [];
                 const json = JSON.stringify(currentStrokes);
 
-                 // Check 5MB limit
-                 if (json.length > 5 * 1024 * 1024) {
-                     logger.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
-                     return;
-                 }
+                if (json.length > 5 * 1024 * 1024) {
+                    logger.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
+                    return;
+                }
 
                 if (currentStrokes.length === 0) {
                     await api.deleteDoodle(bookId, pageId);
@@ -95,9 +93,9 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                     await api.saveDoodle(bookId, pageId, json);
                 }
                 markClean(pageId);
-             } catch (err) {
-                 logger.warn('[DoodleCanvas] Failed to save doodles:', err);
-             }
+            } catch (err) {
+                logger.warn('[DoodleCanvas] Failed to save doodles:', err);
+            }
         }, 2000);
 
         return () => {
@@ -112,19 +110,21 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     // ────────────────────────────────────────────────────────────
     const getPointerPosition = useCallback(
         (e: React.PointerEvent<SVGSVGElement>) => {
-            const el = containerRef.current || localSvgRef.current?.parentElement;
-            if (!el) return { x: 0, y: 0, pressure: e.pressure || 0.5 };
+            const svg = localSvgRef.current || e.currentTarget;
+            if (!svg) return { x: 0, y: 0, pressure: e.pressure || 0.5 };
 
-            const rect = el.getBoundingClientRect();
-            containerRectRef.current = { w: rect.width, h: rect.height };
+            const rect = svg.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) {
+                return { x: 0, y: 0, pressure: e.pressure || 0.5 };
+            }
             
-            const x = ((e.clientX - rect.left) / rect.width) * 100;
-            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+            const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
             const pressure = e.pressure > 0 ? e.pressure : 0.5;
 
             return { x, y, pressure };
         },
-        [containerRef]
+        []
     );
 
     const handlePointerDown = useCallback(
@@ -139,7 +139,12 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             const { x, y, pressure } = getPointerPosition(e);
             currentStrokeRef.current = [[x, y, pressure]];
 
-            (e.target as Element).setPointerCapture?.(e.pointerId);
+            try {
+                (e.target as Element).setPointerCapture(e.pointerId);
+            } catch {
+                // ignore
+            }
+            setForceRender(prev => prev + 1);
         },
         [isDoodleMode, getPointerPosition, pageId, setActivePage]
     );
@@ -151,7 +156,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             e.stopPropagation();
 
             const now = Date.now();
-            if (now - lastFrameRef.current < 16) return; // ~60fps throttle
+            if (now - lastFrameRef.current < 12) return; // ~80fps throttle
             lastFrameRef.current = now;
 
             const { x, y, pressure } = getPointerPosition(e);
@@ -162,8 +167,6 @@ export const DoodleCanvas = memo(function DoodleCanvas({
         [isDoodleMode, getPointerPosition]
     );
 
-    const [, setForceRender] = useState(0);
-
     const handlePointerUp = useCallback(
         (e: React.PointerEvent<SVGSVGElement>) => {
             if (!isDrawingRef.current || !isDoodleMode) return;
@@ -171,15 +174,23 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             e.stopPropagation();
 
             isDrawingRef.current = false;
-            (e.target as Element).releasePointerCapture?.(e.pointerId);
+            try {
+                (e.target as Element).releasePointerCapture(e.pointerId);
+            } catch {
+                // ignore
+            }
 
-            if (currentStrokeRef.current.length >= 2) {
+            if (currentStrokeRef.current.length >= 1) {
+                const points = [...currentStrokeRef.current];
+                if (points.length === 1) {
+                    points.push([points[0][0] + 0.05, points[0][1] + 0.05, points[0][2]]);
+                }
                 const stroke: DoodleStroke = {
                     id: crypto.randomUUID(),
                     tool,
                     color: penColor,
                     width: penWidth,
-                    points: [...currentStrokeRef.current],
+                    points,
                     timestamp: Date.now(),
                 };
                 addStroke(pageId, stroke);
@@ -195,7 +206,10 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     // RENDER HELPERS
     // ────────────────────────────────────────────────────────────
     const renderPath = (points: [number, number, number][]) => {
-        if (points.length === 0) return '';
+        if (!points || points.length === 0) return '';
+        if (points.length === 1) {
+            return `M ${points[0][0]} ${points[0][1]} L ${points[0][0] + 0.01} ${points[0][1] + 0.01}`;
+        }
         let d = `M ${points[0][0]} ${points[0][1]}`;
         for (let i = 1; i < points.length; i++) {
             d += ` L ${points[i][0]} ${points[i][1]}`;
@@ -203,10 +217,10 @@ export const DoodleCanvas = memo(function DoodleCanvas({
         return d;
     };
 
-    const penStrokes = strokes.filter(s => s.tool !== 'eraser');
-    const eraserStrokes = strokes.filter(s => s.tool === 'eraser');
+    const penStrokes = [...strokes.filter(s => s.tool !== 'eraser')];
+    const eraserStrokes = [...strokes.filter(s => s.tool === 'eraser')];
     
-    if (isDrawingRef.current && currentStrokeRef.current.length > 1) {
+    if (isDrawingRef.current && currentStrokeRef.current.length > 0) {
         const currentAsStroke: DoodleStroke = {
             id: 'current',
             tool,
@@ -238,7 +252,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 left: 0,
                 width: '100%',
                 height: '100%',
-                zIndex: isDoodleMode ? 10 : 5,
+                zIndex: isDoodleMode ? 100 : 5,
                 pointerEvents: isDoodleMode ? 'auto' : 'none',
                 cursor: isDoodleMode
                     ? tool === 'eraser'
@@ -253,7 +267,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             onPointerCancel={handlePointerUp}
         >
             <defs>
-                <mask id="eraser-mask">
+                <mask id={`eraser-mask-${pageId}`}>
                     <rect x="0" y="0" width="100" height="100" fill="white" />
                     {eraserStrokes.map(stroke => (
                         <path
@@ -270,7 +284,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 </mask>
             </defs>
 
-            <g mask="url(#eraser-mask)">
+            <g mask={`url(#eraser-mask-${pageId})`}>
                 {penStrokes.map(stroke => (
                     <path
                         key={stroke.id}
@@ -286,6 +300,6 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             </g>
         </svg>
     );
-}, (prev, next) => prev.pageId === next.pageId && prev.bookId === next.bookId);
+});
 
 export default DoodleCanvas;

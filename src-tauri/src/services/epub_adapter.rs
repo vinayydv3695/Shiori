@@ -25,7 +25,22 @@ impl EpubAdapter {
     }
 
     pub fn find_toc_title_for_spine(&self, spine_idx: usize) -> Option<String> {
-        fn search_toc(entries: &[TocEntry], spine_idx: usize) -> Option<String> {
+        fn parse_idx_from_loc(loc: &str) -> Option<usize> {
+            if let Some(start) = loc.find("/(") {
+                let rest = &loc[start + 2..];
+                if let Some(end) = rest.find(')') {
+                    return rest[..end].split('/').next()?.parse::<usize>().ok();
+                }
+            }
+            if let Some(start) = loc.find("(/") {
+                let rest = &loc[start + 2..];
+                let num_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                return num_str.parse::<usize>().ok();
+            }
+            None
+        }
+
+        fn search_exact(entries: &[TocEntry], spine_idx: usize) -> Option<String> {
             let pattern1 = format!("/{}/", spine_idx);
             let pattern2 = format!("/{})", spine_idx);
             let pattern3 = format!("(/{})", spine_idx);
@@ -39,13 +54,39 @@ impl EpubAdapter {
                         return Some(trimmed.to_string());
                     }
                 }
-                if let Some(child_match) = search_toc(&entry.children, spine_idx) {
+                if let Some(child_match) = search_exact(&entry.children, spine_idx) {
                     return Some(child_match);
                 }
             }
             None
         }
-        search_toc(&self.toc, spine_idx)
+
+        if let Some(exact) = search_exact(&self.toc, spine_idx) {
+            return Some(exact);
+        }
+
+        // Closest preceding TOC match
+        fn search_preceding<'a>(
+            entries: &'a [TocEntry],
+            spine_idx: usize,
+            best: &mut Option<(usize, &'a str)>,
+        ) {
+            for entry in entries {
+                if let Some(idx) = parse_idx_from_loc(&entry.location) {
+                    if idx <= spine_idx {
+                        let trimmed = entry.label.trim();
+                        if !trimmed.is_empty() && (best.is_none() || idx >= best.as_ref().unwrap().0) {
+                            *best = Some((idx, trimmed));
+                        }
+                    }
+                }
+                search_preceding(&entry.children, spine_idx, best);
+            }
+        }
+
+        let mut best = None;
+        search_preceding(&self.toc, spine_idx, &mut best);
+        best.map(|(_, label)| label.to_string())
     }
 
     fn load_toc(&mut self) -> Result<()> {
@@ -280,14 +321,25 @@ impl BookReaderAdapter for EpubAdapter {
 
                 let title = self.find_toc_title_for_spine(i).unwrap_or_else(|| {
                     let raw_id = doc.get_current_id().unwrap_or_default();
-                    let lower_id = raw_id.to_lowercase();
-                    if lower_id.ends_with(".xhtml")
-                        || lower_id.ends_with(".html")
-                        || lower_id.ends_with(".xml")
-                        || lower_id.starts_with("section0")
-                        || lower_id.starts_with("item")
-                        || raw_id.trim().is_empty()
-                    {
+                    let s = raw_id.trim().to_lowercase();
+                    let is_tech = s.is_empty()
+                        || s.len() <= 2
+                        || s.ends_with(".xhtml")
+                        || s.ends_with(".html")
+                        || s.ends_with(".xml")
+                        || s.ends_with(".htm")
+                        || s.ends_with(".php")
+                        || s.ends_with(".txt")
+                        || s.starts_with("id")
+                        || s.starts_with("item")
+                        || s.starts_with("ch")
+                        || s.starts_with("sec")
+                        || s.starts_with("part")
+                        || s.starts_with("page")
+                        || s.starts_with("split")
+                        || s.starts_with("text")
+                        || s.chars().all(|c| c.is_ascii_digit());
+                    if is_tech {
                         format!("Chapter {}", i + 1)
                     } else {
                         raw_id

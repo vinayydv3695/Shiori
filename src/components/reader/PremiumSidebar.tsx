@@ -297,18 +297,18 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
 
   /** Map a search result to a human-friendly Chapter title */
   const getChapterDisplayTitle = useCallback((result: BookSearchResult): string => {
-    const raw = result.chapter_title?.trim();
-    if (
-      raw &&
-      !raw.toLowerCase().endsWith('.xhtml') &&
-      !raw.toLowerCase().endsWith('.html') &&
-      !raw.toLowerCase().endsWith('.xml') &&
-      !raw.toLowerCase().startsWith('section0') &&
-      !raw.toLowerCase().startsWith('item')
-    ) {
-      return raw;
-    }
+    const isTechnicalId = (t?: string): boolean => {
+      if (!t) return true;
+      const s = t.trim().toLowerCase();
+      if (s.length <= 2) return true;
+      if (/\.(xhtml|html|xml|htm|php|txt|opf|ncx)$/i.test(s)) return true;
+      if (/^(id|item|ch|chapter|sec|sect|section|part|page|p|split|text|content|body|wrap)[-_0-9]+/i.test(s)) return true;
+      if (/^[a-z][0-9]{2,}$/i.test(s)) return true;
+      if (/^[0-9]+$/.test(s)) return true;
+      return false;
+    };
 
+    // 1. Try finding in TOC by exact chapter index
     if (toc && toc.length > 0) {
       const findInToc = (entries: TocEntry[]): string | null => {
         for (const entry of entries) {
@@ -327,6 +327,35 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       if (tocTitle) return tocTitle;
     }
 
+    // 2. If chapter_title is a real readable name (not an id/filename), use it
+    const raw = result.chapter_title?.trim();
+    if (raw && !isTechnicalId(raw)) {
+      return raw;
+    }
+
+    // 3. Match closest preceding TOC entry for sections within a chapter
+    if (toc && toc.length > 0) {
+      let closestLabel: string | null = null;
+      let closestIdx = -1;
+      const scanToc = (entries: TocEntry[]) => {
+        for (const entry of entries) {
+          const idx = parseTocLocationToIndex(entry.location);
+          if (idx !== null && !Number.isNaN(idx) && idx <= result.chapter_index && idx > closestIdx) {
+            if (entry.label?.trim()) {
+              closestIdx = idx;
+              closestLabel = entry.label.trim();
+            }
+          }
+          if (entry.children) {
+            scanToc(entry.children);
+          }
+        }
+      };
+      scanToc(toc);
+      if (closestLabel) return closestLabel;
+    }
+
+    // 4. Fallback to Chapter N
     return `Chapter ${result.chapter_index + 1}`;
   }, [toc]);
 

@@ -100,7 +100,7 @@ export function UpdateDialog() {
         }
       }
       setUpdateInfo({
-        version: customVersion || '2.3.32',
+        version: customVersion || '2.3.33',
         notes: notes || '',
       });
       setIsUpdateDialogOpen(true);

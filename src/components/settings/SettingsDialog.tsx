@@ -2428,13 +2428,13 @@ const AboutSettings = () => {
       
       // In development mode or browser, open the rich update preview dialog with real GitHub release info
       if (import.meta.env.DEV || !isTauri) {
-        let latestVersion = '2.3.32';
+        let latestVersion = '2.3.33';
         let latestNotes = '';
         try {
           const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
           if (res.ok) {
             const data = await res.json();
-            latestVersion = data.tag_name?.replace(/^v/, '') || '2.3.32';
+            latestVersion = data.tag_name?.replace(/^v/, '') || '2.3.33';
             latestNotes = data.body || '';
           }
         } catch {

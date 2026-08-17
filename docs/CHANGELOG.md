@@ -1,3 +1,10 @@
+# Release Notes (v2.3.33)
+
+## Features & Improvements
+
+- **Production Build CSP & Online Cover Network Connectivity** — Upgraded Tauri CSP `connect-src` and `img-src` to allow external image CDN requests and `shiori-proxy:` schemes, ensuring covers in trending and subject rails load reliably in production desktop and mobile builds.
+- **Robust Book Card Image Loading** — Enhanced `ModernBookCard.tsx` with resilient synchronous image state management and automatic Google Books cover fallback resolution.
+
 # Release Notes (v2.3.32)
 
 ## Features & Improvements

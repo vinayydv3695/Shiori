@@ -28,13 +28,12 @@ export const ModernBookCard = memo(function ModernBookCard({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [proxyUrl, setProxyUrl] = useState<string | null>(coverUrl || null);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
   
   const downloadState = useOnlineDownloadStore((state) => state.downloads[id]);
 
   useEffect(() => {
-    if (!coverUrl || imgError) return;
-    let active = true;
-    const objectUrl: string | null = null;
+    if (!coverUrl) return;
     
     const needsProxy = coverUrl.includes('libgen') || 
                        coverUrl.includes('annas-archive') || 
@@ -58,32 +57,29 @@ export const ModernBookCard = memo(function ModernBookCard({
       else if (coverUrl.includes('manhwahub')) sourceId = 'manhwahub';
       else if (coverUrl.includes('mangafire')) sourceId = 'mangafire';
 
-      const proxyUri = getProxyUrl(sourceId, coverUrl);
-      setProxyUrl(proxyUri);
+      setProxyUrl(getProxyUrl(sourceId, coverUrl));
     } else {
       setProxyUrl(coverUrl);
     }
-    
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [coverUrl, imgError, title, author]);
-  const [fallbackAttempted, setFallbackAttempted] = useState(false);
+    setImgError(false);
+    setImgLoaded(false);
+  }, [coverUrl]);
 
+  // When image fails or coverUrl is missing, attempt fallback cover resolution via Google Books
   useEffect(() => {
     if (fallbackAttempted) return;
-    if (coverUrl && !imgError) return;
-    let active = true;
+    if (!imgError && coverUrl) return;
     
     setFallbackAttempted(true);
+    let active = true;
 
     import('@/online-books/openlibrary/api').then(({ fetchCoverForBook }) => {
       fetchCoverForBook(title, author).then(fallbackUrl => {
         if (!active) return;
-        if (fallbackUrl) {
+        if (fallbackUrl && fallbackUrl !== coverUrl) {
           setProxyUrl(fallbackUrl);
           setImgError(false);
+          setImgLoaded(false);
         }
       });
     });

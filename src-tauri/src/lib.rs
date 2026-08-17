@@ -42,6 +42,9 @@ pub struct AppState {
     db: db::Database,
     covers_dir: std::path::PathBuf,
     pub plugin_registry: Arc<tokio::sync::RwLock<sources::registry::SourceRegistry>>,
+    /// Shared command-layer response cache for online sources (search/browse/
+    /// chapters/pages). Bounded in-memory; makes repeat lookups instant.
+    pub source_response_cache: Arc<sources::cache::SourceResponseCache>,
     pub discovery_service: std::sync::Arc<services::discovery_service::DiscoveryService>,
     /// URLs delivered via `RunEvent::Opened` (mobile "Open with" intents)
     /// that arrived before the webview was ready to receive the `opened`
@@ -523,9 +526,37 @@ pub fn run() {
             let app_handle_for_manhwaread = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 manhwaread_for_cf
-                    .set_app_handle(app_handle_for_manhwaread)
+                    .set_app_handle(app_handle_for_manhwaread.clone())
                     .await;
                 log::info!("ManhwaRead: app_handle attached for JS evaluation");
+
+                // Persistent warm RPC webview (Slice 1): page fetches run as
+                // same-origin fetches inside one reused hidden webview
+                // instead of one created per request.
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                {
+                    let manhwaread_for_rpc = manhwaread_for_cf.clone();
+                    let rpc = match sources::browser_rpc::BrowserRpc::new(
+                        "shiori-rpc-manhwaread",
+                        "https://www.manhwaread.com",
+                        sources::manhwaread::manhwaread_rpc_init_js(),
+                    ) {
+                        Ok(rpc) => std::sync::Arc::new(rpc),
+                        Err(e) => {
+                            log::warn!("ManhwaRead: failed to create BrowserRpc: {e}");
+                            return;
+                        }
+                    };
+                    rpc.attach(app_handle_for_manhwaread);
+                    manhwaread_for_rpc.set_browser_rpc(rpc.clone()).await;
+                    match rpc.warm().await {
+                        Ok(()) => log::info!("ManhwaRead: persistent RPC webview warmed"),
+                        Err(e) => log::warn!(
+                            "ManhwaRead: RPC webview warm-up deferred ({}); per-call fallback active",
+                            e
+                        ),
+                    }
+                }
             });
 
             let mangafire_for_cf = mangafire_source.clone();
@@ -548,6 +579,39 @@ pub fn run() {
                 }
             });
 
+            // Persistent warm RPC webview for MangaFire (online performance
+            // plan Slice 1): one hidden webview reused for every JS call
+            // instead of one created per request (~5–8s spin-up each, which
+            // made a 6-page chapter list take ~40s). Warmed in the background
+            // so the first search/chapter call rides an already-ready page.
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                let mangafire_for_rpc = mangafire_source.clone();
+                let app_handle_for_rpc = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let rpc = match sources::browser_rpc::BrowserRpc::new(
+                        "shiori-rpc-mangafire",
+                        "https://mangafire.to/filter",
+                        sources::mangafire::mangafire_rpc_init_js(),
+                    ) {
+                        Ok(rpc) => std::sync::Arc::new(rpc),
+                        Err(e) => {
+                            log::warn!("MangaFire: failed to create BrowserRpc: {e}");
+                            return;
+                        }
+                    };
+                    rpc.attach(app_handle_for_rpc);
+                    mangafire_for_rpc.set_browser_rpc(rpc.clone()).await;
+                    match rpc.warm().await {
+                        Ok(()) => log::info!("MangaFire: persistent RPC webview warmed"),
+                        Err(e) => log::warn!(
+                            "MangaFire: RPC webview warm-up deferred ({}); per-call fallback active",
+                            e
+                        ),
+                    }
+                });
+            }
+
             // Initialize discovery service
             let discovery_service = Arc::new(
                 services::discovery_service::DiscoveryService::new().unwrap_or_else(|e| {
@@ -564,6 +628,9 @@ pub fn run() {
                 db: database.clone(),
                 covers_dir: covers_dir.clone(),
                 plugin_registry: plugin_registry.clone(),
+                source_response_cache: std::sync::Arc::new(
+                    sources::cache::SourceResponseCache::new(),
+                ),
                 discovery_service: discovery_service.clone(),
                 opened_urls: std::sync::Mutex::new(Vec::new()),
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]

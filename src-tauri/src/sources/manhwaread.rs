@@ -1,9 +1,13 @@
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 
 use crate::error::{Result, ShioriError};
+use crate::sources::browser_rpc::BrowserRpc;
+use crate::sources::cache::cache_get_or_fetch;
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceMeta};
 
 #[cfg(target_os = "android")]
@@ -11,6 +15,46 @@ use tauri_plugin_android_saf::AndroidSafExt;
 
 const BASE_URL: &str = "https://www.manhwaread.com";
 const MANGA_PATH: &str = "webtoons";
+
+/// How long search/browse results are served from the in-memory cache.
+const SEARCH_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+/// How long chapter lists are served from the in-memory cache.
+const CHAPTERS_CACHE_TTL: Duration = Duration::from_secs(30 * 60);
+
+/// Init script for the persistent RPC webview (Slice 1): bootstraps the
+/// chunk protocol, waits out Cloudflare, then signals ready. ManhwaRead
+/// pages are server-rendered, so requests run as same-origin fetches inside
+/// this webview — no per-call webview spin-up, no navigation.
+pub fn manhwaread_rpc_init_js() -> String {
+    format!(
+        "{}{}",
+        crate::sources::browser_rpc::RPC_BOOTSTRAP,
+        r#"(async () => {
+            try {
+                if (window.top !== window.self) return;
+                if (document.readyState === 'loading') {
+                    await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+                }
+                let cfAttempts = 0;
+                while (true) {
+                    const title = document.title.toLowerCase();
+                    if (title.includes('just a moment') || title.includes('cloudflare') || title.includes('attention required')) {
+                        cfAttempts++;
+                        if (cfAttempts > 15) {
+                            throw new Error("Cloudflare Turnstile challenge pending - please solve via Settings or retry");
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    break;
+                }
+                window.__shioriReady();
+            } catch (e) {
+                document.title = 'SHIORI_INIT_ERROR|' + encodeURIComponent(String((e && e.message) || e));
+            }
+        })();"#
+    )
+}
 
 // Rotate through realistic Chrome user-agents to reduce fingerprinting
 #[allow(dead_code)]
@@ -40,6 +84,13 @@ pub struct ManhwaReadSource {
     config: RwLock<ManhwaReadConfig>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
     eval_lock: tokio::sync::Mutex<()>,
+    /// Persistent warm RPC webview (Slice 1). When attached, page fetches run
+    /// as same-origin fetches inside it instead of per-call webviews.
+    browser_rpc: RwLock<Option<Arc<BrowserRpc>>>,
+    /// `query|page` / `browse|mode|page|genres` -> (cached_at, results).
+    search_cache: Mutex<HashMap<String, (Instant, Vec<SearchResult>)>>,
+    /// content_id -> (cached_at, chapters).
+    chapters_cache: Mutex<HashMap<String, (Instant, Vec<Chapter>)>>,
 }
 
 impl ManhwaReadSource {
@@ -48,12 +99,20 @@ impl ManhwaReadSource {
             config: RwLock::new(ManhwaReadConfig::default()),
             app_handle: RwLock::new(None),
             eval_lock: tokio::sync::Mutex::new(()),
+            browser_rpc: RwLock::new(None),
+            search_cache: Mutex::new(HashMap::new()),
+            chapters_cache: Mutex::new(HashMap::new()),
         })
     }
 
     #[allow(dead_code)]
     pub async fn set_app_handle(&self, app_handle: tauri::AppHandle) {
         *self.app_handle.write().await = Some(app_handle);
+    }
+
+    /// Attach the persistent RPC webview (Slice 1).
+    pub async fn set_browser_rpc(&self, rpc: Arc<BrowserRpc>) {
+        *self.browser_rpc.write().await = Some(rpc);
     }
 
     pub async fn set_config(&self, config: ManhwaReadConfig) {
@@ -151,6 +210,45 @@ impl ManhwaReadSource {
     }
 
     async fn evaluate_js(&self, url: &str, js_script: &str) -> Result<String> {
+        // Persistent warm webview fast path (Slice 1): the page fetch runs as
+        // a same-origin fetch inside the reused hidden webview — no per-call
+        // webview spin-up, no navigation. Only the outerHTML scrape pattern
+        // uses it (the only caller today); other scripts keep the legacy
+        // navigation path. A challenge page is never treated as data — fall
+        // back to the legacy webview, which waits out the challenge.
+        if js_script.contains("outerHTML") {
+            if let Some(rpc) = self.browser_rpc.read().await.as_ref() {
+                let js = format!(
+                    r#"
+                    const r = await fetch('{url}', {{
+                        credentials: 'include',
+                        headers: {{ 'X-Requested-With': 'XMLHttpRequest' }}
+                    }});
+                    const text = await r.text();
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return text;
+                    "#,
+                    url = url
+                );
+                match rpc.call(&js).await {
+                    Ok(html) => {
+                        if !Self::detect_cloudflare_block(reqwest::StatusCode::OK, &html) {
+                            return Ok(html);
+                        }
+                        log::warn!(
+                            "[source:manhwaread] RPC fetch returned a challenge page, falling back to legacy navigation"
+                        );
+                    }
+                    Err(e) => {
+                        log::warn!(
+                            "[source:manhwaread] BrowserRPC failed ({}), falling back to legacy navigation",
+                            e
+                        );
+                    }
+                }
+            }
+        }
+
         let _lock = self.eval_lock.lock().await;
 
         let guard = self.app_handle.read().await;
@@ -357,81 +455,85 @@ impl Source for ManhwaReadSource {
     }
 
     async fn search(&self, query: &str, page: u32) -> Result<Vec<SearchResult>> {
-        let page_path = if page > 1 {
-            format!("page/{}/", page)
-        } else {
-            String::new()
-        };
-        let url = format!(
-            "{}/{}?s={}&post_type=wp-manga",
-            BASE_URL,
-            page_path,
-            urlencoding::encode(query)
-        );
-
-        let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
-
-        if Self::detect_cloudflare_block(status, &html) {
-            return Err(Self::cloudflare_error("search"));
-        }
-
-        let doc = Html::parse_document(&html);
-        let item_sel = Selector::parse(SEARCH_ITEM_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-        let title_sel = Selector::parse(SEARCH_TITLE_LINK_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-        let image_sel = Selector::parse(SEARCH_IMAGE_SELECTOR)
-            .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
-
-        let mut results = Vec::new();
-        let mut seen_ids = std::collections::HashSet::new();
-
-        for item in doc.select(&item_sel) {
-            let title_link = match item.select(&title_sel).next() {
-                Some(el) => el,
-                None => continue,
+        let cache_key = format!("search|{}|{}", query, page);
+        cache_get_or_fetch(&self.search_cache, &cache_key, SEARCH_CACHE_TTL, async {
+            let page_path = if page > 1 {
+                format!("page/{}/", page)
+            } else {
+                String::new()
             };
+            let url = format!(
+                "{}/{}?s={}&post_type=wp-manga",
+                BASE_URL,
+                page_path,
+                urlencoding::encode(query)
+            );
 
-            let href = match title_link.value().attr("href") {
-                Some(h) => Self::absolute_url(h),
-                None => continue,
-            };
+            let (status, html) = self.fetch_with_referer(&url, Some(BASE_URL)).await?;
 
-            let id = Self::extract_slug_from_url(&href);
-            if id.is_empty() || seen_ids.contains(&id) {
-                continue;
-            }
-            seen_ids.insert(id.clone());
-
-            let title = title_link.text().collect::<String>().trim().to_string();
-            if title.is_empty() {
-                continue;
+            if Self::detect_cloudflare_block(status, &html) {
+                return Err(Self::cloudflare_error("search"));
             }
 
-            let cover_url = item
-                .select(&image_sel)
-                .next()
-                .and_then(|img| {
-                    img.value()
-                        .attr("data-src")
-                        .or_else(|| img.value().attr("src"))
-                        .or_else(|| img.value().attr("data-lazy-src"))
-                })
-                .map(|s| s.split_whitespace().next().unwrap_or(s))
-                .filter(|s| !s.contains("data:image"))
-                .map(|s| Self::absolute_url(s));
+            let doc = Html::parse_document(&html);
+            let item_sel = Selector::parse(SEARCH_ITEM_SELECTOR)
+                .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+            let title_sel = Selector::parse(SEARCH_TITLE_LINK_SELECTOR)
+                .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
+            let image_sel = Selector::parse(SEARCH_IMAGE_SELECTOR)
+                .map_err(|e| ShioriError::Other(format!("Selector error: {:?}", e)))?;
 
-            results.push(SearchResult {
-                id,
-                title,
-                cover_url,
-                description: Some(href.clone()),
-                source_id: "manhwaread".to_string(),
-                extra: HashMap::from([("url".to_string(), href)]),
-            });
-        }
+            let mut results = Vec::new();
+            let mut seen_ids = std::collections::HashSet::new();
 
-        Ok(results)
+            for item in doc.select(&item_sel) {
+                let title_link = match item.select(&title_sel).next() {
+                    Some(el) => el,
+                    None => continue,
+                };
+
+                let href = match title_link.value().attr("href") {
+                    Some(h) => Self::absolute_url(h),
+                    None => continue,
+                };
+
+                let id = Self::extract_slug_from_url(&href);
+                if id.is_empty() || seen_ids.contains(&id) {
+                    continue;
+                }
+                seen_ids.insert(id.clone());
+
+                let title = title_link.text().collect::<String>().trim().to_string();
+                if title.is_empty() {
+                    continue;
+                }
+
+                let cover_url = item
+                    .select(&image_sel)
+                    .next()
+                    .and_then(|img| {
+                        img.value()
+                            .attr("data-src")
+                            .or_else(|| img.value().attr("src"))
+                            .or_else(|| img.value().attr("data-lazy-src"))
+                    })
+                    .map(|s| s.split_whitespace().next().unwrap_or(s))
+                    .filter(|s| !s.contains("data:image"))
+                    .map(Self::absolute_url);
+
+                results.push(SearchResult {
+                    id,
+                    title,
+                    cover_url,
+                    description: Some(href.clone()),
+                    source_id: "manhwaread".to_string(),
+                    extra: HashMap::from([("url".to_string(), href)]),
+                });
+            }
+
+            Ok(results)
+        })
+        .await
     }
 
     async fn browse(
@@ -442,6 +544,13 @@ impl Source for ManhwaReadSource {
         genres: Option<Vec<String>>,
         _types: Option<Vec<String>>,
     ) -> Result<Vec<SearchResult>> {
+        let cache_key = format!(
+            "browse|{}|{}|{}",
+            mode,
+            page,
+            genres.clone().unwrap_or_default().join(",")
+        );
+        cache_get_or_fetch(&self.search_cache, &cache_key, SEARCH_CACHE_TTL, async {
         let order = match mode.to_lowercase().as_str() {
             "newest" | "added" => "new-manga",
             "updated" => "latest",
@@ -538,10 +647,14 @@ impl Source for ManhwaReadSource {
             });
         }
 
-        Ok(results)
+            Ok(results)
+        })
+        .await
     }
 
     async fn get_chapters(&self, content_id: &str) -> Result<Vec<Chapter>> {
+        let cache_key = content_id.to_string();
+        cache_get_or_fetch(&self.chapters_cache, &cache_key, CHAPTERS_CACHE_TTL, async {
         let manga_url = if content_id.starts_with("http") {
             content_id.to_string()
         } else {
@@ -616,6 +729,8 @@ impl Source for ManhwaReadSource {
         }
 
         Ok(chapters)
+        })
+        .await
     }
 
     async fn get_pages(&self, chapter_id: &str) -> Result<Vec<Page>> {

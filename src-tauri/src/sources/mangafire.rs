@@ -11,6 +11,7 @@ use tauri_plugin_android_saf::AndroidSafExt;
 
 use crate::cloudflare::client::CfClient;
 use crate::error::{Result, ShioriError};
+use crate::sources::browser_rpc::BrowserRpc;
 use crate::sources::cache::cache_get_or_fetch;
 use crate::sources::{Chapter, ContentType, Page, SearchResult, Source, SourceError, SourceHealth, SourceMeta};
 
@@ -20,10 +21,93 @@ const BASE_URL: &str = "https://mangafire.to";
 const CHAPTER_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 /// How long chapter page lists are served from the in-memory cache before a refresh.
 const PAGES_CACHE_TTL: Duration = Duration::from_secs(30 * 60);
-/// Max number of chapter-list pages fetched concurrently. Every page is a
-/// Cloudflare-browser RPC round-trip, so a small cap keeps the webview sane
-/// while still cutting wall-clock time by ~4x on multi-page series.
+/// Max number of chapter-list pages fetched concurrently by the legacy
+/// per-page loop. Every page is a network round trip; the batched fetch
+/// (Slice 2) replaces this for the persistent-webview path.
 const PAGE_FETCH_CONCURRENCY: usize = 4;
+
+/// Init script for the persistent RPC webview (Slice 1): bootstraps the
+/// chunk protocol, waits out Cloudflare, wires mangafire's `extendClient` /
+/// `myAxios` bridge, then signals ready. Runs once per webview load — the
+/// webview itself is reused for every subsequent call.
+pub fn mangafire_rpc_init_js() -> String {
+    format!(
+        "{}{}",
+        crate::sources::browser_rpc::RPC_BOOTSTRAP,
+        r#"(async () => {
+        try {
+            if (window.top !== window.self) return;
+            if (document.readyState === 'loading') {
+                await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+            }
+            let cfAttempts = 0;
+            while (true) {
+                const title = document.title.toLowerCase();
+                if (title.includes('just a moment') || title.includes('cloudflare') || title.includes('attention required')) {
+                    cfAttempts++;
+                    if (cfAttempts > 15) {
+                        throw new Error("Cloudflare Turnstile challenge pending - please solve via Settings or retry");
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+                break;
+            }
+
+            let attempts = 0;
+            while (typeof window.extendClient === 'undefined' && attempts < 25) {
+                await new Promise(r => setTimeout(r, 400));
+                attempts++;
+            }
+            if (typeof window.extendClient === 'undefined') throw new Error("extendClient not found");
+
+            if (!window.myAxios) {
+                let requestInterceptor = null;
+                window.myAxios = {
+                    defaults: { baseURL: '/', headers: {} },
+                    interceptors: {
+                        request: {
+                            use: (fn) => { requestInterceptor = fn; }
+                        }
+                    },
+                    get: async (url, config = {}) => {
+                        let reqConfig = {
+                            url,
+                            method: 'get',
+                            headers: {
+                                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                ...(config.headers || {})
+                            },
+                            params: config.params || {}
+                        };
+                        if (requestInterceptor) {
+                            reqConfig = await requestInterceptor(reqConfig) || reqConfig;
+                        }
+                        let fullUrl = reqConfig.url;
+                        if (reqConfig.params && Object.keys(reqConfig.params).length > 0) {
+                            const query = new URLSearchParams(reqConfig.params).toString();
+                            fullUrl += (fullUrl.includes('?') ? '&' : '?') + query;
+                        }
+                        const resp = await fetch(fullUrl, {
+                            method: 'GET',
+                            headers: reqConfig.headers,
+                            credentials: 'include'
+                        });
+                        const data = await resp.json();
+                        return { data };
+                    }
+                };
+                window.extendClient(window.myAxios);
+            }
+
+            window.__shioriReady();
+        } catch (e) {
+            document.title = 'SHIORI_INIT_ERROR|' + encodeURIComponent(String((e && e.message) || e));
+        }
+    })();"#
+    )
+}
 
 /// Single choke point mapping RPC errors to structured [`SourceError`]s.
 ///
@@ -43,6 +127,9 @@ pub struct MangaFireSource {
     cf_client: RwLock<Option<Arc<CfClient>>>,
     app_handle: RwLock<Option<tauri::AppHandle>>,
     rpc_lock: tokio::sync::Mutex<()>,
+    /// Persistent warm RPC webview (Slice 1). When attached, every JS call
+    /// rides the same hidden webview instead of creating one per request.
+    browser_rpc: RwLock<Option<Arc<BrowserRpc>>>,
     /// content_id -> (cached_at, chapters); TTL [`CHAPTER_CACHE_TTL`].
     chapter_cache: Mutex<HashMap<String, (Instant, Vec<Chapter>)>>,
     /// chapter_id -> (cached_at, pages); TTL [`PAGES_CACHE_TTL`].
@@ -55,14 +142,19 @@ impl MangaFireSource {
             cf_client: RwLock::new(None),
             app_handle: RwLock::new(None),
             rpc_lock: tokio::sync::Mutex::new(()),
+            browser_rpc: RwLock::new(None),
             chapter_cache: Mutex::new(HashMap::new()),
             pages_cache: Mutex::new(HashMap::new()),
         }
     }
-
     pub async fn set_cf_client(&self, cf: Arc<CfClient>, app_handle: tauri::AppHandle) {
         *self.cf_client.write().await = Some(cf);
         *self.app_handle.write().await = Some(app_handle);
+    }
+
+    /// Attach the persistent RPC webview (Slice 1).
+    pub async fn set_browser_rpc(&self, rpc: Arc<BrowserRpc>) {
+        *self.browser_rpc.write().await = Some(rpc);
     }
 
     async fn wait_for_init(&self) -> Result<()> {
@@ -82,8 +174,30 @@ impl MangaFireSource {
     }
 
     async fn evaluate_js_on_site(&self, js_script: &str) -> Result<String> {
-        // rpc_lock is held across the whole function: the RPC webviews are
-        // hidden and share the session, so only one may run at a time.
+        // Persistent warm webview first (Slice 1): one hidden webview reused
+        // for every call — no per-call spin-up, no global serialization.
+        // Falls back to the legacy per-call webview when not attached or on
+        // failure. A Cloudflare/Turnstile error is terminal (the legacy path
+        // would burn its 15s challenge wait on the same wall).
+        if let Some(rpc) = self.browser_rpc.read().await.as_ref() {
+            match rpc.call(js_script).await {
+                Ok(res) => return Ok(res),
+                Err(e) => {
+                    let msg = e.to_string();
+                    if msg.contains("Cloudflare") || msg.contains("Turnstile") {
+                        return Err(map_rpc_error(e));
+                    }
+                    log::warn!(
+                        "[source:mangafire] BrowserRPC failed ({}), falling back to legacy per-call webview",
+                        e
+                    );
+                }
+            }
+        }
+
+        // rpc_lock is held across the whole legacy call: the per-call RPC
+        // webviews are hidden and share the session, so only one may run at a
+        // time.
         let _lock = self.rpc_lock.lock().await;
         self.wait_for_init().await?;
         let guard = self.app_handle.read().await;
@@ -438,6 +552,70 @@ impl MangaFireSource {
             "Browser RPC not initialized for MangaFire".into(),
         ))
     }
+
+    /// Chapter items for a title (Slice 2). Prefers the batched single-RPC
+    /// fetch: one round trip through the persistent webview fetches every
+    /// paginated API page, because the webview is same-origin with the API.
+    /// Falls back to the legacy per-page loop when the persistent webview is
+    /// not attached or the batch fails.
+    async fn fetch_chapter_items(&self, hid: &str) -> Result<Vec<MfChapterItem>> {
+        if self.browser_rpc.read().await.is_some() {
+            match self.fetch_all_chapter_items_batched(hid).await {
+                Ok(items) if !items.is_empty() => return Ok(items),
+                Ok(_) => log::warn!(
+                    "[source:mangafire] batched chapter fetch returned no items, falling back to per-page"
+                ),
+                Err(e) => log::warn!(
+                    "[source:mangafire] batched chapter fetch failed ({}), falling back to per-page",
+                    e
+                ),
+            }
+        }
+        fetch_all_chapter_items(|page| {
+            let url = format!(
+                "/api/titles/{}/chapters?language=en&sort=number&order=desc&page={}&limit=200",
+                hid, page
+            );
+            Box::pin(async move { self.fetch_rpc(&url).await })
+        })
+        .await
+    }
+
+    /// Fetches every chapter page inside ONE JS execution on the persistent
+    /// RPC webview. Page 1's `meta.lastPage` reveals the page count; the loop
+    /// then fetches the rest sequentially inside the page (each `myAxios`
+    /// call is a same-origin fetch — no webview spin-up, no RPC handshake
+    /// per page).
+    async fn fetch_all_chapter_items_batched(&self, hid: &str) -> Result<Vec<MfChapterItem>> {
+        let js = format!(
+            r#"
+            const pages = [];
+            let page = 1;
+            let lastPage = 1;
+            do {{
+                const res = await window.myAxios.get(
+                    '/api/titles/{hid}/chapters?language=en&sort=number&order=desc&page=' + page + '&limit=200',
+                    {{}}
+                );
+                const data = res && res.data ? res.data : res;
+                pages.push(data);
+                if (data && data.meta && data.meta.lastPage) lastPage = data.meta.lastPage;
+                page += 1;
+            }} while (page <= lastPage && page <= {max_pages});
+            return pages;
+            "#,
+            hid = hid,
+            max_pages = BATCHED_MAX_PAGES,
+        );
+        let json_str = self.evaluate_js_on_site(&js).await?;
+        parse_batched_chapter_items(&json_str)
+    }
+}
+
+impl Default for MangaFireSource {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -493,6 +671,23 @@ struct MfPageData {
 #[derive(Debug, Deserialize)]
 struct MfPageItem {
     url: String,
+}
+
+/// Max chapter pages fetched in one batched RPC (~4000 chapters) — runaway
+/// guard; real series stay well under this.
+const BATCHED_MAX_PAGES: u32 = 20;
+
+/// Parse the batched response (JSON array of chapter-list pages) into flat
+/// chapter items. Pure fn — unit-testable without a webview.
+fn parse_batched_chapter_items(json: &str) -> Result<Vec<MfChapterItem>> {
+    let responses: Vec<MfChaptersResponse> = serde_json::from_str(json).map_err(|e| {
+        ShioriError::Other(format!("Failed to parse MangaFire batched chapters JSON: {}", e))
+    })?;
+    let mut items = Vec::new();
+    for res in responses {
+        items.extend(res.items);
+    }
+    Ok(items)
 }
 
 /// Fetches every chapter page for a title by calling `fetch_one(page)`.
@@ -753,15 +948,7 @@ impl Source for MangaFireSource {
         let hid = parts[0].to_string();
 
         cache_get_or_fetch(&self.chapter_cache, content_id, CHAPTER_CACHE_TTL, async {
-            let items = fetch_all_chapter_items(|page| {
-                let url = format!(
-                    "/api/titles/{}/chapters?language=en&sort=number&order=desc&page={}&limit=200",
-                    hid, page
-                );
-                Box::pin(async move { self.fetch_rpc(&url).await })
-            })
-            .await
-            .map_err(|e| {
+            let items = self.fetch_chapter_items(&hid).await.map_err(|e| {
                 log::warn!("[source:mangafire] get_chapters failed: {e}");
                 e
             })?;
@@ -817,6 +1004,52 @@ mod tests {
     use super::*;
     use crate::sources::cache::{evict_oldest_if_over_cap, CACHE_MAX_ENTRIES};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// A JSON chapter-list page in the shape the batched RPC returns.
+    fn page_json(items: &[(&str, f32)], last_page: Option<u32>) -> String {
+        let items_json: Vec<String> = items
+            .iter()
+            .map(|(id, num)| {
+                format!(
+                    r#"{{"id":{},"number":{},"name":"","language":"en"}}"#,
+                    id, num
+                )
+            })
+            .collect();
+        let meta = match last_page {
+            Some(n) => format!(r#","meta":{{"lastPage":{}}}"#, n),
+            None => String::new(),
+        };
+        format!(r#"{{"items":[{}]{}}}"#, items_json.join(","), meta)
+    }
+
+    #[test]
+    fn parse_batched_chapter_items_flattens_pages_in_order() {
+        let json = format!(
+            "[{},{}]",
+            page_json(&[("1", 1.0), ("2", 2.0)], Some(2)),
+            page_json(&[("3", 3.0)], Some(2))
+        );
+        let items = parse_batched_chapter_items(&json).unwrap();
+        let ids: Vec<u64> = items.iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn parse_batched_chapter_items_rejects_garbage() {
+        assert!(parse_batched_chapter_items("<html>challenge</html>").is_err());
+        assert!(parse_batched_chapter_items("{\"items\":[]}").is_err());
+    }
+
+    #[test]
+    fn batched_js_embeds_hid_and_max_pages() {
+        // The JS template is a plain string built from hid + BATCHED_MAX_PAGES;
+        // assert both show up (guards against template regressions).
+        let src = std::fs::read_to_string("src/sources/mangafire.rs").unwrap();
+        assert!(src.contains("/api/titles/{hid}/chapters"));
+        assert!(src.contains("page <= lastPage && page <= {max_pages}"));
+        assert!(src.contains("BATCHED_MAX_PAGES"));
+    }
 
     #[test]
     fn rpc_turnstile_error_maps_to_cloudflare_challenge() {

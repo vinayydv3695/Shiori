@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_store::StoreExt;
@@ -13,6 +13,12 @@ use crate::sources::{
     Chapter, ContentType, Page, SearchResponse, SearchResult, SourceError, SourceHealth, SourceMeta,
     SourceSearchDiagnostics,
 };
+
+/// TTLs for the shared command-layer response cache (all sources).
+const SEARCH_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+const BROWSE_CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+const CHAPTERS_CACHE_TTL: Duration = Duration::from_secs(30 * 60);
+const PAGES_CACHE_TTL: Duration = Duration::from_secs(60 * 60);
 
 /// Guard helper: fetch a source from the registry and verify it is enabled.
 /// Disabled sources fail with [`SourceError::SourceDisabled`] so the frontend
@@ -117,8 +123,14 @@ pub async fn plugin_search(
     page: Option<u32>,
 ) -> Result<Vec<SearchResult>> {
     let source = get_enabled_source(&state, &source_id).await?;
+    let cache = state.source_response_cache.clone();
+    let key = format!("{}|search|{}|{}", source_id, query, page.unwrap_or(1));
 
-    source.search(&query, page.unwrap_or(1)).await
+    cache
+        .get_or_fetch(&key, SEARCH_CACHE_TTL, async {
+            source.search(&query, page.unwrap_or(1)).await
+        })
+        .await
 }
 
 #[tauri::command]
@@ -130,28 +142,40 @@ pub async fn plugin_search_with_meta(
     limit: Option<u32>,
 ) -> Result<SearchResponse> {
     let source = get_enabled_source(&state, &source_id).await?;
+    let cache = state.source_response_cache.clone();
+    let key = format!(
+        "{}|search|{}|{}|{}",
+        source_id,
+        query,
+        page.unwrap_or(1),
+        limit.unwrap_or(20)
+    );
 
-    let source_meta = source.meta();
-    let started = Instant::now();
-    let mut response = source
-        .search_with_meta(&query, page.unwrap_or(1), limit.unwrap_or(20))
-        .await?;
-    let duration_ms = started.elapsed().as_millis() as u64;
+    cache
+        .get_or_fetch(&key, SEARCH_CACHE_TTL, async {
+            let source_meta = source.meta();
+            let started = Instant::now();
+            let mut response = source
+                .search_with_meta(&query, page.unwrap_or(1), limit.unwrap_or(20))
+                .await?;
+            let duration_ms = started.elapsed().as_millis() as u64;
 
-    if response.diagnostics.is_none() {
-        response.diagnostics = Some(SourceSearchDiagnostics {
-            source_id: source_id.clone(),
-            source_name: Some(source_meta.name),
-            selected_mirror: None,
-            selected_base: None,
-            attempted_mirrors: vec![],
-            duration_ms,
-            result_count: response.items.len() as u32,
-            retries_used: None,
-        });
-    }
+            if response.diagnostics.is_none() {
+                response.diagnostics = Some(SourceSearchDiagnostics {
+                    source_id: source_id.clone(),
+                    source_name: Some(source_meta.name),
+                    selected_mirror: None,
+                    selected_base: None,
+                    attempted_mirrors: vec![],
+                    duration_ms,
+                    result_count: response.items.len() as u32,
+                    retries_used: None,
+                });
+            }
 
-    Ok(response)
+            Ok(response)
+        })
+        .await
 }
 
 #[tauri::command]
@@ -165,9 +189,23 @@ pub async fn plugin_browse(
     types: Option<Vec<String>>,
 ) -> Result<Vec<SearchResult>> {
     let source = get_enabled_source(&state, &source_id).await?;
+    let cache = state.source_response_cache.clone();
+    let key = format!(
+        "{}|browse|{}|{}|{}|{}|{}",
+        source_id,
+        mode,
+        page.unwrap_or(1),
+        limit.unwrap_or(20),
+        genres.clone().unwrap_or_default().join(","),
+        types.clone().unwrap_or_default().join(",")
+    );
 
-    source
-        .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20), genres, types)
+    cache
+        .get_or_fetch(&key, BROWSE_CACHE_TTL, async {
+            source
+                .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20), genres, types)
+                .await
+        })
         .await
 }
 
@@ -178,8 +216,14 @@ pub async fn plugin_get_chapters(
     content_id: String,
 ) -> Result<Vec<Chapter>> {
     let source = get_enabled_source(&state, &source_id).await?;
+    let cache = state.source_response_cache.clone();
+    let key = format!("{}|chapters|{}", source_id, content_id);
 
-    source.get_chapters(&content_id).await
+    cache
+        .get_or_fetch(&key, CHAPTERS_CACHE_TTL, async {
+            source.get_chapters(&content_id).await
+        })
+        .await
 }
 
 #[tauri::command]
@@ -189,8 +233,14 @@ pub async fn plugin_get_pages(
     chapter_id: String,
 ) -> Result<Vec<Page>> {
     let source = get_enabled_source(&state, &source_id).await?;
+    let cache = state.source_response_cache.clone();
+    let key = format!("{}|pages|{}", source_id, chapter_id);
 
-    source.get_pages(&chapter_id).await
+    cache
+        .get_or_fetch(&key, PAGES_CACHE_TTL, async {
+            source.get_pages(&chapter_id).await
+        })
+        .await
 }
 
 #[tauri::command]

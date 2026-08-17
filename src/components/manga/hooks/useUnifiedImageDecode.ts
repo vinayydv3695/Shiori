@@ -11,8 +11,87 @@ import { logger } from '@/lib/logger';
  * For online sources: Uses direct URLs or proxied images (for sources like ToonGod)
  */
 
-// Cache for proxied online images (blob URLs)
-const onlineImageCache = new Map<string, string>();
+/**
+ * Bounded LRU for proxied online images (blob URLs). Memory guardrail
+ * (performance plan Slice 6): max ~60 entries / 64 MB. Evicted blob URLs are
+ * revoked so the page never holds decoded image data forever during long
+ * reading sessions. LRU order = display likely, so an on-screen page is
+ * essentially never evicted.
+ */
+class OnlineImageLru {
+    private entries = new Map<string, { url: string; bytes: number }>();
+    private totalBytes = 0;
+    private readonly maxEntries: number;
+    private readonly maxBytes: number;
+
+    constructor(maxEntries: number = 60, maxBytes: number = 64 * 1024 * 1024) {
+        this.maxEntries = maxEntries;
+        this.maxBytes = maxBytes;
+    }
+
+    get(key: string): string | undefined {
+        const e = this.entries.get(key);
+        if (!e) return undefined;
+        // LRU touch: move to most-recent end.
+        this.entries.delete(key);
+        this.entries.set(key, e);
+        return e.url;
+    }
+
+    set(key: string, url: string, bytes: number): void {
+        const prev = this.entries.get(key);
+        if (prev) {
+            this.totalBytes -= prev.bytes;
+            if (prev.url.startsWith('blob:')) URL.revokeObjectURL(prev.url);
+        }
+        // Evict oldest until within both caps, revoking evicted blobs.
+        while (
+            this.entries.size > 0 &&
+            (this.entries.size >= this.maxEntries || this.totalBytes + bytes > this.maxBytes)
+        ) {
+            const oldestKey = this.entries.keys().next().value as string;
+            const oldest = this.entries.get(oldestKey);
+            if (!oldest) break;
+            this.totalBytes -= oldest.bytes;
+            if (oldest.url.startsWith('blob:')) URL.revokeObjectURL(oldest.url);
+            this.entries.delete(oldestKey);
+        }
+        this.entries.set(key, { url, bytes });
+        this.totalBytes += bytes;
+    }
+
+    has(key: string): boolean {
+        return this.entries.has(key);
+    }
+
+    delete(key: string): void {
+        const e = this.entries.get(key);
+        if (e) {
+            this.totalBytes -= e.bytes;
+            if (e.url.startsWith('blob:')) URL.revokeObjectURL(e.url);
+        }
+        this.entries.delete(key);
+    }
+
+    clear(): void {
+        for (const e of this.entries.values()) {
+            if (e.url.startsWith('blob:')) URL.revokeObjectURL(e.url);
+        }
+        this.entries.clear();
+        this.totalBytes = 0;
+    }
+
+    get size(): number {
+        return this.entries.size;
+    }
+
+    get bytes(): number {
+        return this.totalBytes;
+    }
+}
+
+// Cache for proxied online images (blob URLs) — bounded LRU, see above.
+const onlineImageCache = new OnlineImageLru();
 
 export function useUnifiedImageDecode(
     pageIndex: number, 
@@ -89,9 +168,9 @@ export function useUnifiedImageDecode(
                         
                         const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
                         const blobUrl = URL.createObjectURL(blob);
-                        
-                        // Cache the blob URL
-                        onlineImageCache.set(cacheKey, blobUrl);
+
+                        // Cache the blob URL (bounded LRU; tracks byte size)
+                        onlineImageCache.set(cacheKey, blobUrl, bytes.length);
                         currentBlobUrlRef.current = blobUrl;
                         
                         setUrl(blobUrl);
@@ -121,7 +200,8 @@ export function useUnifiedImageDecode(
     }, [sourceType, bookId, onlineSource, pageIndex, maxDimension, retryCount, overrideUrl, overrideChapterId, overrideSourceId]);
 
     const retry = useCallback(() => {
-        // Clear cache entry on retry for online sources
+        // Clear cache entry on retry for online sources (LRU.delete revokes
+        // the blob URL; no manual revoke needed).
         if (sourceType === 'online' && (onlineSource || (overrideSourceId && overrideUrl))) {
             const activeSourceId = overrideSourceId || onlineSource?.sourceId;
             const activeChapterId = overrideChapterId || onlineSource?.chapterId;
@@ -129,10 +209,6 @@ export function useUnifiedImageDecode(
             if (!activeSourceId || !activeUrl) return;
 
             const cacheKey = `${activeSourceId}:${activeChapterId}:${activeUrl}`;
-            const cached = onlineImageCache.get(cacheKey);
-            if (cached && cached.startsWith('blob:')) {
-                URL.revokeObjectURL(cached);
-            }
             onlineImageCache.delete(cacheKey);
         }
         setRetryCount(c => c + 1);
@@ -142,14 +218,10 @@ export function useUnifiedImageDecode(
 }
 
 /**
- * Clear all cached online images (call when closing manga reader or changing chapters)
+ * Clear all cached online images (call when closing manga reader or changing
+ * chapters). Revokes every blob URL.
  */
 export function clearOnlineImageCache(): void {
-    for (const blobUrl of onlineImageCache.values()) {
-        if (blobUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(blobUrl);
-        }
-    }
     onlineImageCache.clear();
 }
 
@@ -182,7 +254,7 @@ export async function preloadOnlinePages(
                     const bytes = await api.proxyMangaImage(sourceId, pageUrl);
                     const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' });
                     const blobUrl = URL.createObjectURL(blob);
-                    onlineImageCache.set(cacheKey, blobUrl);
+                    onlineImageCache.set(cacheKey, blobUrl, bytes.length);
                 }
                 // For non-proxy sources, the browser will cache naturally
             } catch {

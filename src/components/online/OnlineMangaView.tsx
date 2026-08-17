@@ -14,6 +14,7 @@ import { logger } from "@/lib/logger";
 
 
 import { useSourceStore } from "@/store/sourceStore";
+import { useSourceHealthStore } from "@/store/sourceHealthStore";
 import { useOnlineSearchStore } from "@/store/onlineSearchStore";
 import { OnlineSearchHeader } from "./OnlineSearchHeader";
 import { OnlineSourceSelector } from "./OnlineSourceSelector";
@@ -27,6 +28,7 @@ import { solveCfChallenge } from "@/cloudflare";
 import { useUIStore } from "@/store/uiStore";
 import { useOnlineMangaReaderStore } from "@/store/onlineMangaReaderStore";
 import { useOnlineMangaBrowseStore } from "@/store/onlineMangaBrowseStore";
+import { launchCacheGet, launchCacheSet } from "@/lib/launchCache";
 import { useLibraryStore } from "@/store/libraryStore";
 import {
   OnlineMangaDetailView,
@@ -415,15 +417,41 @@ export function OnlineMangaView() {
 
   // Load browse data on mount or when active source changes
   useEffect(() => {
+    // Slice 8: background health warm-up — probe every source in parallel
+    // once per mount and record the results for badges. Never blocks paint.
+    pluginApi
+      .sourceHealthAll()
+      .then((healths) => {
+        const st = useSourceHealthStore.getState();
+        for (const [id, health] of Object.entries(healths)) {
+          st.recordHealth(id, health);
+        }
+      })
+      .catch(() => {
+        // Silent — health is cosmetic; failures surface in Settings.
+      });
+  }, []);
+
+  // Load browse data on mount or when active source changes
+  useEffect(() => {
     if (!activeSource) return;
 
     // We want to reload if the source changes, so we reset initialized if it changed
     // But since this is simple, we can just clear and reload every time activeSource changes.
     const loadBrowseData = async (mode: BrowseMode) => {
+      // Slice 10 (instant launch): seed from the launch cache first so the
+      // section paints last session's rows in a split second — no skeleton —
+      // then refresh in the background and swap when fresh data arrives.
+      const cacheKey = `browse:${activeSource.id}:${mode}:20`;
+      const cached = launchCacheGet<MangaDexManga[]>(cacheKey);
+      if (cached && cached.length > 0) {
+        setBrowseData((prev) => ({ ...prev, [mode]: cached }));
+      }
       setBrowseLoading((prev) => ({ ...prev, [mode]: true }));
       try {
         if (activeSource.id === "mangadex") {
           const data = await browseManga(mode, 20);
+          launchCacheSet(cacheKey, data);
           setBrowseData((prev) => ({ ...prev, [mode]: data }));
         } else {
           const raw = await pluginApi.browse(activeSource.id, mode, 1, 20);
@@ -433,6 +461,7 @@ export function OnlineMangaView() {
             description: item.summary || item.description || "",
             coverUrl: item.coverUrl || item.cover_url,
           }));
+          launchCacheSet(cacheKey, data);
           setBrowseData((prev) => ({ ...prev, [mode]: data }));
         }
       } catch (err) {

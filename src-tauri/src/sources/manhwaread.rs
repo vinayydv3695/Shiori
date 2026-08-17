@@ -635,7 +635,7 @@ impl Source for ManhwaReadSource {
                 })
                 .map(|s| s.split_whitespace().next().unwrap_or(s))
                 .filter(|s| !s.contains("data:image"))
-                .map(|s| Self::absolute_url(s));
+                .map(Self::absolute_url);
 
             results.push(SearchResult {
                 id,

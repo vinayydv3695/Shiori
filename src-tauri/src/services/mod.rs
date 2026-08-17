@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod source_cache;
 pub mod shelf_service;
 pub mod docx_adapter;
 pub mod epub_adapter;

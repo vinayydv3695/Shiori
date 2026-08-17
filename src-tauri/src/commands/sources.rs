@@ -115,6 +115,42 @@ pub async fn source_health(
     }
 }
 
+/// Bulk health probe: runs every source's `health_check` concurrently,
+/// each wrapped in the same 15s timeout as `source_health`. Returns a
+/// source_id -> health map. Used for background warm-up (Slice 8).
+#[tauri::command]
+pub async fn source_health_all(
+    state: State<'_, crate::AppState>,
+) -> Result<std::collections::HashMap<String, SourceHealth>> {
+    use futures::future::join_all;
+
+    let registry = state.plugin_registry.read().await;
+    let sources = registry.get_all();
+    drop(registry);
+
+    let futs = sources.iter().map(|s| {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(15),
+            s.health_check(),
+        )
+    });
+    let results = join_all(futs).await;
+
+    let mut out = std::collections::HashMap::new();
+    for (source, res) in sources.iter().zip(results) {
+        let health = match res {
+            Ok(Ok(h)) => h,
+            Ok(Err(e)) => {
+                log::warn!("[sources] health_check for {} failed: {}", source.meta().id, e);
+                SourceHealth::Unavailable
+            }
+            Err(_) => SourceHealth::Unavailable,
+        };
+        out.insert(source.meta().id, health);
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 pub async fn plugin_search(
     state: State<'_, crate::AppState>,
@@ -124,11 +160,15 @@ pub async fn plugin_search(
 ) -> Result<Vec<SearchResult>> {
     let source = get_enabled_source(&state, &source_id).await?;
     let cache = state.source_response_cache.clone();
+    let disk = state.source_disk_cache.clone();
     let key = format!("{}|search|{}|{}", source_id, query, page.unwrap_or(1));
 
     cache
         .get_or_fetch(&key, SEARCH_CACHE_TTL, async {
-            source.search(&query, page.unwrap_or(1)).await
+            disk.get_or_fetch(&key, SEARCH_CACHE_TTL, async {
+                source.search(&query, page.unwrap_or(1)).await
+            })
+            .await
         })
         .await
 }
@@ -143,6 +183,7 @@ pub async fn plugin_search_with_meta(
 ) -> Result<SearchResponse> {
     let source = get_enabled_source(&state, &source_id).await?;
     let cache = state.source_response_cache.clone();
+    let disk = state.source_disk_cache.clone();
     let key = format!(
         "{}|search|{}|{}|{}",
         source_id,
@@ -153,27 +194,30 @@ pub async fn plugin_search_with_meta(
 
     cache
         .get_or_fetch(&key, SEARCH_CACHE_TTL, async {
-            let source_meta = source.meta();
-            let started = Instant::now();
-            let mut response = source
-                .search_with_meta(&query, page.unwrap_or(1), limit.unwrap_or(20))
-                .await?;
-            let duration_ms = started.elapsed().as_millis() as u64;
+            disk.get_or_fetch(&key, SEARCH_CACHE_TTL, async {
+                let source_meta = source.meta();
+                let started = Instant::now();
+                let mut response = source
+                    .search_with_meta(&query, page.unwrap_or(1), limit.unwrap_or(20))
+                    .await?;
+                let duration_ms = started.elapsed().as_millis() as u64;
 
-            if response.diagnostics.is_none() {
-                response.diagnostics = Some(SourceSearchDiagnostics {
-                    source_id: source_id.clone(),
-                    source_name: Some(source_meta.name),
-                    selected_mirror: None,
-                    selected_base: None,
-                    attempted_mirrors: vec![],
-                    duration_ms,
-                    result_count: response.items.len() as u32,
-                    retries_used: None,
-                });
-            }
+                if response.diagnostics.is_none() {
+                    response.diagnostics = Some(SourceSearchDiagnostics {
+                        source_id: source_id.clone(),
+                        source_name: Some(source_meta.name),
+                        selected_mirror: None,
+                        selected_base: None,
+                        attempted_mirrors: vec![],
+                        duration_ms,
+                        result_count: response.items.len() as u32,
+                        retries_used: None,
+                    });
+                }
 
-            Ok(response)
+                Ok(response)
+            })
+            .await
         })
         .await
 }
@@ -190,6 +234,7 @@ pub async fn plugin_browse(
 ) -> Result<Vec<SearchResult>> {
     let source = get_enabled_source(&state, &source_id).await?;
     let cache = state.source_response_cache.clone();
+    let disk = state.source_disk_cache.clone();
     let key = format!(
         "{}|browse|{}|{}|{}|{}|{}",
         source_id,
@@ -202,9 +247,12 @@ pub async fn plugin_browse(
 
     cache
         .get_or_fetch(&key, BROWSE_CACHE_TTL, async {
-            source
-                .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20), genres, types)
-                .await
+            disk.get_or_fetch(&key, BROWSE_CACHE_TTL, async {
+                source
+                    .browse(&mode, page.unwrap_or(1), limit.unwrap_or(20), genres, types)
+                    .await
+            })
+            .await
         })
         .await
 }
@@ -217,11 +265,15 @@ pub async fn plugin_get_chapters(
 ) -> Result<Vec<Chapter>> {
     let source = get_enabled_source(&state, &source_id).await?;
     let cache = state.source_response_cache.clone();
+    let disk = state.source_disk_cache.clone();
     let key = format!("{}|chapters|{}", source_id, content_id);
 
     cache
         .get_or_fetch(&key, CHAPTERS_CACHE_TTL, async {
-            source.get_chapters(&content_id).await
+            disk.get_or_fetch(&key, CHAPTERS_CACHE_TTL, async {
+                source.get_chapters(&content_id).await
+            })
+            .await
         })
         .await
 }
@@ -234,13 +286,58 @@ pub async fn plugin_get_pages(
 ) -> Result<Vec<Page>> {
     let source = get_enabled_source(&state, &source_id).await?;
     let cache = state.source_response_cache.clone();
+    let disk = state.source_disk_cache.clone();
     let key = format!("{}|pages|{}", source_id, chapter_id);
 
     cache
         .get_or_fetch(&key, PAGES_CACHE_TTL, async {
-            source.get_pages(&chapter_id).await
+            disk.get_or_fetch(&key, PAGES_CACHE_TTL, async {
+                source.get_pages(&chapter_id).await
+            })
+            .await
         })
         .await
+}
+
+#[derive(serde::Serialize)]
+pub struct OnlineCacheStats {
+    pub source: crate::services::source_cache::CacheStats,
+    pub images: crate::services::source_cache::CacheStats,
+}
+
+/// Combined stats for the settings UI (Slice 9): entries + bytes per cache.
+#[tauri::command]
+pub async fn get_online_cache_stats(
+    state: State<'_, crate::AppState>,
+) -> Result<OnlineCacheStats> {
+    Ok(OnlineCacheStats {
+        source: state.source_disk_cache.stats(),
+        images: state.image_disk_cache.stats(),
+    })
+}
+
+/// Clear one or both online caches from the settings UI.
+#[tauri::command]
+pub async fn clear_online_cache(
+    state: State<'_, crate::AppState>,
+    which: String,
+) -> Result<()> {
+    match which.as_str() {
+        "source" => state.source_disk_cache.clear(),
+        "images" => state.image_disk_cache.clear(),
+        "all" => {
+            state.source_disk_cache.clear();
+            state.image_disk_cache.clear();
+        }
+        other => {
+            return Err(ShioriError::Validation(format!(
+                "Unknown cache: {}",
+                other
+            )))
+        }
+    }
+    log::info!("[online-cache] cleared ({})", which);
+    Ok(())
 }
 
 #[tauri::command]
@@ -345,6 +442,13 @@ pub async fn proxy_manga_image(
     let registry = state.plugin_registry.read().await;
     ensure_enabled(&registry, &source_id)?;
 
+    // Image disk cache (Slice 4): serve cached bytes without re-downloading.
+    let image_cache = state.image_disk_cache.clone();
+    if let Some(cached) = image_cache.get(&source_id, &image_url) {
+        log::debug!("[proxy] image cache hit ({})", source_id);
+        return Ok(cached);
+    }
+
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36";
 
     // Determine referer based on source
@@ -410,6 +514,15 @@ pub async fn proxy_manga_image(
         }
         bytes.extend_from_slice(&chunk);
     }
+
+    // Write through to the disk cache (Slice 4).
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+    image_cache.put(&source_id, &image_url, &bytes, &content_type);
 
     Ok(bytes)
 }

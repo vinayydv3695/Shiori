@@ -140,6 +140,7 @@ export const OnlineResultCard = memo(function OnlineResultCard({
                 imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
               )}
               loading="lazy"
+              decoding="async"
               onLoad={() => setImgLoaded(true)}
               onError={() => setImgError(true)}
             />

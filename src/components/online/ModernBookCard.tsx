@@ -128,6 +128,7 @@ export const ModernBookCard = memo(function ModernBookCard({
               "group-hover:scale-108"
             )}
             loading="lazy"
+            decoding="async"
             onLoad={() => setImgLoaded(true)}
             onError={() => setImgError(true)}
           />

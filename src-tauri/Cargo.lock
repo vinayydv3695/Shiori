@@ -6865,6 +6865,7 @@ dependencies = [
  "env_logger",
  "epub",
  "feed-rs",
+ "filetime",
  "flate2",
  "futures",
  "hex",

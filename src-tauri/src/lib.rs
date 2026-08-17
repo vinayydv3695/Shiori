@@ -45,6 +45,10 @@ pub struct AppState {
     /// Shared command-layer response cache for online sources (search/browse/
     /// chapters/pages). Bounded in-memory; makes repeat lookups instant.
     pub source_response_cache: Arc<sources::cache::SourceResponseCache>,
+    /// Disk caches for online source data and proxied images (Slices 3 & 4).
+    /// Bounded by byte cap + startup sweep; survive restarts.
+    pub source_disk_cache: Arc<services::source_cache::SourceDiskCache>,
+    pub image_disk_cache: Arc<services::source_cache::ImageDiskCache>,
     pub discovery_service: std::sync::Arc<services::discovery_service::DiscoveryService>,
     /// URLs delivered via `RunEvent::Opened` (mobile "Open with" intents)
     /// that arrived before the webview was ready to receive the `opened`
@@ -160,8 +164,11 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_shell::init());
 
-    builder = builder.register_asynchronous_uri_scheme_protocol("shiori-proxy", |_ctx, request, responder| {
+    builder = builder.register_asynchronous_uri_scheme_protocol("shiori-proxy", |ctx, request, responder| {
         let uri = request.uri().to_string();
+        // Image disk cache (Slice 4): serve cached bytes without touching the
+        // network; write through on miss. Guarded by the SSRF check below.
+        let app_handle = ctx.app_handle().clone();
 
         tauri::async_runtime::spawn(async move {
             let mut source_id = None;
@@ -178,10 +185,33 @@ pub fn run() {
             }
 
             if let (Some(source_id), Some(image_url)) = (source_id, image_url) {
-                // Security Fix: SSRF Prevention
+                // Security Fix: SSRF Prevention — first gate, always.
                 let is_valid = is_safe_url(&image_url);
 
                 if is_valid {
+                    // Cache hit: no network at all. Content-Type comes from
+                    // the sidecar (image/jpeg fallback after a restart).
+                    let image_cache = app_handle
+                        .try_state::<AppState>()
+                        .map(|s| s.image_disk_cache.clone());
+                    if let Some(cache) = image_cache.as_ref() {
+                        if let Some(bytes) = cache.get(&source_id, &image_url) {
+                            let content_type = cache
+                                .get_content_type(&source_id, &image_url)
+                                .unwrap_or_else(|| "image/jpeg".to_string());
+                            if let Ok(resp) = tauri::http::Response::builder()
+                                .status(200)
+                                .header("Content-Type", content_type)
+                                .header("Access-Control-Allow-Origin", "*")
+                                .header("Cache-Control", "public, max-age=31536000, immutable")
+                                .body(bytes)
+                            {
+                                responder.respond(resp);
+                                return;
+                            }
+                        }
+                    }
+
                     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36";
                     let referer = match source_id.as_str() {
                         "toongod" => Some("https://www.toongod.org/"),
@@ -253,11 +283,15 @@ pub fn run() {
                         }
 
                         if body_ok {
+                            // Write through to the disk cache (Slice 4).
+                            if let Some(cache) = image_cache.as_ref() {
+                                cache.put(&source_id, &image_url, &bytes, &content_type);
+                            }
                             if let Ok(resp) = tauri::http::Response::builder()
                                 .status(200)
                                 .header("Content-Type", content_type)
                                 .header("Access-Control-Allow-Origin", "*")
-                                .header("Cache-Control", "public, max-age=31536000")
+                                .header("Cache-Control", "public, max-age=31536000, immutable")
                                 .body(bytes)
                             {
                                 responder.respond(resp);
@@ -624,6 +658,23 @@ pub fn run() {
                 count: std::sync::atomic::AtomicUsize::new(0),
             });
 
+            let source_disk_cache = std::sync::Arc::new(
+                services::source_cache::SourceDiskCache::new(app_dir.join("online_cache/source"))
+                    .map_err(|e| {
+                        ShioriError::Other(format!("Failed to init source disk cache: {}", e))
+                    })?,
+            );
+            let image_disk_cache = std::sync::Arc::new(
+                services::source_cache::ImageDiskCache::new(app_dir.join("online_cache/images"))
+                    .map_err(|e| {
+                        ShioriError::Other(format!("Failed to init image disk cache: {}", e))
+                    })?,
+            );
+            // Startup sweeps (memory guardrail): drop expired + over-cap
+            // entries so the caches never grow unbounded between sessions.
+            source_disk_cache.sweep();
+            image_disk_cache.sweep();
+
             app.manage(AppState {
                 db: database.clone(),
                 covers_dir: covers_dir.clone(),
@@ -631,6 +682,8 @@ pub fn run() {
                 source_response_cache: std::sync::Arc::new(
                     sources::cache::SourceResponseCache::new(),
                 ),
+                source_disk_cache: source_disk_cache.clone(),
+                image_disk_cache: image_disk_cache.clone(),
                 discovery_service: discovery_service.clone(),
                 opened_urls: std::sync::Mutex::new(Vec::new()),
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]

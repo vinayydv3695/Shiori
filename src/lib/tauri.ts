@@ -368,6 +368,13 @@ export interface CacheStats {
   hit_rate: number
 }
 
+/** Online disk-cache stats (backend: services/source_cache.rs). */
+export interface OnlineCacheStat {
+  entries: number
+  size_bytes: number
+  max_bytes: number
+}
+
 export interface MangaMetadata {
   title: string
   page_count: number
@@ -1882,6 +1889,18 @@ export const api = {
 
   async proxyMangaImage(sourceId: string, imageUrl: string): Promise<Uint8Array> {
     return invoke<number[]>('proxy_manga_image', { sourceId, imageUrl }).then(arr => new Uint8Array(arr))
+  },
+
+  // ── Online cache management (performance plan Slices 3/4/9) ──
+
+  /** Combined disk-cache stats: entries + bytes per cache (source data, images). */
+  async getOnlineCacheStats(): Promise<{ source: OnlineCacheStat; images: OnlineCacheStat }> {
+    return invoke('get_online_cache_stats')
+  },
+
+  /** Clear the online caches. which: 'source' | 'images' | 'all'. */
+  async clearOnlineCache(which: 'source' | 'images' | 'all'): Promise<void> {
+    return invoke('clear_online_cache', { which })
   },
 
   // Calibre Conversion

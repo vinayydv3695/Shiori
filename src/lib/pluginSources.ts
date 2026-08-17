@@ -129,6 +129,11 @@ export const pluginApi = {
     return invoke<SourceHealth>('source_health', { sourceId });
   },
 
+  /** Bulk health probe for background warm-up (Slice 8). */
+  async sourceHealthAll(): Promise<Record<string, SourceHealth>> {
+    return invoke<Record<string, SourceHealth>>('source_health_all');
+  },
+
   async setSourceEnabled(sourceId: string, enabled: boolean): Promise<boolean> {
     return invoke<boolean>('source_set_enabled', { sourceId, enabled });
   },

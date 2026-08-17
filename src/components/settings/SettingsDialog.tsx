@@ -52,6 +52,7 @@ import { logger } from '../../lib/logger'
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
+import { OnlineCacheSettings } from './OnlineCacheSettings'
 import { TorboxSettings } from './TorboxSettings'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -2400,6 +2401,11 @@ const CommunityPluginsSettings = ({
       {isSectionVisible('Online Sources', ['MangaDex', 'MangaFire', 'ToonGod', 'ManhwaHub', 'Weebrook', 'Nyaa', 'Project Gutenberg', 'LibGen']) && (
         <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
           <SourceManager />
+        </SettingSection>
+      )}
+      {isSectionVisible('Online Cache', ['Online Cache', 'Cache', 'Storage']) && (
+        <SettingSection title="Online Cache" description="Disk space used by online browsing — bounded and auto-cleaned">
+          <OnlineCacheSettings />
         </SettingSection>
       )}
     </div>

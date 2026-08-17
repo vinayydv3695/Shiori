@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { launchCacheGet, launchCacheSet } from '@/lib/launchCache';
 import { fetchLibgenBooks } from '@/online-books/libgen/api';
 import { fetchGutenbergBooks } from '@/online-books/gutenberg/api';
 import { fetchAnnasArchiveBooks } from '@/online-books/annas-archive/api';
@@ -29,9 +30,32 @@ export function useGlobalSearch() {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
 
+  // Slice 7 guards: a generation counter discards stale in-flight responses
+  // when the query changes, and an AbortController cancels the wire-level
+  // fetch (gutenberg). Results are capped so the DOM stays light.
+  const requestGenRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const RESULTS_CAP = 150;
+
   const search = useCallback(async (query: string, page: number = 1, filters?: OnlineAdvancedFilters, source: BookSourceFilter = 'all') => {
     setLoading(true);
     setError(null);
+    const gen = ++requestGenRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const isStale = () => gen !== requestGenRef.current;
+    const apply = (updater: (prev: UnifiedSearchResult[]) => UnifiedSearchResult[]) => {
+      if (isStale()) return;
+      setResults(prev => {
+        const combined = updater(prev).slice(0, RESULTS_CAP);
+        if (!isStale() && page === 1 && query) {
+          launchCacheSet(`books:${query}:${source}`, combined);
+        }
+        return combined;
+      });
+    };
 
     try {
       let libgenQuery = query;
@@ -41,9 +65,16 @@ export function useGlobalSearch() {
         else if (filters.series) libgenQuery = filters.series;
       }
 
-      if (page === 1) {
-        setResults([]);
+    if (page === 1) {
+      setResults([]);
+      // Slice 10 (instant launch): paint last session's results instantly
+      // when reopening the books section with the same query.
+      const cached = launchCacheGet<UnifiedSearchResult[]>(`books:${query}:${source}`);
+      if (cached && cached.length > 0) {
+        setResults(cached);
+        setHasMore(false);
       }
+    }
 
       const applyFiltersAndSort = (unified: UnifiedSearchResult[]) => {
         let filtered = unified;
@@ -71,7 +102,8 @@ export function useGlobalSearch() {
 
       const fetchGutenberg = async () => {
         try {
-          const gutenbergRes = await fetchGutenbergBooks(query, page, filters);
+          const gutenbergRes = await fetchGutenbergBooks(query, page, filters, controller.signal);
+          if (isStale()) return;
           if (gutenbergRes.results) {
             const unified: UnifiedSearchResult[] = [];
             gutenbergRes.results.forEach((book) => {
@@ -92,7 +124,7 @@ export function useGlobalSearch() {
             });
             const filtered = applyFiltersAndSort(unified);
             if (filtered.length > 0) anyHasMore = true;
-            setResults(prev => {
+            apply(prev => {
               const existingIds = new Set(prev.map(p => p.id));
               const newItems = filtered.filter(f => !existingIds.has(f.id));
               const combined = [...prev, ...newItems];
@@ -100,6 +132,7 @@ export function useGlobalSearch() {
             });
           }
         } catch (e) {
+          if ((e as Error)?.name === 'AbortError') return;
           console.error("Gutenberg search error:", e);
         }
       };
@@ -133,7 +166,7 @@ export function useGlobalSearch() {
             });
             const filtered = applyFiltersAndSort(unified);
             if (filtered.length > 0) anyHasMore = true;
-            setResults(prev => {
+            apply(prev => {
               const existingIds = new Set(prev.map(p => p.id));
               const newItems = filtered.filter(f => !existingIds.has(f.id));
               const combined = [...prev, ...newItems];
@@ -169,7 +202,7 @@ export function useGlobalSearch() {
             });
             const filtered = applyFiltersAndSort(unified);
             if (filtered.length > 0) anyHasMore = true;
-            setResults(prev => {
+            apply(prev => {
               const existingIds = new Set(prev.map(p => p.id));
               const newItems = filtered.filter(f => !existingIds.has(f.id));
               const combined = [...prev, ...newItems];
@@ -197,15 +230,22 @@ export function useGlobalSearch() {
         fetchers.push(fetchAnnasArchive());
       }
       await Promise.allSettled(fetchers);
-      setHasMore(anyHasMore);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during search');
+      if (!isStale()) {
+        setHasMore(anyHasMore);
+      }
+    } catch (err: unknown) {
+      if ((err as Error)?.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (!isStale()) {
+        setLoading(false);
+      }
     }
   }, []);
 
   const clear = useCallback(() => {
+    requestGenRef.current++;
+    abortRef.current?.abort();
     setResults([]);
     setError(null);
     setHasMore(true);

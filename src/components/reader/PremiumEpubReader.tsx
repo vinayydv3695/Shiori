@@ -246,7 +246,7 @@ function getCachedChapter(bookId: number, index: number, term: string | null | u
   return hit;
 }
 
-async function waitForStableReaderLayout(element: HTMLElement | null): Promise<void> {
+export async function waitForStableReaderLayout(element: HTMLElement | null): Promise<void> {
   if (!element) return;
 
   // Font readiness can be unavailable in older Android WebViews. Bound the
@@ -276,6 +276,7 @@ async function waitForStableReaderLayout(element: HTMLElement | null): Promise<v
   }
 }
 
+
 function setCachedChapter(bookId: number, index: number, term: string | null | undefined, chapter: Chapter): void {
   const key = `${bookId}:${index}:${term ?? ''}`;
   const size = estimateProcessedChapterBytes(chapter);
@@ -302,7 +303,7 @@ function setCachedChapter(bookId: number, index: number, term: string | null | u
   processedChapterCacheBytes += size;
 }
 
-function clearProcessedChapterCache(bookId?: number): void {
+export function clearProcessedChapterCache(bookId?: number): void {
   const prefix = bookId === undefined ? undefined : `${bookId}:`;
   for (const [key, chapter] of processedChapterCache) {
     if (prefix === undefined || key.startsWith(prefix)) {
@@ -1053,7 +1054,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   const nextPage = useCallback(() => {
     const now = Date.now();
-    if (now - lastPageNavigationRef.current < 180) return;
+    if (now - lastPageNavigationRef.current < 120) return;
     lastPageNavigationRef.current = now;
 
     if (!isFocusMode && !isTopBarShortcutOnly) {
@@ -1094,7 +1095,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   const prevPage = useCallback(() => {
     const now = Date.now();
-    if (now - lastPageNavigationRef.current < 180) return;
+    if (now - lastPageNavigationRef.current < 120) return;
     lastPageNavigationRef.current = now;
 
     if (!isFocusMode && !isTopBarShortcutOnly) {

@@ -43,7 +43,8 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
     selectedBookId, setSelectedBookId,
     exportDialogOpen, setExportDialogOpen,
     quoteCardData, setQuoteCardData,
-    uniqueBooks, stats, displayedAnnotations, groupedAnnotations, tabs
+    uniqueBooks, stats, displayedAnnotations, groupedAnnotations, tabs,
+    hasMoreAnnotations, loadMoreAnnotations,
   } = data;
 
   const [sidebarSearch, setSidebarSearch] = useState('');
@@ -573,6 +574,13 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
                   ))}
                 </div>
               )
+            )}
+            {hasMoreAnnotations && (
+              <div className="flex justify-center pt-2 pb-6">
+                <Button variant="outline" size="sm" onClick={loadMoreAnnotations}>
+                  Show more annotations
+                </Button>
+              </div>
             )}
           </div>
         </div>

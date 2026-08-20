@@ -5,11 +5,18 @@ import android.os.Bundle
 import android.view.ActionMode
 import android.view.Menu
 import android.view.WindowManager
+import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : TauriActivity() {
+  private var memoryEventWebView: WebView? = null
+
+  override fun onWebViewCreate(webView: WebView) {
+    memoryEventWebView = webView
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
@@ -39,6 +46,20 @@ class MainActivity : TauriActivity() {
   override fun onActionModeStarted(mode: ActionMode?) {
       mode?.menu?.clear()
       super.onActionModeStarted(mode)
+  }
+
+  // Forward system low-memory pressure to the webview so the reader can purge
+  // large cached blobs and processed chapters before the OS kills the process.
+  override fun onLowMemory() {
+    super.onLowMemory()
+    memoryEventWebView?.post {
+      runCatching {
+        memoryEventWebView?.evaluateJavascript(
+          "window.dispatchEvent(new Event('shiori-low-memory'))",
+          null,
+        )
+      }
+    }
   }
 }
 

@@ -28,7 +28,8 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
     selectedBookId, setSelectedBookId,
     exportDialogOpen, setExportDialogOpen,
     quoteCardData, setQuoteCardData,
-    uniqueBooks, displayedAnnotations, groupedAnnotations, tabs
+    uniqueBooks, displayedAnnotations, groupedAnnotations, tabs,
+    hasMoreAnnotations, loadMoreAnnotations,
   } = data;
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -254,6 +255,18 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
               {displayedAnnotations.map(result => (
                 <AnnotationCard key={result.annotation.id} result={result} categories={categories} onOpenBook={onOpenBook} setQuoteCardData={setQuoteCardData} />
               ))}
+            </div>
+          )}
+          {/* Render cap pagination — stays inside the scroll container. */}
+          {hasMoreAnnotations && (
+            <div className="flex justify-center pt-2 pb-4">
+              <button
+                type="button"
+                onClick={loadMoreAnnotations}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all active:scale-95"
+              >
+                Show more annotations
+              </button>
             </div>
           )}
         </div>

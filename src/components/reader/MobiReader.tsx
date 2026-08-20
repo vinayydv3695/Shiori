@@ -18,6 +18,7 @@ import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
+import { waitForStableReaderLayout } from './PremiumEpubReader';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
@@ -147,6 +148,9 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 }
             };
 
+            // Wait for fonts/images/columns to settle before measuring, so the
+            // target ratio is computed against final layout (same fix as EPUB).
+            await waitForStableReaderLayout(containerRef.current);
             requestAnimationFrame(() => {
                 setTimeout(attemptScroll, 50);
             });

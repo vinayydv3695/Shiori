@@ -21,6 +21,7 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { useDoodleStore } from '@/store/doodleStore';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
+import { waitForStableReaderLayout } from './PremiumEpubReader';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
@@ -192,10 +193,14 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
             setIsLoading(false);
 
-            // Restore scroll progress after brief render delay
+            // Restore scroll progress after stable layout (fonts/images/columns
+            // settled) instead of a blind timer against a moving layout.
             window.setTimeout(() => {
-                void restoreProgress();
-            }, 300);
+                void (async () => {
+                    await waitForStableReaderLayout(containerRef.current);
+                    await restoreProgress();
+                })();
+            }, 150);
 
         } catch (err) {
             logger.error('[GenericHtmlReader] Error loading book:', err);

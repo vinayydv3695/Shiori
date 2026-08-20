@@ -16,6 +16,11 @@ export function useAnnotationsData() {
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [sortOrder, setSortOrder] = useState<AnnotationSortOrder>('newest');
+
+  // Render cap: long libraries can hold 1000+ annotations; rendering them all
+  // at once stalls weak Android WebViews. Display in pages of 100.
+  const [limit, setLimit] = useState(100);
+  const PAGE_SIZE = 100;
   
   // Sidebar State
   const [selectedBookId, setSelectedBookId] = useState<number | 'all'>('all');
@@ -114,9 +119,8 @@ export function useAnnotationsData() {
   }, [annotations, selectedBookId, uniqueBooks]);
 
   // Filtered & Sorted Annotations for Main Pane
-  const displayedAnnotations = useMemo(() => {
-    let list = selectedBookId === 'all' ? [...annotations] : annotations.filter(a => a.annotation.bookId === selectedBookId);
-
+  const totalAnnotations = useMemo(() => {
+    const list = selectedBookId === 'all' ? [...annotations] : annotations.filter(a => a.annotation.bookId === selectedBookId);
     if (sortOrder === 'newest') {
       list.sort((a, b) => new Date(b.annotation.createdAt || 0).getTime() - new Date(a.annotation.createdAt || 0).getTime());
     } else if (sortOrder === 'oldest') {
@@ -127,6 +131,11 @@ export function useAnnotationsData() {
 
     return list;
   }, [annotations, selectedBookId, sortOrder]);
+
+  const displayedAnnotations = useMemo(() => totalAnnotations.slice(0, limit), [totalAnnotations, limit]);
+
+  const hasMoreAnnotations = totalAnnotations.length > displayedAnnotations.length;
+  const loadMoreAnnotations = () => setLimit(prev => prev + PAGE_SIZE);
 
   // Grouped Annotations (only used when 'all' is selected)
   const groupedAnnotations = useMemo(() => {
@@ -166,6 +175,8 @@ export function useAnnotationsData() {
     groupedAnnotations,
     fetchAnnotations,
     fetchCategories,
+    hasMoreAnnotations,
+    loadMoreAnnotations,
     tabs
   };
 }

@@ -22,6 +22,7 @@ import { useBookActions } from "./hooks/useBookActions"
 import { useLibraryFilter } from "./hooks/useLibraryFilter"
 import { useOpenedFiles } from "./hooks/useOpenedFiles"
 import { api, isAndroid } from "./lib/tauri"
+import { initLowMemoryHandler } from "./lib/lowMemory"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { useShelfStore } from "./store/shelfStore"
@@ -45,6 +46,9 @@ const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
 
 function App() {
   const [splashFinished, setSplashFinished] = useState(false)
+
+  // Android low-memory purge (MainActivity.onLowMemory → shiori-low-memory).
+  useEffect(() => initLowMemoryHandler(), [])
 
   // ── Onboarding ──
   const onboardingComplete = useOnboardingStore(s => s.onboardingComplete)

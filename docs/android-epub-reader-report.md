@@ -416,3 +416,10 @@ Implemented and gated (backend lib tests 296/0, frontend tests 187/0, `tsc --noE
 Not yet implemented:
 - Android low-memory Rust callback wiring (generated `WryActivity`/`Rust.kt` — not hand-edited).
 - Android annotation-list virtualization (currently capped implicitly by API limit 1000).
+
+## Fix status (second pass, 2026-08-20)
+
+- **Android low-memory wiring** — `MainActivity.onLowMemory` now dispatches a `shiori-low-memory` webview event; `src/lib/lowMemory.ts` (wired once in `App`) purges processed-chapter cache, online blob cache, and the Rust renderer cache under OS pressure.
+- **Annotation list render cap** — `useAnnotationsData` pages results in 100-item increments with "Show more annotations" in both Android and Desktop views; no more 1000-card first paint.
+- **Nav throttle** — reduced 180 ms → 120 ms so deliberate fast page-turns stay responsive while duplicate synth-clicks stay blocked.
+- **Mobi/HTML layout restore** — `waitForStableReaderLayout` (fonts.ready + 10-frame metric stability) now gates scroll restore in `MobiReader` and `GenericHtmlReader`, replacing blind 300 ms timers.

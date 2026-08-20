@@ -16,9 +16,10 @@ import { api, isTauri, isAndroid, isLinux } from '@/lib/tauri';
 import type { VoiceInfo } from '@/lib/tauri';
 import { buildVoicePickerItems } from '@/lib/voicePicker';
 import { usePreferencesStore } from '@/store/preferencesStore';
+import { useToastStore } from '@/store/toastStore';
 import { extractTextFromDOM } from '@/lib/textExtractor';
 // Native TTS support (Tauri plugin)
-import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices } from 'tauri-plugin-tts-api';
+import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices, onSpeechEvent } from 'tauri-plugin-tts-api';
 
 // Module-level cache for Piper voices in the reader picker. Tolerates
 // failure silently: a Piper outage must never break the native voice list.
@@ -88,6 +89,14 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   const cleanupHighlightRef = useRef<(() => void) | null>(null);
   const speakSentenceAtIndexRef = useRef<(index: number, sentenceArray?: string[]) => void>(() => {});
   const nativeTTSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Android: the native plugin emits speech:start / speech:finish / speech:error
+  // events. Drive sentence advance from speech:finish and surface real errors
+  // instead of timing out blindly (which made the UI “read” sentences while no
+  // audio played). Desktop engines do not emit events — the timer stays.
+  const audioStartConfirmedRef = useRef(false);
+  const audioGuardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nativeErrorReportedRef = useRef(false);
+  const finishAdvanceRef = useRef<() => void>(() => {});
 
   const isAvailable = TTSEngine.isAvailable() || useNativeTTS || (isTauri && !isAndroid);
 
@@ -113,6 +122,76 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
 
     checkNativeTTS();
   }, []);
+
+  // Android: subscribe to plugin speech events so sentence advance follows real
+  // audio finish and engine errors surface instead of silent timeouts.
+  useEffect(() => {
+    if (!useNativeTTS || !isAndroid) return;
+    let mounted = true;
+    const unlisteners: (() => void)[] = [];
+
+    const subscribe = (event: 'speech:start' | 'speech:finish' | 'speech:error', cb: (payload: unknown) => void) => {
+      onSpeechEvent(event, () => cb(null))
+        .then((unlisten) => {
+          if (mounted) unlisteners.push(unlisten);
+          else unlisten();
+        })
+        .catch((e) => logger.warn(`[TTS] subscribe ${event} failed`, e));
+    };
+
+    subscribe('speech:start', () => {
+      audioStartConfirmedRef.current = true;
+      if (audioGuardTimerRef.current) {
+        clearTimeout(audioGuardTimerRef.current);
+        audioGuardTimerRef.current = null;
+      }
+    });
+
+    subscribe('speech:finish', () => {
+      audioStartConfirmedRef.current = true;
+      if (audioGuardTimerRef.current) {
+        clearTimeout(audioGuardTimerRef.current);
+        audioGuardTimerRef.current = null;
+      }
+      if (mounted) finishAdvanceRef.current();
+    });
+
+    subscribe('speech:error', () => {
+      if (!mounted) return;
+      if (audioGuardTimerRef.current) {
+        clearTimeout(audioGuardTimerRef.current);
+        audioGuardTimerRef.current = null;
+      }
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+        nativeTTSTimeoutRef.current = null;
+      }
+      nativeStop().catch(() => {});
+      setState('idle');
+      if (cleanupHighlightRef.current) {
+        cleanupHighlightRef.current();
+        cleanupHighlightRef.current = null;
+      }
+      if (!nativeErrorReportedRef.current) {
+        nativeErrorReportedRef.current = true;
+        useToastStore.getState().addToast({
+          title: 'TTS stopped',
+          description: 'Speech synthesis reported an error — check the TTS engine and voice data.',
+          variant: 'error',
+          duration: 4000,
+        });
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unlisteners.forEach((u) => u());
+      if (audioGuardTimerRef.current) {
+        clearTimeout(audioGuardTimerRef.current);
+        audioGuardTimerRef.current = null;
+      }
+    };
+  }, [useNativeTTS, isAndroid]);
 
   useEffect(() => {
     if (!isAvailable) {
@@ -212,6 +291,30 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
     }
   }, [contentKey]);
 
+  // Called by Android speech:finish (and as a fallback by the time-budget timer
+  // on desktop where no events are emitted). Shared tail: advance or finish.
+  useEffect(() => {
+    finishAdvanceRef.current = () => {
+      if (nativeTTSTimeoutRef.current) {
+        clearTimeout(nativeTTSTimeoutRef.current);
+        nativeTTSTimeoutRef.current = null;
+      }
+      const nextIndex = currentIndexRef.current + 1;
+      if (nextIndex < sentencesRef.current.length) {
+        speakSentenceAtIndexRef.current(nextIndex);
+      } else {
+        setState('idle');
+        setCurrentSentenceIndex(0);
+        currentIndexRef.current = 0;
+        if (cleanupHighlightRef.current) {
+          cleanupHighlightRef.current();
+          cleanupHighlightRef.current = null;
+        }
+        onChapterEnd?.();
+      }
+    };
+  }, [onChapterEnd]);
+
   useEffect(() => {
     const contentEl = contentRef.current;
     return () => {
@@ -305,8 +408,44 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         });
 
     } else if (useNativeTTS) {
-      const estimatedDuration = (sentence.length / 15) * (1.0 / rate) * 1000;
-      
+      // Calculate realistic duration considering Android TTS initialization overhead
+      const charsPerSec = 14 * Math.max(0.5, rate);
+      const estimatedDuration = Math.max(1500, Math.ceil((sentence.length / charsPerSec) * 1000));
+
+      // Android: expect the engine to fire speech:start soon. If it never does,
+      // the voice/engine/language is silently unusable — surface it and stop
+      // instead of advancing through sentences with no audio.
+      if (isAndroid) {
+        audioStartConfirmedRef.current = false;
+        if (audioGuardTimerRef.current) {
+          clearTimeout(audioGuardTimerRef.current);
+          audioGuardTimerRef.current = null;
+        }
+        audioGuardTimerRef.current = setTimeout(() => {
+          audioGuardTimerRef.current = null;
+          if (audioStartConfirmedRef.current) return;
+          if (nativeTTSTimeoutRef.current) {
+            clearTimeout(nativeTTSTimeoutRef.current);
+            nativeTTSTimeoutRef.current = null;
+          }
+          nativeStop().catch(() => {});
+          setState('idle');
+          if (cleanupHighlightRef.current) {
+            cleanupHighlightRef.current();
+            cleanupHighlightRef.current = null;
+          }
+          if (!nativeErrorReportedRef.current) {
+            nativeErrorReportedRef.current = true;
+            useToastStore.getState().addToast({
+              title: 'No TTS audio',
+              description: 'The selected voice produced no audio — check TTS engine, voice language data and media volume.',
+              variant: 'error',
+              duration: 4000,
+            });
+          }
+        }, 1800);
+      }
+
       nativeSpeak({
         text: sentence,
         language: selectedVoice?.lang || null,
@@ -316,54 +455,59 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         volume: null,
         queueMode: null,
       }).catch((error) => {
-        logger.warn('Native TTS encountered an error, falling back to Web Speech engine:', error);
-        ttsEngine.speak(sentence, {
-          voice: selectedVoice || undefined,
-          rate,
-          pitch,
-          onEnd: () => {
-            const nextIndex = currentIndexRef.current + 1;
-            if (nextIndex < sentencesRef.current.length) {
-              speakSentenceAtIndexRef.current(nextIndex);
-            } else {
-              setState('idle');
-              setCurrentSentenceIndex(0);
-              currentIndexRef.current = 0;
-              if (cleanupHighlightRef.current) {
-                cleanupHighlightRef.current();
-                cleanupHighlightRef.current = null;
-              }
-              onChapterEnd?.();
-            }
-          },
-          onError: (event) => {
-            logger.error('TTS error:', event);
-            setState('idle');
+        logger.warn('Native TTS encountered an error:', error);
+        if (audioGuardTimerRef.current) {
+          clearTimeout(audioGuardTimerRef.current);
+          audioGuardTimerRef.current = null;
+        }
+        if (isAndroid) {
+          // Android WebView speechSynthesis is frequently absent/silent — do not
+          // fall back to it. Stop and tell the user instead.
+          nativeStop().catch(() => {});
+          setState('idle');
+          if (cleanupHighlightRef.current) {
+            cleanupHighlightRef.current();
+            cleanupHighlightRef.current = null;
           }
-        });
+          if (!nativeErrorReportedRef.current) {
+            nativeErrorReportedRef.current = true;
+            useToastStore.getState().addToast({
+              title: 'TTS failed',
+              description: String(error && typeof error === 'object' && 'message' in error ? (error as { message?: string }).message : error),
+              variant: 'error',
+              duration: 4000,
+            });
+          }
+        } else {
+          ttsEngine.speak(sentence, {
+            voice: selectedVoice || undefined,
+            rate,
+            pitch,
+            onEnd: () => {
+              if (nativeTTSTimeoutRef.current) {
+                clearTimeout(nativeTTSTimeoutRef.current);
+                nativeTTSTimeoutRef.current = null;
+              }
+              finishAdvanceRef.current();
+            },
+            onError: (event) => {
+              logger.error('TTS error:', event);
+              setState('idle');
+            }
+          });
+        }
       });
 
       setState('speaking');
       setCurrentSentenceIndex(index);
       currentIndexRef.current = index;
 
+      // Advance on Android via speech:finish (fast, real). The time budget below
+      // is the safety net for engines that never emit events, and the primary
+      // driver on desktop.
       nativeTTSTimeoutRef.current = setTimeout(() => {
-        const nextIndex = currentIndexRef.current + 1;
-
-        if (nextIndex < sentencesRef.current.length) {
-          speakSentenceAtIndexRef.current(nextIndex);
-        } else {
-          setState('idle');
-          setCurrentSentenceIndex(0);
-          currentIndexRef.current = 0;
-          
-          if (cleanupHighlightRef.current) {
-            cleanupHighlightRef.current();
-            cleanupHighlightRef.current = null;
-          }
-
-          onChapterEnd?.();
-        }
+        nativeTTSTimeoutRef.current = null;
+        finishAdvanceRef.current();
       }, estimatedDuration);
     } else {
       ttsEngine.speak(sentence, {
@@ -431,6 +575,9 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
     sentencesRef.current = sentenceList;
     setCurrentSentenceIndex(0);
     currentIndexRef.current = 0;
+    // Fresh session: allow one error/silence toast per play, re-arm audio guard.
+    audioStartConfirmedRef.current = false;
+    nativeErrorReportedRef.current = false;
 
     // Start speaking from sentence 0
     speakSentenceAtIndex(0, sentenceList);
@@ -486,6 +633,10 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
       if (nativeTTSTimeoutRef.current) {
         clearTimeout(nativeTTSTimeoutRef.current);
         nativeTTSTimeoutRef.current = null;
+      }
+      if (audioGuardTimerRef.current) {
+        clearTimeout(audioGuardTimerRef.current);
+        audioGuardTimerRef.current = null;
       }
       try {
         await nativeStop();

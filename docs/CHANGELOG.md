@@ -1,3 +1,11 @@
+# Release Notes (v2.3.40)
+
+## Features & Improvements
+
+- **Android SAF Folder Picker Unregistered Launcher Fix (`SafPlugin.kt`)** — Added `activity.startActivityForResult` fallback with `onActivityResult` callback handling in `SafPlugin.kt`, resolving `IllegalStateException: Attempting to launch an unregistered ActivityResultLauncher` on Android 14.
+- **Android Settings Navigation Back Button (`SettingsDialog.tsx`)** — Added a prominent back arrow button in the Settings title bar on Android and mobile screens, enabling one-tap back navigation and dialog closing.
+- **Resolved iOS CI Compilation (`Cargo.toml` & `secret_store.rs`)** — Updated desktop `keyring` dependency target rules to `cfg(not(any(target_os = "android", target_os = "ios")))`, eliminating iOS Keychain `protected` compilation failures.
+
 # Release Notes (v2.3.39)
 
 ## Features & Improvements

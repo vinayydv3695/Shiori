@@ -23,6 +23,38 @@ import androidx.documentfile.provider.DocumentFile
 @TauriPlugin
 class SafPlugin(private val activity: Activity): Plugin(activity) {
 
+    private var pendingFolderInvoke: Invoke? = null
+    private var pendingFilesInvoke: Invoke? = null
+    private var pendingCreateDocInvoke: Invoke? = null
+
+    companion object {
+        private const val REQ_SAF_FOLDER = 9101
+        private const val REQ_SAF_FILES = 9102
+        private const val REQ_SAF_CREATE_DOC = 9103
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val activityResult = androidx.activity.result.ActivityResult(resultCode, data)
+        when (requestCode) {
+            REQ_SAF_FOLDER -> {
+                val inv = pendingFolderInvoke ?: return
+                pendingFolderInvoke = null
+                safFolderResult(inv, activityResult)
+            }
+            REQ_SAF_FILES -> {
+                val inv = pendingFilesInvoke ?: return
+                pendingFilesInvoke = null
+                safFilesResult(inv, activityResult)
+            }
+            REQ_SAF_CREATE_DOC -> {
+                val inv = pendingCreateDocInvoke ?: return
+                pendingCreateDocInvoke = null
+                safCreateDocumentResult(inv, activityResult)
+            }
+        }
+    }
+
     @Command
     fun selectFolder(invoke: Invoke) {
         launchFolderPicker(invoke)
@@ -126,8 +158,14 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         activity.runOnUiThread {
             try {
                 startActivityForResult(invoke, intent, "safFilesResult")
-            } catch (e: Exception) {
-                invoke.reject("Failed to open file picker: ${e.message}")
+            } catch (e: Throwable) {
+                try {
+                    pendingFilesInvoke = invoke
+                    activity.startActivityForResult(intent, REQ_SAF_FILES)
+                } catch (ex: Exception) {
+                    pendingFilesInvoke = null
+                    invoke.reject("Failed to open file picker: ${ex.message}")
+                }
             }
         }
     }
@@ -139,8 +177,14 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         activity.runOnUiThread {
             try {
                 startActivityForResult(invoke, intent, "safFolderResult")
-            } catch (e: Exception) {
-                invoke.reject("Failed to open folder picker: ${e.message}")
+            } catch (e: Throwable) {
+                try {
+                    pendingFolderInvoke = invoke
+                    activity.startActivityForResult(intent, REQ_SAF_FOLDER)
+                } catch (ex: Exception) {
+                    pendingFolderInvoke = null
+                    invoke.reject("Failed to open folder picker: ${ex.message}")
+                }
             }
         }
     }
@@ -350,7 +394,17 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             putExtra(Intent.EXTRA_TITLE, fileName)
         }
         activity.runOnUiThread {
-            startActivityForResult(invoke, intent, "safCreateDocumentResult")
+            try {
+                startActivityForResult(invoke, intent, "safCreateDocumentResult")
+            } catch (e: Throwable) {
+                try {
+                    pendingCreateDocInvoke = invoke
+                    activity.startActivityForResult(intent, REQ_SAF_CREATE_DOC)
+                } catch (ex: Exception) {
+                    pendingCreateDocInvoke = null
+                    invoke.reject("Failed to open save location picker: ${ex.message}")
+                }
+            }
         }
     }
 

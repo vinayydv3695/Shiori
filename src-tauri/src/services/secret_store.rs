@@ -23,17 +23,15 @@ const SERVICE: &str = "io.github.vinayydv3695.shiori";
 /// is unavailable (no daemon / unsupported platform) — callers fall back to
 /// their legacy storage in that case. Failures are logged at debug level.
 pub fn get(account: &str) -> Result<Option<String>> {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
-        // ponytail: no keyring backend on Android; Android AniList token already lives
-        // in EncryptedSharedPreferences via tauri-plugin-android-auth; prowlarr/torbox
-        // keys remain at-rest plaintext on Android — extending the android-auth plugin
-        // to generic secure storage is the ceiling.
+        // ponytail: no keyring backend on mobile (Android/iOS); mobile AniList token already lives
+        // in plugin storage; prowlarr/torbox keys remain at-rest plaintext on mobile.
         let _ = account;
         return Ok(None);
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let entry = match keyring::Entry::new(SERVICE, account) {
             Ok(entry) => entry,
@@ -59,17 +57,13 @@ pub fn get(account: &str) -> Result<Option<String>> {
 /// as the fallback), and `Err` only for unexpected failures the caller should
 /// propagate.
 pub fn set(account: &str, value: &str) -> Result<bool> {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
-        // ponytail: no keyring backend on Android; Android AniList token already lives
-        // in EncryptedSharedPreferences via tauri-plugin-android-auth; prowlarr/torbox
-        // keys remain at-rest plaintext on Android — extending the android-auth plugin
-        // to generic secure storage is the ceiling.
         let _ = (account, value);
         return Ok(false);
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let entry = match keyring::Entry::new(SERVICE, account) {
             Ok(entry) => entry,
@@ -87,13 +81,13 @@ pub fn set(account: &str, value: &str) -> Result<bool> {
 /// Never fails: missing entries and unavailable keyrings are logged at debug
 /// level and ignored.
 pub fn delete(account: &str) {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         let _ = account;
         return;
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         match keyring::Entry::new(SERVICE, account) {
             Ok(entry) => {
@@ -108,7 +102,7 @@ pub fn delete(account: &str) {
 
 /// Classify a keyring failure as "unavailable" (caller keeps legacy storage)
 /// versus a real failure worth propagating.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn unavailable(account: &str, e: keyring::Error) -> Result<bool> {
     if matches!(
         e,

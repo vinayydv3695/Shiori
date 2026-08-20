@@ -323,13 +323,26 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3"
             style={{ paddingTop: isMobile ? 'max(env(safe-area-inset-top, 0px), 16px)' : undefined }}
           >
-            {isMobile && mobileView === 'detail' ? (
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => { triggerHaptic(50); setMobileView('root'); }} className="-ml-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            {isMobile ? (
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => { 
+                    triggerHaptic(50); 
+                    if (mobileView === 'detail') {
+                      setMobileView('root'); 
+                    } else {
+                      onOpenChange(false);
+                    }
+                  }} 
+                  className="-ml-2 text-foreground/80 hover:text-foreground active:scale-95"
+                  aria-label={mobileView === 'detail' ? "Back to settings list" : "Close settings"}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                 </Button>
                 <Dialog.Title className="text-xl font-semibold">
-                  {tabs.find(t => t.id === selectedTab)?.name || 'Settings'}
+                  {mobileView === 'detail' ? (tabs.find(t => t.id === selectedTab)?.name || 'Settings') : 'Settings'}
                 </Dialog.Title>
               </div>
             ) : (

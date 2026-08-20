@@ -1,3 +1,10 @@
+# Release Notes (v2.3.43)
+
+## Features & Improvements
+
+- **Android SAF ActivityResultLauncher Lifecycle Registration** — Registered SAF document/folder launchers during plugin initialization (`load()` / `onCreate`) to ensure 100% compliance with Android 14 AndroidX `ActivityResultRegistry` requirements.
+- **Android Premium Settings UI Sync** — Synchronized version numbers across `package.json`, `Cargo.toml`, and `tauri.conf.json` for release deployment.
+
 # Release Notes (v2.3.42)
 
 ## Fixes

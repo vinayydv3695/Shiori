@@ -877,21 +877,31 @@ export const api = {
 
   // Reader - Reading Progress
   async getReadingProgress(bookId: number): Promise<ReadingProgress | null> {
-    const raw = await invoke<unknown>("get_reading_progress", { bookId })
-    return normalizeReadingProgress(raw)
+    try {
+      const raw = await invoke<unknown>("get_reading_progress", { bookId })
+      return normalizeReadingProgress(raw)
+    } catch (err) {
+      logger.warn('[getReadingProgress] IPC failed:', err);
+      return null;
+    }
   },
 
   async getReadingProgressBatch(bookIds: number[]): Promise<Record<number, ReadingProgress>> {
     if (!bookIds || bookIds.length === 0) return {};
-    const raw = await invoke<Record<string, unknown>>("get_reading_progress_batch", { bookIds })
-    const result: Record<number, ReadingProgress> = {};
-    for (const [key, value] of Object.entries(raw)) {
-      const normalized = normalizeReadingProgress(value);
-      if (normalized) {
-        result[Number(key)] = normalized;
+    try {
+      const raw = await invoke<Record<string, unknown>>("get_reading_progress_batch", { bookIds })
+      const result: Record<number, ReadingProgress> = {};
+      for (const [key, value] of Object.entries(raw)) {
+        const normalized = normalizeReadingProgress(value);
+        if (normalized) {
+          result[Number(key)] = normalized;
+        }
       }
+      return result;
+    } catch (err) {
+      logger.warn('[getReadingProgressBatch] IPC failed:', err);
+      return {};
     }
-    return result;
   },
 
   async saveReadingProgress(
@@ -902,16 +912,30 @@ export const api = {
     totalPages?: number,
     cfiLocation?: string
   ): Promise<ReadingProgress> {
-    const raw = await invoke<unknown>("save_reading_progress", {
-      bookId,
-      currentLocation,
-      progressPercent,
-      currentPage,
-      totalPages,
-      cfiLocation,
-    })
-    const normalized = normalizeReadingProgress(raw)
-    if (!normalized) {
+    try {
+      const raw = await invoke<unknown>("save_reading_progress", {
+        bookId,
+        currentLocation,
+        progressPercent,
+        currentPage,
+        totalPages,
+        cfiLocation,
+      })
+      const normalized = normalizeReadingProgress(raw)
+      if (!normalized) {
+        return {
+          bookId,
+          currentLocation,
+          progressPercent,
+          currentPage,
+          totalPages,
+          cfiLocation,
+          lastRead: new Date().toISOString(),
+        }
+      }
+      return normalized
+    } catch (err) {
+      logger.warn('[saveReadingProgress] IPC failed:', err);
       return {
         bookId,
         currentLocation,
@@ -920,9 +944,8 @@ export const api = {
         totalPages,
         cfiLocation,
         lastRead: new Date().toISOString(),
-      }
+      };
     }
-    return normalized
   },
 
   // Reader - Annotations

@@ -339,6 +339,7 @@ export interface BookMetadata {
   total_chapters: number
   total_pages: number | null
   format: string
+  cover_path?: string | null
 }
 
 export interface TocEntry {

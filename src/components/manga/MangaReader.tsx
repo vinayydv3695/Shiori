@@ -569,7 +569,7 @@ export function MangaReader(props: MangaReaderProps) {
     if (isLoading) {
         return (
             <BookSkeletonLoading
-                title={mangaTitle || 'Manga Reader'}
+                title={(props.mode === 'local' ? props.title : props.sourceConfig?.contentTitle) || 'Manga Reader'}
                 message="Loading manga pages..."
                 format="manga"
             />

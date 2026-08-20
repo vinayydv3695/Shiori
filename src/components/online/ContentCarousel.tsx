@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useInView } from 'react-intersection-observer';
+import { getProxyUrl } from '@/lib/tauri';
 
 export interface CarouselItem {
   id: string;
@@ -28,8 +30,6 @@ const CarouselCard = memo(function CarouselCard({
   onClick?: (item: CarouselItem) => void;
   scrollRoot: RefObject<HTMLElement | null>;
 }) {
-  const [visible, setVisible] = useState(false);
-  const cardRef = useRef<HTMLButtonElement>(null);
   const { ref: cardRef, inView } = useInView({
     triggerOnce: true,
     rootMargin: '200px',

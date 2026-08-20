@@ -588,7 +588,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 style={{ scrollBehavior: 'smooth' }}
             >
                 <div className={`premium-content-container premium-content-container--${width}`}>
-                    <div className="premium-chapter-page" style={{ height: 'auto', minHeight: '100%' }}>
+                    <div className="premium-chapter-page" data-chapter-index={currentChapter} style={{ height: 'auto', minHeight: '100%' }}>
                         <div
                             ref={contentRef}
                             onClick={(e) => {

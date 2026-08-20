@@ -586,7 +586,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 )}
 
                 <div className={`premium-content-container premium-content-container--${width}`}>
-                    <div className="premium-chapter-page" style={{ height: 'auto', minHeight: '100%' }}>
+                    <div className="premium-chapter-page" data-chapter-index={currentIndex} style={{ height: 'auto', minHeight: '100%' }}>
                         <div
                             ref={contentRef}
                             className="premium-chapter-content"

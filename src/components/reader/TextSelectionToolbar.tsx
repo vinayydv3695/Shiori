@@ -458,7 +458,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       await api.createAnnotation(
         bookId,
         'note', // Use note type to comply with DB constraints
-        currentLocation,
+        getResolvedLocation(),
         getResolvedRangeAnchor(),
         selectedText,
         vocabData,
@@ -482,7 +482,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'error',
       });
     }
-  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult, categories, getResolvedRangeAnchor, hideToolbar]);
+  }, [bookId, selectedText, translationMode, dictionaryResult, translationResult, categories, getResolvedLocation, getResolvedRangeAnchor, hideToolbar]);
 
   return (
     <AnimatePresence>

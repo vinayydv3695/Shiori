@@ -33,7 +33,7 @@ export const useDownloadQueueUI = create<DownloadQueueUIState>((set) => ({
 // DownloadsButton — icon + active-count badge; opens the queue panel.
 // ──────────────────────────────────────────────────────────────────────────
 
-export function DownloadsButton({ className }: { className?: string } = {}) {
+export function DownloadsButton({ className, iconOnly }: { className?: string; iconOnly?: boolean } = {}) {
   const activeCount = useOnlineDownloadStore((s) => {
     let n = 0;
     for (const d of Object.values(s.downloads)) {
@@ -43,6 +43,34 @@ export function DownloadsButton({ className }: { className?: string } = {}) {
   });
   const totalCount = useOnlineDownloadStore((s) => Object.keys(s.downloads).length);
   const setOpen = useDownloadQueueUI((s) => s.setOpen);
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
+        className={cn(
+          "relative w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95 border border-border/50",
+          activeCount > 0 
+            ? "bg-primary text-primary-foreground border-primary/40 shadow-xs" 
+            : "bg-secondary/40 hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
+          className
+        )}
+      >
+        {activeCount > 0 ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Download className="w-3.5 h-3.5" />
+        )}
+        {totalCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-black bg-primary text-primary-foreground flex items-center justify-center border border-background shadow-xs">
+            {activeCount > 0 ? activeCount : totalCount}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <button

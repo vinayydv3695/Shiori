@@ -144,6 +144,10 @@ export class AniListAndroidProvider implements AniListAuthProvider {
                 })
             });
 
+            if (!response.ok) {
+                return null;
+            }
+
             const data = await response.json();
             if (data?.data?.Viewer) {
                 return {
@@ -152,8 +156,8 @@ export class AniListAndroidProvider implements AniListAuthProvider {
                     avatar: data.data.Viewer.avatar?.large,
                 };
             }
-        } catch (error) {
-            console.error('Failed to fetch AniList viewer info:', error);
+        } catch {
+            // Silently handle invalid token or network errors
         }
         return null;
     }

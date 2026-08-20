@@ -317,7 +317,7 @@ select {
 @media (max-width: 768px) {
   /* Floating pill top bar on mobile matching modern dynamic island aesthetic */
   .premium-top-bar {
-    top: max(4px, calc(env(safe-area-inset-top, 0px) + 2px));
+    top: 6px;
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 16px);
@@ -2720,6 +2720,37 @@ select {
     font-size: 11px;
     height: 28px;
   }
+}
+
+/* ════════════════════════════════════════════════════════════
+   TTS SENTENCE HIGHLIGHTING & AUTO-SCROLL
+   ════════════════════════════════════════════════════════════ */
+.tts-highlight {
+  background-color: rgba(234, 179, 8, 0.35) !important;
+  color: inherit !important;
+  border-bottom: 2.5px solid #eab308 !important;
+  border-radius: 3px !important;
+  padding: 1px 3px !important;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.25) !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+  display: inline !important;
+}
+
+[data-theme="dark"] .tts-highlight,
+[data-theme="black"] .tts-highlight,
+.theme-dark .tts-highlight,
+.theme-black .tts-highlight {
+  background-color: rgba(250, 204, 21, 0.32) !important;
+  border-bottom-color: #facc15 !important;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.3) !important;
+}
+
+[data-theme="sepia"] .tts-highlight,
+[data-theme="paper"] .tts-highlight,
+.theme-sepia .tts-highlight,
+.theme-paper .tts-highlight {
+  background-color: rgba(217, 119, 6, 0.28) !important;
+  border-bottom-color: #d97706 !important;
 }
 
 /* ════════════════════════════════════════════════════════════

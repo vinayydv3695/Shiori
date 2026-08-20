@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import type { CarouselItem } from './ContentCarousel';
 import { cn } from '@/lib/utils';
 
+import { getProxyUrl } from '@/lib/tauri';
+
 interface HeroBookBannerProps {
   items: CarouselItem[];
   loading?: boolean;
@@ -17,7 +19,7 @@ export function HeroBookBanner({
   loading,
   onReadClick,
   actionLabel,
-  sourceId = 'generic',
+  sourceId = 'gutenberg',
 }: HeroBookBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -39,7 +41,8 @@ export function HeroBookBanner({
   if (!items || items.length === 0) return null;
 
   const current = items[currentIndex] || items[0];
-  const cover = current?.coverUrl || null;
+  const rawCover = current?.coverUrl || null;
+  const cover = rawCover ? getProxyUrl(sourceId, rawCover) : null;
   const buttonLabel = actionLabel || 'Download Now';
 
   return (

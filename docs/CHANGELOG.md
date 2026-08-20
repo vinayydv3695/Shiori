@@ -1,3 +1,13 @@
+# Release Notes (v2.3.37)
+
+## Features & Improvements
+
+- **Android Touch & Gesture Reader Controls** — Implemented tap left/right page turns, center toolbar toggle, swipe left/right navigation, and tactile haptic vibration ticks (`navigator.vibrate`) across all readers on Android.
+- **2-Pass DOM Text Matching & Automatic Sentence Highlighting for TTS** — Built 2-pass normalized text node index mapping (`sentenceHighlighter.ts`) that matches spoken text across line breaks, hyphens, and whitespace, with theme-adaptive gold focus highlights and auto-scrolling line centering.
+- **Redesigned Single-Page Book Loading Skeleton Screen** — Created a full-page, theme-adaptive single-page skeleton screen with silky `shiori-shimmer` wave animation, matching exact reader text line heights, chapter titles, side navigation arrows, and top/bottom floating controls.
+- **Android Online Download Manager & View Queue Toasts** — Enabled the Download Queue manager on Mobile/Android with a dedicated header action button and added interactive "View Queue" toast notifications whenever a book or manga download begins.
+- **Gutenberg Image Proxy & Google Books Rate Limit Protection** — Routed Project Gutenberg cover images through `shiori-proxy` to fix 503/504 CDN load errors, added image fallback handling, and implemented cover caching with 60s backoff for Google Books API lookups.
+
 # Release Notes (v2.3.36)
 
 ## Features & Improvements

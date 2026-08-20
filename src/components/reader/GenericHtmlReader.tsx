@@ -10,6 +10,8 @@ import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
 import { useReaderTheme } from '@/hooks/useReaderTheme';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
+import { BookSkeletonLoading } from './BookSkeletonLoading';
+import { triggerHaptic } from '@/lib/haptics';
 import type { ReaderFormat } from './ReaderSettings';
 import type { ReaderContent } from './readerContent';
 import { PremiumSidebar } from './PremiumSidebar';
@@ -494,17 +496,78 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
     if (!content) {
         return (
-            <div className="premium-reader premium-reader--loading">
-                <div className="premium-loading-container">
-                    <Loader2 className="premium-loading-spinner" />
-                    <p className="premium-loading-text">Loading {format.toUpperCase()} format...</p>
-                    {(metadata || readerContent) && (
-                        <p className="premium-loading-subtitle">{metadata?.title ?? readerContent?.title}</p>
-                    )}
-                </div>
-            </div>
+            <BookSkeletonLoading
+                title={metadata?.title ?? readerContent?.title}
+                subtitle={readerContent?.author}
+                message={`Loading ${format.toUpperCase()} book...`}
+                coverUrl={readerContent?.cover}
+                format={format}
+            />
         );
     }
+
+    const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+    const lastTouchNavigationRef = useRef<number>(0);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length !== 1) return;
+        touchStartRef.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            time: Date.now(),
+        };
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (!touchStartRef.current) return;
+        const touchStart = touchStartRef.current;
+        touchStartRef.current = null;
+        if (window.getSelection()?.toString().trim()) return;
+        if (e.changedTouches.length !== 1) return;
+
+        const touchEnd = e.changedTouches[0];
+        const dx = touchEnd.clientX - touchStart.x;
+        const dy = touchEnd.clientY - touchStart.y;
+        const dt = Date.now() - touchStart.time;
+
+        if (dt < 450 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            lastTouchNavigationRef.current = Date.now();
+            triggerHaptic(12);
+            if (dx < 0 && currentChapter < totalChapters - 1) {
+                setCurrentChapter(c => c + 1);
+            } else if (dx > 0 && currentChapter > 0) {
+                setCurrentChapter(c => c - 1);
+            }
+        }
+    }, [currentChapter, totalChapters]);
+
+    const handleContainerClick = useCallback((e: React.MouseEvent) => {
+        const target = e.target as Element;
+        if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
+        if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+            return;
+        }
+        if (Date.now() - lastTouchNavigationRef.current < 400) return;
+        if (window.getSelection()?.toString().trim()) return;
+
+        const windowWidth = window.innerWidth;
+        const clickX = e.clientX || (e.nativeEvent as any).changedTouches?.[0]?.clientX || e.clientX;
+        const clickRatio = clickX / windowWidth;
+
+        triggerHaptic(10);
+        if (clickRatio < 0.2 && currentChapter > 0) {
+            setCurrentChapter(c => c - 1);
+        } else if (clickRatio > 0.8 && currentChapter < totalChapters - 1) {
+            setCurrentChapter(c => c + 1);
+        } else {
+            const uiStore = useReaderUIStore.getState();
+            if (uiStore.isSidebarOpen) {
+                uiStore.closeSidebar();
+            } else {
+                uiStore.setTopBarVisible(!uiStore.isTopBarVisible);
+            }
+        }
+    }, [currentChapter, totalChapters]);
 
     const handleContainerDoubleClick = (e: React.MouseEvent) => {
         const target = e.target as Element;
@@ -525,7 +588,10 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
     return (
         <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}
+            onClick={handleContainerClick}
             onDoubleClick={handleContainerDoubleClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
             style={{
                 backgroundColor: 'var(--bg-primary)',
             }}

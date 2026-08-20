@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { listen } from '@tauri-apps/api/event';
+import { useDownloadQueueUI } from '@/components/online/DownloadQueuePanel';
+import { useToastStore } from './toastStore';
 
 export interface DownloadProgress {
   target_id: string; // url or id
@@ -38,6 +40,20 @@ export const useOnlineDownloadStore = create<OnlineDownloadStore>()(
       registerDownload: (id, title, unit = 'bytes') =>
         set((state) => {
           const existing = state.downloads[id];
+          if (!existing || existing.status !== 'downloading') {
+            setTimeout(() => {
+              useToastStore.getState().addToast({
+                title: `Started downloading "${title}"`,
+                description: 'Track download progress in your queue.',
+                variant: 'info',
+                duration: 5000,
+                action: {
+                  label: 'View Queue',
+                  onClick: () => useDownloadQueueUI.getState().setOpen(true),
+                },
+              });
+            }, 0);
+          }
           return {
             downloads: {
               ...state.downloads,

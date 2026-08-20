@@ -23,6 +23,7 @@ import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
 import { ReadingProgressIndicator } from './ReadingProgressIndicator';
 import { ContinuousEpubView } from './ContinuousEpubView';
+import { triggerHaptic } from '@/lib/haptics';
 import { BookSkeletonLoading } from './BookSkeletonLoading';
 import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
@@ -1266,11 +1267,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const dy = touchEnd.clientY - touchStart.y;
     const dt = Date.now() - touchStart.time;
 
-    // Fast enough swipe (under 400ms) and mostly horizontal
-    if (dt < 400 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 2) {
+    // Fast enough swipe (under 450ms) and mostly horizontal
+    if (dt < 450 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       // Android may synthesize a click after touchend. Canvas click handler
       // ignores this short window so one swipe = one navigation.
       lastTouchNavigationRef.current = Date.now();
+      triggerHaptic(12);
       if (dx < 0) {
         // Swipe Left -> Next
         nextPage();
@@ -1313,6 +1315,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
+    // Ignore if click happened right after a touch swipe navigation
+    if (Date.now() - lastTouchNavigationRef.current < 400) return;
+
     // If user is selecting text, don't toggle UI on click
     if (window.getSelection()?.toString().trim()) {
       return;
@@ -1320,11 +1325,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
     // Determine click region (left 20%, right 20%, center 60%)
     const windowWidth = window.innerWidth;
-    // On mobile touch events, clientX might sometimes be 0 in click events if not properly synthesized,
-    // though React normally handles it. We fallback to screenX or just assume center if 0 and width > 0.
     const clickX = e.clientX || (e.nativeEvent as any).changedTouches?.[0]?.clientX || e.clientX;
     const clickRatio = clickX / windowWidth;
 
+    triggerHaptic(10);
     if (clickRatio < 0.2) {
       prevPage();
     } else if (clickRatio > 0.8) {
@@ -1374,7 +1378,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         subtitle={readerContent?.author}
         progressText={chapterSubtitle}
         message="Resuming reading"
-        coverUrl={metadata?.cover_url ?? readerContent?.cover}
+        coverUrl={metadata?.cover_path ?? readerContent?.cover}
         format="epub"
       />
     );

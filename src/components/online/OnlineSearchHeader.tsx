@@ -108,6 +108,9 @@ export function OnlineSearchHeader({
                     iconOnly={true}
                     className="w-8 h-8 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0" 
                   />
+
+                  {/* Downloads Queue Option */}
+                  <DownloadsButton iconOnly className="w-8 h-8 rounded-xl shrink-0" />
                 </div>
                 
                 {/* Input */}

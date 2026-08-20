@@ -1,17 +1,9 @@
 /**
  * DOM-based sentence highlighting for TTS
- * Handles text that spans multiple nodes and preserves DOM structure
+ * Handles text that spans multiple nodes, whitespace variations, and preserves DOM structure
  */
 
 const HIGHLIGHT_CLASS = 'tts-highlight';
-const HIGHLIGHT_STYLE = 'background: #f3a6a68c; border-radius: 2px; transition: background 0.2s;';
-
-/**
- * Normalize whitespace for text comparison
- */
-function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
-}
 
 /**
  * Walk DOM tree and collect all text nodes
@@ -21,14 +13,20 @@ function getTextNodes(node: Node): Text[] {
   
   function walk(current: Node): void {
     if (current.nodeType === Node.TEXT_NODE) {
-      const text = current.textContent?.trim() || '';
-      if (text.length > 0) {
+      const text = current.textContent || '';
+      if (text.trim().length > 0) {
         textNodes.push(current as Text);
       }
     } else if (current.nodeType === Node.ELEMENT_NODE) {
-      // Skip script and style elements
+      // Skip script, style, and hidden overlay elements
       const element = current as HTMLElement;
-      if (element.tagName !== 'SCRIPT' && element.tagName !== 'STYLE') {
+      if (
+        element.tagName !== 'SCRIPT' && 
+        element.tagName !== 'STYLE' &&
+        !element.classList.contains('premium-top-bar') &&
+        !element.classList.contains('premium-sidebar') &&
+        !element.classList.contains('tts-control-bar')
+      ) {
         for (const child of Array.from(current.childNodes)) {
           walk(child);
         }
@@ -47,61 +45,83 @@ function findTextRanges(
   textNodes: Text[],
   targetText: string
 ): Array<{ node: Text; start: number; end: number }> {
-  const normalizedTarget = normalizeWhitespace(targetText);
+  const normalizedTarget = targetText.replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!normalizedTarget) return [];
+
   const ranges: Array<{ node: Text; start: number; end: number }> = [];
-  
-  // Build combined text with node boundaries tracked
-  let combinedText = '';
-  const nodeMap: Array<{ node: Text; startOffset: number; endOffset: number }> = [];
-  
+
+  // Build character map tracking node and offset for each character in concatenated raw text
+  let rawConcat = '';
+  const rawMap: Array<{ node: Text; offset: number }> = [];
+
   for (const node of textNodes) {
     const text = node.textContent || '';
-    const startOffset = combinedText.length;
-    combinedText += text;
-    const endOffset = combinedText.length;
-    nodeMap.push({ node, startOffset, endOffset });
-    combinedText += ' '; // Add space between nodes
+    for (let i = 0; i < text.length; i++) {
+      rawConcat += text[i];
+      rawMap.push({ node, offset: i });
+    }
   }
-  
-  // Normalize combined text for matching
-  const normalizedCombined = normalizeWhitespace(combinedText);
-  
-  // Find target in normalized text
-  const matchIndex = normalizedCombined.indexOf(normalizedTarget);
+
+  // Create a normalized string and a mapping from normalized index -> rawConcat index
+  let normConcat = '';
+  const normToRawIndex: number[] = [];
+  let inWhitespace = false;
+
+  for (let i = 0; i < rawConcat.length; i++) {
+    const char = rawConcat[i];
+    if (/\s/.test(char)) {
+      if (!inWhitespace) {
+        normConcat += ' ';
+        normToRawIndex.push(i);
+        inWhitespace = true;
+      }
+    } else {
+      normConcat += char;
+      normToRawIndex.push(i);
+      inWhitespace = false;
+    }
+  }
+
+  const normConcatLower = normConcat.toLowerCase();
+  let matchIndex = normConcatLower.indexOf(normalizedTarget);
+
+  // Fallback: if exact normalized sentence is not found, try matching the first 30 characters
+  if (matchIndex === -1 && normalizedTarget.length > 20) {
+    const prefix = normalizedTarget.substring(0, Math.min(30, normalizedTarget.length));
+    matchIndex = normConcatLower.indexOf(prefix);
+  }
+
   if (matchIndex === -1) {
     return ranges;
   }
+
+  const startNorm = matchIndex;
+  const targetLength = matchIndex + normalizedTarget.length <= normToRawIndex.length
+    ? normalizedTarget.length
+    : normToRawIndex.length - matchIndex;
   
-  // Map back to original text positions (approximate due to normalization)
-  
-  // Find which nodes contain this range
-  let targetStart = -1;
-  let targetEnd = -1;
-  
-  // Simple approach: find the range in the original combined text
-  const targetLower = targetText.toLowerCase();
-  const combinedLower = combinedText.toLowerCase();
-  const originalMatchIndex = combinedLower.indexOf(targetLower);
-  
-  if (originalMatchIndex !== -1) {
-    targetStart = originalMatchIndex;
-    targetEnd = originalMatchIndex + targetText.length;
-    
-    // Find nodes that overlap with this range
-    for (const { node, startOffset, endOffset } of nodeMap) {
-      if (endOffset <= targetStart || startOffset >= targetEnd) {
-        continue; // No overlap
-      }
-      
-      const rangeStart = Math.max(0, targetStart - startOffset);
-      const rangeEnd = Math.min(node.textContent?.length || 0, targetEnd - startOffset);
-      
-      if (rangeStart < rangeEnd) {
-        ranges.push({ node, start: rangeStart, end: rangeEnd });
-      }
+  const endNorm = Math.min(startNorm + targetLength - 1, normToRawIndex.length - 1);
+
+  const startRaw = normToRawIndex[startNorm];
+  const endRaw = normToRawIndex[endNorm] + 1;
+
+  // Group raw character indices by node
+  const nodeRanges = new Map<Text, { start: number; end: number }>();
+
+  for (let r = startRaw; r < endRaw && r < rawMap.length; r++) {
+    const { node, offset } = rawMap[r];
+    const existing = nodeRanges.get(node);
+    if (!existing) {
+      nodeRanges.set(node, { start: offset, end: offset + 1 });
+    } else {
+      existing.end = offset + 1;
     }
   }
-  
+
+  for (const [node, range] of nodeRanges.entries()) {
+    ranges.push({ node, start: range.start, end: range.end });
+  }
+
   return ranges;
 }
 
@@ -116,7 +136,6 @@ function wrapTextRange(node: Text, start: number, end: number): HTMLSpanElement 
   
   const span = document.createElement('span');
   span.className = HIGHLIGHT_CLASS;
-  span.setAttribute('style', HIGHLIGHT_STYLE);
   span.textContent = highlighted;
   
   const parent = node.parentNode;
@@ -124,7 +143,6 @@ function wrapTextRange(node: Text, start: number, end: number): HTMLSpanElement 
     return span;
   }
   
-  // Replace node with: before + span + after
   if (before) {
     parent.insertBefore(document.createTextNode(before), node);
   }
@@ -149,7 +167,6 @@ export function highlightSentence(
   const ranges = findTextRanges(textNodes, sentenceText);
   
   if (ranges.length === 0) {
-    // No match found, return no-op cleanup
     return () => {};
   }
   
@@ -160,21 +177,33 @@ export function highlightSentence(
     createdSpans.push(span);
   }
   
-  // Auto-scroll the first highlighted span into view
+  // Auto-scroll the first highlighted span into view smoothly
   if (createdSpans.length > 0) {
     const firstSpan = createdSpans[0];
-    // Check if it's currently in the viewport
-    const rect = firstSpan.getBoundingClientRect();
-    const inView = (
-      rect.top >= 0 &&
-      rect.left >= 0 &&
-      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-      rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-    );
     
-    // Only scroll if not fully visible to avoid jittering
-    if (!inView) {
-      firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 1. Scroll window / element into view
+    firstSpan.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'nearest'
+    });
+
+    // 2. Scroll container explicitly if inside scrollable reader canvas
+    const scrollContainer = firstSpan.closest('.premium-reading-canvas') || 
+                            firstSpan.closest('.premium-content-container') ||
+                            firstSpan.closest('.generic-html-content') ||
+                            firstSpan.closest('.mobi-content-container');
+
+    if (scrollContainer && typeof scrollContainer.scrollTo === 'function') {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const spanRect = firstSpan.getBoundingClientRect();
+      const relativeTop = spanRect.top - containerRect.top + scrollContainer.scrollTop;
+      const targetScroll = Math.max(0, relativeTop - containerRect.height / 3);
+
+      scrollContainer.scrollTo({
+        top: targetScroll,
+        behavior: 'smooth'
+      });
     }
   }
   

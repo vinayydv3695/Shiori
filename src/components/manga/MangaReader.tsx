@@ -6,6 +6,8 @@ import {
     type OnlineSourceConfig,
 } from '@/store/mangaReaderStore';
 import { api, isAndroid } from '@/lib/tauri';
+import { BookSkeletonLoading } from '@/components/reader/BookSkeletonLoading';
+import { triggerHaptic } from '@/lib/haptics';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -535,11 +537,12 @@ export function MangaReader(props: MangaReaderProps) {
         const dy = touchEnd.clientY - touchStart.y;
         const dt = Date.now() - touchStart.time;
 
-        if (dt < 400 && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 2) {
+        if (dt < 400 && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
             const rtl = useMangaSettingsStore.getState().readingDirection === 'rtl';
             const nextPage = useMangaContentStore.getState().nextPage;
             const prevPage = useMangaContentStore.getState().prevPage;
             
+            triggerHaptic(12);
             if (dx < 0) {
                 // Swipe Left -> Next Page (in LTR), Prev Page (in RTL)
                 rtl ? prevPage(1) : nextPage(1);
@@ -565,12 +568,11 @@ export function MangaReader(props: MangaReaderProps) {
 
     if (isLoading) {
         return (
-            <div className="manga-reader" data-manga-theme={theme}>
-                <div className="manga-loading-screen">
-                    <div className="manga-loading-spinner" />
-                    <span className="manga-loading-text">Loading manga…</span>
-                </div>
-            </div>
+            <BookSkeletonLoading
+                title={mangaTitle || 'Manga Reader'}
+                message="Loading manga pages..."
+                format="manga"
+            />
         );
     }
 

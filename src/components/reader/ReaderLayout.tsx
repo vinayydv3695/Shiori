@@ -11,6 +11,7 @@ import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { getReaderKind } from './readerRouting';
 import { useKeepScreenOn } from '@/hooks/useKeepScreenOn';
 import { useToastStore } from '@/store/toastStore';
+import { BookSkeletonLoading } from './BookSkeletonLoading';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ReaderFormat } from './ReaderSettings';
 import type { ReaderContent } from './readerContent';
@@ -204,7 +205,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     }
   }, [bookId]);
 
-  // ── GENERIC LOADING SPINNER ────────────────────────────────────────────
+  // ── SKELETON LOADING VIEW ────────────────────────────────────────────
   if (loadingStage !== 'complete' && loadingStage !== 'idle' && !error) {
     const stageMessages: Record<LoadingStage, string> = {
       idle: 'Preparing...',
@@ -215,12 +216,13 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
       complete: 'Complete',
     };
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'var(--reader-bg)' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mb-4 mx-auto" style={{ borderColor: 'var(--loading-spinner)' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>{stageMessages[loadingStage]}</p>
-        </div>
-      </div>
+      <BookSkeletonLoading
+        message={stageMessages[loadingStage]}
+        title={currentContent?.title}
+        subtitle={currentContent?.author}
+        coverUrl={currentContent?.cover}
+        format={currentBookFormat || undefined}
+      />
     );
   }
 

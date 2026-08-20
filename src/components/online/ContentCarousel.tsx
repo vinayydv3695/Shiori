@@ -30,46 +30,41 @@ const CarouselCard = memo(function CarouselCard({
 }) {
   const [visible, setVisible] = useState(false);
   const cardRef = useRef<HTMLButtonElement>(null);
+  const { ref: cardRef, inView } = useInView({
+    triggerOnce: true,
+    rootMargin: '200px',
+  });
+  const [imgError, setImgError] = useState(false);
 
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { root: scrollRoot.current, rootMargin: '100px' }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [scrollRoot.current]);
+  // Lazy render the image only when card comes close to viewport
+  const visible = inView;
+  const proxyCover = item.coverUrl ? getProxyUrl('gutenberg', item.coverUrl) : undefined;
 
   return (
     <button
       ref={cardRef}
       type="button"
       onClick={() => onClick?.(item)}
-      className="flex-shrink-0 w-[140px] text-left group/item focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
+      className="flex-shrink-0 w-[140px] text-left group/item focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg cursor-pointer"
     >
       {/* Cover image */}
       <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted border border-border group-hover/item:border-primary/50 transition-colors">
         {!visible && <div className="absolute inset-0 shimmer" />}
-        {visible && item.coverUrl ? (
+        {visible && proxyCover && !imgError ? (
           <img
-            src={item.coverUrl}
+            src={proxyCover}
             alt={item.title}
+            onError={() => setImgError(true)}
             className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-105"
             loading="lazy"
             decoding="async"
           />
-        ) : visible && !item.coverUrl ? (
-          <div className="w-full h-full flex items-center justify-center">
-            <BookOpen className="w-8 h-8 text-muted-foreground opacity-50" />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-primary/5">
+            <BookOpen className="w-8 h-8 text-primary/40 mb-1" />
+            <span className="text-[10px] font-bold opacity-60 line-clamp-2">{item.title}</span>
           </div>
-        ) : null}
+        )}
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover/item:bg-black/20 transition-colors" />
       </div>

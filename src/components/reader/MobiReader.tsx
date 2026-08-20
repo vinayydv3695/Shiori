@@ -12,6 +12,7 @@ import { useReaderTheme } from '@/hooks/useReaderTheme';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
 import { BookSkeletonLoading } from './BookSkeletonLoading';
+import { triggerHaptic } from '@/lib/haptics';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
@@ -513,17 +514,84 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         return (
             <BookSkeletonLoading
                 title={metadata?.title}
-                subtitle={metadata?.author}
+                subtitle={metadata?.author ?? undefined}
                 message="Extracting MOBI format..."
-                coverUrl={metadata?.cover_url}
+                coverUrl={metadata?.cover_path ?? undefined}
                 format="mobi"
             />
         );
     }
 
+    const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+    const lastTouchNavigationRef = useRef<number>(0);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (e.touches.length !== 1) return;
+        touchStartRef.current = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            time: Date.now(),
+        };
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (!touchStartRef.current) return;
+        const touchStart = touchStartRef.current;
+        touchStartRef.current = null;
+        if (isDoodleMode || window.getSelection()?.toString().trim()) return;
+        if (e.changedTouches.length !== 1) return;
+
+        const touchEnd = e.changedTouches[0];
+        const dx = touchEnd.clientX - touchStart.x;
+        const dy = touchEnd.clientY - touchStart.y;
+        const dt = Date.now() - touchStart.time;
+
+        if (dt < 450 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            lastTouchNavigationRef.current = Date.now();
+            triggerHaptic(12);
+            if (dx < 0) {
+                nextChapter();
+            } else {
+                prevChapter();
+            }
+        }
+    }, [isDoodleMode, nextChapter, prevChapter]);
+
+    const handleContainerClick = useCallback((e: React.MouseEvent) => {
+        if (isDoodleMode) return;
+        const target = e.target as Element;
+        if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
+        if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar') || target.closest('.doodle-toolbar')) {
+            return;
+        }
+        if (Date.now() - lastTouchNavigationRef.current < 400) return;
+        if (window.getSelection()?.toString().trim()) return;
+
+        const windowWidth = window.innerWidth;
+        const clickX = e.clientX || (e.nativeEvent as any).changedTouches?.[0]?.clientX || e.clientX;
+        const clickRatio = clickX / windowWidth;
+
+        triggerHaptic(10);
+        if (clickRatio < 0.2) {
+            prevChapter();
+        } else if (clickRatio > 0.8) {
+            nextChapter();
+        } else {
+            const uiStore = useReaderUIStore.getState();
+            if (uiStore.isSidebarOpen) {
+                uiStore.closeSidebar();
+            } else {
+                uiStore.setTopBarVisible(!uiStore.isTopBarVisible);
+            }
+        }
+    }, [isDoodleMode, prevChapter, nextChapter]);
+
     // ── Main Reader ──
     return (
         <div ref={readerContainerRef} className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`}
+            onClick={handleContainerClick}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
             style={{ backgroundColor: 'var(--bg-primary)' }}
         >
             <ReaderTopBar

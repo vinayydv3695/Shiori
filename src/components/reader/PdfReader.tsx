@@ -14,6 +14,7 @@ import { useDoodleStore } from '@/store/doodleStore';
 import { useToastStore } from '@/store/toastStore';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { ReaderTopBar } from './ReaderTopBar';
+import { BookSkeletonLoading } from './BookSkeletonLoading';
 import { PremiumSidebar } from './PremiumSidebar';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
@@ -1032,15 +1033,15 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           scrollBehavior: 'smooth',
         }}
       >
-        {/* Loading overlay — fades out via CSS transition (no abrupt unmount,
-            no flicker). Kept mounted but inert while the document is ready. */}
-        <div
-          className={`absolute inset-0 z-10 flex flex-col items-center justify-center transition-opacity duration-300 ${isLoading ? 'opacity-100 backdrop-blur-sm' : 'opacity-0 pointer-events-none'}`}
-          style={{ backgroundColor: isLoading ? 'var(--overlay-bg)' : 'transparent' }}
-        >
-          <Loader2 className={`w-12 h-12 mb-4 ${isLoading ? 'animate-spin' : ''}`} style={{ color: 'var(--loading-spinner)' }} />
-          <p className={`font-medium transition-opacity duration-300 ${isLoading ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--text-secondary)' }}>Rendering PDF Document...</p>
-        </div>
+        {isLoading && (
+          <BookSkeletonLoading
+            title={metadata?.title ?? readerContent?.title}
+            subtitle={readerContent?.author}
+            message="Rendering PDF Document..."
+            coverUrl={readerContent?.cover}
+            format="pdf"
+          />
+        )}
 
         {pdfUrl && (
           <div className="pdf-document-shell" ref={pageWrapperRef}>

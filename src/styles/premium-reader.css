@@ -2833,7 +2833,7 @@ select {
    Floating popup on text selection with highlight/note/copy/bookmark
    ═══════════════════════════════════════════════════════════ */
 
-.text-selection-toolbar--android {
+.text-selection-toolbar--android.text-selection-toolbar--pill {
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
@@ -2847,14 +2847,28 @@ select {
   padding: 4px 8px !important;
 }
 
+.text-selection-toolbar--android.text-selection-toolbar--card {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 16px) + 24px) !important;
+  top: auto !important;
+  width: calc(100vw - 32px) !important;
+  max-width: 480px !important;
+  transform: translateX(-50%) !important;
+  margin: 0 auto;
+  border-radius: 20px !important;
+  padding: 8px !important;
+}
+
 /* Phone: the toolbar spans the screen width, so the inner panels must stretch with it instead of keeping their fixed desktop-popup widths. */
 .text-selection-toolbar--android .translation-popup,
 .text-selection-toolbar--android .text-selection-toolbar-note {
-  width: calc(100vw - 32px);
+  width: 100%;
   min-width: 0;
-  max-width: 480px;
+  max-width: 100%;
   box-sizing: border-box;
-  border-radius: 20px;
+  border-radius: 16px;
 }
 
 .text-selection-toolbar--android .text-selection-toolbar-actions {
@@ -2872,11 +2886,19 @@ select {
   background: var(--bg-elevated, #ffffff) !important;
   opacity: 1 !important;
   border: 1px solid var(--ui-border, #e2e8f0);
-  border-radius: 9999px;
   box-shadow: 0 14px 35px -8px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.12);
   padding: 4px;
   pointer-events: auto;
   transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.text-selection-toolbar--pill {
+  border-radius: 9999px !important;
+}
+
+.text-selection-toolbar--card {
+  border-radius: 20px !important;
+  padding: 8px !important;
 }
 
 .text-selection-toolbar-actions {

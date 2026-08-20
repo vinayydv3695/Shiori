@@ -491,7 +491,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       {isVisible && (
         <motion.div
           ref={toolbarRef}
-          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''}`}
+          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${(!showNoteInput && !showTranslation && !showColorPicker) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'}`}
           style={isAndroid ? undefined : { left: position.x, top: position.y }}
           initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.96 }}
           animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}

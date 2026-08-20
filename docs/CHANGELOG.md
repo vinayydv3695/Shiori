@@ -1,3 +1,11 @@
+# Release Notes (v2.3.45)
+
+## Features & Improvements
+
+- **Redesigned Android Settings Navigation & Top-Left Close Button** — Added a prominent top-left Close button on the Android settings main screen, a Back arrow + Category Title navigation bar on category detail screens, and a top-right Close button to exit settings instantly from any detail view.
+- **Touch-Friendly Mobile Category Cards** — Upgraded category menu items on mobile screens to rounded card surfaces (`rounded-2xl border border-border/50 bg-card/60`), styled icon badges, and tactile haptic vibration feedback.
+- **CI & Cross-Platform Build Permission Fix** — Made `tauri-plugin-tts` non-optional on non-Linux targets (`Cargo.toml`) so permission `tts:default` is always registered regardless of build flags.
+
 # Release Notes (v2.3.39)
 
 ## Features & Improvements

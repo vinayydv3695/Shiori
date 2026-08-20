@@ -66,6 +66,85 @@ pub fn candidate_name_from_url(url: &str) -> String {
         .to_string()
 }
 
+/// Windows reserved device names (case-insensitive, without extension). A
+/// file named after one of these is illegal on Windows, so the title-based
+/// naming falls back to the uuid when a title reduces to one of them.
+fn is_reserved_windows_name(stem: &str) -> bool {
+    let upper = stem.to_ascii_uppercase();
+    matches!(
+        upper.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL"
+            | "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9"
+            | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+    )
+}
+
+/// Turn a book title into a safe single-segment file-name stem.
+///
+/// Replaces path separators and characters illegal on Windows
+/// (`< > : " / \ | ? *`) with `_`, collapses runs of whitespace, trims
+/// leading/trailing whitespace and the trailing dots/spaces Windows forbids,
+/// and caps the length so `<stem>.<ext>` stays within filesystem limits.
+/// Returns `None` when nothing usable remains (empty, or a Windows reserved
+/// name) so the caller can fall back to the uuid.
+fn sanitize_title_stem(title: &str) -> Option<String> {
+    let mut out = String::with_capacity(title.len());
+    let mut prev_space = false;
+    for c in title.chars() {
+        let mapped = if c.is_control() {
+            ' '
+        } else {
+            match c {
+                '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+                _ => c,
+            }
+        };
+        if mapped == ' ' {
+            if prev_space {
+                continue;
+            }
+            prev_space = true;
+        } else {
+            prev_space = false;
+        }
+        out.push(mapped);
+    }
+    // Cap length (in chars — safe for filesystem component limits for typical
+    // titles) then trim the trailing dots/spaces Windows rejects.
+    let cleaned: String = out.trim().chars().take(120).collect();
+    let cleaned = cleaned.trim().trim_end_matches(['.', ' ']).trim().to_string();
+    if cleaned.is_empty() || is_reserved_windows_name(&cleaned) {
+        None
+    } else {
+        Some(cleaned)
+    }
+}
+
+/// Build a unique, title-based managed file name (`<title>.<ext>`) inside the
+/// library root.
+///
+/// Falls back to the book uuid when the title yields no usable stem, and
+/// disambiguates collisions with a short uuid suffix so two books that share
+/// a title never overwrite each other in the managed root.
+fn unique_managed_filename(root: &Path, title: &str, ext: &str, book_uuid: &str) -> String {
+    let stem = sanitize_title_stem(title).unwrap_or_else(|| book_uuid.to_string());
+
+    let candidate = format!("{stem}.{ext}");
+    if !root.join(&candidate).exists() {
+        return candidate;
+    }
+
+    // Collision: append a short uuid fragment (unique per import).
+    let short = book_uuid.get(..8).unwrap_or(book_uuid);
+    let disambiguated = format!("{stem} ({short}).{ext}");
+    if !root.join(&disambiguated).exists() {
+        return disambiguated;
+    }
+
+    // Extremely unlikely — fall back to the fully-unique uuid name.
+    format!("{book_uuid}.{ext}")
+}
+
 /// Detect the format of an opened file.
 ///
 /// 1. If the name carries an extension: it decides. A supported extension
@@ -248,7 +327,25 @@ pub fn ingest_opened_file(
         });
     }
 
-    // ── copy into the managed library root as <uuid>.<ext> ──
+    // ── metadata (needed to name the managed file after the book title) ──
+    // Extract from the staging/source file *before* the copy so the managed
+    // copy can be named `<title>.<ext>` instead of an opaque `<uuid>.<ext>`.
+    // The source and the managed copy are byte-identical, so extracting here
+    // is equivalent to extracting from the dest. A hard failure still reaches
+    // best_effort_cleanup.
+    let metadata = match metadata_service::extract_from_file(&source_path.to_string_lossy()) {
+        Ok(m) => m,
+        Err(e) => {
+            best_effort_cleanup(source_path, cleanup_source);
+            return Err(e);
+        }
+    };
+    let book_title = metadata
+        .title
+        .clone()
+        .unwrap_or_else(|| "Unknown Title".to_string());
+
+    // ── copy into the managed library root as <title>.<ext> ──
     // resolve_library_root + copy run inside a closure so a hard failure
     // (`?`) still reaches best_effort_cleanup below — the earlier direct
     // `?` exits used to leak the staging file (reviewer finding). A failed
@@ -256,7 +353,7 @@ pub fn ingest_opened_file(
     let (book_uuid, managed_relpath, dest) = match (|| -> Result<(String, String, PathBuf)> {
         let root = library_root::resolve_library_root(db, app_data_dir)?;
         let book_uuid = Uuid::new_v4().to_string();
-        let managed_relpath = format!("{}.{}", book_uuid, ext);
+        let managed_relpath = unique_managed_filename(&root, &book_title, &ext, &book_uuid);
         let dest = root.join(&managed_relpath);
 
         std::fs::copy(source_path, &dest).map_err(|e| {
@@ -285,17 +382,13 @@ pub fn ingest_opened_file(
     let run = (|| -> Result<(i64, String)> {
         let dest_str = dest.to_string_lossy().to_string();
 
-        // Metadata + cover extraction mirror import_single_book, but run on
-        // the managed copy so extraction and file_path agree.
-        let metadata = metadata_service::extract_from_file(&dest_str)?;
+        // Cover extraction mirrors import_single_book, run on the managed copy
+        // so extraction and file_path agree. Metadata was already extracted
+        // from the (byte-identical) source above to name the managed file.
         let cover_path = metadata_service::extract_cover(&dest_str, &book_uuid, covers_dir)
             .ok()
             .flatten();
         let needs_online_cover = cover_path.is_none();
-        let book_title = metadata
-            .title
-            .clone()
-            .unwrap_or_else(|| "Unknown Title".to_string());
         let book_authors = metadata.authors.clone();
         let book_isbn = metadata.isbn.clone();
         let dest_size = get_file_size(&dest_str)?;
@@ -375,7 +468,7 @@ pub fn ingest_opened_file(
             );
         }
 
-        Ok((book_id, book_title))
+        Ok((book_id, book_title.clone()))
     })();
 
     let (book_id, title) = match run {
@@ -535,6 +628,58 @@ mod tests {
             Some("fb2".to_string())
         );
         assert_eq!(detect_format("12345", b"\x00\x01\x02\x03"), None);
+    }
+
+    #[test]
+    fn sanitize_title_stem_keeps_readable_titles() {
+        assert_eq!(
+            sanitize_title_stem("The Great Gatsby"),
+            Some("The Great Gatsby".to_string())
+        );
+        // Illegal Windows characters are replaced, whitespace collapsed.
+        assert_eq!(
+            sanitize_title_stem("Foo: Bar / Baz?"),
+            Some("Foo_ Bar _ Baz_".to_string())
+        );
+        // Trailing dots/spaces (illegal on Windows) are trimmed.
+        assert_eq!(
+            sanitize_title_stem("Book Title.  "),
+            Some("Book Title".to_string())
+        );
+        // Non-ASCII titles are preserved.
+        assert_eq!(sanitize_title_stem("三体"), Some("三体".to_string()));
+    }
+
+    #[test]
+    fn sanitize_title_stem_rejects_unusable_titles() {
+        assert_eq!(sanitize_title_stem(""), None);
+        assert_eq!(sanitize_title_stem("   "), None);
+        assert_eq!(sanitize_title_stem("..."), None);
+        // Windows reserved device names → fall back to uuid.
+        assert_eq!(sanitize_title_stem("CON"), None);
+        assert_eq!(sanitize_title_stem("nul"), None);
+    }
+
+    #[test]
+    fn unique_managed_filename_uses_title_and_disambiguates() {
+        let dir = std::env::temp_dir().join(format!("shiori_ingest_{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let uuid = Uuid::new_v4().to_string();
+
+        // First time: plain <title>.<ext>.
+        let name = unique_managed_filename(&dir, "My Book", "epub", &uuid);
+        assert_eq!(name, "My Book.epub");
+
+        // Simulate the file existing, then a second book with the same title.
+        std::fs::write(dir.join(&name), b"x").unwrap();
+        let name2 = unique_managed_filename(&dir, "My Book", "epub", &uuid);
+        assert_eq!(name2, format!("My Book ({}).epub", &uuid[..8]));
+
+        // Untitled book → uuid stem.
+        let name3 = unique_managed_filename(&dir, "   ", "pdf", &uuid);
+        assert_eq!(name3, format!("{uuid}.pdf"));
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

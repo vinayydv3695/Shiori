@@ -34,55 +34,70 @@ export function ContentTypeStep({ onBack, onNext }: ContentTypeStepProps) {
           <div className="w-full max-w-2xl space-y-4 px-2 pb-2">
             {/* Books Card */}
             <button
-              onClick={() => setPreferredContentType('books')}
-              className={`w-full text-left flex items-center justify-between p-6 rounded-2xl border transition-all duration-200 group ${
+              onClick={() => {
+                if (navigator.vibrate) navigator.vibrate(30);
+                setPreferredContentType('books');
+              }}
+              className={`w-full text-left flex items-center justify-between p-5 sm:p-6 rounded-2xl border transition-all duration-200 group active:scale-[0.98] ${
                 preferredContentType === 'books'
-                  ? 'bg-card border-primary/40 ring-1 ring-primary/20 shadow-sm'
-                  : 'bg-transparent border-border/20 hover:bg-card/40 hover:border-border/40'
+                  ? 'bg-card border-primary/50 ring-2 ring-primary/20 shadow-md'
+                  : 'bg-card/30 border-border/30 hover:bg-card/60 hover:border-border/50'
               }`}
             >
-              <div className="flex items-center gap-6">
-                <Book size={32} className={preferredContentType === 'books' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'} strokeWidth={1.5} />
-                <span className={`text-xl font-medium tracking-tight ${preferredContentType === 'books' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Books</span>
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className={`p-3 rounded-xl transition-colors ${preferredContentType === 'books' ? 'bg-primary/10 text-primary' : 'bg-muted/40 text-muted-foreground group-hover:text-foreground'}`}>
+                  <Book size={26} strokeWidth={1.8} />
+                </div>
+                <span className={`text-lg sm:text-xl font-semibold tracking-tight ${preferredContentType === 'books' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Books</span>
               </div>
-              <CheckCircle2 size={24} className={`transition-opacity duration-200 ${preferredContentType === 'books' ? 'opacity-100 text-primary' : 'opacity-0'}`} />
+              <CheckCircle2 size={22} className={`transition-opacity duration-200 ${preferredContentType === 'books' ? 'opacity-100 text-primary' : 'opacity-0'}`} />
             </button>
 
             {/* Manga Card */}
             <button
-              onClick={() => setPreferredContentType('manga')}
-              className={`w-full text-left flex items-center justify-between p-6 rounded-2xl border transition-all duration-200 group ${
+              onClick={() => {
+                if (navigator.vibrate) navigator.vibrate(30);
+                setPreferredContentType('manga');
+              }}
+              className={`w-full text-left flex items-center justify-between p-5 sm:p-6 rounded-2xl border transition-all duration-200 group active:scale-[0.98] ${
                 preferredContentType === 'manga'
-                  ? 'bg-card border-primary/40 ring-1 ring-primary/20 shadow-sm'
-                  : 'bg-transparent border-border/20 hover:bg-card/40 hover:border-border/40'
+                  ? 'bg-card border-primary/50 ring-2 ring-primary/20 shadow-md'
+                  : 'bg-card/30 border-border/30 hover:bg-card/60 hover:border-border/50'
               }`}
             >
-              <div className="flex items-center gap-6">
-                <ImageIcon size={32} className={preferredContentType === 'manga' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'} strokeWidth={1.5} />
-                <span className={`text-xl font-medium tracking-tight ${preferredContentType === 'manga' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Manga & Comics</span>
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className={`p-3 rounded-xl transition-colors ${preferredContentType === 'manga' ? 'bg-primary/10 text-primary' : 'bg-muted/40 text-muted-foreground group-hover:text-foreground'}`}>
+                  <ImageIcon size={26} strokeWidth={1.8} />
+                </div>
+                <span className={`text-lg sm:text-xl font-semibold tracking-tight ${preferredContentType === 'manga' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Manga & Comics</span>
               </div>
-              <CheckCircle2 size={24} className={`transition-opacity duration-200 ${preferredContentType === 'manga' ? 'opacity-100 text-primary' : 'opacity-0'}`} />
+              <CheckCircle2 size={22} className={`transition-opacity duration-200 ${preferredContentType === 'manga' ? 'opacity-100 text-primary' : 'opacity-0'}`} />
             </button>
 
             {/* Both Card */}
             <button
-              onClick={() => setPreferredContentType('both')}
-              className={`w-full text-left flex items-center justify-between p-6 rounded-2xl border transition-all duration-200 group ${
+              onClick={() => {
+                if (navigator.vibrate) navigator.vibrate(30);
+                setPreferredContentType('both');
+              }}
+              className={`w-full text-left flex items-center justify-between p-5 sm:p-6 rounded-2xl border transition-all duration-200 group active:scale-[0.98] ${
                 preferredContentType === 'both'
-                  ? 'bg-card border-primary/40 ring-1 ring-primary/20 shadow-sm'
-                  : 'bg-transparent border-border/20 hover:bg-card/40 hover:border-border/40'
+                  ? 'bg-card border-primary/50 ring-2 ring-primary/20 shadow-md'
+                  : 'bg-card/30 border-border/30 hover:bg-card/60 hover:border-border/50'
               }`}
             >
-              <div className="flex items-center gap-6">
-                <Layers size={32} className={preferredContentType === 'both' ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'} strokeWidth={1.5} />
-                <span className={`text-xl font-medium tracking-tight ${preferredContentType === 'both' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Both</span>
+              <div className="flex items-center gap-4 sm:gap-6">
+                <div className={`p-3 rounded-xl transition-colors ${preferredContentType === 'both' ? 'bg-primary/10 text-primary' : 'bg-muted/40 text-muted-foreground group-hover:text-foreground'}`}>
+                  <Layers size={26} strokeWidth={1.8} />
+                </div>
+                <span className={`text-lg sm:text-xl font-semibold tracking-tight ${preferredContentType === 'both' ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}>Both</span>
               </div>
-              <CheckCircle2 size={24} className={`transition-opacity duration-200 ${preferredContentType === 'both' ? 'opacity-100 text-primary' : 'opacity-0'}`} />
+              <CheckCircle2 size={22} className={`transition-opacity duration-200 ${preferredContentType === 'both' ? 'opacity-100 text-primary' : 'opacity-0'}`} />
             </button>
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-200 mt-8 flex shrink-0 items-center justify-between pt-4 border-t border-border/40">
+        <div className="onb-fade-up onb-delay-200 mt-6 sm:mt-8 flex shrink-0 items-center justify-between pt-4 border-t border-border/40">
           <GlowButton onClick={onBack} variant="secondary">
             ← Back
           </GlowButton>

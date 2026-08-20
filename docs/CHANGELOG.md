@@ -1,3 +1,11 @@
+# Release Notes (v2.3.46)
+
+## Features & Improvements
+
+- **Floating Glassmorphic Onboarding Header** — Added a sticky floating glassmorphic header bar across onboarding steps displaying live step progress badges (`Step X of Y`) and interactive step progress dots.
+- **Instant "Skip Setup" Action** — Added a top-right `Skip Setup →` action button allowing users to bypass remaining setup steps directly into the Shiori library anytime.
+- **Touch Haptics & Mobile Layout Polish** — Integrated subtle haptic vibration ticks (`triggerHaptic(30)`) on card selections across content choices and added responsive safe-area spacing for Android displays.
+
 # Release Notes (v2.3.45)
 
 ## Features & Improvements

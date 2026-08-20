@@ -55,7 +55,7 @@ function bytesToBase64(data: number[] | Uint8Array | ArrayBuffer): string {
   return btoa(binary);
 }
 
-export async function processEpubHtml(bookId: number, html: string, searchTerm?: string | null): Promise<string> {
+export async function processEpubHtml(bookId: number, html: string): Promise<string> {
   let processedHtml = html;
 
   // Step 1: Process CSS stylesheets - Convert <link> tags to <style> tags
@@ -144,12 +144,18 @@ export async function processEpubHtml(bookId: number, html: string, searchTerm?:
     }
   }
 
-  // Step 3: Highlight search term if provided
-  if (searchTerm?.trim()) {
-    processedHtml = highlightSearchTerm(processedHtml, searchTerm);
-  }
-
   return processedHtml;
+}
+
+/**
+ * Apply search-term highlighting to already-processed chapter HTML.
+ * Cheaper than re-inlining every resource per new search term: the two-layer
+ * cache (base chapter, then highlighted variant) keeps resource work done
+ * exactly once per chapter.
+ */
+export function applySearchHighlight(html: string, searchTerm?: string | null): string {
+  if (!searchTerm?.trim()) return html;
+  return highlightSearchTerm(html, searchTerm);
 }
 
 // Helper function to highlight search terms in HTML (case-insensitive, preserves HTML tags)
@@ -309,16 +315,34 @@ function clearProcessedChapterCache(bookId?: number): void {
 
 /** Fetch a chapter and process its HTML, reusing the module-level cache. */
 async function loadProcessedChapter(bookId: number, index: number, term?: string | null): Promise<Chapter> {
-  const cached = getCachedChapter(bookId, index, term);
-  if (cached !== undefined) return cached;
+  // Two-layer cache: the expensive resource-inlined base chapter is keyed
+  // without the search term, so changing the search term reuses it and only
+  // re-runs the cheap search-highlight pass. Term variants stay bounded by
+  // the same byte/count eviction.
+  const safeTerm = term?.trim() ? term : '';
+  const termVariant = safeTerm ? getCachedChapter(bookId, index, safeTerm) : undefined;
+  if (termVariant !== undefined) return termVariant;
+
+  const base = getCachedChapter(bookId, index, '');
+  if (base !== undefined) {
+    if (!safeTerm) return base;
+    const highlighted: Chapter = { ...base, content: applySearchHighlight(base.content, safeTerm) };
+    setCachedChapter(bookId, index, safeTerm, highlighted);
+    return highlighted;
+  }
 
   const chapter = await api.getBookChapter(bookId, index);
-  const processed = await processEpubHtml(bookId, chapter.content, term);
+  const processed = await processEpubHtml(bookId, chapter.content);
   const processedChapter: Chapter = { ...chapter, content: processed };
   // Never cache empty chapters — the caller throws on them, so a cached empty
   // string would only poison the LRU slot.
   if (chapter.content && chapter.content.trim().length > 0) {
-    setCachedChapter(bookId, index, term, processedChapter);
+    setCachedChapter(bookId, index, '', processedChapter);
+    if (safeTerm) {
+      const highlighted: Chapter = { ...processedChapter, content: applySearchHighlight(processed, safeTerm) };
+      setCachedChapter(bookId, index, safeTerm, highlighted);
+      return highlighted;
+    }
   }
   return processedChapter;
 }
@@ -365,6 +389,17 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
+  /** Keep the per-chapter scroll map bounded on long books. */
+  const rememberScrollPosition = (index: number, ratio: number): void => {
+    const map = scrollPositionsRef.current;
+    if (map.has(index)) map.delete(index);
+    map.set(index, ratio);
+    while (map.size > 100) {
+      const oldest = map.keys().next().value;
+      if (oldest === undefined) break;
+      map.delete(oldest);
+    }
+  };
   const currentIndexRef = useRef(0);
   const metadataRef = useRef<BookMetadata | null>(null);
   const loadChapterRef = useRef<(index: number, highlightTerm?: string | null, initialScrollRatio?: number) => Promise<void>>(async () => { });
@@ -396,11 +431,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         if (isHoriz) {
           const { scrollLeft, scrollWidth, clientWidth } = canvasRef.current;
           const scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
-          scrollPositionsRef.current.set(currentIndex, scrollRatio);
+          rememberScrollPosition(currentIndex, scrollRatio);
         } else {
           const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
           const scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
-          scrollPositionsRef.current.set(currentIndex, scrollRatio);
+          rememberScrollPosition(currentIndex, scrollRatio);
         }
       }
 
@@ -589,7 +624,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
            scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
         }
       }
-      scrollPositionsRef.current.set(chapterIndex, scrollRatio);
+      rememberScrollPosition(chapterIndex, scrollRatio);
     }
 
     const progressPercent = ((chapterIndex + scrollRatio) / totalChapters) * 100;
@@ -785,7 +820,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
         // Seed the scroll map so continuous-flow mode restores the exact position.
         if (savedScrollRatio > 0) {
-          scrollPositionsRef.current.set(startIndex, savedScrollRatio);
+          rememberScrollPosition(startIndex, savedScrollRatio);
         }
 
         await loadChapterRef.current(startIndex, null, savedScrollRatio);

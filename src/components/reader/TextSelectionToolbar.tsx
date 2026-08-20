@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Highlighter, StickyNote, X, Volume2, ChevronDown } from '@/components/icons';
 import { api, isAndroid } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
+import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
 import { logger } from '@/lib/logger';
 import { useToastStore } from '@/store/toastStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -308,7 +309,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         duration: 2000,
       });
       // Notify readers to re-render highlights
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      notifyAnnotationsChanged();
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to save highlight',
@@ -340,7 +341,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'success',
         duration: 2000,
       });
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      notifyAnnotationsChanged();
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to save note',
@@ -470,7 +471,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'success',
         duration: 2000,
       });
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      notifyAnnotationsChanged();
       setShowTranslation(false);
       hideToolbar();
       window.getSelection()?.removeAllRanges();

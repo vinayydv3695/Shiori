@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { api, isAndroid, type Annotation, type BookMetadata } from '@/lib/tauri';
-import { ChapterHtml, processEpubHtml } from './PremiumEpubReader';
+import { ChapterHtml, processEpubHtml, applySearchHighlight } from './PremiumEpubReader';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useDoodleStore } from '@/store/doodleStore';
@@ -101,8 +101,9 @@ export function ContinuousEpubView({
     if (index < 0 || index >= metadata.total_chapters) return null;
     try {
       const chapter = await api.getBookChapter(bookId, index);
-      const processed = await processEpubHtml(bookId, chapter.content, searchTerm);
-      return { index, content: processed };
+      const processed = await processEpubHtml(bookId, chapter.content);
+      const withTerm = searchTerm ? applySearchHighlight(processed, searchTerm) : processed;
+      return { index, content: withTerm };
     } catch (e) {
       console.error('Failed to load chapter', index, e);
       return null;

@@ -7,6 +7,7 @@ import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from 
 import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download } from '@/components/icons';
 import { StickyNote, ListTree, SearchX } from 'lucide-react';
 import { parseTocLocationToIndex, findCurrentTocEntry } from '@/lib/toc';
+import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
 import DOMPurify from 'dompurify';
 import { useToastStore } from '@/store/toastStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -463,7 +464,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       // Remove from local state
       setAnnotations(prev => prev.filter(a => a.id !== annotation.id));
       // Notify readers to re-render highlights
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      notifyAnnotationsChanged();
       useToastStore.getState().addToast({
         title: `${annotation.annotationType.charAt(0).toUpperCase() + annotation.annotationType.slice(1)} deleted`,
         variant: 'success',
@@ -500,7 +501,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       ));
       setEditingNoteId(null);
       setEditNoteText('');
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      notifyAnnotationsChanged();
       useToastStore.getState().addToast({
         title: 'Note updated',
         variant: 'success',
@@ -528,7 +529,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
         a.id === annotation.id ? { ...a, color: newColor } : a
       ));
       setEditingColorId(null);
-      window.dispatchEvent(new CustomEvent('annotation-changed'));
+      notifyAnnotationsChanged();
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to update color',

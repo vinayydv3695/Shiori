@@ -13,3 +13,5 @@ export function triggerHaptic(ms = 12) {
     }
   }
 }
+
+export const hapticTick = triggerHaptic;

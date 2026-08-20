@@ -1,3 +1,10 @@
+# Release Notes (v2.3.38)
+
+## Features & Improvements
+
+- **Sleek 100% Opaque Glassmorphic Pill Text Selection Toolbar** — Redesigned the text selection menu on Android and Desktop into a solid, 100% opaque floating pill bar (`var(--bg-elevated)`) with zero background transparency bleed-through.
+- **Unified Single-Row Action Controls & Haptics** — Replaced multi-row expand dropdowns and sharp hairline dividers with a single horizontal action pill containing Translate, Note, Highlight, Aloud, Define, and Copy with touch-friendly spacing and tactile haptic feedback ticks.
+
 # Release Notes (v2.3.37)
 
 ## Features & Improvements

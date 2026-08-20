@@ -139,7 +139,7 @@ tauri-plugin-fs = "2.5.1"
 tauri-plugin-http = "2"
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
-tauri-plugin-tts = { version = "0.1", optional = true }
+tauri-plugin-tts = "0.1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }
@@ -156,6 +156,10 @@ discord-rich-presence = "1.1.0"
 tauri-plugin-process = "2"
 piper-rs = { version = "0.2.0", default-features = false }
 ort = { version = "2.0.0-rc.9", features = ["download-binaries"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

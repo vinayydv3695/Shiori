@@ -1,3 +1,11 @@
+# Release Notes (v2.3.39)
+
+## Features & Improvements
+
+- **Fixed Piper Audio Asset URL Protocol Handling** — Wrapped local synthesized Piper TTS audio file paths with `convertFileSrc()` to eliminate HTML5 `<audio>` playback errors in WebViews and browser contexts.
+- **Automatic Fallback to Web Speech API** — Added automatic fallback to System / Web Speech TTS if a Piper voice fails to synthesize or play, guaranteeing unbroken text-to-speech reading.
+- **IPC Access Control & Error Handling** — Added `try-catch` error boundaries around `save_reading_progress` and reading progress batch IPC invokes to gracefully catch protocol or CORS access control issues.
+
 # Release Notes (v2.3.38)
 
 ## Features & Improvements

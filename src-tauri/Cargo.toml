@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "2.3.43"
+version = "2.3.44"
 description = "A Modern Library and Reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -139,11 +139,7 @@ tauri-plugin-fs = "2.5.1"
 tauri-plugin-http = "2"
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
-# Required (not optional): tauri-build only collects plugin permissions from
-# non-optional deps, and a stale feature gate was silently disabling both the
-# registration and the permission set ("Permission tts:default not found" on
-# the Android build).
-tauri-plugin-tts = "0.1"
+tauri-plugin-tts = { version = "0.1", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }

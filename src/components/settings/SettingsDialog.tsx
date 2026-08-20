@@ -10,7 +10,8 @@ import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2, ChevronRight
+  RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2,
+  ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -320,65 +321,85 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           preferences?.transparentSettings ?? false ? "bg-background/95 backdrop-blur-2xl" : "bg-background"
         )}>
           <div 
-            className="flex items-center justify-between p-4 md:p-6 border-b border-border gap-3"
-            style={{ paddingTop: isMobile ? 'max(env(safe-area-inset-top, 0px), 16px)' : undefined }}
+            className="flex items-center justify-between p-3.5 sm:p-5 border-b border-border/60 gap-2 sm:gap-3 bg-background/80 backdrop-blur-md sticky top-0 z-20"
+            style={{ paddingTop: isMobile ? 'max(env(safe-area-inset-top, 0px), 12px)' : undefined }}
           >
             {isMobile ? (
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => { 
-                    triggerHaptic(50); 
-                    if (mobileView === 'detail') {
-                      setMobileView('root'); 
-                    } else {
-                      onOpenChange(false);
-                    }
-                  }} 
-                  className="-ml-2 text-foreground/80 hover:text-foreground active:scale-95"
-                  aria-label={mobileView === 'detail' ? "Back to settings list" : "Close settings"}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                </Button>
-                <Dialog.Title className="text-xl font-semibold">
-                  {mobileView === 'detail' ? (tabs.find(t => t.id === selectedTab)?.name || 'Settings') : 'Settings'}
-                </Dialog.Title>
-              </div>
+              mobileView === 'detail' ? (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
+                    className="rounded-full shrink-0 -ml-1 hover:bg-muted/80"
+                    aria-label="Back to settings categories"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <Dialog.Title className="text-lg font-bold tracking-tight truncate">
+                    {tabs.find(t => t.id === selectedTab)?.name || 'Settings'}
+                  </Dialog.Title>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
+                    className="rounded-full shrink-0 -ml-1 hover:bg-muted/80"
+                    aria-label="Close settings"
+                  >
+                    <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                  </Button>
+                  <Dialog.Title className="text-xl font-bold tracking-tight">
+                    Settings
+                  </Dialog.Title>
+                </div>
+              )
             ) : (
-              <Dialog.Title className="text-xl md:text-2xl font-semibold">Settings</Dialog.Title>
+              <Dialog.Title className="text-xl md:text-2xl font-bold tracking-tight">Settings</Dialog.Title>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {!(isMobile && mobileView === 'detail') && (
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
                   <Input
                     type="search"
-                    placeholder="Search settings..."
+                    placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 w-40 sm:w-48 md:w-64"
+                    className="pl-8.5 pr-7 h-9 text-xs sm:text-sm w-32 sm:w-48 md:w-64 rounded-full bg-muted/40 focus:bg-background border-border/50"
                     aria-label="Search settings"
                   />
                   {searchQuery && (
                     <button
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       onClick={() => setSearchQuery('')}
                       aria-label="Clear search"
                     >
-                      <X size={14} />
+                      <X size={13} />
                     </button>
                   )}
                 </div>
               )}
-              {(!isMobile || mobileView === 'root') && (
+              {isMobile && mobileView === 'detail' ? (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
+                  className="rounded-full shrink-0" 
+                  aria-label="Close settings"
+                >
+                  <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                </Button>
+              ) : !isMobile ? (
                  <Dialog.Close asChild>
-                   <Button variant="ghost" size="icon" aria-label="Close settings">
-                     <X className="w-5 h-5" />
+                   <Button variant="ghost" size="icon" className="rounded-full shrink-0" aria-label="Close settings">
+                     <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
                    </Button>
                  </Dialog.Close>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -394,13 +415,13 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             <Tabs.List asChild>
               <motion.div
                 className={cn(
-                  "w-64 bg-background/30 p-6 space-y-1.5 flex-shrink-0 overflow-y-auto custom-scrollbar",
-                  isMobile && mobileView === 'root' ? "w-full flex-1 max-md:pb-12" : isMobile ? "hidden" : "block"
+                  "w-64 bg-background/30 p-4 md:p-6 space-y-1.5 flex-shrink-0 overflow-y-auto custom-scrollbar",
+                  isMobile && mobileView === 'root' ? "w-full flex-1 max-md:pb-16 p-3 sm:p-4 space-y-2" : isMobile ? "hidden" : "block"
                 )}
                 aria-label="Settings categories"
                 initial="hidden"
                 animate="show"
-                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
               >
                 {filteredTabs.map((tab) => (
                   <motion.div key={tab.id} variants={{ hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
@@ -415,18 +436,21 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
                         'data-[state=active]:bg-primary/10 data-[state=active]:text-primary',
                         'data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:bg-muted/40 data-[state=inactive]:hover:text-foreground',
-                        isMobile && mobileView === 'root' && "py-3.5 px-4 my-1.5 rounded-2xl bg-card/60 border border-border/50 shadow-sm active:scale-[0.98] data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15"
+                        isMobile && mobileView === 'root' && "py-3.5 px-4 rounded-2xl border border-border/50 bg-card/60 hover:bg-card/90 shadow-sm active:scale-[0.98]"
                       )}
                     >
                       <div className={cn(
-                        "p-2.5 rounded-xl transition-colors flex-shrink-0",
-                        isMobile ? "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground" : ""
+                        "p-2 rounded-xl flex items-center justify-center transition-colors shrink-0",
+                        isMobile ? "bg-primary/10 text-primary" : "text-muted-foreground group-hover:text-foreground"
                       )}>
-                        <tab.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
+                        <tab.icon className="w-5 h-5" />
                       </div>
-                      <span className="font-sans font-semibold tracking-tight text-[15px] block text-foreground flex-1">{tab.name}</span>
+                      <span className={cn(
+                        "font-sans font-medium tracking-wide block flex-1 truncate",
+                        isMobile && mobileView === 'root' && "text-[15px] font-semibold text-foreground"
+                      )}>{tab.name}</span>
                       {isMobile && mobileView === 'root' && (
-                        <ChevronRight className="w-5 h-5 text-muted-foreground/50 ml-auto transition-transform group-hover:translate-x-1" />
+                        <ChevronRight className="w-4.5 h-4.5 text-muted-foreground/60 shrink-0" />
                       )}
                     </Tabs.Trigger>
                   </motion.div>

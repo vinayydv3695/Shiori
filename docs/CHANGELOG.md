@@ -1,33 +1,3 @@
-# Release Notes (v2.3.43)
-
-## Features & Improvements
-
-- **Android SAF ActivityResultLauncher Lifecycle Registration** — Registered SAF document/folder launchers during plugin initialization (`load()` / `onCreate`) to ensure 100% compliance with Android 14 AndroidX `ActivityResultRegistry` requirements.
-- **Android Premium Settings UI Sync** — Synchronized version numbers across `package.json`, `Cargo.toml`, and `tauri.conf.json` for release deployment.
-
-# Release Notes (v2.3.42)
-
-## Fixes
-
-- **Android SAF Folder Picker Registration Fix (`SafPlugin.kt`)** — Fixed Kotlin compilation error by removing invalid `onActivityResult` override and registering `ActivityResultLauncher` instances during plugin `load()` in Activity `onCreate` lifecycle phase, eliminating Android 14 `unregistered ActivityResultLauncher` crashes.
-- **Android build fix: TTS permission not found** — `tauri-plugin-tts` was an optional dependency registered behind a feature (`native-tts`) that was never defined in `Cargo.toml`, so the plugin (and its `tts:default` permission set) was silently excluded from Android builds. It is now a required non-Linux dependency registered unconditionally, restoring the Android permission set and the native TTS path.
-- **Android TTS silent playback** — the reader now advances sentences on the plugin's real `speech:finish` events instead of a blind timer, surfaces engine/voice errors with a toast, and reports "No TTS audio" when the engine never starts (voice data or media volume).
-
-# Release Notes (v2.3.41)
-
-## Features & Improvements
-
-- **Premium Android Settings Glass Cards & Icon Badges** — Redesigned the Android settings tab list into sleek floating glass cards with theme icon badges and right chevron navigation indicators.
-- **Android Settings Header Back Navigation** — Integrated a prominent back arrow button in the header bar on mobile devices for seamless one-tap back navigation and closing.
-
-# Release Notes (v2.3.40)
-
-## Features & Improvements
-
-- **Android SAF Folder Picker Unregistered Launcher Fix (`SafPlugin.kt`)** — Added `activity.startActivityForResult` fallback with `onActivityResult` callback handling in `SafPlugin.kt`, resolving `IllegalStateException: Attempting to launch an unregistered ActivityResultLauncher` on Android 14.
-- **Android Settings Navigation Back Button (`SettingsDialog.tsx`)** — Added a prominent back arrow button in the Settings title bar on Android and mobile screens, enabling one-tap back navigation and dialog closing.
-- **Resolved iOS CI Compilation (`Cargo.toml` & `secret_store.rs`)** — Updated desktop `keyring` dependency target rules to `cfg(not(any(target_os = "android", target_os = "ios")))`, eliminating iOS Keychain `protected` compilation failures.
-
 # Release Notes (v2.3.39)
 
 ## Features & Improvements

@@ -33,7 +33,13 @@ export function SwipeGestureHandler({ children }: SwipeGestureHandlerProps) {
     const handleTouchStart = (e: TouchEvent) => {
       // Only single touch
       if (e.touches.length !== 1) return;
-      
+
+      // The EPUB/PDF reader is a modal overlay; it owns every gesture while
+      // open. Letting the global edge-swipe handler run here closes the book
+      // without flushing progress and fights the reader's own horizontal
+      // paging swipes near the left edge.
+      if (isReaderOpen) return;
+
       const touch = e.touches[0];
       startX.current = touch.clientX;
       startY.current = touch.clientY;

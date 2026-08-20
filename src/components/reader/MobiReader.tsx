@@ -11,6 +11,7 @@ import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
 import { useReaderTheme } from '@/hooks/useReaderTheme';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { ReaderTopBar } from './ReaderTopBar';
+import { BookSkeletonLoading } from './BookSkeletonLoading';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
@@ -55,6 +56,16 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     const contentRef = useRef<HTMLDivElement>(null);
     const readerContainerRef = useRef<HTMLDivElement>(null);
     const scrollPositionsRef = useRef<Map<number, number>>(new Map());
+    const rememberScrollPosition = (index: number, ratio: number) => {
+      const map = scrollPositionsRef.current;
+      if (map.has(index)) map.delete(index);
+      map.set(index, ratio);
+      while (map.size > 100) {
+        const oldest = map.keys().next().value;
+        if (oldest === undefined) break;
+        map.delete(oldest);
+      }
+    };
     const saveProgressTimerRef = useRef<number | null>(null);
     const currentIndexRef = useRef(0);
     const currentChapterRef = useRef<Chapter | null>(null);
@@ -90,7 +101,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             scrollRatio = scrollHeight > clientHeight
                 ? scrollTop / (scrollHeight - clientHeight)
                 : 0;
-            scrollPositionsRef.current.set(chapterIndex, scrollRatio);
+            rememberScrollPosition(chapterIndex, scrollRatio);
         }
 
         const progressPercent = ((chapterIndex + scrollRatio / totalChapters) / totalChapters) * 100;
@@ -114,7 +125,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 const scrollRatio = scrollHeight > clientHeight
                     ? scrollTop / (scrollHeight - clientHeight)
                     : 0;
-                scrollPositionsRef.current.set(currentIndexRef.current, scrollRatio);
+                rememberScrollPosition(currentIndexRef.current, scrollRatio);
             }
 
             const chapter = await api.getBookChapter(bookId, index);
@@ -500,15 +511,13 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     // ── Loading State ──
     if (!currentChapter) {
         return (
-            <div className="premium-reader premium-reader--loading">
-                <div className="premium-loading-container">
-                    <Loader2 className="premium-loading-spinner" />
-                    <p className="premium-loading-text">Extracting MOBI format...</p>
-                    {metadata && (
-                        <p className="premium-loading-subtitle">{metadata.title}</p>
-                    )}
-                </div>
-            </div>
+            <BookSkeletonLoading
+                title={metadata?.title}
+                subtitle={metadata?.author}
+                message="Extracting MOBI format..."
+                coverUrl={metadata?.cover_url}
+                format="mobi"
+            />
         );
     }
 

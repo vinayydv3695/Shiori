@@ -23,6 +23,7 @@ import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
 import { ReadingProgressIndicator } from './ReadingProgressIndicator';
 import { ContinuousEpubView } from './ContinuousEpubView';
+import { BookSkeletonLoading } from './BookSkeletonLoading';
 import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
@@ -845,7 +846,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     };
 
     void run();
+    const hideFlush = () => flushProgressNow();
+    // Android can background/kill the app without unmounting React — flush the
+    // debounced scroll save on hide so the last position survives.
+    window.addEventListener('pagehide', hideFlush);
+    document.addEventListener('visibilitychange', hideFlush);
     return () => {
+      window.removeEventListener('pagehide', hideFlush);
+      document.removeEventListener('visibilitychange', hideFlush);
       if (saveScrollProgressRef.current) {
         clearTimeout(saveScrollProgressRef.current);
         saveScrollProgressRef.current = null;
@@ -1301,7 +1309,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (isDoodleMode) return;
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-    if (target.closest('.premium-reading-canvas') || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar') || target.closest('.doodle-toolbar')) {
       return;
     }
 
@@ -1356,18 +1364,19 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }
 
   if (!currentChapter) {
+    const chapterSubtitle =
+      findCurrentTocEntry(toc, currentIndex)?.label?.trim() ||
+      (metadata ? `Chapter ${currentIndex + 1} of ${metadata.total_chapters}` : undefined);
+
     return (
-      <div ref={readerContainerRef} className="premium-reader premium-reader--loading">
-        <div className="premium-loading-container">
-          <Loader2 className="premium-loading-spinner" />
-          <p className="premium-loading-text">
-            Loading book...
-          </p>
-          {(metadata || readerContent) && (
-            <p className="premium-loading-subtitle">{metadata?.title ?? readerContent?.title}</p>
-          )}
-        </div>
-      </div>
+      <BookSkeletonLoading
+        title={metadata?.title ?? readerContent?.title}
+        subtitle={readerContent?.author}
+        progressText={chapterSubtitle}
+        message="Resuming reading"
+        coverUrl={metadata?.cover_url ?? readerContent?.cover}
+        format="epub"
+      />
     );
   }
 

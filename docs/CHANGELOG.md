@@ -2,6 +2,7 @@
 
 ## Fixes
 
+- **Android SAF Folder Picker Registration Fix (`SafPlugin.kt`)** — Fixed Kotlin compilation error by removing invalid `onActivityResult` override and registering `ActivityResultLauncher` instances during plugin `load()` in Activity `onCreate` lifecycle phase, eliminating Android 14 `unregistered ActivityResultLauncher` crashes.
 - **Android build fix: TTS permission not found** — `tauri-plugin-tts` was an optional dependency registered behind a feature (`native-tts`) that was never defined in `Cargo.toml`, so the plugin (and its `tts:default` permission set) was silently excluded from Android builds. It is now a required non-Linux dependency registered unconditionally, restoring the Android permission set and the native TTS path.
 - **Android TTS silent playback** — the reader now advances sentences on the plugin's real `speech:finish` events instead of a blind timer, surfaces engine/voice errors with a toast, and reports "No TTS audio" when the engine never starts (voice data or media volume).
 

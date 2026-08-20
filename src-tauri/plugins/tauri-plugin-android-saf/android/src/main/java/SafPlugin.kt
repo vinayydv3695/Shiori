@@ -23,34 +23,44 @@ import androidx.documentfile.provider.DocumentFile
 @TauriPlugin
 class SafPlugin(private val activity: Activity): Plugin(activity) {
 
+    private var folderLauncher: androidx.activity.result.ActivityResultLauncher<Intent>? = null
+    private var fileLauncher: androidx.activity.result.ActivityResultLauncher<Intent>? = null
+    private var createDocLauncher: androidx.activity.result.ActivityResultLauncher<Intent>? = null
+
     private var pendingFolderInvoke: Invoke? = null
     private var pendingFilesInvoke: Invoke? = null
     private var pendingCreateDocInvoke: Invoke? = null
 
-    companion object {
-        private const val REQ_SAF_FOLDER = 9101
-        private const val REQ_SAF_FILES = 9102
-        private const val REQ_SAF_CREATE_DOC = 9103
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        val activityResult = androidx.activity.result.ActivityResult(resultCode, data)
-        when (requestCode) {
-            REQ_SAF_FOLDER -> {
-                val inv = pendingFolderInvoke ?: return
+    override fun load(webView: android.webkit.WebView) {
+        super.load(webView)
+        val componentActivity = activity as? androidx.activity.ComponentActivity
+        if (componentActivity != null) {
+            folderLauncher = componentActivity.registerForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                val inv = pendingFolderInvoke
                 pendingFolderInvoke = null
-                safFolderResult(inv, activityResult)
+                if (inv != null) {
+                    safFolderResult(inv, result)
+                }
             }
-            REQ_SAF_FILES -> {
-                val inv = pendingFilesInvoke ?: return
+            fileLauncher = componentActivity.registerForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                val inv = pendingFilesInvoke
                 pendingFilesInvoke = null
-                safFilesResult(inv, activityResult)
+                if (inv != null) {
+                    safFilesResult(inv, result)
+                }
             }
-            REQ_SAF_CREATE_DOC -> {
-                val inv = pendingCreateDocInvoke ?: return
+            createDocLauncher = componentActivity.registerForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                val inv = pendingCreateDocInvoke
                 pendingCreateDocInvoke = null
-                safCreateDocumentResult(inv, activityResult)
+                if (inv != null) {
+                    safCreateDocumentResult(inv, result)
+                }
             }
         }
     }
@@ -156,15 +166,20 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         activity.runOnUiThread {
-            try {
-                startActivityForResult(invoke, intent, "safFilesResult")
-            } catch (e: Throwable) {
+            val launcher = fileLauncher
+            if (launcher != null) {
+                pendingFilesInvoke = invoke
                 try {
-                    pendingFilesInvoke = invoke
-                    activity.startActivityForResult(intent, REQ_SAF_FILES)
-                } catch (ex: Exception) {
+                    launcher.launch(intent)
+                } catch (e: Exception) {
                     pendingFilesInvoke = null
-                    invoke.reject("Failed to open file picker: ${ex.message}")
+                    invoke.reject("Failed to open file picker: ${e.message}")
+                }
+            } else {
+                try {
+                    startActivityForResult(invoke, intent, "safFilesResult")
+                } catch (e: Exception) {
+                    invoke.reject("Failed to open file picker: ${e.message}")
                 }
             }
         }
@@ -175,15 +190,20 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
         activity.runOnUiThread {
-            try {
-                startActivityForResult(invoke, intent, "safFolderResult")
-            } catch (e: Throwable) {
+            val launcher = folderLauncher
+            if (launcher != null) {
+                pendingFolderInvoke = invoke
                 try {
-                    pendingFolderInvoke = invoke
-                    activity.startActivityForResult(intent, REQ_SAF_FOLDER)
-                } catch (ex: Exception) {
+                    launcher.launch(intent)
+                } catch (e: Exception) {
                     pendingFolderInvoke = null
-                    invoke.reject("Failed to open folder picker: ${ex.message}")
+                    invoke.reject("Failed to open folder picker: ${e.message}")
+                }
+            } else {
+                try {
+                    startActivityForResult(invoke, intent, "safFolderResult")
+                } catch (e: Exception) {
+                    invoke.reject("Failed to open folder picker: ${e.message}")
                 }
             }
         }
@@ -394,15 +414,20 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             putExtra(Intent.EXTRA_TITLE, fileName)
         }
         activity.runOnUiThread {
-            try {
-                startActivityForResult(invoke, intent, "safCreateDocumentResult")
-            } catch (e: Throwable) {
+            val launcher = createDocLauncher
+            if (launcher != null) {
+                pendingCreateDocInvoke = invoke
                 try {
-                    pendingCreateDocInvoke = invoke
-                    activity.startActivityForResult(intent, REQ_SAF_CREATE_DOC)
-                } catch (ex: Exception) {
+                    launcher.launch(intent)
+                } catch (e: Exception) {
                     pendingCreateDocInvoke = null
-                    invoke.reject("Failed to open save location picker: ${ex.message}")
+                    invoke.reject("Failed to open save location picker: ${e.message}")
+                }
+            } else {
+                try {
+                    startActivityForResult(invoke, intent, "safCreateDocumentResult")
+                } catch (e: Exception) {
+                    invoke.reject("Failed to open save location picker: ${e.message}")
                 }
             }
         }

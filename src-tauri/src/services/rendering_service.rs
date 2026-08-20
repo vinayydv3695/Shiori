@@ -442,7 +442,9 @@ impl RenderingService {
         self.cache
             .put(cache_key, CachedContent::Html(chapter.content.clone()));
 
-        // Preload next chapters in background
+        // Adjacent full-HTML preloads are desktop-only. Android keeps one
+        // chapter request at a time to avoid duplicating large EPUB strings.
+        #[cfg(not(target_os = "android"))]
         self.preload_adjacent_chapters(book_id, chapter_index);
 
         Ok(chapter)

@@ -7,7 +7,7 @@ import { AnnotationsViewAndroid } from './AnnotationsViewAndroid';
 
 interface AnnotationsViewProps {
   onClose: () => void;
-  onOpenBook?: (bookId: number, location?: string) => void;
+  onOpenBook?: (bookId: number, location?: string, annotationId?: number) => void;
 }
 
 export function AnnotationsView({ onClose, onOpenBook }: AnnotationsViewProps) {

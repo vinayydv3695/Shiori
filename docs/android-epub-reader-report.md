@@ -399,3 +399,20 @@ Stop build if available RAM falls below ~2 GiB or swap starts growing rapidly. D
 This is not one defect. Android combines weaker WebView timing/CPU/memory with several desktop-oriented assumptions: location is discarded at the global open boundary, annotation anchors are fuzzy text only, continuous flow has no target-load transaction, page navigation has duplicate event ownership, and EPUB memory is not byte-bounded end-to-end.
 
 Fix F1/F3/F4/F5 first for correctness. Fix F7 before increasing preload/window sizes. Validate on a real Android device; current host has no attached device/emulator, so this report is code-evidence based, not a claim of runtime verification.
+
+## Fix status (2026-08-20)
+
+Implemented and gated (backend lib tests 296/0, frontend tests 187/0, `tsc --noEmit` clean, no new eslint errors):
+
+- **F1 (P0)** — Annotation target now threads `(bookId, location, annotationId)` through `ViewRouter` → `useBookActions` → `useBookOpen`. Pending annotation ID + derived resume target are set before `openBook`.
+- **F2 (P1)** — Continuous nested-chapter navigation: `initialChapterIndex` change resets the one-shot scroll gate, so target navigation lands on the requested chapter; pending annotation retry consumes cached annotations instead of re-fetching each attempt.
+- **F3 (P1)** — New chapter-local text-offset anchors (`cfiRange` JSON `{version, chapterIndex, start, end}`) are saved on highlight/note/vocabulary creation and applied before the legacy fuzzy selected-text scan. Duplicate-text and Android whitespace cases now restore the exact occurrence. Old annotations keep the fuzzy path.
+- **F4 (P1)** — Canvas click calls `stopPropagation()`; parent click handler ignores canvas clicks. One Android-synthesized tap = one navigation.
+- **F5 (P1)** — EPUB chapter loads now use a request token + in-flight guard: stale `getBookChapter`/processing responses are discarded; rapid tap/swipe sequences cannot land out of order.
+- **F6 (P1)** — Scroll/pagination restore awaits stable layout (`document.fonts.ready` + 10-frame `scrollHeight/Width/client*` stability) before applying ratios.
+- **F7 (P0/P1)** — Memory caps: Rust renderer cache 32 MiB on Android (100 MiB desktop), adjacent chapter preload disabled on Android, one item larger than the whole cache is rejected, Android processed-chapter cache is 3 items / 16 MiB (5 / 64 MiB desktop) with byte-based eviction, page-flip preload disabled on Android, continuous window `active ±1` on Android, processed chapter cache cleared on reader close/book change.
+- **F9 (P2)** — Selection toolbar snapshots the selection range anchor before WebView clears it, cancels the delayed hide timer on toolbar pointerdown, and uses the snapshot when the live selection is gone.
+
+Not yet implemented:
+- Android low-memory Rust callback wiring (generated `WryActivity`/`Rust.kt` — not hand-edited).
+- Android annotation-list virtualization (currently capped implicitly by API limit 1000).

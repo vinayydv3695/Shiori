@@ -708,8 +708,10 @@ pub fn run() {
                 }
             });
 
-            // Initialize rendering service with 100MB cache
-            app.manage(commands::rendering::RenderingState::new(100));
+            // Android WebView has a much tighter process budget. Keep Rust
+            // chapter cache conservative there; desktop keeps the larger cap.
+            let renderer_cache_mb = if cfg!(target_os = "android") { 32 } else { 100 };
+            app.manage(commands::rendering::RenderingState::new(renderer_cache_mb));
 
             // Initialize manga reader service
             app.manage(commands::manga::MangaState::new());

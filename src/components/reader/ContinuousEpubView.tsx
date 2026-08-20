@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
-import { api, type BookMetadata } from '@/lib/tauri';
+import { api, isAndroid, type Annotation, type BookMetadata } from '@/lib/tauri';
 import { ChapterHtml, processEpubHtml } from './PremiumEpubReader';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
@@ -28,8 +28,8 @@ interface LoadedChapter {
 
 // Chapters outside [active-KEEP_ABOVE, active+KEEP_BELOW] are unloaded to bound
 // memory (long books previously kept every scrolled chapter, OOM-crashing Android).
-const KEEP_ABOVE = 3;
-const KEEP_BELOW = 3;
+const KEEP_ABOVE = isAndroid ? 1 : 3;
+const KEEP_BELOW = isAndroid ? 1 : 3;
 
 export function ContinuousEpubView({
   bookId,
@@ -67,7 +67,26 @@ export function ContinuousEpubView({
   const observerRef = useRef<IntersectionObserver | null>(null);
   const chapterRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const isFetchingRef = useRef(false);
-  
+  const annotationsRef = useRef<Annotation[] | null>(null);
+  const annotationsPromiseRef = useRef<Promise<Annotation[]> | null>(null);
+
+  const loadAnnotations = useCallback(async (force = false): Promise<Annotation[]> => {
+    if (!force && annotationsRef.current) return annotationsRef.current;
+    if (!force && annotationsPromiseRef.current) return annotationsPromiseRef.current;
+
+    const request = api.getAnnotations(bookId);
+    annotationsPromiseRef.current = request;
+    try {
+      const annotations = await request;
+      annotationsRef.current = annotations;
+      return annotations;
+    } finally {
+      if (annotationsPromiseRef.current === request) {
+        annotationsPromiseRef.current = null;
+      }
+    }
+  }, [bookId]);
+
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
 
   // Scroll anchoring state
@@ -157,6 +176,20 @@ export function ContinuousEpubView({
 
   // Handle scroll anchoring and initial scroll
   const hasAppliedInitialScroll = useRef(false);
+  const previousRequestedChapterRef = useRef(initialChapterIndex);
+
+  // Parent-level chapter navigation can change initialChapterIndex while the
+  // target chapter is already in the loaded window. Reset the one-shot scroll
+  // gate before the layout effect so target navigation actually moves there.
+  useLayoutEffect(() => {
+    if (previousRequestedChapterRef.current === initialChapterIndex) return;
+    previousRequestedChapterRef.current = initialChapterIndex;
+    if (initialChapterIndex !== activeChapterIndexRef.current) {
+      activeChapterIndexRef.current = initialChapterIndex;
+      hasAppliedInitialScroll.current = false;
+    }
+  }, [initialChapterIndex]);
+
   useLayoutEffect(() => {
     if (chapters.length === 0 || !containerRef.current) return;
     
@@ -346,7 +379,7 @@ export function ContinuousEpubView({
       if (cancelled || chapters.length === 0) return;
       
       try {
-        const annotations = await api.getAnnotations(bookId);
+        const annotations = await loadAnnotations();
         if (cancelled) return;
 
         // Use a short timeout to ensure DOM layout has settled 
@@ -374,7 +407,9 @@ export function ContinuousEpubView({
     applyHighlights();
 
     const handleAnnotationChanged = () => {
-      applyHighlights();
+      annotationsRef.current = null;
+      annotationsPromiseRef.current = null;
+      void applyHighlights();
     };
     window.addEventListener('annotation-changed', handleAnnotationChanged);
 
@@ -382,7 +417,7 @@ export function ContinuousEpubView({
       cancelled = true;
       window.removeEventListener('annotation-changed', handleAnnotationChanged);
     };
-  }, [chapters, bookId]);
+  }, [chapters, bookId, loadAnnotations]);
 
   // Dedicated reactive listener for continuous view to jump directly to exact clicked annotation mark
   const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
@@ -410,7 +445,7 @@ export function ContinuousEpubView({
 
       // Proactively ensure highlights are applied
       try {
-        const annotations = await api.getAnnotations(bookId);
+        const annotations = await loadAnnotations();
         chapters.forEach((ch) => {
           const el = chapterRefs.current.get(ch.index);
           if (el) {
@@ -442,7 +477,7 @@ export function ContinuousEpubView({
 
     const timerId = setTimeout(tryScroll, 40);
     return () => clearTimeout(timerId);
-  }, [pendingAnnotationId, chapters, bookId]);
+  }, [pendingAnnotationId, chapters, bookId, loadAnnotations]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (onScroll) onScroll(e);

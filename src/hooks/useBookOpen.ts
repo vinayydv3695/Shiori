@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { api, isAndroid, type ReadingProgress } from '@/lib/tauri';
 import { useUIStore } from '@/store/uiStore';
 import { useReaderStore, type ResumeTarget } from '@/store/readerStore';
+import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { useToastStore } from '@/store/toastStore';
 import { logger } from '@/lib/logger';
 import type { ConvertOrOpenBook } from '@/components/conversion/ConvertOrOpenDialog';
@@ -70,6 +71,31 @@ function deriveResumeTarget(bookId: number, progress: ReadingProgress): ResumeTa
   };
 }
 
+function deriveAnnotationTarget(bookId: number, location?: string): ResumeTarget | null {
+  if (!location) return null;
+
+  let chapterIndex: number | null = null;
+  const epubCfi = location.match(/epubcfi\(\/\d+\/(\d+)\b/i);
+  const simpleCfi = location.match(/epubcfi\(\/(\d+)\b/i);
+  const chapter = location.match(/(?:^|[\\w-]*chapter[_:-])(\d+)/i);
+  const rawIndex = epubCfi?.[1] ?? simpleCfi?.[1] ?? chapter?.[1];
+  if (rawIndex !== undefined) {
+    const parsed = Number.parseInt(rawIndex, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) chapterIndex = parsed;
+  }
+
+  if (chapterIndex === null) return null;
+
+  let scrollRatio = 0;
+  const scroll = location.match(/(?:scroll[_/])([0-9.]+)/i);
+  if (scroll) {
+    const parsed = Number.parseFloat(scroll[1]);
+    if (Number.isFinite(parsed)) scrollRatio = Math.max(0, Math.min(1, parsed));
+  }
+
+  return { bookId, chapterIndex, scrollRatio };
+}
+
 function hasMeaningfulProgress(progress: ReadingProgress): boolean {
   if (progress.progressPercent > MIN_RESUME_PROGRESS_PCT) return true;
 
@@ -120,6 +146,7 @@ interface PendingResume {
 export function useBookOpen() {
   const openBook = useReaderStore(s => s.openBook);
   const setExplicitResumeTarget = useReaderStore(s => s.setExplicitResumeTarget);
+  const setPendingAnnotationId = useReaderUIStore(s => s.setPendingAnnotationId);
 
   // ── Resume-reading prompt state ─────────────────────────────────────────
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -168,11 +195,18 @@ export function useBookOpen() {
    * For EPUB books with existing progress, prompts the user to resume or restart.
    * Returns the bookId for selection tracking in the caller.
    */
-  const handleOpenBook = useCallback(async (bookId: number): Promise<number | null> => {
-    logger.debug('[useBookOpen] Opening book:', bookId);
+  const handleOpenBook = useCallback(async (
+    bookId: number,
+    location?: string,
+    annotationId?: number,
+  ): Promise<number | null> => {
+    logger.debug('[useBookOpen] Opening book:', bookId, location, annotationId);
     try {
-      // Clear stale one-shot target from previous open.
-      setExplicitResumeTarget(null);
+      // Carry annotation/history target through book-open. Previously Android's
+      // global annotation view passed location, but this boundary discarded it.
+      const directTarget = deriveAnnotationTarget(bookId, location);
+      setExplicitResumeTarget(directTarget);
+      setPendingAnnotationId(annotationId ?? null);
 
       const book = await api.getBook(bookId);
       const filePath = await api.getBookFilePath(bookId);
@@ -212,6 +246,15 @@ export function useBookOpen() {
             useUIStore.getState().setCurrentView('online-manga');
             return bookId;
         }
+      }
+
+      // Direct annotation/history jumps bypass resume prompt. Target is already
+      // encoded in explicitResumeTarget; pending ID is consumed after DOM marks
+      // are applied.
+      if (format === 'epub' && (directTarget || annotationId !== undefined)) {
+        useReaderStore.getState().setStartFromBeginning(false);
+        openBook(bookId, filePath, format);
+        return bookId;
       }
 
       // EPUB: offer resume/restart when there is meaningful saved progress
@@ -276,7 +319,7 @@ export function useBookOpen() {
       });
       return null;
     }
-  }, [openBook, setExplicitResumeTarget]);
+  }, [openBook, setExplicitResumeTarget, setPendingAnnotationId]);
 
   // ── Resume dialog handlers ──────────────────────────────────────────────
 

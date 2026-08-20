@@ -66,6 +66,17 @@ impl BookCache {
     /// Put an item into the cache
     pub fn put(&self, key: CacheKey, content: CachedContent) {
         let content_size = Self::estimate_content_size(&content);
+        // Never admit one item larger than the whole cache. Without this
+        // guard, an oversized EPUB chapter bypasses the empty-cache eviction
+        // loop and pushes memory above the configured cap on Android.
+        if content_size > self.max_size_bytes {
+            log::warn!(
+                "[cache] skipping oversized item ({} bytes > {} byte cap)",
+                content_size,
+                self.max_size_bytes
+            );
+            return;
+        }
         let mut state = self.state.lock().unwrap();
 
         // Evict oldest items until we have space

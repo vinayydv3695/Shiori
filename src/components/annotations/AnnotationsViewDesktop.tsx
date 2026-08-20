@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 interface AnnotationsViewDesktopProps {
   onClose: () => void;
-  onOpenBook?: (bookId: number, location?: string) => void;
+  onOpenBook?: (bookId: number, location?: string, annotationId?: number) => void;
   data: ReturnType<typeof useAnnotationsData>;
 }
 

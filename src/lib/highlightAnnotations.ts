@@ -63,10 +63,84 @@ function normalizeForMatch(str: string): string {
  * Find annotation.selectedText within the container's text nodes
  * and wrap it in a <mark> element.
  */
+interface TextRangeAnchor {
+  version: 1;
+  chapterIndex?: string | null;
+  start: number;
+  end: number;
+}
+
+function parseTextRangeAnchor(value?: string): TextRangeAnchor | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Partial<TextRangeAnchor>;
+    if (
+      parsed.version !== 1 ||
+      typeof parsed.start !== 'number' ||
+      typeof parsed.end !== 'number' ||
+      !Number.isFinite(parsed.start) ||
+      !Number.isFinite(parsed.end) ||
+      parsed.start < 0 ||
+      parsed.end <= parsed.start
+    ) {
+      return null;
+    }
+    return parsed as TextRangeAnchor;
+  } catch {
+    // Older rows contain EPUB CFI or no range; use text fallback below.
+    return null;
+  }
+}
+
+/** Apply a chapter-local text offset anchor. Returns false for old/invalid anchors. */
+function highlightTextByOffset(
+  container: HTMLElement,
+  annotation: Annotation,
+  anchor: TextRangeAnchor,
+): boolean {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+  const nodes: { node: Text; start: number; end: number }[] = [];
+  let fullLength = 0;
+  let node: Text | null;
+  while ((node = walker.nextNode() as Text | null)) {
+    if (node.parentElement?.tagName === 'SCRIPT' || node.parentElement?.tagName === 'STYLE') continue;
+    const length = node.textContent?.length ?? 0;
+    nodes.push({ node, start: fullLength, end: fullLength + length });
+    fullLength += length;
+  }
+
+  const start = Math.max(0, Math.min(fullLength, Math.floor(anchor.start)));
+  const end = Math.max(start, Math.min(fullLength, Math.floor(anchor.end)));
+  if (end <= start) return false;
+
+  let wrapped = 0;
+  const affected = nodes.filter((entry) => entry.start < end && entry.end > start);
+  for (let i = affected.length - 1; i >= 0; i -= 1) {
+    const entry = affected[i];
+    const localStart = Math.max(0, start - entry.start);
+    const localEnd = Math.min(entry.end - entry.start, end - entry.start);
+    if (localEnd <= localStart) continue;
+    try {
+      const range = document.createRange();
+      range.setStart(entry.node, localStart);
+      range.setEnd(entry.node, localEnd);
+      range.surroundContents(createHighlightMark(annotation));
+      wrapped += 1;
+    } catch {
+      // Fall back to selected-text matching if DOM changed since save.
+      return false;
+    }
+  }
+  return wrapped > 0;
+}
+
 function highlightTextInContainer(
   container: HTMLElement,
   annotation: Annotation
 ): void {
+  const anchor = parseTextRangeAnchor(annotation.cfiRange);
+  if (anchor && highlightTextByOffset(container, annotation, anchor)) return;
+
   const searchText = annotation.selectedText?.trim();
   if (!searchText) return;
 

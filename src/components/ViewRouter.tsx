@@ -34,7 +34,7 @@ export interface ViewRouterProps {
   currentDomain: DomainView
   displayBooks: Book[]
   handleNavigate: (view: CurrentView) => void
-  handleOpenBook: (id: number, location?: string) => void
+  handleOpenBook: (id: number, location?: string, annotationId?: number) => void
   handleViewDetails: (id: number) => void
   handleEditBook: (id: number) => void
   handleDeleteBook: (id: number) => void

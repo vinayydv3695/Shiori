@@ -22,7 +22,7 @@ export const getAnnotationIcon = (type: string) => {
 interface AnnotationCardProps {
   result: AnnotationSearchResult;
   categories: AnnotationCategory[];
-  onOpenBook?: (bookId: number, location?: string) => void;
+  onOpenBook?: (bookId: number, location?: string, annotationId?: number) => void;
   setQuoteCardData: (data: AnnotationSearchResult) => void;
 }
 
@@ -84,7 +84,7 @@ export function AnnotationCard({ result, categories, onOpenBook, setQuoteCardDat
             )}
             {onOpenBook && (
               <button 
-                onClick={() => onOpenBook(result.annotation.bookId, result.annotation.location)}
+                onClick={() => onOpenBook(result.annotation.bookId, result.annotation.location, result.annotation.id)}
                 className="w-8 h-8 flex items-center justify-center bg-muted/40 md:bg-transparent hover:bg-primary/10 rounded-xl text-muted-foreground hover:text-primary transition-all duration-200 active:scale-95 cursor-pointer"
                 title="Jump to location"
               >

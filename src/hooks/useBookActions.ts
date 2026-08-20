@@ -20,9 +20,13 @@ export function useBookActions(books: Book[]) {
   // Use the new auto-convert hook for book opening
   const bookOpen = useBookOpen();
 
-  const handleOpenBook = useCallback(async (bookId: number) => {
-    logger.debug('[App] Opening book:', bookId);
-    const result = await bookOpen.handleOpenBook(bookId);
+  const handleOpenBook = useCallback(async (
+    bookId: number,
+    location?: string,
+    annotationId?: number,
+  ) => {
+    logger.debug('[App] Opening book:', bookId, location, annotationId);
+    const result = await bookOpen.handleOpenBook(bookId, location, annotationId);
     if (result !== null) {
       setSelectedBookId(result);
     }

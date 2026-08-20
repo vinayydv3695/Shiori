@@ -22,6 +22,33 @@ interface ToolbarPosition {
   y: number;
 }
 
+function buildTextRangeAnchor(selection: Selection): string | undefined {
+  if (selection.rangeCount === 0) return undefined;
+  const range = selection.getRangeAt(0);
+  const startElement = range.startContainer.nodeType === Node.ELEMENT_NODE
+    ? range.startContainer as Element
+    : range.startContainer.parentElement;
+  const chapterEl = startElement?.closest('[data-chapter-index]');
+  if (!chapterEl || !chapterEl.contains(range.endContainer)) return undefined;
+
+  try {
+    const beforeStart = document.createRange();
+    beforeStart.selectNodeContents(chapterEl);
+    beforeStart.setEnd(range.startContainer, range.startOffset);
+    const beforeEnd = document.createRange();
+    beforeEnd.selectNodeContents(chapterEl);
+    beforeEnd.setEnd(range.endContainer, range.endOffset);
+    return JSON.stringify({
+      version: 1,
+      chapterIndex: chapterEl.getAttribute('data-chapter-index'),
+      start: beforeStart.toString().length,
+      end: beforeEnd.toString().length,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 const HIGHLIGHT_COLORS = [
   { name: 'Yellow', value: '#fbbf24' },
   { name: 'Green', value: '#34d399' },
@@ -55,6 +82,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [translationError, setTranslationError] = useState<string | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
+  const hideTimerRef = useRef<number | null>(null);
+  const selectionAnchorRef = useRef<string | undefined>(undefined);
   
   // useTTS hook with dummy ref just for speakText
   const dummyRef = useRef<HTMLDivElement>(null);
@@ -78,6 +107,11 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   }, []);
 
   const hideToolbar = useCallback(() => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    selectionAnchorRef.current = undefined;
     setIsVisible(false);
     setShowColorPicker(false);
     setShowNoteInput(false);
@@ -117,7 +151,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
       if (!selection || selection.isCollapsed || !selection.toString().trim()) {
         // Delay hiding to allow clicking toolbar buttons
-        setTimeout(() => {
+        if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = window.setTimeout(() => {
           const active = document.activeElement;
           if (toolbarRef.current && toolbarRef.current.contains(active)) return;
           
@@ -130,6 +165,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           if (!currentSelection?.toString().trim()) {
             hideToolbar();
           }
+          hideTimerRef.current = null;
         }, 200);
         return;
       }
@@ -137,6 +173,12 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       const text = selection.toString().trim();
       if (!text) return;
 
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      // Snapshot before Android selection handles disappear when toolbar is tapped.
+      selectionAnchorRef.current = buildTextRangeAnchor(selection);
       setSelectedText(text);
 
       // Calculate position above the selection
@@ -213,7 +255,17 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
   const getResolvedLocation = useCallback(() => {
     const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return currentLocation;
+    if (!selection || selection.rangeCount === 0) {
+      try {
+        const anchor = selectionAnchorRef.current ? JSON.parse(selectionAnchorRef.current) as { chapterIndex?: string } : null;
+        if (anchor?.chapterIndex !== undefined && anchor.chapterIndex !== null) {
+          return `chapter_${anchor.chapterIndex}`;
+        }
+      } catch {
+        // Fall through to current reader location.
+      }
+      return currentLocation;
+    }
     
     const node = selection.anchorNode;
     if (!node) return currentLocation;
@@ -231,14 +283,21 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     return currentLocation;
   }, [currentLocation]);
 
+  const getResolvedRangeAnchor = useCallback((): string | undefined => {
+    const selection = window.getSelection();
+    if (!selection) return selectionAnchorRef.current;
+    return selectionAnchorRef.current ?? buildTextRangeAnchor(selection);
+  }, []);
+
   const handleHighlight = useCallback(async (color: string) => {
     try {
       const location = getResolvedLocation();
+      const cfiRange = getResolvedRangeAnchor();
       await api.createAnnotation(
         bookId,
         'highlight',
         location,
-        undefined,
+        cfiRange,
         selectedText,
         undefined,
         color
@@ -260,16 +319,17 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     }
     hideToolbar();
     window.getSelection()?.removeAllRanges();
-  }, [bookId, getResolvedLocation, selectedText, hideToolbar]);
+  }, [bookId, getResolvedLocation, getResolvedRangeAnchor, selectedText, hideToolbar]);
 
   const handleAddNote = useCallback(async () => {
     try {
       const location = getResolvedLocation();
+      const cfiRange = getResolvedRangeAnchor();
       await api.createAnnotation(
         bookId,
         'note',
         location,
-        undefined,
+        cfiRange,
         selectedText,
         noteText.trim() || undefined,
         '#fbbf24',
@@ -290,7 +350,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     }
     hideToolbar();
     window.getSelection()?.removeAllRanges();
-  }, [bookId, currentLocation, selectedText, noteText, selectedCategoryId, hideToolbar]);
+  }, [bookId, getResolvedLocation, getResolvedRangeAnchor, selectedText, noteText, selectedCategoryId, hideToolbar]);
 
 
 
@@ -399,7 +459,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         bookId,
         'note', // Use note type to comply with DB constraints
         currentLocation,
-        undefined,
+        getResolvedRangeAnchor(),
         selectedText,
         vocabData,
         vocabColor,
@@ -422,7 +482,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         variant: 'error',
       });
     }
-  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult, categories, hideToolbar]);
+  }, [bookId, currentLocation, selectedText, translationMode, dictionaryResult, translationResult, categories, getResolvedRangeAnchor, hideToolbar]);
 
   return (
     <AnimatePresence>
@@ -435,7 +495,13 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
           exit={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 6, scale: 0.96 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          onMouseDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            if (hideTimerRef.current !== null) {
+              window.clearTimeout(hideTimerRef.current);
+              hideTimerRef.current = null;
+            }
+          }}
         >
           {/* Main action buttons */}
           {!showNoteInput && !showTranslation && (

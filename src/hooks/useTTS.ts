@@ -18,6 +18,7 @@ import { buildVoicePickerItems } from '@/lib/voicePicker';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { useToastStore } from '@/store/toastStore';
 import { extractTextFromDOM } from '@/lib/textExtractor';
+import { convertFileSrc } from '@tauri-apps/api/core';
 // Native TTS support (Tauri plugin)
 import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices, onSpeechEvent } from 'tauri-plugin-tts-api';
 
@@ -371,7 +372,15 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
       currentIndexRef.current = index;
 
       api.synthesizeSpeech(sentence, voiceId)
-        .then((audioUrl) => {
+        .then((rawUrl) => {
+          let audioUrl = rawUrl;
+          if (rawUrl && !rawUrl.startsWith('data:') && !rawUrl.startsWith('blob:') && !rawUrl.startsWith('http')) {
+            try {
+              audioUrl = convertFileSrc(rawUrl);
+            } catch {
+              audioUrl = rawUrl;
+            }
+          }
           const audio = new Audio(audioUrl);
           audio.playbackRate = rate;
           piperAudioRef.current = audio;
@@ -393,18 +402,64 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           };
           
           audio.onerror = (e) => {
-            logger.error('Piper audio error:', e);
-            setState('idle');
+            logger.warn('Piper audio playback error, falling back to Web Speech:', e);
+            piperAudioRef.current = null;
+            if (TTSEngine.isAvailable()) {
+              ttsEngine.speak(sentence, {
+                rate,
+                onEnd: () => {
+                  const nextIndex = currentIndexRef.current + 1;
+                  if (nextIndex < sentencesRef.current.length) {
+                    speakSentenceAtIndexRef.current(nextIndex);
+                  } else {
+                    setState('idle');
+                  }
+                },
+                onError: () => setState('idle')
+              });
+            } else {
+              setState('idle');
+            }
           };
           
           audio.play().catch(e => {
-            logger.error('Piper playback failed:', e);
-            setState('idle');
+            logger.warn('Piper play() promise rejected, falling back to Web Speech:', e);
+            if (TTSEngine.isAvailable()) {
+              ttsEngine.speak(sentence, {
+                rate,
+                onEnd: () => {
+                  const nextIndex = currentIndexRef.current + 1;
+                  if (nextIndex < sentencesRef.current.length) {
+                    speakSentenceAtIndexRef.current(nextIndex);
+                  } else {
+                    setState('idle');
+                  }
+                },
+                onError: () => setState('idle')
+              });
+            } else {
+              setState('idle');
+            }
           });
         })
         .catch(error => {
-          logger.error('Piper synthesis failed:', error);
-          setState('idle');
+          logger.warn('Piper synthesis failed, falling back to Web Speech:', error);
+          if (TTSEngine.isAvailable()) {
+            ttsEngine.speak(sentence, {
+              rate,
+              onEnd: () => {
+                const nextIndex = currentIndexRef.current + 1;
+                if (nextIndex < sentencesRef.current.length) {
+                  speakSentenceAtIndexRef.current(nextIndex);
+                } else {
+                  setState('idle');
+                }
+              },
+              onError: () => setState('idle')
+            });
+          } else {
+            setState('idle');
+          }
         });
 
     } else if (useNativeTTS) {

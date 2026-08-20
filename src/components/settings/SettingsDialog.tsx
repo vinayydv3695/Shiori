@@ -10,7 +10,7 @@ import {
   X, Moon, Sun, Palette, Shield, BookOpen, FileText,
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
-  RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2
+  RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2, ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -407,6 +407,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     <Tabs.Trigger
                       value={tab.id}
                       onClick={() => {
+                        triggerHaptic(30);
                         if (isMobile) setMobileView('detail');
                       }}
                       className={cn(
@@ -414,11 +415,19 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
                         'data-[state=active]:bg-primary/10 data-[state=active]:text-primary',
                         'data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:bg-muted/40 data-[state=inactive]:hover:text-foreground',
-                        isMobile && mobileView === 'root' && "py-4 text-[15px]"
+                        isMobile && mobileView === 'root' && "py-3.5 px-4 my-1.5 rounded-2xl bg-card/60 border border-border/50 shadow-sm active:scale-[0.98] data-[state=active]:border-primary/40 data-[state=active]:bg-primary/15"
                       )}
                     >
-                      <tab.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
-                      <span className="font-sans font-medium tracking-wide block">{tab.name}</span>
+                      <div className={cn(
+                        "p-2.5 rounded-xl transition-colors flex-shrink-0",
+                        isMobile ? "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground" : ""
+                      )}>
+                        <tab.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
+                      </div>
+                      <span className="font-sans font-semibold tracking-tight text-[15px] block text-foreground flex-1">{tab.name}</span>
+                      {isMobile && mobileView === 'root' && (
+                        <ChevronRight className="w-5 h-5 text-muted-foreground/50 ml-auto transition-transform group-hover:translate-x-1" />
+                      )}
                     </Tabs.Trigger>
                   </motion.div>
                 ))}

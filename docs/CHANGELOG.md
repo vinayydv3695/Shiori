@@ -1,3 +1,10 @@
+# Release Notes (v2.3.41)
+
+## Features & Improvements
+
+- **Premium Android Settings Glass Cards & Icon Badges** — Redesigned the Android settings tab list into sleek floating glass cards with theme icon badges and right chevron navigation indicators.
+- **Android Settings Header Back Navigation** — Integrated a prominent back arrow button in the header bar on mobile devices for seamless one-tap back navigation and closing.
+
 # Release Notes (v2.3.40)
 
 ## Features & Improvements

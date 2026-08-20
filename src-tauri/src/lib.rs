@@ -321,7 +321,7 @@ pub fn run() {
         });
     });
 
-    #[cfg(all(feature = "native-tts", not(target_os = "linux")))]
+    #[cfg(not(target_os = "linux"))]
     {
         log::info!("Native TTS plugin enabled - initializing tauri-plugin-tts");
         builder = builder.plugin(tauri_plugin_tts::init());

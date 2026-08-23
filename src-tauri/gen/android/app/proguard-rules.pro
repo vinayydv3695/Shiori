@@ -29,3 +29,4 @@
 # Keep Tauri plugins and annotations
 -keep class app.tauri.** { *; }
 -keep @app.tauri.annotation.TauriPlugin class * { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

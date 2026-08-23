@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
-import type { Plugin } from 'vite'
+import type { Plugin, PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
@@ -22,19 +22,29 @@ function removeCrossoriginPlugin(): Plugin {
 
 const host = process.env.TAURI_DEV_HOST;
 
-// https://vite.dev/config/
-export default defineConfig({
-  base: './',
-  plugins: [
-    react(),
+const plugins: PluginOption[] = [
+  react(),
+  removeCrossoriginPlugin(),
+];
+
+// Bundle-size report is dev-only: writing it into dist/ shipped it in every
+// release (a 1.5MB stats.html inside the APK). Enable explicitly with
+// VITE_BUNDLE_VISUALIZER=true when you want the report.
+if (process.env.VITE_BUNDLE_VISUALIZER === 'true') {
+  plugins.push(
     visualizer({
       filename: 'dist/stats.html',
       open: false,
       gzipSize: true,
       brotliSize: true,
-    }),
-    removeCrossoriginPlugin(),
-  ],
+    })
+  );
+}
+
+// https://vite.dev/config/
+export default defineConfig({
+  base: './',
+  plugins,
   clearScreen: false,
   server: {
     port: 5173,

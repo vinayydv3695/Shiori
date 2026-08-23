@@ -38,7 +38,11 @@ android {
         }
         getByName("release") {
             manifestPlaceholders["usesCleartextTraffic"] = "false"
-            isMinifyEnabled = false
+            // R8 minify + resource shrinking: Tauri's JNI/WebView bridge is
+            // protected by proguard-tauri.pro + proguard-rules.pro (see
+            // `-keep class app.tauri.**` and the TauriActivity keep below).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))

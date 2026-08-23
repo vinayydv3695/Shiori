@@ -10,6 +10,21 @@ edition = "2021"
 rust-version = "1.80"
 build = "build.rs"
 
+# Size-optimized release profile: shrinks the per-ABI libshiori.so dramatically.
+# lto=true + codegen-units=1 + opt-level="z" + panic="abort" + strip=true.
+# NOTE: panic="abort" makes std::panic::catch_unwind (conversion_engine.rs,
+# pdf_adapter.rs test) abort the process instead of containing the panic.
+[profile.release]
+opt-level = "z"
+# thin LTO instead of fat: within a few % of fat-lto size at ~half the peak
+# link memory — fat LTO OOMs on 15GB hosts (and CI runners have only 7GB).
+lto = "thin"
+codegen-units = 1
+# unwind (not abort): conversion_engine.rs catches worker panics and respawns
+# workers — abort turns a contained corrupt-book failure into an app crash.
+panic = "unwind"
+strip = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]

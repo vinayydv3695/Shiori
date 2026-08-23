@@ -655,7 +655,8 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
           VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
           VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
-        run: npm run tauri android build -- --apk
+        # Split per-ABI APKs, arm64-v8a + armeabi-v7a only (x86/x86_64 are emulator-only).
+        run: npm run tauri android build -- --apk --split-per-abi --target aarch64 --target armv7
 
       - name: Sign Android APKs
         env:

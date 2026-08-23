@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Globe, CheckCircle2, Wrench, AlertCircle, Zap, ChevronDown, Check } from 'lucide-react';
 import { useSourceStore, type SourceKind } from '@/store/sourceStore';
+import { notifyCloudflareBypassIfNeeded } from '@/lib/pluginSources';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +89,7 @@ export function OnlineSourceSelector({ kind, className, variant = "outline", ico
                 key={source.id}
                 onClick={() => {
                   if (isAvailable) {
+                    notifyCloudflareBypassIfNeeded(source.id);
                     setPrimarySource(kind, source.id);
                   }
                 }}

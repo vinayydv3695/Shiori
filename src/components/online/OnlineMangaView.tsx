@@ -1629,6 +1629,18 @@ export function OnlineMangaView() {
       </div>
 
       <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
+        {isAndroid && activeSource?.id === "mangafire" && (
+          <div className="my-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-amber-700 dark:text-amber-300 text-xs font-semibold shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-500" />
+              <span className="truncate">Trying to bypass Cloudflare protection, please wait patiently...</span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full shrink-0">
+              Cloudflare Active
+            </span>
+          </div>
+        )}
+
         {mangadexError && (
           <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
             {mangadexError}

@@ -83,6 +83,26 @@ export type BrowseMode = 'popular' | 'latest' | 'recent' | 'top-rated';
 
 export type SourceHealth = 'available' | 'unavailable' | 'blocked' | 'rateLimited' | 'unknown';
 
+import { isAndroid } from '@/lib/tauri';
+import { useToastStore } from '@/store/toastStore';
+
+let lastCfToastTime = 0;
+
+export function notifyCloudflareBypassIfNeeded(sourceId?: string) {
+  if (isAndroid && sourceId && (sourceId === 'mangafire' || sourceId.toLowerCase().includes('mangafire'))) {
+    const now = Date.now();
+    if (now - lastCfToastTime > 7000) {
+      lastCfToastTime = now;
+      useToastStore.getState().addToast({
+        title: 'Cloudflare Bypass',
+        description: 'Trying to bypass Cloudflare protection, please wait patiently...',
+        variant: 'info',
+        duration: 5000,
+      });
+    }
+  }
+}
+
 export const pluginApi = {
   async listSources(): Promise<SourceMeta[]> {
     return invoke<SourceMeta[]>('list_sources');
@@ -93,6 +113,7 @@ export const pluginApi = {
   },
 
   async search(sourceId: string, query: string, page: number): Promise<SearchResult[]> {
+    notifyCloudflareBypassIfNeeded(sourceId);
     return invoke<SearchResult[]>('plugin_search', { sourceId, query, page });
   },
 
@@ -102,18 +123,22 @@ export const pluginApi = {
     page: number = 1,
     limit: number = 20
   ): Promise<SearchResponse> {
+    notifyCloudflareBypassIfNeeded(sourceId);
     return invoke<SearchResponse>('plugin_search_with_meta', { sourceId, query, page, limit });
   },
 
   async browse(sourceId: string, mode: BrowseMode | string, page: number = 1, limit: number = 20, genres?: string[], types?: string[]): Promise<SearchResult[]> {
+    notifyCloudflareBypassIfNeeded(sourceId);
     return invoke<SearchResult[]>('plugin_browse', { sourceId, mode, page, limit, genres, types });
   },
 
   async getChapters(sourceId: string, contentId: string): Promise<Chapter[]> {
+    notifyCloudflareBypassIfNeeded(sourceId);
     return invoke<Chapter[]>('plugin_get_chapters', { sourceId, contentId });
   },
 
   async getPages(sourceId: string, chapterId: string): Promise<Page[]> {
+    notifyCloudflareBypassIfNeeded(sourceId);
     return invoke<Page[]>('plugin_get_pages', { sourceId, chapterId });
   },
 

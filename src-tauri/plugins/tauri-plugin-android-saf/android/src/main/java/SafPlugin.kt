@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
@@ -238,37 +239,129 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
 
         val supportedExtensions = listOf("epub", "pdf", "mobi", "azw", "azw3", "txt", "fb2", "docx", "html", "htm", "md", "djvu", "cbz", "cbr", "zip")
         val results = JSArray()
+        val skippedDirs = JSArray()
+        val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
+        var hadErrors = false
 
-        fun traverse(dir: androidx.documentfile.provider.DocumentFile) {
-            val files = dir.listFiles()
-            for (file in files) {
-                if (file.isDirectory) {
-                    traverse(file)
-                } else {
-                    val name = file.name ?: ""
-                    val ext = name.substringAfterLast('.', "").lowercase()
-                    if (supportedExtensions.contains(ext)) {
-                        val obj = JSObject()
-                        obj.put("uri", file.uri.toString())
-                        obj.put("name", name)
-                        obj.put("size", file.length())
-                        
-                        val realPath = UriUtils.getPath(activity, file.uri)
-                        if (realPath != null) {
-                            obj.put("realPath", realPath)
-                        }
-                        
-                        results.put(obj)
-                    }
-                }
-            }
-        }
+        class ChildEntry(val docId: String, val name: String, val mimeType: String?, val size: Long)
 
         Thread {
             try {
-                traverse(docFile)
+                // Lists children of the directory identified by parentDocId, merging two sources
+                // and deduping by documentId. Returns null only if BOTH sources failed
+                // (null/exception), so one bad directory can never abort the whole scan.
+                fun queryChildren(parentDocId: String, nameChain: List<String>): LinkedHashMap<String, ChildEntry>? {
+                    val merged = LinkedHashMap<String, ChildEntry>()
+
+                    // PRIMARY: raw childDocuments query. A null projection is more tolerant than
+                    // DocumentFile.listFiles(), which demands specific columns on many devices.
+                    var primaryFailed = true
+                    for (attempt in 0..1) {
+                        if (attempt == 1) Thread.sleep(150) // transient SAF failures: retry once
+                        try {
+                            val cursor = activity.contentResolver.query(
+                                DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId),
+                                null, null, null, null
+                            )
+                            if (cursor == null) continue
+                            var usable = true
+                            cursor.use {
+                                val idIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                                val nameIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                                val mimeIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                                val sizeIdx = it.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                                if (idIdx < 0 || nameIdx < 0) {
+                                    usable = false
+                                    return@use
+                                }
+                                while (it.moveToNext()) {
+                                    val docId = it.getString(idIdx) ?: continue
+                                    val name = it.getString(nameIdx) ?: docId
+                                    val mimeType = if (mimeIdx >= 0) it.getString(mimeIdx) else null
+                                    val size = if (sizeIdx >= 0) it.getLong(sizeIdx) else 0L
+                                    merged.put(docId, ChildEntry(docId, name, mimeType, size))
+                                }
+                            }
+                            if (usable) {
+                                primaryFailed = false
+                                break
+                            }
+                        } catch (e: Exception) {
+                            // transient provider failure — retried on the next loop pass
+                        }
+                    }
+
+                    if (primaryFailed) {
+                        // FALLBACK: rebuild a DocumentFile for this directory by walking
+                        // findFile(name) down from the tree root, then listFiles() it.
+                        try {
+                            var dirDocFile: DocumentFile? = docFile
+                            for (segment in nameChain) {
+                                dirDocFile = dirDocFile?.findFile(segment)
+                                if (dirDocFile == null) break
+                            }
+                            val children = dirDocFile?.listFiles()
+                            if (children == null) return null
+                            for (child in children) {
+                                val childUri = child.uri
+                                val docId = if (childUri != null) {
+                                    try {
+                                        DocumentsContract.getDocumentId(childUri)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                } else {
+                                    null
+                                }
+                                val childName = child.name ?: continue
+                                if (docId != null && merged.containsKey(docId)) continue
+                                val key = docId ?: childName
+                                merged.put(key, ChildEntry(key, childName, child.type, child.length()))
+                            }
+                        } catch (e: Exception) {
+                            return null
+                        }
+                    }
+                    return merged
+                }
+
+                fun traverse(parentDocId: String, displayName: String, nameChain: List<String>, depth: Int) {
+                    if (depth >= 24) return // depth cap: guard against pathological trees
+                    val children = queryChildren(parentDocId, nameChain)
+                    if (children == null) {
+                        hadErrors = true
+                        skippedDirs.put(displayName)
+                        return
+                    }
+                    for (entry in children.values) {
+                        if (entry.mimeType == DocumentsContract.Document.MIME_TYPE_DIR) {
+                            traverse(entry.docId, entry.name, nameChain + entry.name, depth + 1)
+                        } else {
+                            val ext = entry.name.substringAfterLast('.', "").lowercase()
+                            if (supportedExtensions.contains(ext)) {
+                                val childUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, entry.docId)
+                                val obj = JSObject()
+                                obj.put("uri", childUri.toString())
+                                obj.put("name", entry.name)
+                                obj.put("size", entry.size)
+
+                                val realPath = UriUtils.getPath(activity, childUri)
+                                if (realPath != null) {
+                                    obj.put("realPath", realPath)
+                                }
+
+                                results.put(obj)
+                            }
+                        }
+                    }
+                }
+
+                traverse(rootDocId, docFile.name ?: "root", emptyList(), 0)
+
                 val ret = JSObject()
                 ret.put("files", results)
+                ret.put("skippedDirs", skippedDirs)
+                ret.put("hadErrors", hadErrors)
                 invoke.resolve(ret)
             } catch (e: Exception) {
                 invoke.reject(e.message ?: "Unknown error during enumeration")

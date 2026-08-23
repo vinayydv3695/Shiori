@@ -3,6 +3,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { motion } from 'framer-motion';
 import { X, FolderOpen, File, Upload, Loader2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { api, ImportResult, isAndroid } from '../../lib/tauri';
+import type { SAFEnumerateTreeResponse } from '../../lib/tauri';
+import { copyDocumentsWithRetry } from '../../lib/safImport';
 import { emptyImportResult, mergeImportResults } from '../../lib/importResults';
 import { useTombstoneConfirm } from '../../hooks/useTombstoneConfirm';
 import { logger } from '@/lib/logger';
@@ -50,6 +52,9 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
   const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks);
   const { confirmTombstones, dismissTombstoneConfirm, tombstoneDialog } = useTombstoneConfirm();
   const closedRef = useRef(false);
+  // Number of files the SAF scan enumerated, so the completion view can
+  // reconcile "imported vs found" instead of hiding skips. null when unknown.
+  const enumeratedRef = useRef<number | null>(null);
   
   // Create refs to access the latest state inside useEffect
   const modeRef = useRef(mode);
@@ -175,13 +180,18 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
     const totalImported = importResult.success.length;
     const totalDuplicates = importResult.duplicates.length;
     const totalFailed = importResult.failed.length;
+    const enumerated = enumeratedRef.current;
+    const counts = totalDuplicates > 0 || totalFailed > 0
+      ? `${totalDuplicates} duplicates, ${totalFailed} failed`
+      : undefined;
 
     if (totalImported > 0) {
+      const description = enumerated !== null && totalImported < enumerated
+        ? `${totalImported} of ${enumerated} files imported` + (counts ? ` — ${counts}` : '')
+        : counts;
       toast.success(
         `Imported ${totalImported} item${totalImported > 1 ? 's' : ''}`,
-        totalDuplicates > 0 || totalFailed > 0
-          ? `${totalDuplicates} duplicates, ${totalFailed} failed`
-          : undefined
+        description
       );
 
       await loadInitialBooks();
@@ -221,6 +231,9 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
     setStatus('importing');
     setResult(null);
     closedRef.current = false;
+    enumeratedRef.current = null;
+    setCurrentFile(null);
+    setProgress(0);
 
     // Get latest state from refs since setTimeout might run with stale closures
     const currentMode = modeRef.current;
@@ -239,26 +252,47 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
         
         if (currentSelectedPath.startsWith('content://')) {
           // Android SAF Workflow
-          const { files } = await api.enumerateTree(currentSelectedPath);
+          const scanResult = await api.enumerateTree(currentSelectedPath);
+          const { files } = scanResult;
+          // hadErrors/skippedDirs land on SAFEnumerateTreeResponse alongside this
+          // change; read them through the intersection so nothing is invisible either way.
+          const { hadErrors = false, skippedDirs = [] } = scanResult as SAFEnumerateTreeResponse & {
+            hadErrors?: boolean;
+            skippedDirs?: string[];
+          };
+          enumeratedRef.current = files.length;
+
+          if (hadErrors) {
+            toast.warning('Partial scan', 'Some folders could not be fully scanned');
+          }
+
           if (files.length === 0) {
             throw new Error('No supported book files found in this folder.');
           }
 
-          const localPaths: string[] = [];
-          for (const file of files) {
-            try {
-              const { path: localPath } = await api.copyDocument(file.uri, file.name);
-              localPaths.push(localPath);
-            } catch (e) {
-              logger.warn(`Failed to copy document ${file.name}`, e);
-            }
-          }
+          const { localPaths, failures: copyFailures } = await copyDocumentsWithRetry(
+            files,
+            (name, i, total) => {
+              setCurrentFile(`Copying ${name}...`);
+              setProgress(10 + (i / total) * 40);
+            },
+          );
+          setCurrentFile(null);
 
           if (localPaths.length === 0) {
             throw new Error('Failed to copy any files from the selected folder.');
           }
 
           mergeImportResults(importResult, await runImportForPaths(localPaths));
+
+          // Nothing is silently dropped: surface copy failures and any folders
+          // that could not be fully scanned as visible failed entries.
+          for (const f of copyFailures) {
+            importResult.failed.push([`Copy failed: ${f.name}`, f.error]);
+          }
+          for (const dir of skippedDirs) {
+            importResult.failed.push([`Skipped folder: ${dir}`, 'Folder could not be fully scanned']);
+          }
         } else {
           mergeImportResults(importResult, await api.scanFolderUnified(currentSelectedPath));
         }
@@ -337,6 +371,8 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
 
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [showAllFailed, setShowAllFailed] = useState(false);
+  const [currentFile, setCurrentFile] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -518,6 +554,19 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                   <p className="text-muted-foreground text-sm mt-2 max-w-[280px] leading-relaxed">
                     This may take a few moments. We are processing your files.
                   </p>
+                  {currentFile && (
+                    <p className="text-xs font-mono text-muted-foreground mt-3 max-w-[300px] truncate">
+                      {currentFile}
+                    </p>
+                  )}
+                  {progress > 0 && (
+                    <div className="w-full max-w-[280px] h-1.5 bg-secondary rounded-full overflow-hidden mt-4">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -553,6 +602,12 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                       <div className="text-[10px] font-bold text-rose-500/70 uppercase tracking-[0.1em]">Failed</div>
                     </div>
                   </div>
+
+                  {enumeratedRef.current !== null && result.success.length < enumeratedRef.current && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Found {enumeratedRef.current} files — imported {result.success.length}, {result.failed.length} failed, {result.duplicates.length} duplicates
+                    </p>
+                  )}
 
                   {result.failed.length > 0 && (
                     <div className="max-h-48 overflow-y-auto border border-rose-500/20 rounded-xl bg-card/40 backdrop-blur-md custom-scrollbar relative">

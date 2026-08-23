@@ -632,6 +632,10 @@ export interface SAFDocumentInfo {
 
 export interface SAFEnumerateTreeResponse {
   files: SAFDocumentInfo[]
+  /** Directory names that could not be enumerated (provider returned no data). */
+  skippedDirs?: string[]
+  /** True when at least one directory failed to enumerate — files may be missing. */
+  hadErrors?: boolean
 }
 
 export interface SAFSelectedFilesResponse {

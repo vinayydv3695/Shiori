@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Database, FileSearch, FolderPlus, Upload, XCircle } from 'lucide-react';
+import { CheckCircle, Database, FileSearch, FolderPlus, History, Upload, XCircle } from 'lucide-react';
 import FormatBadge from '../components/FormatBadge';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
@@ -34,7 +34,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
   const [isDragOver, setIsDragOver] = useState(false);
   const toast = useToast();
 
-  const { status, progress, results, currentFile, error, importFromPath, reset } = useImport();
+  const { status, progress, results, currentFile, error, importFromPath, reset, tombstoneDialog } = useImport();
 
   const canContinue = Boolean(libraryPath?.trim());
   const showDropZone = status === 'idle' || status === 'error';
@@ -213,7 +213,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
 
               {status === 'completed' && results ? (
                 <div className="mt-4 rounded-2xl border border-border/20 bg-card/50 p-4">
-                  <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-xl border border-border/20 bg-card p-3 text-foreground">
                       <div className="mb-1 flex items-center gap-2">
                         <Database className="h-4 w-4 text-emerald-400" />
@@ -235,7 +235,18 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                       </div>
                       <p className="text-lg font-bold">{results.failed}</p>
                     </div>
+                    <div className="rounded-xl border border-border/20 bg-card p-3 text-foreground">
+                      <div className="mb-1 flex items-center gap-2">
+                        <History className="h-4 w-4 text-sky-400" />
+                        <span className="font-semibold">Previously deleted</span>
+                      </div>
+                      <p className="text-lg font-bold">{results.previouslyDeleted}</p>
+                    </div>
                   </div>
+
+                  {results.total !== undefined ? (
+                    <p className="mt-2 text-xs text-muted-foreground">Found {results.total} files</p>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -268,6 +279,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
           </GlowButton>
         </div>
       </div>
+      {tombstoneDialog}
     </section>
   );
 }

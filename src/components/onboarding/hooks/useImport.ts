@@ -1,7 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { api, type ImportResult as ApiImportResult } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useLibraryStore } from '@/store/libraryStore';
+import { useTombstoneConfirm } from '@/hooks/useTombstoneConfirm';
+import { copyDocumentsWithRetry } from '@/lib/safImport';
 
 type ImportStatus = 'idle' | 'scanning' | 'importing' | 'completed' | 'error';
 
@@ -9,6 +11,9 @@ export interface ImportResult {
   success: number;
   failed: number;
   duplicates: number;
+  previouslyDeleted: number;
+  /** Number of files found by the scanner (content:// branch only). */
+  total?: number;
 }
 
 interface UseImportState {
@@ -23,6 +28,7 @@ interface UseImportResult extends UseImportState {
   selectAndImportFolder: () => Promise<void>;
   importFromPath: (path: string) => Promise<void>;
   reset: () => void;
+  tombstoneDialog: ReactNode;
 }
 
 const INITIAL_STATE: UseImportState = {
@@ -33,10 +39,26 @@ const INITIAL_STATE: UseImportState = {
   error: null,
 };
 
-const toCountResult = (result: ApiImportResult): ImportResult => ({
+const EMPTY_IMPORT_RESULT: ApiImportResult = {
+  success: [],
+  failed: [],
+  duplicates: [],
+  previouslyDeleted: [],
+};
+
+const mergeResults = (acc: ApiImportResult, curr: ApiImportResult): ApiImportResult => ({
+  success: [...acc.success, ...curr.success],
+  failed: [...acc.failed, ...curr.failed],
+  duplicates: [...acc.duplicates, ...curr.duplicates],
+  previouslyDeleted: [...acc.previouslyDeleted, ...curr.previouslyDeleted],
+});
+
+const toCountResult = (result: ApiImportResult, total?: number): ImportResult => ({
   success: result.success.length,
   failed: result.failed.length,
   duplicates: result.duplicates.length,
+  previouslyDeleted: result.previouslyDeleted.length,
+  total,
 });
 
 
@@ -44,10 +66,12 @@ const toCountResult = (result: ApiImportResult): ImportResult => ({
 export function useImport(): UseImportResult {
   const [state, setState] = useState<UseImportState>(INITIAL_STATE);
   const setBooks = useLibraryStore((s) => s.setBooks);
+  const { confirmTombstones, dismissTombstoneConfirm, tombstoneDialog } = useTombstoneConfirm();
 
   const reset = useCallback(() => {
+    dismissTombstoneConfirm();
     setState(INITIAL_STATE);
-  }, []);
+  }, [dismissTombstoneConfirm]);
 
   const importFromPath = useCallback(async (path: string) => {
     if (!path) {
@@ -69,6 +93,7 @@ export function useImport(): UseImportResult {
       });
 
       let result: ApiImportResult;
+      let foundCount: number | undefined;
 
       if (path.startsWith('content://')) {
         // Android SAF Workflow
@@ -78,25 +103,16 @@ export function useImport(): UseImportResult {
           throw new Error('No supported book files found in this folder.');
         }
 
-        const localPaths: string[] = [];
-        let copiedCount = 0;
+        foundCount = files.length;
 
-        for (const file of files) {
+        const { localPaths, failures } = await copyDocumentsWithRetry(files, (name, index, total) => {
           setState((prev) => ({
             ...prev,
             status: 'importing',
-            currentFile: `Copying ${file.name}...`,
-            progress: 10 + Math.round((copiedCount / files.length) * 40),
+            currentFile: `Copying ${name}...`,
+            progress: 10 + Math.round((index / total) * 40),
           }));
-
-          try {
-            const { path: localPath } = await api.copyDocument(file.uri, file.name);
-            localPaths.push(localPath);
-          } catch (e) {
-            logger.warn(`Failed to copy document ${file.name}`, e);
-          }
-          copiedCount++;
-        }
+        });
 
         if (localPaths.length === 0) {
           throw new Error('Failed to copy any files from the selected folder.');
@@ -118,16 +134,46 @@ export function useImport(): UseImportResult {
 
         const results = await Promise.all(importPromises);
         
-        result = results.reduce((acc, curr) => ({
-          success: [...acc.success, ...curr.success],
-          failed: [...acc.failed, ...curr.failed],
-          duplicates: [...acc.duplicates, ...curr.duplicates],
-          previouslyDeleted: [...acc.previouslyDeleted, ...curr.previouslyDeleted],
-        }), { success: [], failed: [], duplicates: [], previouslyDeleted: [] });
+        result = results.reduce(mergeResults, EMPTY_IMPORT_RESULT);
 
+        // Copy failures are visible: count them in the `failed` bucket so the grid reports them.
+        if (failures.length > 0) {
+          result = {
+            ...result,
+            failed: [...result.failed, ...failures.map((f): [string, string] => [f.name, f.error])],
+          };
+        }
       } else {
         // Standard Workflow
         result = await api.scanFolderUnified(path);
+      }
+
+      // Previously-deleted files: ask before re-importing them, same prompt as the main dialog.
+      if (result.previouslyDeleted.length > 0) {
+        const restore = await confirmTombstones(result.previouslyDeleted);
+        if (restore) {
+          const cleared: string[] = [];
+          for (const p of result.previouslyDeleted) {
+            try {
+              await api.clearTombstone(p);
+              cleared.push(p);
+            } catch (e) {
+              logger.warn(`Failed to clear tombstone for ${p}`, e);
+            }
+          }
+
+          if (cleared.length > 0) {
+            const clearedManga = cleared.filter((p) => /\.(cbz|cbr|zip)$/i.test(p));
+            const clearedBooks = cleared.filter((p) => !/\.(cbz|cbr|zip)$/i.test(p));
+
+            const retryPromises: Promise<ApiImportResult>[] = [];
+            if (clearedBooks.length > 0) retryPromises.push(api.importBooks(clearedBooks));
+            if (clearedManga.length > 0) retryPromises.push(api.importManga(clearedManga));
+
+            const retried = await Promise.all(retryPromises);
+            result = mergeResults(result, retried.reduce(mergeResults, EMPTY_IMPORT_RESULT));
+          }
+        }
       }
 
       setState((prev) => ({
@@ -137,7 +183,7 @@ export function useImport(): UseImportResult {
         progress: 85,
       }));
 
-      const counted = toCountResult(result);
+      const counted = toCountResult(result, foundCount);
 
       if (counted.success > 0) {
         const books = await api.getBooks();
@@ -185,5 +231,6 @@ export function useImport(): UseImportResult {
     selectAndImportFolder,
     importFromPath,
     reset,
+    tombstoneDialog,
   };
 }

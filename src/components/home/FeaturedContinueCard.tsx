@@ -58,14 +58,14 @@ export function FeaturedContinueCard({
           <img
             src={coverUrl}
             alt="Background"
-            className="w-full h-full object-cover object-center opacity-40 scale-100 group-hover:scale-105 transition-transform duration-700 ease-out"
+            className="w-full h-full object-cover object-center opacity-75 group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary/15 to-accent/15" />
         )}
-        {/* Left & Bottom Gradient Overlays for crisp text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent pointer-events-none" />
+        {/* Contrast-tuned gradient overlay so background artwork remains vivid in both Sepia & Dark modes */}
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/70 via-transparent to-transparent pointer-events-none" />
       </div>
 
       {/* Content */}

@@ -83,11 +83,10 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
     : DEFAULT_READING_FONT_ID;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 md:px-8 md:py-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden text-foreground">
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 text-card-foreground backdrop-blur-xl md:p-6 shadow-2xl">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col justify-between overflow-hidden rounded-[1.8rem] border border-border/60 bg-card/75 p-6 md:p-8 text-card-foreground backdrop-blur-2xl shadow-[0_20px_50px_-12px_hsl(var(--foreground)/0.12),0_4px_16px_-4px_hsl(var(--foreground)/0.06)]">
         <header className="onb-fade-up mb-4 flex shrink-0 flex-col gap-4 md:mb-5">
           <div className="flex items-center gap-3">
             <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/50 bg-primary/5 text-primary shadow-sm">
@@ -141,7 +140,7 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                         type="button"
                         onClick={() => setSelectedTheme(theme.name)}
                         className={`group relative flex items-center justify-between rounded-xl border p-3 text-left transition-all ${
-                          isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border/40 bg-card/40 hover:border-border/80 hover:bg-card/80'
+                          isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary/30 shadow-xs' : 'border-border/40 bg-card/40 hover:border-border/80 hover:bg-card/80'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
@@ -176,7 +175,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     max={150}
                     step={1}
                     onChange={(value) => setUiScale(Number(value))}
-                    theme="darkSlate"
                   />
                 </div>
               </section>
@@ -189,7 +187,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                 <h3 className="text-sm font-semibold text-foreground/80">Manga Settings</h3>
                 <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
-                    theme="darkSlate"
                     label="Reading Direction"
                     type="radio"
                     value={mangaPrefs.readingDirection}
@@ -200,7 +197,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     ]}
                   />
                   <SettingControl
-                    theme="darkSlate"
                     label="Reading Mode"
                     type="select"
                     value={mangaPrefs.readingMode}
@@ -212,7 +208,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     ]}
                   />
                   <SettingControl
-                    theme="darkSlate"
                     label="Auto Group Volumes"
                     type="toggle"
                     value={mangaPrefs.autoGroupVolumes}
@@ -225,7 +220,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                 <h3 className="text-sm font-semibold text-foreground/80">Book Typography</h3>
                 <div className="space-y-3 rounded-xl border border-border/40 bg-card/40 p-4">
                   <SettingControl
-                    theme="darkSlate"
                     label="Font Family"
                     type="select"
                     value={selectedBookFontFamily}
@@ -236,9 +230,9 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     }}
                     options={READING_FONTS.map((font) => ({ label: font.label, value: font.id }))}
                   />
-                  <SettingControl theme="darkSlate" label="Font Size" type="slider" value={bookPrefs.fontSize} onChange={(value) => onBookChange({ fontSize: Number(value) })} min={10} max={40} step={1} />
-                  <SettingControl theme="darkSlate" label="Line Height" type="slider" value={bookPrefs.lineHeight} onChange={(value) => onBookChange({ lineHeight: Number(value) })} min={1} max={2.4} step={0.05} />
-                  <SettingControl theme="darkSlate" label="Page Width" type="slider" value={bookPrefs.pageWidth} onChange={(value) => onBookChange({ pageWidth: Number(value) })} min={320} max={1400} step={10} />
+                  <SettingControl label="Font Size" type="slider" value={bookPrefs.fontSize} onChange={(value) => onBookChange({ fontSize: Number(value) })} min={10} max={40} step={1} />
+                  <SettingControl label="Line Height" type="slider" value={bookPrefs.lineHeight} onChange={(value) => onBookChange({ lineHeight: Number(value) })} min={1} max={2.4} step={0.05} />
+                  <SettingControl label="Page Width" type="slider" value={bookPrefs.pageWidth} onChange={(value) => onBookChange({ pageWidth: Number(value) })} min={320} max={1400} step={10} />
                 </div>
               </section>
             </div>
@@ -256,14 +250,12 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     value={translationLanguage}
                     onChange={(value) => setTranslationLanguage(String(value))}
                     options={languageOptions.map((lang) => ({ label: LANGUAGE_NAMES[lang], value: lang }))}
-                    theme="darkSlate"
                   />
                   <SettingControl
                     label="Auto-translate"
                     type="toggle"
                     value={autoTranslate}
                     onChange={(value) => setAutoTranslate(Boolean(value))}
-                    theme="darkSlate"
                   />
                 </div>
               </section>
@@ -280,7 +272,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                       label: size === -1 ? 'Unlimited' : `${size}MB`,
                       value: size,
                     }))}
-                    theme="darkSlate"
                   />
                   <SettingControl
                     label="Hardware Acceleration"
@@ -288,7 +279,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     type="toggle"
                     value={hardwareAcceleration}
                     onChange={(value) => setHardwareAcceleration(Boolean(value))}
-                    theme="darkSlate"
                   />
                   <SettingControl
                     label="Auto-scan Library"
@@ -296,7 +286,6 @@ export function AppCustomizationStep({ onBack, onNext }: AppCustomizationStepPro
                     type="toggle"
                     value={autoScanLibrary}
                     onChange={(value) => setAutoScanLibrary(Boolean(value))}
-                    theme="darkSlate"
                   />
                 </div>
               </section>

@@ -1368,20 +1368,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }
 
   if (!currentChapter) {
-    const chapterSubtitle =
-      findCurrentTocEntry(toc, currentIndex)?.label?.trim() ||
-      (metadata ? `Chapter ${currentIndex + 1} of ${metadata.total_chapters}` : undefined);
-
-    return (
-      <BookSkeletonLoading
-        title={metadata?.title ?? readerContent?.title}
-        subtitle={readerContent?.author}
-        progressText={chapterSubtitle}
-        message="Resuming reading"
-        coverUrl={metadata?.cover_path ?? readerContent?.cover}
-        format="epub"
-      />
-    );
+    return null;
   }
 
   const progressPercentage = metadata

@@ -495,15 +495,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     }
 
     if (!content) {
-        return (
-            <BookSkeletonLoading
-                title={metadata?.title ?? readerContent?.title}
-                subtitle={readerContent?.author}
-                message={`Loading ${format.toUpperCase()} book...`}
-                coverUrl={readerContent?.cover}
-                format={format}
-            />
-        );
+        return null;
     }
 
     const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);

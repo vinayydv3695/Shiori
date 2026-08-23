@@ -205,25 +205,9 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     }
   }, [bookId]);
 
-  // ── SKELETON LOADING VIEW ────────────────────────────────────────────
+  // ── LOADING VIEW ────────────────────────────────────────────
   if (loadingStage !== 'complete' && loadingStage !== 'idle' && !error) {
-    const stageMessages: Record<LoadingStage, string> = {
-      idle: 'Preparing...',
-      'fetching-path': 'Locating book file...',
-      'detecting-format': 'Detecting file format...',
-      'validating-file': 'Validating file...',
-      'loading-metadata': 'Loading book data...',
-      complete: 'Complete',
-    };
-    return (
-      <BookSkeletonLoading
-        message={stageMessages[loadingStage]}
-        title={currentContent?.title}
-        subtitle={currentContent?.author}
-        coverUrl={currentContent?.cover}
-        format={currentBookFormat || undefined}
-      />
-    );
+    return null;
   }
 
   // ── ERROR STATE ────────────────────────────────────────────────────────

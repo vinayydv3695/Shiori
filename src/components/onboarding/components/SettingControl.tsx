@@ -38,27 +38,20 @@ export function SettingControl({
   max = 100,
   step = 1,
   disabled = false,
-  theme = 'default',
 }: SettingControlProps) {
   const inputId = `setting-control-${label.toLowerCase().replace(/\s+/g, '-')}`;
-  const isDarkSlate = theme === 'darkSlate';
 
-  const inputBase = isDarkSlate
-    ? 'w-full rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white backdrop-blur-md transition hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500/50 disabled:cursor-not-allowed disabled:opacity-50 [color-scheme:dark]'
-    : 'w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-foreground backdrop-blur-md transition hover:border-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:cursor-not-allowed disabled:opacity-50';
+  const inputBase =
+    'w-full rounded-xl border border-border/50 bg-background/60 px-3 py-2 text-sm text-foreground backdrop-blur-md transition hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 disabled:cursor-not-allowed disabled:opacity-50';
 
   const renderControl = () => {
     switch (type) {
       case 'slider':
         return (
           <div className="space-y-2">
-            <div className={`flex items-center justify-between text-xs ${isDarkSlate ? 'text-white/60' : 'text-muted-foreground'}`}>
+            <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
               <span>{min}</span>
-              <span
-                className={`rounded-md px-2 py-0.5 backdrop-blur-md ${
-                  isDarkSlate ? 'border border-white/10 bg-black text-white' : 'border border-white/20 bg-white/10 text-foreground'
-                }`}
-              >
+              <span className="rounded-md px-2 py-0.5 border border-border/60 bg-background/80 font-bold text-foreground shadow-xs">
                 {String(value)}
               </span>
               <span>{max}</span>
@@ -72,9 +65,7 @@ export function SettingControl({
               step={step}
               disabled={disabled}
               onChange={(e) => onChange(Number(e.target.value))}
-              className={`h-2 w-full cursor-pointer appearance-none rounded-full disabled:cursor-not-allowed ${
-                isDarkSlate ? 'bg-white/20 accent-zinc-300' : 'bg-white/20 accent-primary'
-              }`}
+              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted/60 accent-primary disabled:cursor-not-allowed"
             />
           </div>
         );
@@ -90,18 +81,8 @@ export function SettingControl({
               onChange={(e) => onChange(e.target.checked)}
               className="peer sr-only"
             />
-            <div
-              className={`h-6 w-11 rounded-full border backdrop-blur-md transition peer-disabled:opacity-50 ${
-                isDarkSlate
-                  ? 'border-white/20 bg-black peer-checked:bg-white peer-checked:text-black peer-focus-visible:ring-2 peer-focus-visible:ring-zinc-400/70'
-                  : 'border-white/20 bg-white/20 peer-checked:bg-primary/80 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/70'
-              }`}
-            />
-            <div className={`pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow-md transition-transform peer-checked:translate-x-5 ${
-                isDarkSlate
-                  ? 'bg-white peer-checked:bg-black'
-                  : 'bg-white'
-              }`} />
+            <div className="h-6 w-11 rounded-full border border-border/60 bg-muted/50 backdrop-blur-md transition peer-checked:bg-primary peer-checked:border-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/70 peer-disabled:opacity-50" />
+            <div className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-background shadow-md transition-transform peer-checked:translate-x-5" />
           </label>
         );
 
@@ -112,7 +93,7 @@ export function SettingControl({
             onValueChange={onChange}
             disabled={disabled}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="w-full bg-background/60 border-border/50 text-foreground">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -133,14 +114,10 @@ export function SettingControl({
               return (
                 <label
                   key={String(option.value)}
-                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 backdrop-blur-md transition ${
+                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2.5 backdrop-blur-md transition font-medium text-sm ${
                     checked
-                      ? isDarkSlate
-                        ? 'border-white/30 bg-white/10 text-white'
-                        : 'border-primary/60 bg-primary/15 text-foreground'
-                      : isDarkSlate
-                        ? 'border-white/10 bg-black text-white/70 hover:bg-zinc-900'
-                        : 'border-white/20 bg-white/10 hover:bg-white/15'
+                      ? 'border-primary bg-primary/10 text-primary font-semibold ring-1 ring-primary/30 shadow-xs'
+                      : 'border-border/40 bg-background/40 text-foreground/80 hover:bg-background/80 hover:border-border/80'
                   } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                   <input
@@ -150,9 +127,9 @@ export function SettingControl({
                     checked={checked}
                     disabled={disabled}
                     onChange={() => onChange(option.value)}
-                    className={`h-4 w-4 ${isDarkSlate ? 'accent-zinc-300' : 'accent-primary'}`}
+                    className="h-4 w-4 accent-primary"
                   />
-                  <span className={`text-sm ${isDarkSlate ? 'text-white/80' : ''}`}>{option.label}</span>
+                  <span>{option.label}</span>
                 </label>
               );
             })}
@@ -179,29 +156,15 @@ export function SettingControl({
   };
 
   return (
-    <>
-      <div
-        className={`rounded-2xl p-4 backdrop-blur-xl ${
-          isDarkSlate ? 'border border-white/10 bg-zinc-900/50' : 'border border-white/15 bg-white/5'
-        }`}
-      >
-        <div className="mb-3">
-          <label htmlFor={inputId} className={`text-sm font-semibold ${isDarkSlate ? 'text-white' : 'text-foreground'}`}>
-            {label}
-          </label>
-          {description && <p className={`mt-1 text-xs ${isDarkSlate ? 'text-white/60' : 'text-muted-foreground'}`}>{description}</p>}
-        </div>
-        {renderControl()}
+    <div className="rounded-2xl p-4 border border-border/40 bg-card/60 backdrop-blur-xl shadow-xs">
+      <div className="mb-3">
+        <label htmlFor={inputId} className="text-sm font-semibold text-foreground">
+          {label}
+        </label>
+        {description && <p className="mt-1 text-xs text-muted-foreground">{description}</p>}
       </div>
-      {isDarkSlate && (
-        <style>{`
-          #${inputId} option {
-            background-color: #09090b !important;
-            color: #f4f4f5 !important;
-          }
-        `}</style>
-      )}
-    </>
+      {renderControl()}
+    </div>
   );
 }
 

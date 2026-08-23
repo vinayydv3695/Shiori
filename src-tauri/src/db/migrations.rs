@@ -781,7 +781,7 @@ impl<'a> MigrationManager<'a> {
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 
                 -- Theme
-                theme TEXT DEFAULT 'black' CHECK(theme IN ('black', 'white', 'rose-pine-moon', 'catppuccin-mocha', 'nord', 'dracula', 'tokyo-night', 'light', 'dark', 'system', 'sepia', 'high-contrast')),
+                theme TEXT DEFAULT 'sepia' CHECK(theme IN ('black', 'white', 'rose-pine-moon', 'catppuccin-mocha', 'nord', 'dracula', 'tokyo-night', 'light', 'dark', 'system', 'sepia', 'high-contrast')),
                 
                 -- Book reading defaults
                 book_font_family TEXT DEFAULT 'Merriweather',
@@ -2154,7 +2154,7 @@ impl<'a> MigrationManager<'a> {
             CREATE TABLE IF NOT EXISTS user_preferences_v29 (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 
-                theme TEXT DEFAULT 'black',
+                theme TEXT DEFAULT 'sepia',
                 book_font_family TEXT DEFAULT 'EB Garamond',
                 book_font_size INTEGER DEFAULT 24,
                 book_line_height REAL DEFAULT 1.6,

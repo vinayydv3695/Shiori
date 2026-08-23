@@ -8,33 +8,21 @@ type SettingGroupProps = {
   theme?: 'default' | 'darkSlate';
 };
 
-export default function SettingGroup({ title, description, children, icon, theme = 'default' }: SettingGroupProps) {
-  const isDarkSlate = theme === 'darkSlate';
-
+export default function SettingGroup({ title, description, children, icon }: SettingGroupProps) {
   return (
-    <section
-      className={`relative overflow-hidden rounded-[1.5rem] p-6 backdrop-blur-md transition-all md:p-8 ${
-        isDarkSlate
-          ? 'border border-white/10 bg-zinc-900/50 shadow-none'
-          : 'border border-border/60 bg-background/40 shadow-sm'
-      }`}
-    >
+    <section className="relative overflow-hidden rounded-[1.5rem] p-6 backdrop-blur-md transition-all md:p-8 border border-border/40 bg-card/40 shadow-xs">
       <div className="space-y-6">
         <header className="space-y-2">
           <div className="flex items-center gap-3">
             {icon ? (
-              <span
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
-                  isDarkSlate ? 'border border-white/10 bg-zinc-900 text-white/80' : 'border border-border/40 bg-muted/30 text-foreground'
-                }`}
-              >
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/40 bg-muted/40 text-foreground">
                 {icon}
               </span>
             ) : null}
-            <h3 className={`text-lg font-bold tracking-tight ${isDarkSlate ? 'text-white' : 'text-foreground'}`}>{title}</h3>
+            <h3 className="text-lg font-bold tracking-tight text-foreground">{title}</h3>
           </div>
 
-          {description ? <p className={`text-sm ${isDarkSlate ? 'text-white/60' : 'text-muted-foreground'}`}>{description}</p> : null}
+          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         </header>
 
         <div className="space-y-5">{children}</div>

@@ -1,9 +1,10 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, BookOpen, Palette } from 'lucide-react';
 import { useOnboardingState } from '../hooks/useOnboardingState';
 import { useOnboardingStore } from '@/store/onboardingStore';
 import { OnboardingMotionStyles } from '../components';
 import GlowButton from '../components/GlowButton';
+
 type FinishStepProps = {
   onBack?: () => void;
   onOpenLibrary?: () => Promise<void>;
@@ -50,9 +51,11 @@ export function FinishStep({
   };
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-foreground md:px-8 md:py-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--foreground)/0.06),transparent_66%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-6 py-6 text-foreground md:px-10 md:py-8">
       <OnboardingMotionStyles />
+
+      {/* Ambient Background Glow */}
+      <div className="absolute left-1/2 top-1/2 z-0 h-[120vh] w-[120vw] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/20 via-background/80 to-background [animation:ambient-glow_8s_ease-in-out_infinite] pointer-events-none" />
 
       <style>{`
         @keyframes burst {
@@ -65,45 +68,45 @@ export function FinishStep({
           0% { opacity: 0; transform: translateY(10px) scale(0.92); filter: blur(8px); }
           100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
         }
-
-        @keyframes finish-logo-float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
       `}</style>
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 backdrop-blur-xl md:p-6 shadow-2xl">
-        <div className="onb-fade-up flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 md:h-11 md:w-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-            <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" />
-          </span>
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight md:text-2xl">Setup Complete</h2>
-            <p className="text-xs text-muted-foreground md:text-sm">Everything ready. Launch now.</p>
+      <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col items-center justify-center text-center">
+        <p className="animate-fade-up mb-6 text-[10px] font-semibold uppercase tracking-[0.6em] text-muted-foreground/80 opacity-0 md:mb-8 ml-[0.6em]">
+          Your Reading Sanctuary
+        </p>
+
+        <div className="animate-fade-up delay-100 relative mb-8 opacity-0 md:mb-10">
+          <span className="absolute inset-0 rounded-full border border-primary/20 [animation:shiori-logo-pulse_4s_ease-in-out_infinite]" />
+          <span className="absolute -inset-6 rounded-full border border-primary/10 [animation:shiori-logo-pulse_4s_ease-in-out_infinite_reverse]" />
+          <div className="relative flex h-44 w-44 items-center justify-center overflow-hidden rounded-full border border-border/40 bg-card/90 shadow-2xl [animation:finish-logo-in_1s_cubic-bezier(0.16,1,0.3,1)_forwards] md:h-60 md:w-60">
+            <img src={logoSrc} alt="Shiori Logo" className="h-full w-full object-contain p-4 md:p-6" />
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-100 relative mx-auto mb-6 mt-2 flex justify-center md:mb-8 md:mt-4">
-          <div className="absolute inset-0 z-0 flex pointer-events-none items-center justify-center">
-            <div className="h-40 w-40 rounded-full bg-indigo-500/20 blur-[50px] md:h-56 md:w-56" />
+        <h1 className="animate-fade-up delay-200 mb-4 max-w-4xl text-3xl font-extralight tracking-[0.4em] text-foreground/90 opacity-0 md:text-5xl ml-[0.4em]">
+          SHIORI IS READY
+        </h1>
+
+        <p className="animate-fade-up delay-200 mb-8 max-w-md text-xs sm:text-sm text-muted-foreground/80 leading-relaxed opacity-0 px-4">
+          Your personalized reading environment, custom theme, and content integrations are fully configured.
+        </p>
+
+        <div className="animate-fade-up delay-200 mb-10 flex flex-wrap justify-center gap-3 opacity-0 max-w-2xl px-4">
+          <div className="flex items-center gap-2 rounded-full border border-border/40 bg-card/40 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md">
+            <BookOpen className="h-3.5 w-3.5 text-primary" />
+            <span>Library Engine Ready</span>
           </div>
-          <div className="relative z-10 flex h-36 w-36 overflow-hidden rounded-full border border-border/50 bg-background/80 shadow-lg backdrop-blur-md md:h-48 md:w-48 items-center justify-center">
-            <img
-              src={logoSrc}
-              alt="Shiori Logo"
-              className="h-full w-full object-contain p-4 md:p-6 [animation:finish-logo-in_0.8s_cubic-bezier(0.16,1,0.3,1)_forwards,finish-logo-float_3.8s_ease-in-out_infinite_0.8s]"
-            />
-            <div className="absolute inset-0 rounded-full border border-primary/30 [animation:ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
+          <div className="flex items-center gap-2 rounded-full border border-border/40 bg-card/40 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md">
+            <Palette className="h-3.5 w-3.5 text-primary" />
+            <span>Sepia Theme Configured</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-border/40 bg-card/40 px-4 py-2 text-xs font-medium text-muted-foreground backdrop-blur-md">
+            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+            <span>Setup Verified</span>
           </div>
         </div>
 
-        <div className="onb-fade-up onb-delay-200 flex-1 flex flex-col items-center justify-center text-center pb-8">
-          <p className="max-w-md text-sm leading-relaxed text-muted-foreground md:text-base">
-            Your personalized reading environment is ready. Discover books, organize your shelf, and enjoy a seamless reading experience.
-          </p>
-        </div>
-
-        <div className="onb-fade-up onb-delay-300 mt-2 flex shrink-0 flex-col items-center gap-3 border-t border-border/40 pt-3 md:mt-4 md:pt-4">
+        <div className="animate-fade-up delay-300 opacity-0 flex flex-col items-center gap-3">
           <div className="relative">
             {burst ? (
               <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 z-50">
@@ -125,21 +128,23 @@ export function FinishStep({
               </div>
             ) : null}
 
-            <GlowButton
-              onClick={() => {
-                void handleOpen();
-              }}
+            <button
+              type="button"
+              onClick={() => void handleOpen()}
               disabled={Boolean(isFinishing)}
-              className="px-10 py-3.5 text-base"
+              className="group relative overflow-hidden rounded-full border border-primary/20 bg-primary px-9 py-3.5 text-sm font-bold uppercase tracking-[0.14em] text-primary-foreground opacity-100 transition-all hover:scale-105 hover:bg-primary/90 hover:shadow-lg focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 active:scale-95 cursor-pointer"
             >
-              {isFinishing ? 'Launching Shiori...' : 'Launch Shiori'}
-            </GlowButton>
+              <span className="relative z-10 flex items-center gap-2">
+                {isFinishing ? 'Opening Library...' : 'Open Shiori Library →'}
+              </span>
+              <div className="absolute inset-0 z-0 bg-gradient-to-r from-transparent via-primary-foreground/20 to-transparent translate-x-[-100%] transition-transform duration-700 ease-in-out group-hover:translate-x-[100%]" />
+            </button>
           </div>
 
           <button
             type="button"
             onClick={resetOnboarding}
-            className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+            className="text-xs font-semibold text-muted-foreground/70 underline underline-offset-4 transition-colors hover:text-foreground cursor-pointer mt-1"
           >
             Restart onboarding
           </button>

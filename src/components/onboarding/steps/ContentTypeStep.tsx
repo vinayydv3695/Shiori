@@ -13,11 +13,10 @@ export function ContentTypeStep({ onBack, onNext }: ContentTypeStepProps) {
   const { preferredContentType } = state;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 md:px-8 md:py-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden text-foreground">
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 text-card-foreground backdrop-blur-xl md:p-6 shadow-2xl">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col justify-between overflow-hidden rounded-[1.8rem] border border-border/60 bg-card/75 p-6 md:p-8 text-card-foreground backdrop-blur-2xl shadow-[0_20px_50px_-12px_hsl(var(--foreground)/0.12),0_4px_16px_-4px_hsl(var(--foreground)/0.06)]">
         <header className="onb-fade-up mb-6 flex shrink-0 flex-col gap-4 md:mb-8">
           <div className="flex items-center gap-3">
             <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/50 bg-primary/5 text-primary shadow-sm">

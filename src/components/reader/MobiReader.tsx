@@ -511,15 +511,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
     // ── Loading State ──
     if (!currentChapter) {
-        return (
-            <BookSkeletonLoading
-                title={metadata?.title}
-                subtitle={metadata?.author ?? undefined}
-                message="Extracting MOBI format..."
-                coverUrl={metadata?.cover_path ?? undefined}
-                format="mobi"
-            />
-        );
+        return null;
     }
 
     const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);

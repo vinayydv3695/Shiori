@@ -73,11 +73,10 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
   const clampedProgress = Math.min(100, Math.max(0, progress));
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-foreground md:px-8 md:py-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden text-foreground">
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex min-h-0 h-full w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 backdrop-blur-xl md:p-6">
+      <div className="relative z-10 mx-auto flex min-h-0 h-full w-full max-w-5xl flex-1 flex-col justify-between overflow-hidden rounded-[1.8rem] border border-border/60 bg-card/75 p-6 md:p-8 backdrop-blur-2xl shadow-[0_20px_50px_-12px_hsl(var(--foreground)/0.12),0_4px_16px_-4px_hsl(var(--foreground)/0.06)]">
         <div className="onb-fade-up flex shrink-0 items-center gap-3">
           <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground">
             <FolderPlus className="onb-icon-inner h-5 w-5" />
@@ -240,7 +239,7 @@ export function ImportStep({ libraryPath, onSelectPath, onBack, onNext }: Import
                 </div>
               ) : null}
 
-              {error ? <p className="mt-3 flex items-center gap-2 text-sm text-rose-300"><XCircle className="h-4 w-4" />{error}</p> : null}
+              {error ? <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-destructive"><XCircle className="h-4 w-4 shrink-0" />{error}</p> : null}
             </div>
           </div>
         </div>

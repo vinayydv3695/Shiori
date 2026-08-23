@@ -20,7 +20,7 @@ export interface SourceConfig {
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 9;
+const SOURCE_STORE_VERSION = 10;
 
 const MANDATORY_SOURCE_IDS = new Set<string>();
 
@@ -33,7 +33,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'mangadex',
     name: 'MangaDex',
     kind: 'manga',
-    enabled: false,
+    enabled: !isAndroid,
     description: 'Official API with huge catalog - Most reliable manga source.',
     status: 'active',
     implemented: true,
@@ -45,7 +45,7 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'mangafire',
     name: 'MangaFire',
     kind: 'manga',
-    enabled: true,
+    enabled: isAndroid,
     description: 'High quality manga source with large library.',
     status: 'active',
     implemented: true,

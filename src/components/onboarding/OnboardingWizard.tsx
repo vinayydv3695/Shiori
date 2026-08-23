@@ -72,26 +72,28 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-background text-foreground transition-colors duration-500">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,hsl(var(--foreground)/0.08),transparent_62%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,hsl(var(--background)/0.2),hsl(var(--background)/0.55))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.05),transparent_75%)]" />
       <ParticleCanvas />
 
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden">
-        {/* Unified Floating Top Header & Progress Indicator */}
+        {/* Premium High-Contrast Integrated Top Header Bar */}
         {state.currentStep > 1 && (
-          <>
-            <div 
-              className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 sm:px-8 sm:py-4 bg-background/70 backdrop-blur-xl border-b border-border/40 shadow-sm"
-              style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
+          <header className="w-full shrink-0 border-b border-border/40 bg-background/80 backdrop-blur-2xl px-4 sm:px-10 py-4 z-50 transition-colors duration-500">
+            <div
+              className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 h-12"
+              style={{
+                paddingTop: 'env(safe-area-inset-top, 0px)',
+              }}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  Step {visualStep} of {totalSteps}
+              {/* Left: Step Counter Pill */}
+              <div className="flex items-center">
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider px-4 py-1.5 rounded-full bg-card text-foreground border-2 border-border/80 shadow-sm">
+                  Step <span className="text-primary">{visualStep}</span> of {totalSteps}
                 </span>
               </div>
 
-              {/* Interactive Step Pill Dots */}
-              <div className="hidden sm:flex items-center gap-2">
+              {/* Center: Prominent Progress Dots */}
+              <div className="flex items-center gap-2.5">
                 {Array.from({ length: totalSteps }).map((_, idx) => {
                   const stepNum = idx + 1;
                   const isActive = visualStep === stepNum;
@@ -100,34 +102,31 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                     <div
                       key={idx}
                       className={cn(
-                        "h-2 rounded-full transition-all duration-300",
-                        isActive ? "w-8 bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]" : isPassed ? "w-3 bg-primary/40" : "w-2 bg-muted/40"
+                        "h-3 rounded-full transition-all duration-300",
+                        isActive
+                          ? "w-10 bg-primary shadow-md shadow-primary/40 ring-4 ring-primary/25"
+                          : isPassed
+                          ? "w-4 bg-primary/60"
+                          : "w-3 bg-muted-foreground/30"
                       )}
                     />
                   );
                 })}
               </div>
 
-              {/* Skip to Library Button */}
-              <button
-                type="button"
-                onClick={handleFinish}
-                className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 px-3 py-1.5 rounded-full hover:bg-card/80 border border-transparent hover:border-border/40 transition-all active:scale-95"
-              >
-                Skip Setup →
-              </button>
+              {/* Right: Skip Setup Button Pill */}
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={handleFinish}
+                  className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2 px-5 py-2.5 rounded-full bg-card hover:bg-muted text-foreground border-2 border-border/80 hover:border-primary/60 transition-all active:scale-95 shadow-sm hover:shadow-md cursor-pointer"
+                >
+                  <span>Skip Setup</span>
+                  <span className="text-base leading-none">→</span>
+                </button>
+              </div>
             </div>
-
-            {/* Top Linear Progress Bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-border/20 z-50">
-              <motion.div
-                className="h-full bg-primary"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercent}%` }}
-                transition={{ duration: 0.4, ease: 'easeInOut' }}
-              />
-            </div>
-          </>
+          </header>
         )}
 
         <AnimatePresence mode="wait">
@@ -137,10 +136,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className={cn(
-              "flex h-full w-full flex-col",
-              state.currentStep > 1 && "pt-14 sm:pt-20"
-            )}
+            className="flex flex-1 min-h-0 h-full w-full flex-col items-center justify-center p-3 sm:p-5 md:p-6 overflow-hidden"
           >
             {state.currentStep === 1 ? <WelcomeStep appVersion={appVersion} onStart={nextStep} /> : null}
             {state.currentStep === 2 ? (

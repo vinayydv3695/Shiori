@@ -4,6 +4,7 @@ import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { useSourceStore } from '@/store/sourceStore';
 import { useOnboardingState } from '../hooks/useOnboardingState';
+import { isAndroid } from '@/lib/tauri';
 
 type CloudIntegrationStepProps = {
   onBack: () => void;
@@ -16,18 +17,17 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
   const primaryBooks = state.defaultBookSource;
   const preferredContentType = state.preferredContentType;
   const sources = useSourceStore(s => s.sources);
-  const mangaSources = useMemo(() => sources.filter(x => x.kind === 'manga' && x.enabled), [sources]);
+  const mangaSources = useMemo(() => sources.filter(x => x.kind === 'manga' && x.enabled && (isAndroid || x.id !== 'mangafire')), [sources]);
   const bookSources = useMemo(() => sources.filter(x => x.kind === 'books' && x.enabled), [sources]);
 
   const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider);
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider);
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-foreground md:px-8 md:py-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden text-foreground">
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 backdrop-blur-xl md:p-6">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col justify-between overflow-hidden rounded-[1.8rem] border border-border/60 bg-card/75 p-6 md:p-8 backdrop-blur-2xl shadow-[0_20px_50px_-12px_hsl(var(--foreground)/0.12),0_4px_16px_-4px_hsl(var(--foreground)/0.06)]">
         <div className="onb-fade-up flex flex-wrap items-center gap-3">
           <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground">
             <Cloud className="onb-icon-inner h-5 w-5" />
@@ -54,33 +54,75 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                   <div className="space-y-4">
                     {(preferredContentType === 'manga' || preferredContentType === 'both') && (
                       <div>
-                        <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Manga & Comics</h4>
+                        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Manga & Comics</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {mangaSources.map(source => (
-                            <label key={source.id} className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${primaryManga === source.id ? 'border-primary/50 bg-primary/5' : 'border-border/20 bg-card hover:border-border/60'}`}>
-                              <span className={`text-sm font-medium ${primaryManga === source.id ? 'text-primary' : 'text-foreground/80'}`}>{source.name}</span>
-                              <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
-                                {primaryManga === source.id && <div className="h-2 w-2 rounded-full bg-primary" />}
-                                <input type="radio" name="onboarding-primary-manga" checked={primaryManga === source.id} onChange={() => setDefaultMangaSource(source.id)} className="absolute inset-0 cursor-pointer opacity-0" aria-label={`Set ${source.name} as primary`} />
-                              </div>
-                            </label>
-                          ))}
+                          {mangaSources.map(source => {
+                            const isSelected = primaryManga === source.id;
+                            return (
+                              <label
+                                key={source.id}
+                                className={`flex cursor-pointer items-center justify-between rounded-xl border px-3.5 py-2.5 transition-all ${
+                                  isSelected
+                                    ? 'border-2 border-primary bg-primary/10 shadow-2xs'
+                                    : 'border-border/50 bg-card hover:border-border/90 hover:bg-muted/40'
+                                }`}
+                              >
+                                <span className={`text-sm ${isSelected ? 'text-foreground font-extrabold' : 'text-foreground/80 font-medium'}`}>
+                                  {source.name}
+                                </span>
+                                <div className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                                  isSelected ? 'border-primary bg-primary shadow-2xs' : 'border-border/80 bg-background'
+                                }`}>
+                                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                                  <input
+                                    type="radio"
+                                    name="onboarding-primary-manga"
+                                    checked={isSelected}
+                                    onChange={() => setDefaultMangaSource(source.id)}
+                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                    aria-label={`Set ${source.name} as primary`}
+                                  />
+                                </div>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
                     {(preferredContentType === 'books' || preferredContentType === 'both') && (
                       <div>
-                        <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Books</h4>
+                        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Books</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {bookSources.map(source => (
-                            <label key={source.id} className={`flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${primaryBooks === source.id ? 'border-primary/50 bg-primary/5' : 'border-border/20 bg-card hover:border-border/60'}`}>
-                              <span className={`text-sm font-medium ${primaryBooks === source.id ? 'text-primary' : 'text-foreground/80'}`}>{source.name}</span>
-                              <div className="relative flex h-4 w-4 items-center justify-center rounded-full border border-border/60 bg-zinc-950">
-                                {primaryBooks === source.id && <div className="h-2 w-2 rounded-full bg-primary" />}
-                                <input type="radio" name="onboarding-primary-books" checked={primaryBooks === source.id} onChange={() => setDefaultBookSource(source.id)} className="absolute inset-0 cursor-pointer opacity-0" aria-label={`Set ${source.name} as primary`} />
-                              </div>
-                            </label>
-                          ))}
+                          {bookSources.map(source => {
+                            const isSelected = primaryBooks === source.id;
+                            return (
+                              <label
+                                key={source.id}
+                                className={`flex cursor-pointer items-center justify-between rounded-xl border px-3.5 py-2.5 transition-all ${
+                                  isSelected
+                                    ? 'border-2 border-primary bg-primary/10 shadow-2xs'
+                                    : 'border-border/50 bg-card hover:border-border/90 hover:bg-muted/40'
+                                }`}
+                              >
+                                <span className={`text-sm ${isSelected ? 'text-foreground font-extrabold' : 'text-foreground/80 font-medium'}`}>
+                                  {source.name}
+                                </span>
+                                <div className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                                  isSelected ? 'border-primary bg-primary shadow-2xs' : 'border-border/80 bg-background'
+                                }`}>
+                                  {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                                  <input
+                                    type="radio"
+                                    name="onboarding-primary-books"
+                                    checked={isSelected}
+                                    onChange={() => setDefaultBookSource(source.id)}
+                                    className="absolute inset-0 cursor-pointer opacity-0"
+                                    aria-label={`Set ${source.name} as primary`}
+                                  />
+                                </div>
+                              </label>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -98,26 +140,38 @@ export function CloudIntegrationStep({ onBack, onNext }: CloudIntegrationStepPro
                   </div>
 
                   <div className="space-y-2">
-                    <label className="flex items-center justify-between rounded-lg border border-border/40 bg-card px-3 py-2 text-sm">
-                      <span className="text-foreground/90">Auto</span>
-                      <input
-                        type="radio"
-                        name="onboarding-debrid"
-                        checked={preferredDebridProvider === 'auto'}
-                        onChange={() => setPreferredDebridProvider('auto')}
-                        className="h-4 w-4 accent-zinc-400"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between rounded-lg border border-border/40 bg-card px-3 py-2 text-sm">
-                      <span className="text-foreground/90">Torbox</span>
-                      <input
-                        type="radio"
-                        name="onboarding-debrid"
-                        checked={preferredDebridProvider === 'torbox'}
-                        onChange={() => setPreferredDebridProvider('torbox')}
-                        className="h-4 w-4 accent-zinc-400"
-                      />
-                    </label>
+                    {[
+                      { id: 'auto', label: 'Auto' },
+                      { id: 'torbox', label: 'Torbox' },
+                    ].map((provider) => {
+                      const isSelected = preferredDebridProvider === provider.id;
+                      return (
+                        <label
+                          key={provider.id}
+                          className={`flex cursor-pointer items-center justify-between rounded-xl border px-3.5 py-2.5 text-sm transition-all ${
+                            isSelected
+                              ? 'border-2 border-primary bg-primary/10 shadow-2xs'
+                              : 'border-border/50 bg-card hover:border-border/90'
+                          }`}
+                        >
+                          <span className={`text-sm ${isSelected ? 'text-foreground font-extrabold' : 'text-foreground/80 font-medium'}`}>
+                            {provider.label}
+                          </span>
+                          <div className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                            isSelected ? 'border-primary bg-primary shadow-2xs' : 'border-border/80 bg-background'
+                          }`}>
+                            {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                            <input
+                              type="radio"
+                              name="onboarding-debrid"
+                              checked={isSelected}
+                              onChange={() => setPreferredDebridProvider(provider.id as any)}
+                              className="absolute inset-0 cursor-pointer opacity-0"
+                            />
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 </section>
               </div>

@@ -91,7 +91,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const dummyRef = useRef<HTMLDivElement>(null);
   const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: dummyRef });
 
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [toolbarBaseActions, setToolbarBaseActions] = useState<string[]>(['highlight', 'note', 'translate']);
 
   useEffect(() => {
@@ -505,54 +505,76 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
             }
           }}
         >
-          {/* Main action buttons (Single Horizontal Pill Row) */}
+          {/* Main action buttons: Single-row on Desktop (!isAndroid), 2-Row collapsible on Android (isAndroid) */}
           {!showNoteInput && !showTranslation && (
-            <div className="flex items-center gap-0.5 overflow-x-auto custom-scrollbar p-0.5">
-              {['translate', 'note', 'highlight', 'aloud', 'define', 'copy'].map((action) => {
-                return (
-                  <React.Fragment key={action}>
-                    {action === 'translate' && (
-                      <button
-                        type="button"
-                        className="text-selection-toolbar-btn"
-                        onClick={() => {
-                          hapticTick();
-                          handleTranslate();
-                        }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
-                        </svg>
-                        <span>Translate</span>
-                      </button>
-                    )}
-                    {action === 'note' && (
-                      <button
-                        type="button"
-                        className="text-selection-toolbar-btn"
-                        onClick={() => {
-                          hapticTick();
-                          setShowNoteInput(true);
-                        }}
-                      >
-                        <StickyNote size={14} />
-                        <span>Note</span>
-                      </button>
-                    )}
-                    {action === 'highlight' && (
-                      <button
-                        type="button"
-                        className="text-selection-toolbar-btn"
-                        onClick={() => {
-                          hapticTick();
-                          setShowColorPicker(!showColorPicker);
-                        }}
-                      >
-                        <Highlighter size={14} />
-                        <span>Highlight</span>
-                      </button>
-                    )}
-                    {action === 'aloud' && (
+            isAndroid ? (
+              <div className="flex flex-col w-full p-1 min-w-[280px]">
+                {/* Row 1: Translate | Note | Highlight | [Chevron] */}
+                <div className="flex items-center justify-between w-full gap-1">
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      className="text-selection-toolbar-btn"
+                      onClick={() => {
+                        hapticTick();
+                        handleTranslate();
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                      </svg>
+                      <span>Translate</span>
+                    </button>
+
+                    <span className="text-selection-toolbar-divider" />
+
+                    <button
+                      type="button"
+                      className="text-selection-toolbar-btn"
+                      onClick={() => {
+                        hapticTick();
+                        setShowNoteInput(true);
+                      }}
+                    >
+                      <StickyNote size={14} />
+                      <span>Note</span>
+                    </button>
+
+                    <span className="text-selection-toolbar-divider" />
+
+                    <button
+                      type="button"
+                      className="text-selection-toolbar-btn"
+                      onClick={() => {
+                        hapticTick();
+                        setShowColorPicker(!showColorPicker);
+                      }}
+                    >
+                      <Highlighter size={14} />
+                      <span>Highlight</span>
+                    </button>
+                  </div>
+
+                  {/* Top-Right Chevron Toggle Button (Android only) */}
+                  <button
+                    type="button"
+                    className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 active:scale-95 ml-1"
+                    style={{ color: 'var(--text-primary, currentColor)' }}
+                    onClick={() => {
+                      hapticTick();
+                      setIsExpanded(!isExpanded);
+                    }}
+                    title={isExpanded ? 'Collapse toolbar' : 'Expand toolbar'}
+                  >
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+
+                {/* Row 2: Aloud | Define | Copy */}
+                {isExpanded && (
+                  <>
+                    <div className="w-full h-[1px] my-1.5 opacity-25" style={{ backgroundColor: 'var(--ui-border, #d6d3d1)' }} />
+                    <div className="flex items-center justify-around w-full gap-1">
                       <button
                         type="button"
                         className="text-selection-toolbar-btn"
@@ -564,8 +586,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                         <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
                         <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
                       </button>
-                    )}
-                    {action === 'define' && (
+
+                      <span className="text-selection-toolbar-divider" />
+
                       <button
                         type="button"
                         className="text-selection-toolbar-btn"
@@ -579,8 +602,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                         </svg>
                         <span>Define</span>
                       </button>
-                    )}
-                    {action === 'copy' && (
+
+                      <span className="text-selection-toolbar-divider" />
+
                       <button
                         type="button"
                         className="text-selection-toolbar-btn"
@@ -595,11 +619,103 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                         </svg>
                         <span>Copy</span>
                       </button>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              /* Single Horizontal Row for Desktop */
+              <div className="flex items-center gap-1 p-1">
+                <button
+                  type="button"
+                  className="text-selection-toolbar-btn"
+                  onClick={() => {
+                    hapticTick();
+                    handleTranslate();
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                  </svg>
+                  <span>Translate</span>
+                </button>
+
+                <span className="text-selection-toolbar-divider" />
+
+                <button
+                  type="button"
+                  className="text-selection-toolbar-btn"
+                  onClick={() => {
+                    hapticTick();
+                    setShowNoteInput(true);
+                  }}
+                >
+                  <StickyNote size={14} />
+                  <span>Note</span>
+                </button>
+
+                <span className="text-selection-toolbar-divider" />
+
+                <button
+                  type="button"
+                  className="text-selection-toolbar-btn"
+                  onClick={() => {
+                    hapticTick();
+                    setShowColorPicker(!showColorPicker);
+                  }}
+                >
+                  <Highlighter size={14} />
+                  <span>Highlight</span>
+                </button>
+
+                <span className="text-selection-toolbar-divider" />
+
+                <button
+                  type="button"
+                  className="text-selection-toolbar-btn"
+                  onClick={() => {
+                    hapticTick();
+                    ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
+                  }}
+                >
+                  <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
+                  <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                </button>
+
+                <span className="text-selection-toolbar-divider" />
+
+                <button
+                  type="button"
+                  className="text-selection-toolbar-btn"
+                  onClick={() => {
+                    hapticTick();
+                    handleDefine();
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                  </svg>
+                  <span>Define</span>
+                </button>
+
+                <span className="text-selection-toolbar-divider" />
+
+                <button
+                  type="button"
+                  className="text-selection-toolbar-btn"
+                  onClick={() => {
+                    hapticTick();
+                    handleCopy();
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <span>Copy</span>
+                </button>
+              </div>
+            )
           )}
 
           {/* Color picker for highlight */}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, KeyRound, Eye, EyeOff, ShieldCheck, ShieldX, Link2, Plug } from 'lucide-react';
+import { AlertTriangle, KeyRound, Eye, EyeOff, ShieldCheck, ShieldX, Link2, Plug, Gamepad2, Image } from 'lucide-react';
 import GlowButton from '../components/GlowButton';
 import { OnboardingMotionStyles } from '../components';
 import { api, isAndroid } from '@/lib/tauri';
@@ -26,7 +26,25 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
   const preferredContentType = state.preferredContentType;
   const preferredDebridProvider = useSourceStore((s) => s.preferredDebridProvider);
 
+  const preferences = usePreferencesStore((s) => s.preferences);
   const updateGeneralSettings = usePreferencesStore((s) => s.updateGeneralSettings);
+
+  const isSepia = preferences?.theme === 'sepia' || (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'sepia');
+
+  const activeBadgeClass = isSepia
+    ? 'bg-primary/15 text-primary border border-primary/40 font-extrabold'
+    : 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 font-extrabold';
+
+  const linkedBannerClass = isSepia
+    ? 'border border-primary/40 bg-primary/10 text-primary font-bold shadow-2xs'
+    : 'border border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 shadow-2xs';
+
+  const unlinkBtnClass = isSepia
+    ? 'border border-primary/40 bg-primary/20 text-primary hover:bg-primary/30 font-extrabold'
+    : 'border border-emerald-500/40 bg-emerald-500/20 text-emerald-900 dark:text-emerald-100 hover:bg-emerald-500/30 font-extrabold';
+
+  const discordRpcEnabled = preferences?.discordRpcEnabled ?? true;
+  const isOnlineMetadata = (preferences?.metadataMode ?? 'online') !== 'embedded-only';
 
   const [hasTorboxKey, setHasTorboxKey] = useState<boolean | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -131,150 +149,154 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
   };
 
   return (
-    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden px-4 py-4 text-foreground md:px-8 md:py-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(161,161,170,0.14),transparent_70%)]" />
+    <section className="relative flex h-full min-h-0 w-full flex-col overflow-hidden text-foreground">
       <OnboardingMotionStyles />
 
-      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-border/40 bg-card/60 p-4 backdrop-blur-xl md:p-6">
+      <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-5xl flex-1 flex-col justify-between overflow-hidden rounded-[1.8rem] border border-border/60 bg-card/75 p-6 md:p-8 backdrop-blur-2xl shadow-[0_20px_50px_-12px_hsl(var(--foreground)/0.12),0_4px_16px_-4px_hsl(var(--foreground)/0.06)]">
         <div className="onb-fade-up flex flex-wrap items-center gap-3">
-          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground">
-            <Plug className="onb-icon-inner h-5 w-5" />
+          <div className="onb-icon-badge flex h-11 w-11 items-center justify-center rounded-xl border border-border/40 bg-primary/5 text-foreground shadow-2xs">
+            <Plug className="onb-icon-inner h-5 w-5 text-primary" />
           </div>
-          <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">Integrations</h2>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Integrations</h2>
+            <p className="text-xs text-muted-foreground md:text-sm mt-0.5">
+              Connect third-party services & features to enhance your reading experience. Safe to skip and configure later.
+            </p>
+          </div>
         </div>
 
-        <p className="onb-fade-up onb-delay-100 mt-2 max-w-3xl text-sm text-foreground/65 md:text-base">
-          Connect third-party services to enhance your experience. Safe to skip and configure later.
-        </p>
-
-        <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-y-auto pr-2 pb-3 [scrollbar-gutter:stable] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-white/30">
-            <div className="onb-fade-up onb-delay-200 mt-2 grid gap-4 lg:grid-cols-2">
-              <div className="flex flex-col gap-4">
-                {(preferredContentType === 'manga' || preferredContentType === 'both') && (
-                  <section className="rounded-2xl border border-border/40 bg-card/50 p-5">
-                    <div className="mb-4 flex items-center gap-3">
-                      <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
-                        <Link2 className="onb-icon-inner h-4 w-4" />
-                      </span>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">AniList Integration</h3>
-                    </div>
-
-                    <p className="mb-4 text-xs text-foreground/60">
-                      Link your AniList account to automatically track your reading progress across online manga sources.
-                    </p>
-
+            {/* Rich 2x2 Desktop Integration Grid */}
+            <div className="onb-fade-up onb-delay-200 mt-1 grid gap-4 lg:grid-cols-2">
+              {/* Card 1: AniList Sync */}
+              <section className="flex flex-col justify-between rounded-2xl border border-border/40 bg-card/50 p-5 shadow-2xs">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      {isAniListLinked ? (
-                        <div className="flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                          <div className="flex items-center gap-2 text-emerald-300">
-                            <ShieldCheck className="h-4 w-4" />
-                            <span className="text-sm font-medium">{aniListViewer?.name ? `Linked as ${aniListViewer.name}` : 'Account Linked'}</span>
-                          </div>
-                          <GlowButton
-                            variant="secondary"
-                            className="border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
-                            onClick={() => {
-                              void anilistAuth.logout();
-                            }}
-                          >
-                            Unlink
-                          </GlowButton>
-                        </div>
+                      <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
+                        <Link2 className="onb-icon-inner h-4 w-4 text-primary" />
+                      </span>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">AniList Sync</h3>
+                    </div>
+                    {isAniListLinked && (
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${activeBadgeClass}`}>
+                        Connected
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mb-4 text-xs text-foreground/65 leading-relaxed">
+                    Link your AniList account to automatically track reading progress and update scores across manga sources.
+                  </p>
+                </div>
+
+                <div>
+                  {isAniListLinked ? (
+                    <div className={`flex w-full items-center justify-between rounded-xl px-4 py-3 ${linkedBannerClass}`}>
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 shrink-0" />
+                        <span className="text-sm font-semibold">{aniListViewer?.name ? `Linked as ${aniListViewer.name}` : 'Account Linked'}</span>
+                      </div>
+                      <GlowButton
+                        variant="secondary"
+                        className={`px-3 py-1.5 text-xs ${unlinkBtnClass}`}
+                        onClick={() => {
+                          void anilistAuth.logout();
+                        }}
+                      >
+                        Unlink
+                      </GlowButton>
+                    </div>
+                  ) : (
+                    <div className="flex w-full flex-col gap-3">
+                      {isAndroid ? (
+                        <GlowButton
+                          variant="secondary"
+                          className="w-full border-border/40 bg-card px-4 py-2.5 text-xs font-bold text-foreground hover:bg-primary/5"
+                          onClick={async () => {
+                            setIsLoggingIn(true);
+                            try {
+                              await anilistAuth.login();
+                            } finally {
+                              setIsLoggingIn(false);
+                            }
+                          }}
+                          disabled={isLoggingIn}
+                        >
+                          {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
+                        </GlowButton>
                       ) : (
-                        <div className="flex w-full flex-col gap-3">
-                          {isAndroid ? (
-                            <div className="flex flex-col gap-2">
-                              <p className="text-xs text-foreground/60 leading-relaxed">
-                                Link AniList with the Android login flow to sync reading progress without copying tokens manually.
-                              </p>
-                              <GlowButton
-                                variant="secondary"
-                                className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
-                                onClick={async () => {
-                                  setIsLoggingIn(true);
-                                  try {
-                                    await anilistAuth.login();
-                                  } finally {
-                                    setIsLoggingIn(false);
-                                  }
-                                }}
-                                disabled={isLoggingIn}
-                              >
-                                {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
-                              </GlowButton>
-                            </div>
-                          ) : (
-                            <GlowButton
-                              variant="secondary"
-                              className="w-full border-border/40 bg-card px-4 py-3 text-sm text-foreground hover:bg-primary/5"
-                              onClick={() => {
-                                setIsLoggingIn(true);
-                                invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
+                        <GlowButton
+                          variant="secondary"
+                          className="w-full border-border/40 bg-card px-4 py-2.5 text-xs font-bold text-foreground hover:bg-primary/5"
+                          onClick={() => {
+                            setIsLoggingIn(true);
+                            invoke('start_anilist_login').catch(() => setIsLoggingIn(false));
+                          }}
+                          disabled={isLoggingIn}
+                        >
+                          {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
+                        </GlowButton>
+                      )}
+                      {!isAndroid && (
+                        <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/30 p-2.5">
+                          <p className="text-[11px] text-foreground/60">Or manually paste access token:</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="eyJ0eXAi..."
+                              className="h-8 flex-1 rounded-lg border border-border/40 bg-background px-2.5 text-xs text-foreground outline-none transition focus-visible:ring-1 focus-visible:ring-primary/50"
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (ANILIST_TOKEN_RE.test(value)) {
+                                  updateGeneralSettings({ anilistToken: value });
+                                  setAnilistTokenError(null);
+                                  e.target.value = '';
+                                } else if (value.length > 0) {
+                                  setAnilistTokenError('Invalid token format.');
+                                } else {
+                                  setAnilistTokenError(null);
+                                }
                               }}
-                              disabled={isLoggingIn}
-                            >
-                              {isLoggingIn ? 'Awaiting Login...' : 'Login with AniList'}
-                            </GlowButton>
-                          )}
-                          {!isAndroid && (
-                            <div className="flex flex-col gap-2 rounded-xl border border-border/40 bg-card/30 p-3">
-                              <p className="text-xs text-foreground/60">Or manually paste your AniList token:</p>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  placeholder="eyJ0eXAi..."
-                                  className="h-9 flex-1 rounded-lg border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-1 focus-visible:ring-primary/50"
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    if (ANILIST_TOKEN_RE.test(value)) {
-                                      updateGeneralSettings({ anilistToken: value });
-                                      setAnilistTokenError(null);
-                                      e.target.value = '';
-                                    } else if (value.length > 0) {
-                                      setAnilistTokenError('Invalid token — paste a full AniList access token (three dot-separated parts).');
-                                    } else {
-                                      setAnilistTokenError(null);
-                                    }
-                                  }}
-                                />
-                              </div>
-                              {anilistTokenError && (
-                                <p className="flex items-center gap-1 text-[11px] text-amber-300">
-                                  <AlertTriangle className="h-3 w-3 shrink-0" />
-                                  {anilistTokenError}
-                                </p>
-                              )}
-                              <a
-                                href={ANILIST_IMPLICIT_URL}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[10px] text-primary/80 hover:text-primary hover:underline"
-                              >
-                                Get a token here
-                              </a>
-                            </div>
+                            />
+                          </div>
+                          {anilistTokenError && (
+                            <p className="flex items-center gap-1 text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              {anilistTokenError}
+                            </p>
                           )}
                         </div>
                       )}
                     </div>
-                  </section>
-                )}
-              </div>
+                  )}
+                </div>
+              </section>
 
-              <div className="flex flex-col gap-4">
-                <section className="rounded-2xl border border-border/40 bg-card/50 p-5">
-                  <div className="mb-4 flex items-center gap-3">
-                    <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
-                      <KeyRound className="onb-icon-inner h-4 w-4" />
-                    </span>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Torbox API Key</h3>
+              {/* Card 2: Debrid Torrent Cache */}
+              <section className="flex flex-col justify-between rounded-2xl border border-border/40 bg-card/50 p-5 shadow-2xs">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
+                        <KeyRound className="onb-icon-inner h-4 w-4 text-primary" />
+                      </span>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Debrid Cache</h3>
+                    </div>
+                    {hasTorboxKey && (
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${activeBadgeClass}`}>
+                        Configured
+                      </span>
+                    )}
                   </div>
 
-                  <p className="mb-4 text-xs text-foreground/60">
-                    Add your Torbox key to unlock debrid-assisted downloads and direct streaming from torrent sources.
+                  <p className="mb-4 text-xs text-foreground/65 leading-relaxed">
+                    Add your Torbox or Real-Debrid key to unlock high-speed cloud downloads and torrent archive streaming.
                   </p>
+                </div>
 
+                <div>
                   <div className="flex gap-2">
                     <input
                       id="torbox-api-key"
@@ -285,15 +307,15 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                         setMessage(null);
                         setTestValid(null);
                       }}
-                      placeholder="tbx_..."
-                      className="h-11 w-full rounded-xl border border-border/40 bg-background px-3 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-zinc-400/60"
+                      placeholder="Enter Torbox API Key (tbx_...)"
+                      className="h-10 w-full rounded-xl border border-border/40 bg-background px-3 text-xs text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-primary/40"
                       autoComplete="new-password"
                       spellCheck="false"
                       disabled={isLoading}
                     />
                     <button
                       type="button"
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-card text-foreground transition hover:bg-primary/5"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/40 bg-card text-foreground transition hover:bg-primary/5 cursor-pointer"
                       onClick={() => setShowKey((prev) => !prev)}
                       aria-label={showKey ? 'Hide API key' : 'Show API key'}
                       disabled={isLoading}
@@ -302,12 +324,12 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                     </button>
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     <GlowButton
                       variant="secondary"
                       onClick={() => void handleSave()}
                       disabled={!hasKey || isLoading || isSaving}
-                      className="border-border/40 bg-card px-4 text-foreground hover:bg-primary/5"
+                      className="border-border/40 bg-card px-3.5 py-1.5 text-xs text-foreground hover:bg-primary/5"
                     >
                       {isSaving ? 'Saving...' : 'Save key'}
                     </GlowButton>
@@ -316,7 +338,7 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
                       variant="secondary"
                       onClick={() => void handleTest()}
                       disabled={!hasKey || isLoading || isTesting}
-                      className="border-border/40 bg-card px-4 text-foreground hover:bg-primary/5"
+                      className="border-border/40 bg-card px-3.5 py-1.5 text-xs text-foreground hover:bg-primary/5"
                     >
                       {isTesting ? 'Testing...' : 'Test key'}
                     </GlowButton>
@@ -324,27 +346,92 @@ export function IntegrationsStep({ onBack, onNext }: IntegrationsStepProps) {
 
                   {message ? (
                     <div
-                      className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                      className={`mt-3 flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-semibold ${
                         testValid === null
                           ? 'border-border/40 bg-card/70 text-foreground/65'
                           : testValid
-                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                            : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                            ? (isSepia ? 'border-primary/40 bg-primary/10 text-primary' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300')
+                            : 'border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300'
                       }`}
                     >
-                      {testValid === null ? null : testValid ? <ShieldCheck className="h-4 w-4" /> : <ShieldX className="h-4 w-4" />}
+                      {testValid === null ? null : testValid ? <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> : <ShieldX className="h-3.5 w-3.5 shrink-0" />}
                       <span>{message}</span>
                     </div>
                   ) : null}
+                </div>
+              </section>
 
-                  {preferredDebridProvider === 'torbox' && hasTorboxKey === false && !message ? (
-                    <div className="mt-4 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span>No Torbox key detected. Your debrid preference will fall back until a key is added.</span>
+              {/* Card 3: Discord Rich Presence */}
+              <section className="flex flex-col justify-between rounded-2xl border border-border/40 bg-card/50 p-5 shadow-2xs">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
+                        <Gamepad2 className="onb-icon-inner h-4 w-4 text-primary" />
+                      </span>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Discord Presence</h3>
                     </div>
-                  ) : null}
-                </section>
-              </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${
+                      discordRpcEnabled ? activeBadgeClass : 'bg-muted text-muted-foreground border border-border/40 font-semibold'
+                    }`}>
+                      {discordRpcEnabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+
+                  <p className="mb-4 text-xs text-foreground/65 leading-relaxed">
+                    Showcase your current book, manga volume, chapter, and live reading progress on your Discord activity profile.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void updateGeneralSettings({ discordRpcEnabled: !discordRpcEnabled })}
+                  className={`flex w-full items-center justify-between rounded-xl border p-3 text-xs font-bold transition-all cursor-pointer ${
+                    discordRpcEnabled ? 'border-2 border-primary bg-primary/10 text-foreground shadow-2xs' : 'border-border/50 bg-card text-muted-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <span>Share live activity on Discord</span>
+                  <div className={`flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${discordRpcEnabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+                    <div className={`h-4 w-4 rounded-full bg-white transition-transform ${discordRpcEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+              </section>
+
+              {/* Card 4: Metadata & Cover Enrichment */}
+              <section className="flex flex-col justify-between rounded-2xl border border-border/40 bg-card/50 p-5 shadow-2xs">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="onb-icon-badge inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/40 bg-primary/5 text-foreground">
+                        <Image className="onb-icon-inner h-4 w-4 text-primary" />
+                      </span>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground/90">Metadata & Covers</h3>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider ${
+                      isOnlineMetadata ? activeBadgeClass : 'bg-muted text-muted-foreground border border-border/40 font-semibold'
+                    }`}>
+                      {isOnlineMetadata ? 'Online API' : 'Local Only'}
+                    </span>
+                  </div>
+
+                  <p className="mb-4 text-xs text-foreground/65 leading-relaxed">
+                    Fetch HD volume covers, author details, synopsis, and genres automatically from online metadata services.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void updateGeneralSettings({ metadataMode: isOnlineMetadata ? 'embedded-only' : 'online' })}
+                  className={`flex w-full items-center justify-between rounded-xl border p-3 text-xs font-bold transition-all cursor-pointer ${
+                    isOnlineMetadata ? 'border-2 border-primary bg-primary/10 text-foreground shadow-2xs' : 'border-border/50 bg-card text-muted-foreground hover:bg-muted/40'
+                  }`}
+                >
+                  <span>Auto-fetch covers & metadata online</span>
+                  <div className={`flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${isOnlineMetadata ? 'bg-primary' : 'bg-muted-foreground/30'}`}>
+                    <div className={`h-4 w-4 rounded-full bg-white transition-transform ${isOnlineMetadata ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+              </section>
 
             </div>
           </div>

@@ -27,7 +27,7 @@ export interface MangaPrefs {
   stickyHeader: boolean;
   showNavigationTips: boolean;
   autoGroupVolumes: boolean;
-  theme: 'light' | 'dark';
+  theme: 'light' | 'dark' | 'sepia';
   imageQuality: 'low' | 'medium' | 'high' | 'original';
   preloadIntensity: number;
 }
@@ -143,15 +143,7 @@ const THEME_VALUE_TO_NAME = Object.fromEntries(
 ) as Record<Theme, ThemeName>;
 
 const getDefaultThemeName = (): ThemeName => {
-  if (typeof window !== 'undefined') {
-    if (window.navigator.userAgent.toLowerCase().includes('android')) {
-      return 'OLED Midnight';
-    }
-    if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
-      return 'OLED Midnight';
-    }
-  }
-  return 'Premium Light';
+  return 'Sepia Paper';
 };
 
 const mapMangaMode = (mode: string): MangaPrefs['readingMode'] => {
@@ -164,7 +156,7 @@ const createDefaultState = (): OnboardingWizardState => ({
   onboardingComplete: false,
   currentStep: 1,
   libraryPath: null,
-  selectedTheme: getDefaultThemeName(),
+  selectedTheme: 'Sepia Paper',
   mangaPrefs: {
     readingDirection: 'rtl',
     readingMode: 'strip',
@@ -174,7 +166,7 @@ const createDefaultState = (): OnboardingWizardState => ({
     stickyHeader: true,
     showNavigationTips: true,
     autoGroupVolumes: true,
-    theme: 'dark',
+    theme: 'sepia',
     imageQuality: 'high',
     preloadIntensity: 5,
   },

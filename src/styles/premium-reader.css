@@ -2833,32 +2833,20 @@ select {
    Floating popup on text selection with highlight/note/copy/bookmark
    ═══════════════════════════════════════════════════════════ */
 
-.text-selection-toolbar--android.text-selection-toolbar--pill {
-  position: fixed !important;
-  left: 50% !important;
-  right: auto !important;
-  bottom: calc(env(safe-area-inset-bottom, 16px) + 24px) !important;
-  top: auto !important;
-  width: max-content !important;
-  max-width: calc(100vw - 24px) !important;
-  transform: translateX(-50%) !important;
-  margin: 0 auto;
-  border-radius: 9999px !important;
-  padding: 4px 8px !important;
-}
-
+.text-selection-toolbar--android.text-selection-toolbar--pill,
 .text-selection-toolbar--android.text-selection-toolbar--card {
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
   bottom: calc(env(safe-area-inset-bottom, 16px) + 24px) !important;
   top: auto !important;
-  width: calc(100vw - 32px) !important;
-  max-width: 480px !important;
+  width: min(calc(100vw - 24px), 380px) !important;
+  max-width: 420px !important;
   transform: translateX(-50%) !important;
   margin: 0 auto;
-  border-radius: 20px !important;
-  padding: 8px !important;
+  border-radius: 24px !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.28), 0 4px 16px -2px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Phone: the toolbar spans the screen width, so the inner panels must stretch with it instead of keeping their fixed desktop-popup widths. */
@@ -2868,7 +2856,7 @@ select {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  border-radius: 16px;
+  border-radius: 20px;
 }
 
 .text-selection-toolbar--android .text-selection-toolbar-actions {
@@ -2883,22 +2871,32 @@ select {
 .text-selection-toolbar {
   position: fixed;
   z-index: 10000;
-  background: var(--bg-elevated, #ffffff) !important;
+  background: var(--bg-elevated, var(--bg-primary, #ffffff)) !important;
   opacity: 1 !important;
-  border: 1px solid var(--ui-border, #e2e8f0);
+  border: 1px solid var(--ui-border, rgba(0, 0, 0, 0.15));
   box-shadow: 0 14px 35px -8px rgba(0, 0, 0, 0.25), 0 4px 12px -2px rgba(0, 0, 0, 0.12);
-  padding: 4px;
+  padding: 6px 10px;
+  border-radius: 24px !important;
   pointer-events: auto;
   transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .text-selection-toolbar--pill {
-  border-radius: 9999px !important;
+  border-radius: 24px !important;
 }
 
 .text-selection-toolbar--card {
-  border-radius: 20px !important;
-  padding: 8px !important;
+  border-radius: 24px !important;
+  padding: 8px 10px !important;
+}
+
+.text-selection-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--ui-divider, var(--ui-border, rgba(0, 0, 0, 0.2)));
+  opacity: 0.45;
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
 .text-selection-toolbar-actions {

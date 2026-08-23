@@ -117,49 +117,96 @@ export function ActivityHeatmap({ data, currentStreak = 0 }: ActivityHeatmapProp
     weeks.push(currentWeek);
   }
 
+  // Generate Month Labels
+  const monthLabels = useMemo(() => {
+    const labels: { name: string; weekIndex: number }[] = [];
+    let lastMonth = -1;
+    weeks.forEach((week, wIdx) => {
+      const validDay = week.find(d => d.getTime() !== 0);
+      if (validDay) {
+        const month = validDay.getMonth();
+        if (month !== lastMonth) {
+          labels.push({
+            name: validDay.toLocaleDateString('en-US', { month: 'short' }),
+            weekIndex: wIdx,
+          });
+          lastMonth = month;
+        }
+      }
+    });
+    return labels;
+  }, [weeks]);
+
   return (
-    <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+    <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
       <TooltipProvider delayDuration={100}>
-        <div className="flex gap-[2px] md:gap-[3px] min-w-[600px] w-full">
-          {weeks.map((week, wIdx) => (
-            <div key={wIdx} className="flex flex-col gap-[2px] md:gap-[3px] flex-1 max-w-[14px]">
-              {week.map((day, dIdx) => {
-                if (day.getTime() === 0) {
-                  return <div key={dIdx} className="w-full aspect-square rounded-[2px] opacity-0" />;
-                }
-                const dateStr = formatDate(day);
-                const seconds = dataMap.get(dateStr) || 0;
-                const level = getIntensityLevel(seconds);
-                const isStreak = streakDates.has(dateStr);
-                
-                return (
-                  <Tooltip key={dIdx}>
-                    <TooltipTrigger asChild>
-                      <div
-                        className={cn(
-                          "w-full aspect-square rounded-[2px] transition-all cursor-pointer relative",
-                          getIntensityClass(level),
-                          isStreak ? "ring-1 ring-primary/80 shadow-xs z-10" : "hover:ring-1 ring-ring ring-offset-1 ring-offset-background"
-                        )}
-                      />
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p className="text-xs">{formatTooltip(seconds, day)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
+        <div className="flex flex-col gap-2 min-w-[700px]">
+          {/* Month Header Labels */}
+          <div className="flex text-[10px] font-bold text-muted-foreground pl-8 pr-2 relative h-4">
+            {monthLabels.map((m, idx) => (
+              <span
+                key={idx}
+                className="absolute"
+                style={{ left: `calc(2rem + ${(m.weekIndex / weeks.length) * 100}%)` }}
+              >
+                {m.name}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex items-start gap-3">
+            {/* Weekday Side Labels */}
+            <div className="flex flex-col justify-between h-[112px] text-[10px] font-bold text-muted-foreground py-0.5 shrink-0 w-6">
+              <span>Mon</span>
+              <span>Wed</span>
+              <span>Fri</span>
             </div>
-          ))}
+
+            {/* Heatmap Grid */}
+            <div className="flex flex-1 gap-[3px]">
+              {weeks.map((week, wIdx) => (
+                <div key={wIdx} className="flex flex-col gap-[3px] flex-1">
+                  {week.map((day, dIdx) => {
+                    if (day.getTime() === 0) {
+                      return <div key={dIdx} className="w-full aspect-square rounded-[3px] opacity-0" />;
+                    }
+                    const dateStr = formatDate(day);
+                    const seconds = dataMap.get(dateStr) || 0;
+                    const level = getIntensityLevel(seconds);
+                    const isStreak = streakDates.has(dateStr);
+                    
+                    return (
+                      <Tooltip key={dIdx}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              "w-full aspect-square rounded-[3px] transition-all cursor-pointer relative",
+                              getIntensityClass(level),
+                              isStreak ? "ring-1 ring-primary/80 shadow-xs z-10" : "hover:ring-1 ring-ring ring-offset-1 ring-offset-background"
+                            )}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs font-semibold">{formatTooltip(seconds, day)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </TooltipProvider>
-      <div className="flex items-center justify-end gap-2 mt-4 text-xs text-muted-foreground">
+
+      {/* Footer Legend */}
+      <div className="flex items-center justify-end gap-2 mt-4 text-xs font-semibold text-muted-foreground">
         <span>Less</span>
-        <div className={cn("w-3 h-3 rounded-sm", getIntensityClass(0))} />
-        <div className={cn("w-3 h-3 rounded-sm", getIntensityClass(1))} />
-        <div className={cn("w-3 h-3 rounded-sm", getIntensityClass(2))} />
-        <div className={cn("w-3 h-3 rounded-sm", getIntensityClass(3))} />
-        <div className={cn("w-3 h-3 rounded-sm", getIntensityClass(4))} />
+        <div className={cn("w-3 h-3 rounded-xs", getIntensityClass(0))} />
+        <div className={cn("w-3 h-3 rounded-xs", getIntensityClass(1))} />
+        <div className={cn("w-3 h-3 rounded-xs", getIntensityClass(2))} />
+        <div className={cn("w-3 h-3 rounded-xs", getIntensityClass(3))} />
+        <div className={cn("w-3 h-3 rounded-xs", getIntensityClass(4))} />
         <span>More</span>
       </div>
     </div>

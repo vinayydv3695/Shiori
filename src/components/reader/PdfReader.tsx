@@ -1033,15 +1033,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           scrollBehavior: 'smooth',
         }}
       >
-        {isLoading && (
-          <BookSkeletonLoading
-            title={metadata?.title ?? readerContent?.title}
-            subtitle={readerContent?.author}
-            message="Rendering PDF Document..."
-            coverUrl={readerContent?.cover}
-            format="pdf"
-          />
-        )}
+
 
         {pdfUrl && (
           <div className="pdf-document-shell" ref={pageWrapperRef}>

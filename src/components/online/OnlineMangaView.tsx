@@ -1629,7 +1629,7 @@ export function OnlineMangaView() {
       </div>
 
       <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
-        {isAndroid && activeSource?.id === "mangafire" && (
+        {isAndroid && activeSource?.id === "mangafire" && displayLoading && (
           <div className="my-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-amber-700 dark:text-amber-300 text-xs font-semibold shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">
               <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-500" />

@@ -204,17 +204,21 @@ impl ShelfService {
         // Check if smart shelf
         let shelf = Self::get_shelf(conn, shelf_id)?;
 
-        if shelf.is_smart {
+        let mut books = if shelf.is_smart {
             // Parse smart rules and build query
             if let Some(rules_json) = &shelf.smart_rules {
-                Self::get_books_by_smart_rules(conn, rules_json)
+                Self::get_books_by_smart_rules(conn, rules_json)?
             } else {
-                Ok(Vec::new())
+                Vec::new()
             }
         } else {
             // Get books from junction table
-            Self::get_books_from_junction(conn, shelf_id)
-        }
+            Self::get_books_from_junction(conn, shelf_id)?
+        };
+
+        crate::services::library_service::attach_authors_and_tags(conn, &mut books)?;
+
+        Ok(books)
     }
 
     fn get_books_from_junction(conn: &Connection, shelf_id: i64) -> Result<Vec<Book>> {

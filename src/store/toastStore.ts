@@ -23,17 +23,19 @@ export const useToastStore = create<ToastStore>((set) => ({
   toasts: [],
   
   addToast: (toast) => {
+    const toastDuration = toast.duration ?? 1200;
+
     // Intercept to Sonner
     if (toast.variant === 'success') {
-      sonnerToast.success(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+      sonnerToast.success(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
     } else if (toast.variant === 'error') {
-      sonnerToast.error(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+      sonnerToast.error(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
     } else if (toast.variant === 'warning') {
-      sonnerToast.warning(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+      sonnerToast.warning(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
     } else if (toast.variant === 'info') {
-      sonnerToast.info(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+      sonnerToast.info(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
     } else {
-      sonnerToast(toast.title, { description: toast.description, action: toast.action, duration: toast.duration });
+      sonnerToast(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
     }
 
     // Keep state for backwards compatibility if needed
@@ -43,12 +45,11 @@ export const useToastStore = create<ToastStore>((set) => ({
     }));
     
     // Auto-remove after duration
-    const duration = toast.duration || 3000;
     setTimeout(() => {
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id),
       }));
-    }, duration);
+    }, toastDuration);
   },
   
   removeToast: (id) =>

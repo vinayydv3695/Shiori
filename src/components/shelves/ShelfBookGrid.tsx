@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Book, Shelf, api, ReadingProgress } from '../../lib/tauri';
+import { Book, Shelf, api, ReadingProgress, isAndroid } from '../../lib/tauri';
 import { 
   Star, 
   X, 
@@ -298,6 +298,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
 
   const toast = useToast();
   const isMobile = useIsMobile();
+  const isAndroidOrMobile = isAndroid || isMobile;
   const isCustomColor = Boolean(shelf.color && !['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa', '#6366f1'].includes(shelf.color.toLowerCase()));
   const shelfColor = isCustomColor ? shelf.color! : 'hsl(var(--primary))';
 
@@ -436,76 +437,71 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
     >
       <div className="max-w-[1400px] mx-auto">
         {/* Sticky Top Header Bar */}
-        <div className="mb-6 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-border/50 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <button 
-              onClick={onBack}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer self-start"
-            >
-              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors shadow-xs">
-                <ArrowLeft size={16} />
+        {isAndroidOrMobile ? (
+          <div className="mb-4 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-2.5 pt-1 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2">
+            {/* Row 1: Back | Shelf Title + Count | Select & Add */}
+            <div className="flex items-center justify-between gap-2">
+              <button 
+                onClick={onBack}
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
+              >
+                <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors shadow-xs">
+                  <ArrowLeft size={14} />
+                </div>
+                <span className="text-xs font-semibold">Back</span>
+              </button>
+
+              <div className="flex items-center gap-1.5 min-w-0 mx-1.5 text-center truncate">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: shelfColor }} />
+                <h1 className="text-base font-extrabold tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-serif)' }}>
+                  {shelf.name}
+                </h1>
+                <span className="text-[10px] font-extrabold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">
+                  {books.length}
+                </span>
               </div>
-              <span className="text-xs sm:text-sm font-semibold">Back to Shelves</span>
-            </button>
 
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              {!shelf.isSmart && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSelectionMode(!isSelectionMode);
-                    setSelectedBookIds(new Set());
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs",
-                    isSelectionMode
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-secondary/70 hover:bg-secondary text-foreground border-border/50"
-                  )}
-                >
-                  {isSelectionMode ? 'Cancel' : 'Select'}
-                </button>
-              )}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!shelf.isSmart && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSelectionMode(!isSelectionMode);
+                      setSelectedBookIds(new Set());
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-xs",
+                      isSelectionMode
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary/70 hover:bg-secondary text-foreground border-border/50"
+                    )}
+                  >
+                    {isSelectionMode ? 'Cancel' : 'Select'}
+                  </button>
+                )}
 
-              {!shelf.isSmart && (
-                <Button
-                  onClick={() => setAddBooksDialogOpen(true)}
-                  className="gap-1.5 rounded-xl h-9 px-3.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add Books
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-            <div>
-              <div className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.2em] text-muted-foreground uppercase mb-1 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: shelfColor }} />
-                <span>SHELF · {books.length} {books.length === 1 ? 'BOOK' : 'BOOKS'}</span>
+                {!shelf.isSmart && (
+                  <Button
+                    onClick={() => setAddBooksDialogOpen(true)}
+                    className="gap-1 rounded-lg h-7 px-2.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add
+                  </Button>
+                )}
               </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground" style={{ fontFamily: 'var(--font-serif)' }}>
-                {shelf.name}
-              </h1>
-              {shelf.description && (
-                <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-                  {shelf.description}
-                </p>
-              )}
             </div>
 
-            {/* Controls Toolbar: Search, Sort, Grid/List */}
+            {/* Row 2: Search | Sort | Layout */}
             {books.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                {/* Search */}
-                <div className="relative w-36 sm:w-48 group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex-1 group">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <input
                     type="text"
-                    placeholder="Search in shelf..."
+                    placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs font-bold bg-secondary/50 border border-border/50 focus:bg-background focus:border-primary/50 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                    className="w-full pl-7 pr-2.5 py-1 text-xs font-bold bg-secondary/50 border border-border/50 focus:bg-background focus:border-primary/50 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
                   />
                 </div>
 
@@ -514,10 +510,10 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 text-xs font-bold text-foreground transition-all cursor-pointer shadow-xs"
+                      className="flex items-center gap-1 px-2 py-1 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 text-xs font-bold text-foreground transition-all cursor-pointer shadow-xs shrink-0"
                     >
-                      <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
-                      <span className="capitalize">
+                      <ArrowUpDown className="w-3 h-3 text-primary" />
+                      <span className="capitalize text-[11px]">
                         {sortType === 'title-asc' ? 'A–Z' :
                          sortType === 'title-desc' ? 'Z–A' :
                          sortType === 'author' ? 'Author' :
@@ -544,13 +540,13 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Grid / List Switcher */}
-                <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl border border-border/50">
+                {/* View Switcher */}
+                <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl border border-border/50 shrink-0">
                   <button
                     type="button"
                     onClick={() => setViewMode('grid')}
                     className={cn(
-                      "p-1.5 rounded-lg transition-all cursor-pointer",
+                      "p-1 rounded-lg transition-all cursor-pointer",
                       viewMode === 'grid' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                     )}
                     title="Grid View"
@@ -561,7 +557,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                     type="button"
                     onClick={() => setViewMode('list')}
                     className={cn(
-                      "p-1.5 rounded-lg transition-all cursor-pointer",
+                      "p-1 rounded-lg transition-all cursor-pointer",
                       viewMode === 'list' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
                     )}
                     title="List View"
@@ -572,7 +568,146 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
               </div>
             )}
           </div>
-        </div>
+        ) : (
+          /* Desktop Sticky Top Header Bar — Untouched */
+          <div className="mb-6 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-border/50 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <button 
+                onClick={onBack}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer self-start"
+              >
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors shadow-xs">
+                  <ArrowLeft size={16} />
+                </div>
+                <span className="text-xs sm:text-sm font-semibold">Back to Shelves</span>
+              </button>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                {!shelf.isSmart && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSelectionMode(!isSelectionMode);
+                      setSelectedBookIds(new Set());
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs",
+                      isSelectionMode
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary/70 hover:bg-secondary text-foreground border-border/50"
+                    )}
+                  >
+                    {isSelectionMode ? 'Cancel' : 'Select'}
+                  </button>
+                )}
+
+                {!shelf.isSmart && (
+                  <Button
+                    onClick={() => setAddBooksDialogOpen(true)}
+                    className="gap-1.5 rounded-xl h-9 px-3.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Books
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <div className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.2em] text-muted-foreground uppercase mb-1 flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: shelfColor }} />
+                  <span>SHELF · {books.length} {books.length === 1 ? 'BOOK' : 'BOOKS'}</span>
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground" style={{ fontFamily: 'var(--font-serif)' }}>
+                  {shelf.name}
+                </h1>
+                {shelf.description && (
+                  <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+                    {shelf.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Controls Toolbar: Search, Sort, Grid/List */}
+              {books.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {/* Search */}
+                  <div className="relative w-36 sm:w-48 group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <input
+                      type="text"
+                      placeholder="Search in shelf..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs font-bold bg-secondary/50 border border-border/50 focus:bg-background focus:border-primary/50 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                    />
+                  </div>
+
+                  {/* Sort Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 text-xs font-bold text-foreground transition-all cursor-pointer shadow-xs"
+                      >
+                        <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
+                        <span className="capitalize">
+                          {sortType === 'title-asc' ? 'A–Z' :
+                           sortType === 'title-desc' ? 'Z–A' :
+                           sortType === 'author' ? 'Author' :
+                           sortType === 'progress' ? 'Progress' : 'Recent'}
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border shadow-2xl z-[150]">
+                      <DropdownMenuItem onClick={() => setSortType('title-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                        Title (A–Z)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortType('title-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                        Title (Z–A)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortType('author')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                        Author
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortType('progress')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                        Reading Progress
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setSortType('recent')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                        Date Added
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Grid / List Switcher */}
+                  <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl border border-border/50">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-all cursor-pointer",
+                        viewMode === 'grid' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                      )}
+                      title="Grid View"
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-all cursor-pointer",
+                        viewMode === 'list' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                      )}
+                      title="List View"
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Books Content */}
         {books.length === 0 ? (
@@ -620,14 +755,17 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                         className="overflow-hidden relative z-20 px-1 pt-1 pb-6 mb-2"
                       >
                         <div 
-                          className="relative rounded-2xl p-4 sm:p-5 bg-card border border-border/70 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.12),0_4px_16px_-2px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_36px_-4px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+                          className={cn(
+                            "relative rounded-2xl bg-card border border-border/70 shadow-[0_12px_32px_-4px_rgba(0,0,0,0.12),0_4px_16px_-2px_rgba(0,0,0,0.08)] dark:shadow-[0_16px_36px_-4px_rgba(0,0,0,0.6)] backdrop-blur-xl",
+                            isAndroidOrMobile ? "p-3" : "p-4 sm:p-5"
+                          )}
                           style={{ borderColor: isCustomColor ? `${shelfColor}50` : 'hsl(var(--primary) / 0.4)' }}
                         >
                           {/* Triangle Pointer pointing down to the book */}
                           <div 
-                            className="absolute -bottom-3 w-6 h-6 rotate-45 border-r border-b bg-card"
+                            className="absolute -bottom-2.5 w-5 h-5 rotate-45 border-r border-b bg-card"
                             style={{
-                              left: `calc(${(selectedIndexInRow + 0.5) / columns * 100}% - 12px)`,
+                              left: `calc(${(selectedIndexInRow + 0.5) / columns * 100}% - 10px)`,
                               borderColor: isCustomColor ? `${shelfColor}50` : 'hsl(var(--primary) / 0.4)',
                               transition: 'left 0.3s ease-out'
                             }}
@@ -644,9 +782,12 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                             }}
                           />
 
-                          <div className="flex justify-between items-start mb-3 gap-4">
-                            <div className="pr-4 min-w-0">
-                              <h2 className="text-lg sm:text-xl font-bold text-foreground italic mb-1 truncate" style={{ fontFamily: 'var(--font-serif)' }}>
+                          <div className="flex justify-between items-start mb-2 gap-3">
+                            <div className="pr-2 min-w-0">
+                              <h2 className={cn(
+                                "font-bold text-foreground italic truncate",
+                                isAndroidOrMobile ? "text-sm mb-0.5" : "text-lg sm:text-xl mb-1"
+                              )} style={{ fontFamily: 'var(--font-serif)' }}>
                                 {selectedBook.title}
                               </h2>
                               <div className="text-muted-foreground text-xs flex flex-wrap items-center gap-1.5 font-medium">
@@ -664,60 +805,46 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                             </div>
                             
                             {/* Actions Pill: Read | X */}
-                            <div className="flex bg-secondary/80 hover:bg-secondary rounded-full p-1 border border-border/60 shrink-0 items-center shadow-xs">
+                            <div className="flex bg-secondary/80 hover:bg-secondary rounded-full p-0.5 border border-border/60 shrink-0 items-center shadow-xs">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (selectedBook.id) triggerOpenBook(selectedBook.id);
                                 }}
-                                className="px-3 py-1 rounded-full text-foreground hover:bg-background/80 transition-all text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                                className="px-2.5 py-0.5 rounded-full text-foreground hover:bg-background/80 transition-all text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs"
                               >
-                                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                                <BookOpen className="w-3 h-3 text-primary" />
                                 <span>Read</span>
                               </button>
-                              <div className="w-px h-3 bg-border/80 mx-1" />
+                              <div className="w-px h-3 bg-border/80 mx-0.5" />
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedBookId(null);
                                 }}
-                                className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all cursor-pointer"
+                                className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all cursor-pointer"
                                 title="Close"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <X className="w-3 h-3" />
                               </button>
                             </div>
                           </div>
 
                           {selectedBook.notes || (selectedBook as any).summary ? (
-                             <p className="text-foreground/85 text-xs sm:text-sm leading-relaxed max-w-4xl mb-4 line-clamp-3">
+                             <p className={cn(
+                               "text-foreground/85 text-xs leading-relaxed max-w-4xl mb-2",
+                               isAndroidOrMobile ? "line-clamp-2" : "line-clamp-3"
+                             )}>
                                {selectedBook.notes || (selectedBook as any).summary}
                              </p>
-                          ) : (
-                             <p className="text-muted-foreground text-xs leading-relaxed max-w-4xl mb-4 italic">
-                               No description or notes available.
-                             </p>
-                          )}
+                          ) : null}
                           
-                          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
-                            {selectedBook.rating !== undefined && selectedBook.rating !== null && (
-                              <div className="flex items-center gap-1 text-foreground/90">
-                                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                                <span>{selectedBook.rating}</span>
-                              </div>
-                            )}
-                            
-                            {pageCountLabel(selectedBook) && (
-                              <div className="text-muted-foreground">
-                                {pageCountLabel(selectedBook)}
-                              </div>
-                            )}
-
-                            {selectedBook.tags && selectedBook.tags.length > 0 && (
+                          {selectedBook.tags && selectedBook.tags.length > 0 && (
+                            <div className="flex items-center gap-2 mt-1">
                               <div 
-                                className="px-2.5 py-0.5 rounded-full border text-[10px] font-bold"
+                                className="px-2 py-0.5 rounded-full border text-[10px] font-bold"
                                 style={{ 
                                   borderColor: shelf.color ? `${shelf.color}50` : 'hsl(var(--primary) / 0.4)', 
                                   color: shelf.color || 'hsl(var(--primary))',
@@ -726,8 +853,8 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                               >
                                 {selectedBook.tags[0].name}
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     )}

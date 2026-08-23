@@ -59,17 +59,22 @@ export function useAutoUpdate() {
             // with no universal build — the first .apk asset is NOT
             // guaranteed to be installable on this device.
             const arch = await invoke<string>('device_arch');
-            const abiMap: Record<string, string> = {
-              aarch64: 'arm64-v8a',
-              arm: 'armeabi-v7a',
-              x86_64: 'x86_64',
-              x86: 'x86',
+            const abiKeywordsMap: Record<string, string[]> = {
+              aarch64: ['arm64-v8a', 'arm64', 'aarch64'],
+              arm: ['armeabi-v7a', 'armv7', 'arm32', 'arm'],
+              x86_64: ['x86_64'],
+              x86: ['x86', 'i686'],
             };
-            const wantAbi = abiMap[arch] || '';
+            const wantKeywords = abiKeywordsMap[arch] || [arch];
             const apkAsset = data.assets.find(
-              (a: any) =>
-                a.name.endsWith('.apk') &&
-                (!wantAbi || a.name.includes(wantAbi)),
+              (a: any) => {
+                if (!a.name.endsWith('.apk')) return false;
+                const lowerName = a.name.toLowerCase();
+                if (arch === 'arm' && (lowerName.includes('arm64') || lowerName.includes('aarch64'))) {
+                  return false;
+                }
+                return wantKeywords.some(kw => lowerName.includes(kw.toLowerCase()));
+              }
             );
             if (apkAsset && mounted) {
               // GitHub release assets publish a `digest` field as `sha256:<hex>`

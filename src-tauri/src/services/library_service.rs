@@ -74,7 +74,7 @@ fn book_from_row(row: &rusqlite::Row) -> rusqlite::Result<Book> {
 
 /// Batch-load authors and tags for a set of book IDs (eliminates N+1 queries).
 /// Mutates the books in-place to attach their authors and tags.
-fn attach_authors_and_tags(conn: &rusqlite::Connection, books: &mut [Book]) -> Result<()> {
+pub(crate) fn attach_authors_and_tags(conn: &rusqlite::Connection, books: &mut [Book]) -> Result<()> {
     if books.is_empty() {
         return Ok(());
     }

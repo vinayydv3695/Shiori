@@ -167,9 +167,7 @@ export function UpdateDialog() {
       logger.error('[UpdateDialog] Failed to update:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (updateInfo.desktopUpdate) {
-        setIsUpdating(false);
-      }
+      setIsUpdating(false);
     }
   };
 

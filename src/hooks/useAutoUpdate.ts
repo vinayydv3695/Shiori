@@ -66,13 +66,11 @@ export function useAutoUpdate() {
               x86: 'x86',
             };
             const wantAbi = abiMap[arch] || '';
-            const apkAsset =
-              data.assets.find(
-                (a: any) =>
-                  a.name.endsWith('.apk') &&
-                  (!wantAbi || a.name.includes(wantAbi)),
-              ) ??
-              data.assets.find((a: any) => a.name.endsWith('.apk'));
+            const apkAsset = data.assets.find(
+              (a: any) =>
+                a.name.endsWith('.apk') &&
+                (!wantAbi || a.name.includes(wantAbi)),
+            );
             if (apkAsset && mounted) {
               // GitHub release assets publish a `digest` field as `sha256:<hex>`
               const digest: string | undefined = apkAsset.digest;

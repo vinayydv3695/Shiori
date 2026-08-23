@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRssStore, RssFeed } from '../../store/rssStore';
-import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X, ArrowLeft, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, RefreshCw, Power, Clock, AlertCircle, BookOpen, Rss, X, ArrowLeft, Search, ExternalLink } from 'lucide-react';
 import { useToast } from '@/store/toastStore';
 import { openExternal } from '@/lib/externalLinks';
 import { cn } from '@/lib/utils';
@@ -652,30 +652,49 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
             {feeds.map((feed) => (
               <div
                 key={feed.id}
-                className="bg-card border border-border/70 rounded-3xl p-5 hover:border-primary/50 hover:shadow-xl transition-all duration-300 flex flex-col justify-between gap-4 shadow-sm"
+                className={cn(
+                  "group relative border rounded-3xl p-5 transition-all duration-300 flex flex-col justify-between gap-4 shadow-xs hover:shadow-xl",
+                  feed.is_active
+                    ? "bg-card/90 border-border/80 hover:border-primary/50"
+                    : "bg-card/50 border-border/40 opacity-75 hover:opacity-100 hover:border-border/80"
+                )}
               >
+                {/* Card Top Header */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-extrabold text-foreground truncate mb-1">
-                      {feed.title}
-                    </h3>
-                    <a
-                      href={feed.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.preventDefault(); void openExternal(feed.url); }}
-                      className="text-xs text-primary/80 hover:text-primary hover:underline truncate block font-medium"
-                    >
-                      {feed.url}
-                    </a>
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className={cn(
+                      "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-colors",
+                      feed.is_active
+                        ? "bg-primary/10 border-primary/25 text-primary shadow-xs"
+                        : "bg-muted/40 border-border/40 text-muted-foreground"
+                    )}>
+                      <Rss className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-extrabold text-foreground truncate leading-tight group-hover:text-primary transition-colors">
+                        {feed.title}
+                      </h3>
+                      <a
+                        href={feed.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => { e.preventDefault(); void openExternal(feed.url); }}
+                        className="text-xs text-muted-foreground hover:text-primary transition-colors truncate flex items-center gap-1 mt-0.5 font-medium"
+                      >
+                        <span className="truncate">{feed.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span>
+                        <ExternalLink className="w-3 h-3 shrink-0 opacity-60" />
+                      </a>
+                    </div>
                   </div>
+
+                  {/* Power Toggle Button - Theme Adaptive */}
                   <button
                     onClick={() => handleToggleFeed(feed.id)}
                     className={cn(
-                      "p-2 rounded-xl transition-all border shrink-0",
+                      "p-2.5 rounded-2xl transition-all border shrink-0 active:scale-95 shadow-xs cursor-pointer",
                       feed.is_active
-                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/25'
-                        : 'bg-secondary text-muted-foreground border-border/50'
+                        ? "bg-primary/15 border-primary/35 text-primary hover:bg-primary/25"
+                        : "bg-muted/40 border-border/40 text-muted-foreground hover:bg-muted/70"
                     )}
                     title={feed.is_active ? 'Active (Click to pause)' : 'Paused (Click to activate)'}
                   >
@@ -683,40 +702,50 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs font-bold text-muted-foreground">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/50 border border-border/40 text-foreground">
+                {/* Status Badges */}
+                <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-muted/40 border border-border/40 text-foreground">
                     <Clock className="w-3.5 h-3.5 text-primary" />
                     <span>Every {feed.check_interval_hours}h</span>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-secondary/50 border border-border/40 text-foreground">
-                    <Rss className="w-3.5 h-3.5 text-primary" />
-                    <span>Active Feed</span>
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-extrabold",
+                    feed.is_active
+                      ? "bg-primary/10 border-primary/25 text-primary"
+                      : "bg-muted/50 border-border/40 text-muted-foreground"
+                  )}>
+                    <span className={cn("w-2 h-2 rounded-full", feed.is_active ? "bg-primary animate-pulse" : "bg-muted-foreground/50")} />
+                    <span>{feed.is_active ? "Active Feed" : "Paused"}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-xs font-medium text-muted-foreground border-t border-border/40 pt-3 mt-1">
-                  <span>Last checked: {formatLastChecked(feed.last_checked)}</span>
+                {/* Footer Status Line */}
+                <div className="flex items-center justify-between text-xs font-medium text-muted-foreground border-t border-border/40 pt-3">
+                  <span className="flex items-center gap-1.5 text-muted-foreground/80">
+                    <RefreshCw className="w-3 h-3 opacity-60" />
+                    <span>Last checked: {formatLastChecked(feed.last_checked)}</span>
+                  </span>
                   {feed.failure_count > 0 && (
-                    <span className="flex items-center gap-1 text-destructive font-bold">
+                    <span className="flex items-center gap-1 text-destructive font-bold bg-destructive/10 px-2 py-0.5 rounded-lg border border-destructive/20 text-[11px]">
                       <AlertCircle className="w-3.5 h-3.5" />
                       {feed.failure_count} failures
                     </span>
                   )}
                 </div>
 
-                {/* Card Actions */}
-                <div className="flex items-center gap-2 pt-1">
+                {/* Card Action Buttons */}
+                <div className="flex items-center gap-2 pt-0.5">
                   <button
                     onClick={() => handleUpdateFeedNow(feed.id)}
                     disabled={updatingFeedIds.has(feed.id)}
-                    className="flex-1 flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-extrabold text-foreground bg-secondary/50 hover:bg-secondary border border-border/50 rounded-xl transition-all disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 text-xs font-extrabold text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded-2xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-xs"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${updatingFeedIds.has(feed.id) ? 'animate-spin text-primary' : ''}`} />
-                    Update
+                    <span>Update Now</span>
                   </button>
                   <button
                     onClick={() => handleEditFeed(feed)}
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/40 rounded-xl transition-all"
+                    className="p-2.5 text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-border/40 rounded-2xl transition-all active:scale-95 cursor-pointer"
                     title="Edit Feed"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -724,7 +753,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                   <button
                     onClick={() => handleDeleteFeed(feed.id)}
                     disabled={deletingFeedId === feed.id}
-                    className="p-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 border border-border/40 rounded-xl transition-all disabled:opacity-50"
+                    className="p-2.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/15 border border-border/40 hover:border-rose-500/30 rounded-2xl transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                     title="Delete Feed"
                   >
                     <Trash2 className="w-4 h-4" />

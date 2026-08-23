@@ -239,6 +239,8 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   const pendingAnnotationId = useReaderUIStore(state => state.pendingAnnotationId);
   const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
+  const isTopBarShortcutOnly = useReaderUIStore(state => state.isTopBarShortcutOnly);
+  const lastScrollTopRef = useRef<number>(0);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const { theme, width, margin, brightness, backgroundColor, textColor, fontFamily, fontSize, lineHeight } = useReadingSettings();
 
@@ -1019,6 +1021,27 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
 
       <div
         ref={containerRef}
+        onDoubleClick={() => {
+          triggerHaptic(15);
+          const uiStore = useReaderUIStore.getState();
+          if (uiStore.isSidebarOpen) {
+            uiStore.closeSidebar();
+          } else {
+            setTopBarVisible(!uiStore.isTopBarVisible);
+          }
+        }}
+        onScroll={(e) => {
+          const currentScrollTop = e.currentTarget.scrollTop;
+          const delta = currentScrollTop - lastScrollTopRef.current;
+          lastScrollTopRef.current = currentScrollTop;
+          if (delta < -10) {
+            setTopBarVisible(true);
+          } else if (delta > 20) {
+            if (!isFocusMode && !isTopBarShortcutOnly) {
+              setTopBarVisible(false);
+            }
+          }
+        }}
         onClick={(e) => {
           // PDF link annotations render as real <a> elements in react-pdf's
           // text layer — route external ones to the system browser.

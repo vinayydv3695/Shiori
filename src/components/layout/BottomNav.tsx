@@ -45,9 +45,9 @@ export function BottomNav({
   
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around h-16 bg-background/85 backdrop-blur-xl md:hidden border-t border-border/50 shadow-none outline-none ring-0"
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around min-h-[64px] bg-background/85 backdrop-blur-xl md:hidden border-t border-border/50 shadow-none outline-none ring-0"
       style={{
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 4px)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)'
       }}

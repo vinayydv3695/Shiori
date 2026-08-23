@@ -868,11 +868,16 @@ fn remove_managed_book_file(
     }
 }
 
-/// Forget a deletion: remove the tombstone for `file_path` (optionally also
-/// matching by file hash), so the file can be imported again.
+/// Forget a deletion: remove the tombstone for `file_path` (and its file hash),
+/// so the file can be imported again.
 pub fn clear_tombstone(db: &Database, file_path: &str, file_hash: Option<&str>) -> Result<()> {
     let conn = db.get_connection()?;
-    match file_hash {
+    let computed_hash = match file_hash {
+        Some(h) if !h.is_empty() => Some(h.to_string()),
+        _ => calculate_file_hash(file_path).ok(),
+    };
+
+    match computed_hash {
         Some(hash) if !hash.is_empty() => {
             conn.execute(
                 "DELETE FROM deleted_books WHERE file_path = ?1 \
@@ -978,6 +983,20 @@ pub fn import_books(
             continue;
         }
 
+        // If path is a directory (e.g. dropped folder or nested author directory),
+        // recursively scan and import all contained books!
+        if std::path::Path::new(&path).is_dir() {
+            if let Ok(dir_res) = scan_and_import_folder(db, &path, covers_dir) {
+                result.success.extend(dir_res.success);
+                result.failed.extend(dir_res.failed);
+                result.duplicates.extend(dir_res.duplicates);
+                result.previously_deleted.extend(dir_res.previously_deleted);
+            } else {
+                result.failed.push((path.clone(), "Failed to scan directory".to_string()));
+            }
+            continue;
+        }
+
         if let Err(e) = validate_domain(&path, "books") {
             result.failed.push((path, e.to_string()));
             continue;
@@ -1021,13 +1040,30 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
     // hashing or parsing. This is what makes folder re-scans and watch events
     // cheap: a known path never touches the file on disk.
     let conn = db.get_connection()?;
+
+    // If the book is sitting in the Trash (in_trash = 1), automatically restore it!
+    let trashed_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM books WHERE file_path = ?1 AND in_trash = 1",
+            params![path],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(id) = trashed_id {
+        conn.execute(
+            "UPDATE books SET in_trash = 0, deleted_at = NULL WHERE id = ?1",
+            params![id],
+        )?;
+        return Ok(false); // Successfully restored out of trash into library
+    }
+
     let known_path: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM books WHERE file_path = ?1)",
+        "SELECT EXISTS(SELECT 1 FROM books WHERE file_path = ?1 AND in_trash = 0)",
         params![path],
         |row| row.get(0),
     )?;
     if known_path {
-        return Ok(true); // Already imported — duplicate
+        return Ok(true); // Already imported — live duplicate
     }
 
     // A deletion tombstone short-circuits before hashing too, so a corrupted
@@ -1044,10 +1080,26 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
     // (b) Hash the file (cheap: size + first/last 8 KB sample).
     let file_hash = calculate_file_hash(path)?;
 
+    // Check if trashed by hash
+    let trashed_hash_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM books WHERE file_hash != '' AND file_hash = ?1 AND in_trash = 1",
+            params![file_hash],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(id) = trashed_hash_id {
+        conn.execute(
+            "UPDATE books SET in_trash = 0, deleted_at = NULL, file_path = ?2 WHERE id = ?1",
+            params![id, path],
+        )?;
+        return Ok(false);
+    }
+
     // (c) Hash/path dedup — a moved file re-imports only if neither path nor
     // hash matches (path was already checked above; hash is the second stage).
     let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+        "SELECT EXISTS(SELECT 1 FROM books WHERE in_trash = 0 AND ((file_hash != '' AND file_hash = ?1) OR file_path = ?2))",
         params![file_hash, path],
         |row| row.get(0),
     )?;
@@ -1238,20 +1290,38 @@ fn scan_pool() -> &'static rayon::ThreadPool {
 }
 
 /// Load every `file_path` currently referenced by the library — live books
-/// plus deletion tombstones — into a HashSet. This is the cheap first-stage
-/// dedup for folder scans: a path that is already known needs no hashing,
-/// parsing, or cover rendering. Tombstoned paths are included so permanently
-/// deleted files keep being skipped silently.
-pub fn load_known_paths(db: &Database) -> Result<HashSet<String>> {
+pub fn load_known_paths_split(db: &Database) -> Result<(HashSet<String>, HashSet<String>)> {
     let conn = db.get_connection()?;
-    let mut known = HashSet::new();
-    for table in ["books", "deleted_books"] {
-        let mut stmt = conn.prepare(&format!("SELECT file_path FROM {}", table))?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-        for row in rows.flatten() {
-            known.insert(row);
-        }
+    let mut live = HashSet::new();
+    let mut tombstones = HashSet::new();
+
+    // Only count books that are NOT in trash as live duplicates!
+    let mut stmt = conn.prepare("SELECT file_path FROM books WHERE in_trash = 0")?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    for row in rows.flatten() {
+        live.insert(row);
     }
+
+    // Trashed books (in_trash = 1) count as previously deleted so re-importing restores them!
+    let mut stmt = conn.prepare("SELECT file_path FROM books WHERE in_trash = 1")?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    for row in rows.flatten() {
+        tombstones.insert(row);
+    }
+
+    let mut stmt = conn.prepare("SELECT file_path FROM deleted_books")?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    for row in rows.flatten() {
+        tombstones.insert(row);
+    }
+
+    Ok((live, tombstones))
+}
+
+pub fn load_known_paths(db: &Database) -> Result<HashSet<String>> {
+    let (live, tombstones) = load_known_paths_split(db)?;
+    let mut known = live;
+    known.extend(tombstones);
     Ok(known)
 }
 
@@ -1304,18 +1374,25 @@ pub fn scan_and_import_folder(
         return Ok(result);
     }
 
-    // Stage 1 (cheapest): drop every path the library already knows (live
-    // books AND tombstones) BEFORE any hashing/extraction. A rescan of an
-    // imported folder therefore pays one query, not a re-parse of every file.
-    let known_paths = load_known_paths(db)?;
+    // Stage 1 (cheapest): Categorize paths the library already knows (live
+    // books -> duplicates, tombstones -> previously_deleted) BEFORE any hashing/extraction.
+    let (live_paths, tombstone_paths) = load_known_paths_split(db)?;
     let total_candidates = all_paths.len();
-    let unknown_paths: Vec<(String, String)> = all_paths
-        .into_iter()
-        .filter(|(path, _)| !known_paths.contains(path))
-        .collect();
+    let mut unknown_paths = Vec::new();
+
+    for (path, ext_str) in all_paths {
+        if live_paths.contains(&path) {
+            result.duplicates.push(path);
+        } else if tombstone_paths.contains(&path) {
+            result.previously_deleted.push(path);
+        } else {
+            unknown_paths.push((path, ext_str));
+        }
+    }
+
     if unknown_paths.len() < total_candidates {
         log::info!(
-            "[scan] pre-filter skipped {} already-known paths in {}",
+            "[scan] pre-filter categorized {} already-known paths in {}",
             total_candidates - unknown_paths.len(),
             folder_path
         );
@@ -1438,23 +1515,45 @@ pub fn scan_and_import_folder(
     for res in preprocessed {
         match res {
             Ok(pre) => {
-                // Hash-based dedup as the second stage (path matches were
-                // already filtered above; a moved file re-imports only if
-                // neither path nor hash matches). Tombstone hits count as
-                // duplicates here: folder scans skip previously-deleted files
-                // silently.
-                let exists: bool = tx
+                let trashed_id: Option<i64> = tx
                     .query_row(
-                        "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2)
-                         OR EXISTS(SELECT 1 FROM deleted_books WHERE (file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+                        "SELECT id FROM books WHERE in_trash = 1 AND ((file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+                        rusqlite::params![pre.book.file_hash, pre.book.file_path],
+                        |row| row.get(0),
+                    )
+                    .ok();
+
+                if let Some(id) = trashed_id {
+                    let _ = tx.execute(
+                        "UPDATE books SET in_trash = 0, deleted_at = NULL, file_path = ?2 WHERE id = ?1",
+                        rusqlite::params![id, pre.book.file_path],
+                    );
+                    result.success.push(pre.path);
+                    continue;
+                }
+
+                let live_exists: bool = tx
+                    .query_row(
+                        "SELECT EXISTS(SELECT 1 FROM books WHERE in_trash = 0 AND ((file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2))",
                         rusqlite::params![pre.book.file_hash, pre.book.file_path],
                         |row| row.get(0),
                     )
                     .unwrap_or(false);
 
-                if exists {
+                if live_exists {
                     result.duplicates.push(pre.path);
                 } else {
+                    let is_tombstone: bool = tx
+                        .query_row(
+                            "SELECT EXISTS(SELECT 1 FROM deleted_books WHERE (file_hash IS NOT NULL AND file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
+                            rusqlite::params![pre.book.file_hash, pre.book.file_path],
+                            |row| row.get(0),
+                        )
+                        .unwrap_or(false);
+
+                    if is_tombstone {
+                        result.previously_deleted.push(pre.path);
+                    } else {
                     let needs_online_cover = pre.book.cover_path.is_none();
                     let mut book = pre.book;
                     if book.uuid.is_empty() {
@@ -1512,6 +1611,7 @@ pub fn scan_and_import_folder(
                         Err(e) => {
                             result.failed.push((book.file_path, e.to_string()));
                         }
+                    }
                     }
                 }
             }
@@ -1619,6 +1719,18 @@ pub fn import_manga(
     for path in paths {
         if let Err(e) = validate::require_safe_path(&path, "import path") {
             result.failed.push((path, e.to_string()));
+            continue;
+        }
+
+        if std::path::Path::new(&path).is_dir() {
+            if let Ok(dir_res) = scan_folder_for_manga(db, &path, covers_dir) {
+                result.success.extend(dir_res.success);
+                result.failed.extend(dir_res.failed);
+                result.duplicates.extend(dir_res.duplicates);
+                result.previously_deleted.extend(dir_res.previously_deleted);
+            } else {
+                result.failed.push((path.clone(), "Failed to scan directory for manga".to_string()));
+            }
             continue;
         }
 

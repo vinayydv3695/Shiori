@@ -1140,11 +1140,21 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [prevChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
-  // Mouse wheel navigation: ONLY intercept in horizontal two-page or paginated mode
+  // Mouse wheel navigation & Scroll Up/Down topbar visibility
   const lastWheelTimeRef = useRef(0);
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    // Detect vertical scroll direction to show/hide top bar
+    if (e.deltaY < -10) {
+      // Scroll Up -> Show top bar!
+      setTopBarVisible(true);
+    } else if (e.deltaY > 20) {
+      // Scroll Down -> Hide top bar
+      if (!isFocusMode && !isTopBarShortcutOnly) {
+        setTopBarVisible(false);
+      }
+    }
+
     if (!isHorizontalPaging) {
-      // In vertical scroll mode, let native browser scrolling happen naturally!
       return;
     }
     const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -1159,12 +1169,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isHorizontalPaging, nextPage, prevPage]);
+  }, [isHorizontalPaging, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
-  // Click zone handling: left 20% prev, right 20% next, center toggle top bar
+  // Click zone handling: left 35% prev, right 35% next, center 30% toggle top bar
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // Canvas owns reader taps. Stop parent `.premium-reader` from running a
-    // second page/toggle action on the same Android-synthesized click.
     e.stopPropagation();
     if (Date.now() - lastTouchNavigationRef.current < 500) return;
     const selection = window.getSelection();
@@ -1175,22 +1183,26 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (target.closest('button, a, input, [role="button"], .premium-nav-arrow')) {
       return;
     }
-    if (isHorizontalPaging) {
-      const clickX = e.clientX;
-      const width = window.innerWidth;
-      if (clickX < width * 0.20) {
-        prevPage();
-        return;
-      }
-      if (clickX > width * 0.80) {
-        nextPage();
-        return;
-      }
+
+    const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
+    const width = window.innerWidth;
+    const leftThreshold = isAndroid ? 0.35 : 0.25;
+    const rightThreshold = isAndroid ? 0.65 : 0.75;
+    const clickRatio = clickX / width;
+
+    if (clickRatio < leftThreshold) {
+      prevPage();
+      return;
     }
+    if (clickRatio > rightThreshold) {
+      nextPage();
+      return;
+    }
+
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
     }
-  }, [isHorizontalPaging, prevPage, nextPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [prevPage, nextPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1236,12 +1248,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const currentPageId = useMemo(() => `chapter_${currentIndex}`, [currentIndex]);
 
   // ────────────────────────────────────────────────────────────
-  // TOUCH GESTURES (SWIPE)
+  // TOUCH GESTURES (SWIPE, DOUBLE-TAP & SINGLE TAP)
   // ────────────────────────────────────────────────────────────
   const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Ignore multi-touch
     if (e.touches.length !== 1) return;
     touchStartRef.current = {
       x: e.touches[0].clientX,
@@ -1255,11 +1267,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const touchStart = touchStartRef.current;
     touchStartRef.current = null;
     
-    // If doodle mode is active, text is selected, or reader is vertical-flow,
-    // let native Android scrolling handle the gesture.
-    if (isDoodleMode || !isHorizontalPaging || window.getSelection()?.toString().trim()) return;
-
-    // Use changedTouches since touches is empty on touchend
+    if (isDoodleMode || window.getSelection()?.toString().trim()) return;
     if (e.changedTouches.length !== 1) return;
     const touchEnd = e.changedTouches[0];
 
@@ -1267,31 +1275,75 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const dy = touchEnd.clientY - touchStart.y;
     const dt = Date.now() - touchStart.time;
 
-    // Fast enough swipe (under 450ms) and mostly horizontal
+    // Vertical Scroll-Up gesture (swipe down) -> Show Top Bar
+    if (dt < 500 && Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      if (dy > 25) {
+        // Scrolled UP -> Show top bar
+        setTopBarVisible(true);
+      } else if (dy < -35) {
+        // Scrolled DOWN -> Hide top bar
+        if (!isFocusMode && !isTopBarShortcutOnly) {
+          setTopBarVisible(false);
+        }
+      }
+    }
+
+    // Fast horizontal swipe (< 450ms, |dx| > 35)
     if (dt < 450 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      // Android may synthesize a click after touchend. Canvas click handler
-      // ignores this short window so one swipe = one navigation.
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(12);
       if (dx < 0) {
-        // Swipe Left -> Next
         nextPage();
       } else {
-        // Swipe Right -> Prev
         prevPage();
       }
+      return;
     }
-  }, [isDoodleMode, isHorizontalPaging, nextPage, prevPage]);
+
+    // Double Tap detection (< 300ms apart) -> Toggle top bar
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapTimeRef.current;
+    lastTapTimeRef.current = now;
+
+    if (dt < 300 && Math.abs(dx) < 20 && Math.abs(dy) < 20 && timeSinceLastTap < 320 && timeSinceLastTap > 30) {
+      lastTouchNavigationRef.current = now;
+      triggerHaptic(15);
+      const uiStore = useReaderUIStore.getState();
+      if (uiStore.isSidebarOpen) {
+        uiStore.closeSidebar();
+      } else {
+        setTopBarVisible(!uiStore.isTopBarVisible);
+      }
+      return;
+    }
+
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> Tap to turn page
+    if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
+      const windowWidth = window.innerWidth;
+      const tapX = touchEnd.clientX;
+      const tapRatio = tapX / windowWidth;
+      const leftBoundary = isAndroid ? 0.35 : 0.25;
+      const rightBoundary = isAndroid ? 0.65 : 0.75;
+
+      if (tapRatio < leftBoundary) {
+        lastTouchNavigationRef.current = Date.now();
+        triggerHaptic(10);
+        prevPage();
+      } else if (tapRatio > rightBoundary) {
+        lastTouchNavigationRef.current = Date.now();
+        triggerHaptic(10);
+        nextPage();
+      }
+    }
+  }, [isDoodleMode, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────
 
   const handleContainerDoubleClick = useCallback((e: React.MouseEvent) => {
-    // If doodle mode or text selection is active, let them handle it
     if (isDoodleMode) return;
     
-    // Ignore if clicking an interactive element or if already handled
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
     
@@ -1299,6 +1351,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
+    triggerHaptic(15);
     const uiStore = useReaderUIStore.getState();
     if (uiStore.isSidebarOpen) {
       uiStore.closeSidebar();
@@ -1315,26 +1368,21 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Ignore if click happened right after a touch swipe navigation
     if (Date.now() - lastTouchNavigationRef.current < 400) return;
+    if (window.getSelection()?.toString().trim()) return;
 
-    // If user is selecting text, don't toggle UI on click
-    if (window.getSelection()?.toString().trim()) {
-      return;
-    }
-
-    // Determine click region (left 20%, right 20%, center 60%)
     const windowWidth = window.innerWidth;
-    const clickX = e.clientX || (e.nativeEvent as any).changedTouches?.[0]?.clientX || e.clientX;
+    const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
     const clickRatio = clickX / windowWidth;
+    const leftBoundary = isAndroid ? 0.35 : 0.25;
+    const rightBoundary = isAndroid ? 0.65 : 0.75;
 
     triggerHaptic(10);
-    if (clickRatio < 0.2) {
+    if (clickRatio < leftBoundary) {
       prevPage();
-    } else if (clickRatio > 0.8) {
+    } else if (clickRatio > rightBoundary) {
       nextPage();
     } else {
-      // Center tap toggles UI or dismisses sidebar
       const uiStore = useReaderUIStore.getState();
       if (uiStore.isSidebarOpen) {
         uiStore.closeSidebar();

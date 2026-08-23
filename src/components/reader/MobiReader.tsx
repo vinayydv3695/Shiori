@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import type { BookMetadata, Chapter } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
 import { logger } from '@/lib/logger';
@@ -538,6 +538,19 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         const dy = touchEnd.clientY - touchStart.y;
         const dt = Date.now() - touchStart.time;
 
+        // Vertical Scroll-Up gesture (swipe down) -> Show Top Bar
+        if (dt < 500 && Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+            if (dy > 25) {
+                useReaderUIStore.getState().setTopBarVisible(true);
+            } else if (dy < -35) {
+                const state = useReaderUIStore.getState();
+                if (!state.isFocusMode && !state.isTopBarShortcutOnly) {
+                    state.setTopBarVisible(false);
+                }
+            }
+        }
+
+        // Fast horizontal swipe (< 450ms, |dx| > 35)
         if (dt < 450 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.5) {
             lastTouchNavigationRef.current = Date.now();
             triggerHaptic(12);
@@ -545,6 +558,43 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 nextChapter();
             } else {
                 prevChapter();
+            }
+            return;
+        }
+
+        // Double Tap detection (< 320ms apart) -> Toggle top bar
+        const now = Date.now();
+        const timeSinceLastTap = now - (touchStartRef.current as any)?.lastTapTime || 0;
+        (touchStartRef.current as any) = { ...touchStartRef.current, lastTapTime: now };
+
+        if (dt < 300 && Math.abs(dx) < 20 && Math.abs(dy) < 20 && timeSinceLastTap < 320 && timeSinceLastTap > 30) {
+            lastTouchNavigationRef.current = now;
+            triggerHaptic(15);
+            const uiStore = useReaderUIStore.getState();
+            if (uiStore.isSidebarOpen) {
+                uiStore.closeSidebar();
+            } else {
+                uiStore.setTopBarVisible(!uiStore.isTopBarVisible);
+            }
+            return;
+        }
+
+        // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> Tap to turn chapter
+        if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
+            const windowWidth = window.innerWidth;
+            const tapX = touchEnd.clientX;
+            const tapRatio = tapX / windowWidth;
+            const leftBoundary = isAndroid ? 0.35 : 0.25;
+            const rightBoundary = isAndroid ? 0.65 : 0.75;
+
+            if (tapRatio < leftBoundary) {
+                lastTouchNavigationRef.current = Date.now();
+                triggerHaptic(10);
+                prevChapter();
+            } else if (tapRatio > rightBoundary) {
+                lastTouchNavigationRef.current = Date.now();
+                triggerHaptic(10);
+                nextChapter();
             }
         }
     }, [isDoodleMode, nextChapter, prevChapter]);
@@ -560,13 +610,15 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         if (window.getSelection()?.toString().trim()) return;
 
         const windowWidth = window.innerWidth;
-        const clickX = e.clientX || (e.nativeEvent as any).changedTouches?.[0]?.clientX || e.clientX;
+        const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
         const clickRatio = clickX / windowWidth;
+        const leftBoundary = isAndroid ? 0.35 : 0.25;
+        const rightBoundary = isAndroid ? 0.65 : 0.75;
 
         triggerHaptic(10);
-        if (clickRatio < 0.2) {
+        if (clickRatio < leftBoundary) {
             prevChapter();
-        } else if (clickRatio > 0.8) {
+        } else if (clickRatio > rightBoundary) {
             nextChapter();
         } else {
             const uiStore = useReaderUIStore.getState();

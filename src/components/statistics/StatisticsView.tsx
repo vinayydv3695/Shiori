@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { api, isTauri } from '@/lib/tauri';
+import { api, isTauri, isAndroid } from '@/lib/tauri';
 import type { DailyReadingStats, ReadingStreak, ReadingGoal, Book, BookReadingStats } from '@/lib/tauri';
 import { 
   X, RotateCw, Library, Clock, BookCheck,
@@ -303,7 +303,7 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden select-none">
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 md:p-6 lg:p-8 pt-1 sm:pt-2 bg-background">
-        <div className="max-w-6xl mx-auto space-y-6 pb-28 md:pb-20 pt-1">
+        <div className={cn("max-w-6xl mx-auto space-y-6 pt-1", isAndroid ? "pb-36" : "pb-28 md:pb-20")}>
 
           {error ? (
             <div className="flex flex-col items-center justify-center py-10 bg-card rounded-2xl border border-destructive/50 p-6 shadow-xs">

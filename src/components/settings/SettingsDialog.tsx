@@ -320,87 +320,69 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           // the frosted look while making the background unreadable.
           preferences?.transparentSettings ?? false ? "bg-background/95 backdrop-blur-2xl" : "bg-background"
         )}>
+          {/* Clean Integrated Search Header */}
           <div 
-            className="flex items-center justify-between p-3.5 sm:p-5 border-b border-border/60 gap-2 sm:gap-3 bg-background/80 backdrop-blur-md sticky top-0 z-20"
+            className="flex items-center gap-2.5 p-3.5 sm:p-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-20"
             style={{ paddingTop: isMobile ? 'max(env(safe-area-inset-top, 0px), 12px)' : undefined }}
           >
-            {isMobile ? (
-              mobileView === 'detail' ? (
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
-                    className="rounded-full shrink-0 -ml-1 hover:bg-muted/80"
-                    aria-label="Back to settings categories"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </Button>
-                  <Dialog.Title className="text-lg font-bold tracking-tight truncate">
-                    {tabs.find(t => t.id === selectedTab)?.name || 'Settings'}
-                  </Dialog.Title>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
-                    className="rounded-full shrink-0 -ml-1 hover:bg-muted/80"
-                    aria-label="Close settings"
-                  >
-                    <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
-                  </Button>
-                  <Dialog.Title className="text-xl font-bold tracking-tight">
-                    Settings
-                  </Dialog.Title>
-                </div>
-              )
-            ) : (
-              <Dialog.Title className="text-xl md:text-2xl font-bold tracking-tight">Settings</Dialog.Title>
+            {/* Left: Mobile Back Button if in Detail View */}
+            {isMobile && mobileView === 'detail' && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
+                className="rounded-full shrink-0 hover:bg-muted/80"
+                aria-label="Back to settings categories"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
             )}
 
-            <div className="flex items-center gap-2 shrink-0">
-              {!(isMobile && mobileView === 'detail') && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-                  <Input
-                    type="search"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8.5 pr-7 h-9 text-xs sm:text-sm w-32 sm:w-48 md:w-64 rounded-full bg-muted/40 focus:bg-background border-border/50"
-                    aria-label="Search settings"
-                  />
-                  {searchQuery && (
-                    <button
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setSearchQuery('')}
-                      aria-label="Clear search"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-              )}
-              {isMobile && mobileView === 'detail' ? (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
-                  className="rounded-full shrink-0" 
-                  aria-label="Close settings"
+            {/* Center: Premium Full-Width Search Input */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4 h-4" />
+              <input
+                type="text"
+                inputMode="search"
+                placeholder={isMobile && mobileView === 'detail' ? `Search ${tabs.find(t => t.id === selectedTab)?.name || 'settings'}...` : "Search settings..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-10 pl-10 pr-9 text-xs sm:text-sm font-medium rounded-xl sm:rounded-2xl bg-muted/40 hover:bg-muted/60 focus:bg-background border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                aria-label="Search settings"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
                 >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Hidden Dialog.Title for Accessibility */}
+            <Dialog.Title className="sr-only">Settings</Dialog.Title>
+
+            {/* Right: Close Settings Button */}
+            {isMobile ? (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
+                className="rounded-full shrink-0 hover:bg-muted/80" 
+                aria-label="Close settings"
+              >
+                <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+              </Button>
+            ) : (
+              <Dialog.Close asChild>
+                <Button variant="ghost" size="icon" className="rounded-full shrink-0 hover:bg-muted/80" aria-label="Close settings">
                   <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
                 </Button>
-              ) : !isMobile ? (
-                 <Dialog.Close asChild>
-                   <Button variant="ghost" size="icon" className="rounded-full shrink-0" aria-label="Close settings">
-                     <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
-                   </Button>
-                 </Dialog.Close>
-              ) : null}
-            </div>
+              </Dialog.Close>
+            )}
           </div>
 
           <Tabs.Root

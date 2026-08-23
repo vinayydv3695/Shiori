@@ -13,6 +13,7 @@ import {
 import { useDoodleStore } from '@/store/doodleStore';
 import { useToastStore } from '@/store/toastStore';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
+import { triggerHaptic } from '@/lib/haptics';
 import { ReaderTopBar } from './ReaderTopBar';
 import { BookSkeletonLoading } from './BookSkeletonLoading';
 import { PremiumSidebar } from './PremiumSidebar';

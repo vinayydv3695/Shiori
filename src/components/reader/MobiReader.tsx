@@ -565,7 +565,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         // Double Tap detection (< 320ms apart) -> Toggle top bar
         const now = Date.now();
         const timeSinceLastTap = now - (touchStartRef.current as any)?.lastTapTime || 0;
-        (touchStartRef.current as any) = { ...touchStartRef.current, lastTapTime: now };
+        (touchStartRef.current as any) = { ...(touchStartRef.current ?? {}), lastTapTime: now };
 
         if (dt < 300 && Math.abs(dx) < 20 && Math.abs(dy) < 20 && timeSinceLastTap < 320 && timeSinceLastTap > 30) {
             lastTouchNavigationRef.current = now;

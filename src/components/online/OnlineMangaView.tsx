@@ -448,13 +448,29 @@ export function OnlineMangaView() {
         setBrowseData((prev) => ({ ...prev, [mode]: cached }));
       }
       setBrowseLoading((prev) => ({ ...prev, [mode]: true }));
+      // Bound each row so a blocked/hung source (Cloudflare challenge, filtered
+      // network) can't stall the whole section for the full Rust timeout.
+      const withRowTimeout = <T,>(p: Promise<T>, label: string): Promise<T> =>
+        new Promise<T>((resolve, reject) => {
+          const t = setTimeout(
+            () => reject(new Error(`${label} timed out after 15s`)),
+            15_000,
+          );
+          p.then(
+            (v) => { clearTimeout(t); resolve(v); },
+            (e) => { clearTimeout(t); reject(e); },
+          );
+        });
       try {
         if (activeSource.id === "mangadex") {
-          const data = await browseManga(mode, 20);
+          const data = await withRowTimeout(browseManga(mode, 20), `Browse ${mode}`);
           launchCacheSet(cacheKey, data);
           setBrowseData((prev) => ({ ...prev, [mode]: data }));
         } else {
-          const raw = await pluginApi.browse(activeSource.id, mode, 1, 20);
+          const raw = await withRowTimeout(
+            pluginApi.browse(activeSource.id, mode, 1, 20),
+            `Browse ${mode}`,
+          );
           const data: MangaDexManga[] = raw.map((item) => ({
             id: item.id,
             title: item.title,

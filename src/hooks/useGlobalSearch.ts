@@ -46,6 +46,18 @@ export function useGlobalSearch() {
     abortRef.current = controller;
 
     const isStale = () => gen !== requestGenRef.current;
+    // Overall search bound: no matter what any fetcher does (hung DNS,
+    // blackholed endpoint, dead invoke), the spinner must not spin forever.
+    // On timeout we cancel wire fetches, discard late results, and surface
+    // an error instead of an infinite loading state.
+    const overallTimer = setTimeout(() => {
+      if (isStale()) return;
+      controller.abort();
+      requestGenRef.current++; // drop any late-resolving fetcher results
+      setError('Search timed out. Check your connection and try again.');
+      setLoading(false);
+      setHasMore(false);
+    }, 18_000);
     const apply = (updater: (prev: UnifiedSearchResult[]) => UnifiedSearchResult[]) => {
       if (isStale()) return;
       setResults(prev => {
@@ -237,6 +249,7 @@ export function useGlobalSearch() {
       if ((err as Error)?.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : String(err));
     } finally {
+      clearTimeout(overallTimer);
       if (!isStale()) {
         setLoading(false);
       }

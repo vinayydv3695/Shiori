@@ -10,6 +10,29 @@ const API_BASE = 'https://gutendex.com/books/';
  */
 const GUTENBERG_CACHE_TTL = 60 * 60 * 1000; // 1h
 
+// Hard cap on gutenberg requests. gutendex.com is slow, rate-limited, and on
+// some networks (mobile carriers / filtered regions) it blackholes requests
+// entirely — without this cap an unanswered fetch made the books search
+// spinner spin forever (Promise.allSettled waits for every fetcher).
+const GUTENBERG_FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * fetch() with a timeout, still abortable by the caller's signal.
+ * Whichever fires first (timeout or external abort) cancels the request.
+ */
+async function fetchWithTimeout(url: string, signal?: AbortSignal): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GUTENBERG_FETCH_TIMEOUT_MS);
+  const onOuterAbort = () => controller.abort();
+  signal?.addEventListener('abort', onOuterAbort);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onOuterAbort);
+  }
+}
+
 function gutenbergCacheKey(url: string): string {
   return `gutenberg-cache:${url}`;
 }
@@ -76,7 +99,7 @@ export async function fetchGutenbergBooks(
     return cached;
   }
 
-  const response = await fetch(urlStr, { signal });
+  const response = await fetchWithTimeout(urlStr, signal);
   if (!response.ok) {
     throw new Error(`Failed to fetch Gutenberg books: ${response.statusText}`);
   }
@@ -89,7 +112,7 @@ export async function fetchGutenbergBooks(
 export async function fetchPopularGutenbergBooks(): Promise<GutendexResponse> {
   const url = new URL(API_BASE);
   url.searchParams.set('sort', 'popular');
-  const response = await fetch(url.toString());
+  const response = await fetchWithTimeout(url.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch popular Gutenberg books: ${response.statusText}`);
   }

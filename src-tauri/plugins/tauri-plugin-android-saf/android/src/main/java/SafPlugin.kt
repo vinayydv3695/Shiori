@@ -500,6 +500,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             val userAgent = webView.settings.userAgentString
 
             var solved = false
+            var challengeWarned = false
             webView.webViewClient = object : android.webkit.WebViewClient() {
                 override fun onPageFinished(view: android.webkit.WebView, url: String) {
                     if (solved) return
@@ -512,6 +513,20 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                             ret.put("userAgent", userAgent)
                             invoke.resolve(ret)
                             view.destroy()
+                        } else if (!challengeWarned) {
+                            // The page is stuck on a Cloudflare challenge. Solvable
+                            // challenges redirect within a few seconds of first paint;
+                            // if we're still challenged after 15s it's a loop or an
+                            // interactive Turnstile — fail fast with a clear error
+                            // instead of a misleading 30s "timed out".
+                            challengeWarned = true
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                if (!solved) {
+                                    solved = true
+                                    invoke.reject("Cloudflare challenge did not clear on Android WebView")
+                                    view.destroy()
+                                }
+                            }, 15000)
                         }
                     }
                 }
@@ -553,6 +568,7 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
             }
 
             var done = false
+            var challengeWarned = false
             
             webView.addJavascriptInterface(object : Any() {
                 @android.webkit.JavascriptInterface
@@ -592,6 +608,17 @@ class SafPlugin(private val activity: Activity): Plugin(activity) {
                                 })();
                             """.trimIndent()
                             view.evaluateJavascript(wrappedJs, null)
+                        } else if (!challengeWarned) {
+                            // Stuck on a Cloudflare challenge — fail fast with a
+                            // clear error rather than a misleading 30s "timed out".
+                            challengeWarned = true
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                if (!done) {
+                                    done = true
+                                    invoke.reject("Cloudflare challenge did not clear on Android WebView")
+                                    webView.destroy()
+                                }
+                            }, 15000)
                         }
                     }
                 }

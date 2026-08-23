@@ -20,7 +20,7 @@ export interface SourceConfig {
   website?: string;
 }
 
-const SOURCE_STORE_VERSION = 10;
+const SOURCE_STORE_VERSION = 11;
 
 const MANDATORY_SOURCE_IDS = new Set<string>();
 
@@ -33,7 +33,8 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'mangadex',
     name: 'MangaDex',
     kind: 'manga',
-    enabled: !isAndroid,
+    // MangaDex is the reliable Rust-API source on every platform.
+    enabled: true,
     description: 'Official API with huge catalog - Most reliable manga source.',
     status: 'active',
     implemented: true,
@@ -45,7 +46,10 @@ const DEFAULT_SOURCES: SourceConfig[] = [
     id: 'mangafire',
     name: 'MangaFire',
     kind: 'manga',
-    enabled: isAndroid,
+    // MangaFire scrapes via in-WebView JS evaluation; on Android that path
+    // stalls on Cloudflare-challenged pages (WebView solver times out), so
+    // it stays a desktop-only default. Users can enable it manually.
+    enabled: !isAndroid,
     description: 'High quality manga source with large library.',
     status: 'active',
     implemented: true,

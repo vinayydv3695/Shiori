@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { isAndroid, isTauri } from '@/lib/tauri';
 import { check } from '@tauri-apps/plugin-updater';
 import { getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { useUpdateStore } from '@/store/updateStore';
 import { logger } from '@/lib/logger';
 
@@ -53,8 +54,25 @@ export function useAutoUpdate() {
           const currentVersion = await getVersion();
           
           if (isNewerVersion(currentVersion, data.tag_name)) {
-            // Find APK asset
-            const apkAsset = data.assets.find((a: any) => a.name.endsWith('.apk'));
+            // Pick the APK matching this device's ABI. Releases since 2.3.47
+            // ship per-ABI APKs (app-arm64-v8a-*.apk, app-armeabi-v7a-*.apk)
+            // with no universal build — the first .apk asset is NOT
+            // guaranteed to be installable on this device.
+            const arch = await invoke<string>('device_arch');
+            const abiMap: Record<string, string> = {
+              aarch64: 'arm64-v8a',
+              arm: 'armeabi-v7a',
+              x86_64: 'x86_64',
+              x86: 'x86',
+            };
+            const wantAbi = abiMap[arch] || '';
+            const apkAsset =
+              data.assets.find(
+                (a: any) =>
+                  a.name.endsWith('.apk') &&
+                  (!wantAbi || a.name.includes(wantAbi)),
+              ) ??
+              data.assets.find((a: any) => a.name.endsWith('.apk'));
             if (apkAsset && mounted) {
               // GitHub release assets publish a `digest` field as `sha256:<hex>`
               const digest: string | undefined = apkAsset.digest;

@@ -326,6 +326,7 @@ macro_rules! generate_shiori_handlers {
             crate::commands::window::toggle_fullscreen,
             crate::commands::window::get_fullscreen_state,
             crate::commands::window::download_apk,
+            crate::commands::window::device_arch,
             // AniList
             commands::anilist::start_anilist_login,
             commands::anilist::exchange_android_anilist_code,

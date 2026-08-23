@@ -113,6 +113,15 @@ fn sha256_hex(path: &std::path::Path) -> Result<String, ShioriError> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+/// Current CPU architecture as a `std::env::consts::ARCH` string
+/// (aarch64 / arm / x86_64 / x86). The Android auto-updater uses this to
+/// pick the matching per-ABI release APK (releases ship split APKs since
+/// 2.3.47 — there is no universal build anymore).
+#[tauri::command]
+pub fn device_arch() -> String {
+    std::env::consts::ARCH.to_string()
+}
+
 #[tauri::command]
 pub async fn download_apk(
     url: String,

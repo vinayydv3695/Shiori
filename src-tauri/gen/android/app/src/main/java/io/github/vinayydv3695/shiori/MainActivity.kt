@@ -1,20 +1,37 @@
 package io.github.vinayydv3695.shiori
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.ActionMode
 import android.view.Menu
 import android.view.WindowManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : TauriActivity() {
   private var memoryEventWebView: WebView? = null
 
   override fun onWebViewCreate(webView: WebView) {
     memoryEventWebView = webView
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun setStatusBarTheme(colorHex: String, isLight: Boolean) {
+        runOnUiThread {
+          runCatching {
+            val parsedColor = Color.parseColor(colorHex)
+            window.statusBarColor = parsedColor
+            window.decorView.setBackgroundColor(parsedColor)
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            controller.isAppearanceLightStatusBars = isLight
+          }
+        }
+      }
+    }, "ShioriAndroidTheme")
   }
 
   override fun onCreate(savedInstanceState: Bundle?) {

@@ -40,6 +40,7 @@ export function syncThemeColor(theme: string) {
   if (typeof document === 'undefined') return;
   const activeTheme = themeMap[theme] ?? theme;
   const hex = themeColors[activeTheme] || (activeTheme === 'white' || activeTheme === 'light' ? '#fcfbf9' : '#000000');
+  const isLight = activeTheme === 'white' || activeTheme === 'light' || activeTheme === 'paper';
 
   let meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {
@@ -50,6 +51,14 @@ export function syncThemeColor(theme: string) {
   meta.setAttribute('content', hex);
   document.documentElement.style.backgroundColor = hex;
   document.body.style.backgroundColor = hex;
+
+  if (typeof window !== 'undefined' && (window as any).ShioriAndroidTheme?.setStatusBarTheme) {
+    try {
+      (window as any).ShioriAndroidTheme.setStatusBarTheme(hex, isLight);
+    } catch {
+      // Silently ignore if native interface isn't available
+    }
+  }
 }
 
 interface PreferencesStore {

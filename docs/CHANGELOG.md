@@ -1,3 +1,9 @@
+# Release Notes (v2.3.55)
+
+## Features & Improvements
+
+- **Dynamic Android Status Bar Theme Matching** — Added `ShioriAndroidTheme` JavascriptInterface in `MainActivity.kt` and updated `syncThemeColor()` in `preferencesStore.ts` so the Android status bar background dynamically matches active app themes (light cream, dark, catppuccin, paper) with adaptive dark/light status bar icons (clock, battery, 4G).
+
 # Release Notes (v2.3.54)
 
 ## Features & Improvements

@@ -1,3 +1,9 @@
+# Release Notes (v2.3.54)
+
+## Features & Improvements
+
+- **Fixed RSS Feed Delete Modal Placement on Android** — Centered the Delete Feed inline confirmation modal and elevated its z-index (`z-[100] flex items-center justify-center`) to prevent the Android bottom navigation rail from obscuring the Cancel and Delete action buttons.
+
 # Release Notes (v2.3.53)
 
 ## Features & Improvements

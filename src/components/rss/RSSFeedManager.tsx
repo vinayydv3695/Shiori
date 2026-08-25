@@ -977,7 +977,7 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       {/* Dialogs */}
       {/* Inline delete confirmation — replaces blocked native confirm() */}
       {pendingDeleteId !== null && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in-0 duration-200">
           <div className="absolute inset-0 bg-background/65 backdrop-blur-xl" onClick={() => setPendingDeleteId(null)} />
           <div className="relative z-10 w-full max-w-sm bg-card border border-border/80 rounded-3xl shadow-2xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">

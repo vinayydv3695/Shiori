@@ -22,18 +22,22 @@ const themeColors: Record<string, string> = {
   sepia: '#e5d6b6',
   white: '#fcfbf9',
   light: '#fcfbf9',
+  paper: '#f5f0e8',
   'hello-kitty': '#fff0f5',
   'midnight-pink': '#160a12',
   black: '#000000',
   oled: '#000000',
   'premium-dark': '#080808',
   dark: '#121212',
+  gray: '#242424',
+  'high-contrast': '#000000',
   'catppuccin-mocha': '#1e1e2e',
   dracula: '#282a36',
   nord: '#2e3440',
   'tokyo-night': '#1a1b26',
   'rose-pine-moon': '#232136',
-  paper: '#f5f0e8',
+  'rose-pine': '#191724',
+  'rose-pine-dawn': '#faf4ed',
 };
 
 function isColorLight(colorHex: string): boolean {
@@ -52,7 +56,29 @@ function isColorLight(colorHex: string): boolean {
 export function syncThemeColor(theme: string) {
   if (typeof document === 'undefined') return;
   const activeTheme = themeMap[theme] ?? theme;
-  const hex = themeColors[activeTheme] || (activeTheme === 'white' || activeTheme === 'light' ? '#fcfbf9' : '#000000');
+  let hex = themeColors[activeTheme];
+
+  if (!hex) {
+    try {
+      const computedBg = getComputedStyle(document.body || document.documentElement).backgroundColor;
+      if (computedBg && computedBg.startsWith('rgb')) {
+        const match = computedBg.match(/\d+/g);
+        if (match && match.length >= 3) {
+          const r = parseInt(match[0], 10).toString(16).padStart(2, '0');
+          const g = parseInt(match[1], 10).toString(16).padStart(2, '0');
+          const b = parseInt(match[2], 10).toString(16).padStart(2, '0');
+          hex = `#${r}${g}${b}`;
+        }
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  if (!hex) {
+    hex = isDarkTheme(activeTheme) ? '#121212' : '#fcfbf9';
+  }
+
   const isLight = isColorLight(hex);
 
   let meta = document.querySelector('meta[name="theme-color"]');
@@ -62,14 +88,12 @@ export function syncThemeColor(theme: string) {
     document.head.appendChild(meta);
   }
   meta.setAttribute('content', hex);
-  document.documentElement.style.backgroundColor = hex;
-  document.body.style.backgroundColor = hex;
 
   if (typeof window !== 'undefined' && (window as any).ShioriAndroidTheme?.setStatusBarTheme) {
     try {
       (window as any).ShioriAndroidTheme.setStatusBarTheme(hex, isLight);
-    } catch {
-      // Silently ignore if native interface isn't available
+    } catch (e) {
+      console.warn('Failed to call ShioriAndroidTheme.setStatusBarTheme', e);
     }
   }
 }

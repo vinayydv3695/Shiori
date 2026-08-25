@@ -6,12 +6,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Loader2, Plus, Check, BookOpen } from 'lucide-react';
 import { api, type Book, type Shelf } from '@/lib/tauri';
 import { useToast } from '@/store/toastStore';
 import { logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 
 interface AddBooksToShelfDialogProps {
   open: boolean;
@@ -33,6 +33,9 @@ export function AddBooksToShelfDialog({
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const isCustomColor = Boolean(shelf.color && !['#3b82f6', '#2563eb', '#1d4ed8', '#60a5fa', '#6366f1'].includes(shelf.color.toLowerCase()));
+  const shelfColor = isCustomColor ? shelf.color! : 'hsl(var(--primary))';
 
   useEffect(() => {
     if (!open || !shelf.id) return;
@@ -134,58 +137,60 @@ export function AddBooksToShelfDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl w-[92vw] sm:w-full rounded-2xl p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border-border/50 shadow-2xl flex flex-col max-h-[85vh]">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/40">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
-            <Plus className="w-5 h-5 text-primary" /> Add Books to "{shelf.name}"
+      <DialogContent className="max-w-lg w-[92vw] sm:w-full rounded-2xl p-0 overflow-hidden bg-background/95 backdrop-blur-2xl border-border/50 shadow-2xl flex flex-col max-h-[85vh]">
+        <DialogHeader className="px-5 pt-5 pb-3.5 border-b border-border/40">
+          <DialogTitle className="text-base sm:text-lg font-bold flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: shelfColor }} />
+              <span className="truncate">Add Books to Shelf</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary/80 text-muted-foreground border border-border/40 shrink-0 truncate max-w-[150px]">
+                {shelf.name}
+              </span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="p-4 sm:p-6 flex flex-col gap-4 overflow-hidden flex-1">
+        <div className="p-4 sm:p-5 flex flex-col gap-3.5 overflow-hidden flex-1">
           {/* Search bar & quick actions */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex flex-row items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search books by title, author, or series..."
-                className="pl-9 h-10 rounded-xl bg-secondary/50 border-border/50 text-sm focus-visible:ring-1 focus-visible:ring-primary"
+                placeholder="Search by title, author, or series..."
+                className="pl-9 h-9 rounded-xl bg-secondary/40 border-border/50 text-xs focus-visible:ring-1 focus-visible:ring-primary/50"
               />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
                 onClick={selectAllFiltered}
-                className="text-xs h-9 rounded-lg"
+                className="text-xs font-semibold h-9 px-3 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/50 text-foreground transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 Select All
-              </Button>
-              <Button
+              </button>
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
                 onClick={deselectAllFiltered}
-                className="text-xs h-9 rounded-lg"
+                className="text-xs font-semibold h-9 px-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer active:scale-95"
               >
                 Clear
-              </Button>
+              </button>
             </div>
           </div>
 
           {/* Book List */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar border border-border/40 rounded-xl p-2 bg-secondary/10 min-h-[250px] max-h-[400px]">
+          <div className="flex-1 overflow-y-auto custom-scrollbar border border-border/40 rounded-xl p-1.5 bg-secondary/10 min-h-[240px] max-h-[380px]">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                <span className="text-xs">Loading library books...</span>
+                <span className="text-xs font-medium">Loading library books...</span>
               </div>
             ) : filteredBooks.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center p-4">
-                <BookOpen className="w-8 h-8 text-muted-foreground/50 mb-2" />
-                <p className="text-sm font-medium text-foreground">No books found</p>
+                <BookOpen className="w-8 h-8 text-muted-foreground/40 mb-2" />
+                <p className="text-sm font-semibold text-foreground">No books found</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {searchQuery ? 'Try adjusting your search query' : 'Your library is empty'}
                 </p>
@@ -203,32 +208,34 @@ export function AddBooksToShelfDialog({
                     <li
                       key={book.id}
                       onClick={() => toggleBook(book.id!)}
-                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors border ${
+                      className={cn(
+                        "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border group",
                         isChecked
-                          ? 'bg-primary/10 border-primary/40 text-foreground'
-                          : 'hover:bg-secondary/60 border-transparent text-foreground/80'
-                      }`}
+                          ? "bg-primary/10 border-primary/40 text-foreground shadow-xs"
+                          : "hover:bg-secondary/50 border-transparent text-foreground/80"
+                      )}
                     >
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 ${
+                      <div className={cn(
+                        "w-4 h-4 rounded-md border flex items-center justify-center transition-all shrink-0",
                         isChecked
-                          ? 'bg-primary border-primary text-primary-foreground'
-                          : 'border-border/80 bg-background/50'
-                      }`}>
-                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          ? "bg-primary border-primary text-primary-foreground shadow-xs scale-105"
+                          : "border-border/80 bg-background/60 group-hover:border-primary/50"
+                      )}>
+                        {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
 
                       <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-sm font-semibold truncate leading-tight">
+                        <span className="text-xs sm:text-sm font-semibold truncate leading-tight">
                           {book.title}
                         </span>
                         {authorStr && (
-                          <span className="text-xs text-muted-foreground truncate mt-0.5">
+                          <span className="text-[11px] text-muted-foreground truncate mt-0.5 font-medium">
                             {authorStr}
                           </span>
                         )}
                       </div>
 
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-secondary border border-border/40 text-muted-foreground shrink-0">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-secondary/80 border border-border/50 text-muted-foreground shrink-0">
                         {book.file_format}
                       </span>
                     </li>
@@ -237,40 +244,38 @@ export function AddBooksToShelfDialog({
               </ul>
             )}
           </div>
-
-          <div className="text-xs text-muted-foreground flex justify-between items-center px-1">
-            <span>
-              {selectedBookIds.size} of {allBooks.length} books selected
-            </span>
-          </div>
         </div>
 
         <DialogFooter 
-          className="px-6 py-4 bg-secondary/30 border-t border-border/40 flex items-center justify-end gap-2"
-          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+          className="px-5 py-3.5 bg-secondary/20 border-t border-border/40 flex items-center justify-between gap-3"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 14px)' }}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={saving}
-            className="rounded-xl h-10 px-4 text-xs font-semibold"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || loading}
-            className="rounded-xl h-10 px-5 text-xs font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
-            Save Changes
-          </Button>
+          <span className="text-xs font-medium text-muted-foreground">
+            <span className="font-bold text-foreground">{selectedBookIds.size}</span> of {allBooks.length} books selected
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              className="rounded-xl h-9 px-3.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="rounded-xl h-9 px-4 text-xs font-bold gap-1.5 bg-primary/90 hover:bg-primary text-primary-foreground shadow-md shadow-primary/20 transition-all flex items-center cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Check className="w-3.5 h-3.5" />
+              )}
+              <span>Save Changes</span>
+            </button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

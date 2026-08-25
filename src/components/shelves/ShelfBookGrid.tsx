@@ -438,22 +438,23 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
       <div className="max-w-[1400px] mx-auto">
         {/* Sticky Top Header Bar */}
         {isAndroidOrMobile ? (
-          <div className="mb-4 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-2.5 pt-1 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2">
+          <div className="mb-4 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-2.5 pt-1.5 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2">
             {/* Row 1: Back | Shelf Title + Count | Select & Add */}
             <div className="flex items-center justify-between gap-2">
               <button 
                 onClick={onBack}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
+                title="Back to Shelves"
               >
-                <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors shadow-xs">
-                  <ArrowLeft size={14} />
+                <div className="w-8 h-8 rounded-full bg-secondary/80 flex items-center justify-center group-hover:bg-secondary transition-colors shadow-xs">
+                  <ArrowLeft size={15} />
                 </div>
-                <span className="text-xs font-semibold">Back</span>
+                <span className="text-xs font-semibold hidden xs:inline">Back</span>
               </button>
 
-              <div className="flex items-center gap-1.5 min-w-0 mx-1.5 text-center truncate">
+              <div className="flex items-center justify-center gap-1.5 min-w-0 flex-1 text-center truncate px-1">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: shelfColor }} />
-                <h1 className="text-base font-extrabold tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-serif)' }}>
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-serif)' }}>
                   {shelf.name}
                 </h1>
                 <span className="text-[10px] font-extrabold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">
@@ -470,7 +471,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                       setSelectedBookIds(new Set());
                     }}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-xs",
+                      "h-8 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border shadow-xs active:scale-95 flex items-center justify-center",
                       isSelectionMode
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-secondary/70 hover:bg-secondary text-foreground border-border/50"
@@ -481,12 +482,14 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                 )}
 
                 {!shelf.isSmart && (
-                  <Button
+                  <button
+                    type="button"
                     onClick={() => setAddBooksDialogOpen(true)}
-                    className="gap-1 rounded-lg h-7 px-2.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 cursor-pointer"
+                    className="h-8 px-2.5 rounded-xl text-xs font-semibold transition-all border border-primary/35 bg-primary/15 hover:bg-primary/25 text-primary shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add
-                  </Button>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
                 )}
               </div>
             </div>

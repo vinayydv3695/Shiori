@@ -12,18 +12,18 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.2
+      staggerChildren: 0.1
     }
   }
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 15, scale: 0.95 },
+  hidden: { opacity: 0, y: 12, scale: 0.96 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.3, type: "spring" as const, stiffness: 300, damping: 24 }
+    transition: { duration: 0.2, type: "spring" as const, stiffness: 350, damping: 24 }
   },
 }
 

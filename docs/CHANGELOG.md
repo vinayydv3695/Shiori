@@ -1,3 +1,9 @@
+# Release Notes (v2.3.58)
+
+## Features & Improvements
+
+- **Optimized More Section Menu Stagger Animation** — Updated `staggerChildren` from `0.2s` to `0.1s` (2x faster staggered icon entrance) in `BottomNav.tsx` and `Layout.tsx` so items load swiftly while keeping smooth entrance motion.
+
 # Release Notes (v2.3.57)
 
 ## Features & Improvements

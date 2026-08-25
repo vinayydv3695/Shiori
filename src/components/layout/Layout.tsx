@@ -565,7 +565,7 @@ export function Layout({
               <motion.div 
                 initial="hidden" 
                 animate="show" 
-                variants={{ show: { transition: { staggerChildren: 0.2 } } }}
+                variants={{ show: { transition: { staggerChildren: 0.1 } } }}
               >
                 <motion.div variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
                   <DropdownMenuItem onClick={() => handleOpenImportFilesDialog(true)} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 active:scale-95 shiori-import-dropdown-item">

@@ -17,6 +17,7 @@ import { CompletionPromptDialog } from './CompletionPromptDialog';
 import { MangaCanvas } from './MangaCanvas';
 import { FloatingPageNumber } from './FloatingPageNumber';
 import { MangaSidebar } from './MangaSidebar';
+import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { MangaProgressBar } from './MangaProgressBar';
 import { NavigationOverlay } from './NavigationOverlay';
@@ -512,6 +513,11 @@ export function MangaReader(props: MangaReaderProps) {
     const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        const target = e.target as Element;
+        if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target)) {
+            touchStartRef.current = null;
+            return;
+        }
         if (e.touches.length !== 1) return;
         touchStartRef.current = {
             x: e.touches[0].clientX,
@@ -521,6 +527,11 @@ export function MangaReader(props: MangaReaderProps) {
     }, []);
 
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        const target = e.target as Element;
+        if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target)) {
+            touchStartRef.current = null;
+            return;
+        }
         if (!touchStartRef.current) return;
         const touchStart = touchStartRef.current;
         touchStartRef.current = null;

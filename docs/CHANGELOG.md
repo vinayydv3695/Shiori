@@ -1,3 +1,10 @@
+# Release Notes (v2.3.56)
+
+## Features & Improvements
+
+- **Android Selection & Note Gesture Locking** — Added `isSelectionOrNoteActive` and `isTouchOnSelectionOrModal` selection-lock utilities across reader components (`PremiumEpubReader`, `GenericHtmlReader`, `MobiReader`, `MangaReader`, `TextSelectionToolbar`). When selecting text or typing a note/choosing options on Android, swiping gestures, page turns, and top bar toggles are locked so touches do not accidentally flip pages or dismiss notes.
+- **Revamped Android Collection Homepage Header** — Redesigned the Shelves (`ShelfGrid.tsx`) header for Android and mobile screens. Unified title, shelf count badge, and `+ New Shelf` button into a single compact top row, reduced outer padding, and unified search and filter chips into a tight control bar to eliminate wasted top space.
+
 # Release Notes (v2.3.55)
 
 ## Features & Improvements

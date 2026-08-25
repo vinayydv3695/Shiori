@@ -22,6 +22,7 @@ import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
 import { ReadingProgressIndicator } from './ReadingProgressIndicator';
+import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import { ContinuousEpubView } from './ContinuousEpubView';
 import { triggerHaptic } from '@/lib/haptics';
 import { BookSkeletonLoading } from './BookSkeletonLoading';
@@ -1264,6 +1265,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const lastTapTimeRef = useRef<number>(0);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as Element;
+    if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target)) {
+      touchStartRef.current = null;
+      return;
+    }
     if (e.touches.length !== 1) return;
     touchStartRef.current = {
       x: e.touches[0].clientX,
@@ -1273,11 +1279,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }, []);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const target = e.target as Element;
+    if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target) || isDoodleMode) {
+      touchStartRef.current = null;
+      return;
+    }
     if (!touchStartRef.current) return;
     const touchStart = touchStartRef.current;
     touchStartRef.current = null;
     
-    if (isDoodleMode || window.getSelection()?.toString().trim()) return;
     if (e.changedTouches.length !== 1) return;
     const touchEnd = e.changedTouches[0];
 
@@ -1352,12 +1362,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
 
   const handleContainerDoubleClick = useCallback((e: React.MouseEvent) => {
-    if (isDoodleMode) return;
+    if (isDoodleMode || isSelectionOrNoteActive()) return;
     
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
     
-    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+    if (isTouchOnSelectionOrModal(target) || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
       return;
     }
 
@@ -1371,10 +1381,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }, [isDoodleMode, setTopBarVisible]);
 
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    if (isDoodleMode) return;
+    if (isDoodleMode || isSelectionOrNoteActive()) return;
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-    if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar') || target.closest('.doodle-toolbar')) {
+    if (isTouchOnSelectionOrModal(target) || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar') || target.closest('.doodle-toolbar')) {
       return;
     }
 

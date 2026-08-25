@@ -17,6 +17,7 @@ import type { ReaderContent } from './readerContent';
 import { PremiumSidebar } from './PremiumSidebar';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
+import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import { TTSControlBar } from './TTSControlBar';
 import { DoodleCanvas } from './DoodleCanvas';
 import { DoodleToolbar } from './DoodleToolbar';
@@ -502,6 +503,11 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     const lastTouchNavigationRef = useRef<number>(0);
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        const target = e.target as Element;
+        if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target)) {
+            touchStartRef.current = null;
+            return;
+        }
         if (e.touches.length !== 1) return;
         touchStartRef.current = {
             x: e.touches[0].clientX,
@@ -511,10 +517,14 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     }, []);
 
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        const target = e.target as Element;
+        if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target)) {
+            touchStartRef.current = null;
+            return;
+        }
         if (!touchStartRef.current) return;
         const touchStart = touchStartRef.current;
         touchStartRef.current = null;
-        if (window.getSelection()?.toString().trim()) return;
         if (e.changedTouches.length !== 1) return;
 
         const touchEnd = e.changedTouches[0];
@@ -567,13 +577,13 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     }, [currentChapter, totalChapters]);
 
     const handleContainerClick = useCallback((e: React.MouseEvent) => {
+        if (isSelectionOrNoteActive()) return;
         const target = e.target as Element;
         if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-        if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+        if (isTouchOnSelectionOrModal(target) || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
             return;
         }
         if (Date.now() - lastTouchNavigationRef.current < 400) return;
-        if (window.getSelection()?.toString().trim()) return;
 
         const windowWidth = window.innerWidth;
         const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
@@ -597,9 +607,10 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     }, [currentChapter, totalChapters]);
 
     const handleContainerDoubleClick = (e: React.MouseEvent) => {
+        if (isSelectionOrNoteActive()) return;
         const target = e.target as Element;
         if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-        if (target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+        if (isTouchOnSelectionOrModal(target) || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
             return;
         }
 

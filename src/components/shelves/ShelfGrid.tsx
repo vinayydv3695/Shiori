@@ -556,11 +556,11 @@ export function ShelfGrid({
 
   return (
     <div 
-      className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden w-full relative custom-scrollbar pb-28 md:pb-8"
+      className="p-3 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden w-full relative custom-scrollbar pb-28 md:pb-8"
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
-        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
-        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)'
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
       }}
     >
       {/* Ambient glow */}
@@ -568,21 +568,24 @@ export function ShelfGrid({
       <div className="absolute bottom-20 right-1/4 w-[400px] h-[400px] bg-purple-500/4 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-[1440px] mx-auto relative z-10">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 sm:mb-8">
-          <div>
-            <p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] text-muted-foreground uppercase mb-1.5 sm:mb-2">
-              Your Collection
-            </p>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
-              Shelves
-            </h1>
-            {allShelves.length > 0 && (
-              <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-                {allShelves.length} {allShelves.length === 1 ? 'shelf' : 'shelves'}
-                {searchQuery || filterType !== 'all' ? ` · showing ${filteredAndSortedShelves.length}` : ''}
+        {/* Compact Header Bar */}
+        <div className="flex items-center justify-between gap-3 mb-3 sm:mb-6">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div>
+              <p className="hidden sm:block text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-0.5">
+                Your Collection
               </p>
-            )}
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
+                  Shelves
+                </h1>
+                {allShelves.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/80 text-muted-foreground border border-border/40">
+                    {allShelves.length}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           {onCreateShelf && (
@@ -590,34 +593,34 @@ export function ShelfGrid({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               onClick={onCreateShelf}
-              className="group self-start sm:self-auto flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-md shadow-primary/20 transition-all duration-300 cursor-pointer active:scale-95"
+              className="group flex items-center gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-sm sm:shadow-md shadow-primary/20 transition-all duration-300 cursor-pointer active:scale-95 shrink-0"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
             >
-              <Plus className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90" />
-              New Shelf
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover:rotate-90" />
+              <span>New Shelf</span>
             </motion.button>
           )}
         </div>
 
         {/* Search, Filter & Sort Controls Toolbar */}
         {allShelves.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
             {/* Search Input */}
             <div className="relative flex-1 max-w-full sm:max-w-xs md:max-w-sm group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
                 placeholder="Search shelves..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 h-9 text-xs font-semibold bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                className="w-full pl-8.5 pr-8 h-8 sm:h-9 text-xs font-semibold bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-md"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-md"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -632,7 +635,7 @@ export function ShelfGrid({
                   type="button"
                   onClick={() => setFilterType('all')}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
+                    "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
                     filterType === 'all'
                       ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -645,7 +648,7 @@ export function ShelfGrid({
                     type="button"
                     onClick={() => setFilterType('favorites')}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
+                      "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
                       filterType === 'favorites'
                         ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -660,7 +663,7 @@ export function ShelfGrid({
                     type="button"
                     onClick={() => setFilterType('smart')}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
+                      "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
                       filterType === 'smart'
                         ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -674,7 +677,7 @@ export function ShelfGrid({
                   type="button"
                   onClick={() => setFilterType('with-books')}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
+                    "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
                     filterType === 'with-books'
                       ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -687,7 +690,7 @@ export function ShelfGrid({
                     type="button"
                     onClick={() => setFilterType('empty')}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
+                      "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
                       filterType === 'empty'
                         ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
                         : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
@@ -703,7 +706,7 @@ export function ShelfGrid({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-xs font-bold text-foreground transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
+                    className="flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-xs font-bold text-foreground transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                   >
                     <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
                     <span className="hidden sm:inline text-muted-foreground">Sort:</span>

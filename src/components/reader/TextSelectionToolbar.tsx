@@ -497,6 +497,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
           exit={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 6, scale: 0.96 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
           onMouseDown={(e) => {
             e.stopPropagation();
             if (hideTimerRef.current !== null) {
@@ -750,6 +753,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 className="text-selection-note-input"
                 placeholder="Add a note..."
                 value={noteText}
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
                 onChange={(e) => setNoteText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {

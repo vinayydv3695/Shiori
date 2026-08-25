@@ -66,6 +66,51 @@ export interface Last30DaysDatum {
   minutes: number;
 }
 
+export interface WeeklyBar {
+  date: string;
+  seconds: number;
+  pages: number;
+  secondsPct: number;
+  pagesPct: number;
+}
+
+export function buildWeeklyBars(stats: DailyReadingStats[], now = new Date()): WeeklyBar[] {
+  const byDate = new Map(stats.map(s => [s.date, s]));
+  const bars: WeeklyBar[] = [];
+
+  const d = new Date(now);
+  const dayOfWeek = d.getDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - daysSinceMonday);
+
+  for (let i = 0; i < 7; i++) {
+    const cur = new Date(monday);
+    cur.setDate(monday.getDate() + i);
+    const dateStr = `${cur.getFullYear()}-${pad2(cur.getMonth() + 1)}-${pad2(cur.getDate())}`;
+    const stat = byDate.get(dateStr);
+    const sec = stat?.total_seconds ?? 0;
+    const pages = (stat?.book_pages_read ?? 0) + (stat?.manga_pages_read ?? 0);
+    bars.push({
+      date: dateStr,
+      seconds: sec,
+      pages,
+      secondsPct: 0,
+      pagesPct: 0,
+    });
+  }
+
+  const maxSec = Math.max(0, ...bars.map(b => b.seconds));
+  const maxPages = Math.max(0, ...bars.map(b => b.pages));
+
+  for (const b of bars) {
+    b.secondsPct = maxSec > 0 ? (b.seconds / maxSec) * 100 : 0;
+    b.pagesPct = maxPages > 0 ? (b.pages / maxPages) * 100 : 0;
+  }
+
+  return bars;
+}
+
 
 export function Last30DaysChart({ stats }: { stats: DailyReadingStats[] }) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -178,7 +223,10 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
   const [streak, setStreak] = useState<ReadingStreak | null>(null);
   const [goal, setGoal] = useState<ReadingGoal | null>(null);
   const [topBookStats, setTopBookStats] = useState<Array<{ book: Book; stats: BookReadingStats }>>([]);
-  const books = useLibraryStore(s => s.books);
+  const storeBooks = useLibraryStore(s => s.books);
+  const [allLibraryBooks, setAllLibraryBooks] = useState<Book[]>([]);
+
+  const books = allLibraryBooks.length > 0 ? allLibraryBooks : storeBooks;
   
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [newGoalInput, setNewGoalInput] = useState("");
@@ -230,17 +278,21 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
         return;
       }
 
-      const [stats, currentStreak, currentGoal] = await Promise.all([
+      const [stats, currentStreak, currentGoal, fullLibraryRes] = await Promise.all([
         api.getDailyReadingStats(3650),
         api.getReadingStreak(),
-        api.getReadingGoal()
+        api.getReadingGoal(),
+        api.searchBooks({ limit: 10000 }).catch(() => ({ books: [] }))
       ]);
+
+      const fetchedBooks = fullLibraryRes.books && fullLibraryRes.books.length > 0 ? fullLibraryRes.books : storeBooks;
 
       setAllStats(stats);
       setStreak(currentStreak);
       setGoal(currentGoal);
+      setAllLibraryBooks(fetchedBooks);
 
-      const candidateBooks = books.slice(0, 15);
+      const candidateBooks = fetchedBooks.slice(0, 50);
       const topStatsPromises = candidateBooks.map(async b => {
         if (!b.id) return null;
         try {
@@ -263,7 +315,7 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [books]);
+  }, [storeBooks]);
 
   useEffect(() => {
     loadData();
@@ -288,11 +340,19 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
 
   const unreadEntries = books.filter(b => b.reading_status === 'unread' || !b.reading_status).length;
   const startedEntries = books.filter(b => b.reading_status === 'reading').length;
-  const localEntries = books.filter(b => b.domain === 'local').length;
 
-  const totalPagesRead = allStats.reduce((sum, stat) => sum + (stat.book_pages_read || 0) + (stat.manga_pages_read || 0), 0);
-  const isManga = (b: Book) => ['cbz', 'zip', 'cbr'].includes(b.file_format?.toLowerCase());
+  const isManga = (b: Book) =>
+    b.domain === 'manga' ||
+    b.domain === 'comics' ||
+    b.domain === 'manga_comics' ||
+    ['cbz', 'zip', 'cbr', 'rar', '7z'].includes(b.file_format?.toLowerCase() || '');
+
   const booksReadCount = books.filter(b => b.reading_status === 'completed' && !isManga(b)).length;
+  const mangaReadCount = books.filter(b => b.reading_status === 'completed' && isManga(b)).length;
+
+  const bookPagesRead = allStats.reduce((sum, stat) => sum + (stat.book_pages_read || 0), 0);
+  const mangaPagesRead = allStats.reduce((sum, stat) => sum + (stat.manga_pages_read || 0), 0);
+  const totalPagesRead = bookPagesRead + mangaPagesRead;
 
   const trackedEntries = books.filter(b => b.anilist_id).length;
   const booksWithScore = books.filter(b => b.rating && b.rating > 0);
@@ -331,14 +391,16 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
             >
               {/* ── 1. Top Row Overview Hero Cards ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Books Read */}
+                {/* Books & Manga Read */}
                 <div className="bg-card/75 backdrop-blur-xl border border-border/50 rounded-2xl p-5 flex flex-col justify-between gap-3 shadow-xs hover:border-border transition-all">
                   <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center text-foreground">
                     <BookOpen size={20} />
                   </div>
                   <div>
                     <div className="text-3xl font-black tracking-tight text-foreground">{completedEntries}</div>
-                    <div className="text-xs font-semibold text-muted-foreground mt-0.5">Books read</div>
+                    <div className="text-xs font-semibold text-muted-foreground mt-0.5">
+                      {booksReadCount} books · {mangaReadCount} manga read
+                    </div>
                   </div>
                 </div>
 
@@ -360,7 +422,9 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
                   </div>
                   <div>
                     <div className="text-3xl font-black tracking-tight text-foreground">{totalPagesRead.toLocaleString()}</div>
-                    <div className="text-xs font-semibold text-muted-foreground mt-0.5">Total pages read</div>
+                    <div className="text-xs font-semibold text-muted-foreground mt-0.5">
+                      {bookPagesRead.toLocaleString()} book · {mangaPagesRead.toLocaleString()} manga pages
+                    </div>
                   </div>
                 </div>
 
@@ -434,16 +498,16 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Streak</div>
                   </div>
                   <div className="bg-muted/30 border border-border/40 rounded-xl p-3 text-center">
-                    <div className="text-lg font-extrabold text-foreground">{startedEntries}</div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Started</div>
+                    <div className="text-lg font-extrabold text-foreground">{booksReadCount}</div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Books Read</div>
+                  </div>
+                  <div className="bg-muted/30 border border-border/40 rounded-xl p-3 text-center">
+                    <div className="text-lg font-extrabold text-foreground">{mangaReadCount}</div>
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Manga Read</div>
                   </div>
                   <div className="bg-muted/30 border border-border/40 rounded-xl p-3 text-center">
                     <div className="text-lg font-extrabold text-foreground">{unreadEntries}</div>
                     <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Unread</div>
-                  </div>
-                  <div className="bg-muted/30 border border-border/40 rounded-xl p-3 text-center">
-                    <div className="text-lg font-extrabold text-foreground">{trackedEntries}</div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tracked</div>
                   </div>
                   <div className="bg-muted/30 border border-border/40 rounded-xl p-3 text-center">
                     <div className="text-lg font-extrabold text-foreground">{meanScore}</div>

@@ -471,7 +471,7 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
         </div>
 
         {/* ── Scrollable Annotations Feed ── */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-background relative">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-muted/15 dark:bg-muted/20 relative">
           <div className="max-w-7xl mx-auto pb-24">
             {loading && displayedAnnotations.length === 0 ? (
               <div className="flex items-center justify-center h-48">

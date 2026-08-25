@@ -171,6 +171,8 @@ macro_rules! generate_shiori_handlers {
             commands::cover::fetch_online_cover,
             commands::cover::clear_cover_cache,
             commands::rss::add_rss_feed,
+            commands::rss::add_rss_feeds_batch,
+            commands::rss::search_online_rss_feeds,
             commands::rss::get_rss_feed,
             commands::rss::list_rss_feeds,
             commands::rss::update_rss_feed,

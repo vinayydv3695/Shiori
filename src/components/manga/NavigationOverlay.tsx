@@ -18,13 +18,14 @@ export const NavigationOverlay = memo(function NavigationOverlay({ onNextChapter
     const showTips = useMangaSettingsStore(s => s.showNavigationTips);
     const readingMode = useMangaSettingsStore(s => s.readingMode);
     const setTopBarVisible = useMangaUIStore(s => s.setTopBarVisible);
+    const isZoomed = useMangaUIStore(s => s.isZoomed);
     const rtl = readingDirection === 'rtl';
 
     // Debounce boundary toasts to avoid spam
     const lastBoundaryToast = useRef(0);
 
-    // Don't show overlay in scroll-based modes (strip, webtoon, manhwa)
-    if (readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa') return null;
+    // Don't show overlay in scroll-based modes (strip, webtoon, manhwa) or when zoomed in
+    if (isZoomed || readingMode === 'strip' || readingMode === 'webtoon' || readingMode === 'manhwa') return null;
 
     const step = 1;
 

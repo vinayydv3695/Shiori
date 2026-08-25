@@ -531,6 +531,7 @@ export function MangaReader(props: MangaReaderProps) {
         }
 
         if (e.changedTouches.length !== 1) return;
+        if (useMangaUIStore.getState().isZoomed) return;
         const touchEnd = e.changedTouches[0];
 
         const dx = touchEnd.clientX - touchStart.x;

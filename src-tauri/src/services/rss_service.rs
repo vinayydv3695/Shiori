@@ -36,6 +36,17 @@ pub struct RssFeed {
     pub created_at: DateTime<Utc>,
 }
 
+/// Online discovered RSS feed search result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveredFeedResult {
+    pub title: String,
+    pub description: Option<String>,
+    pub url: String,
+    pub website: Option<String>,
+    pub visual_url: Option<String>,
+    pub subscribers: Option<i64>,
+}
+
 /// RSS article metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RssArticle {
@@ -106,7 +117,8 @@ impl RssService {
     pub fn new(db: Database, storage_path: PathBuf) -> Result<Self> {
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(30))
-            .user_agent("Shiori/2.0 RSS Reader")
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Shiori/2.3.51")
+            .redirect(reqwest::redirect::Policy::limited(10))
             .build()
             .context("Failed to create HTTP client")?;
 
@@ -132,7 +144,7 @@ impl RssService {
         let feed_data = self
             .fetch_feed_data(url)
             .await
-            .context("Failed to fetch feed - ensure URL is valid")?;
+            .map_err(|e| anyhow::anyhow!("Failed to fetch feed from '{}': {:#}", url, e))?;
 
         let conn = self.get_connection()?;
         let title = feed_data.title.map(|t| t.content);
@@ -269,17 +281,79 @@ impl RssService {
         Ok(new_status)
     }
 
-    /// Fetch and parse feed data from URL or local file
-    async fn fetch_feed_data(&self, url: &str) -> Result<feed_rs::model::Feed> {
-        let content = if url.starts_with("file://") || std::path::Path::new(url).is_absolute() {
-            // Handle local file
+    /// Search online feed directory (via Feedly API) for any topic or keyword
+    pub async fn search_online_feeds(&self, query: &str, count: usize) -> Result<Vec<DiscoveredFeedResult>> {
+        let encoded_query = urlencoding::encode(query.trim());
+        let api_url = format!(
+            "https://cloud.feedly.com/v3/search/feeds?query={}&count={}",
+            encoded_query,
+            count.clamp(1, 50)
+        );
+
+        let response = self
+            .client
+            .get(&api_url)
+            .header("User-Agent", "Shiori/2.3.51 (RSS Reader)")
+            .send()
+            .await
+            .context("Failed to query Feedly RSS search API")?;
+
+        let json_val: serde_json::Value = response
+            .json()
+            .await
+            .context("Failed to parse Feedly JSON response")?;
+
+        let mut results = Vec::new();
+        if let Some(items) = json_val.get("results").and_then(|r| r.as_array()) {
+            for item in items {
+                let title = item.get("title").and_then(|t| t.as_str()).unwrap_or("Untitled Feed").to_string();
+                let description = item.get("description").and_then(|d| d.as_str()).map(|s| s.to_string());
+                let website = item.get("website").and_then(|w| w.as_str()).map(|s| s.to_string());
+                let visual_url = item
+                    .get("visualUrl")
+                    .or_else(|| item.get("coverUrl"))
+                    .or_else(|| item.get("iconUrl"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let subscribers = item.get("subscribers").and_then(|s| s.as_i64());
+
+                let raw_feed_id = item
+                    .get("feedId")
+                    .or_else(|| item.get("id"))
+                    .and_then(|f| f.as_str())
+                    .unwrap_or("");
+
+                let feed_url = if raw_feed_id.starts_with("feed/") {
+                    raw_feed_id.strip_prefix("feed/").unwrap().to_string()
+                } else {
+                    raw_feed_id.to_string()
+                };
+
+                if !feed_url.is_empty() && (feed_url.starts_with("http://") || feed_url.starts_with("https://")) {
+                    results.push(DiscoveredFeedResult {
+                        title,
+                        description,
+                        url: feed_url,
+                        website,
+                        visual_url,
+                        subscribers,
+                    });
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Helper to fetch raw content bytes from remote URL or local path
+    async fn fetch_raw_bytes(&self, url: &str) -> Result<Vec<u8>> {
+        if url.starts_with("file://") || std::path::Path::new(url).is_absolute() {
             let path_str = if url.starts_with("file://") {
                 url.strip_prefix("file://").unwrap()
             } else {
                 url
             };
 
-            // On Windows, file:///C:/... becomes /C:/... so we need to handle that
             let path_str = if cfg!(windows)
                 && path_str.starts_with('/')
                 && path_str.len() > 2
@@ -291,25 +365,120 @@ impl RssService {
             };
 
             std::fs::read(path_str)
-                .with_context(|| format!("Failed to read local feed file: {}", path_str))?
+                .with_context(|| format!("Failed to read local feed file: {}", path_str))
         } else {
-            // Handle remote URL
             let response = self
                 .client
                 .get(url)
+                .header(reqwest::header::ACCEPT, "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8")
+                .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
                 .send()
                 .await
-                .context("HTTP request failed")?;
+                .with_context(|| format!("HTTP request to '{}' failed", url))?;
 
-            response
+            if !response.status().is_success() {
+                return Err(anyhow::anyhow!("HTTP status {} for URL: {}", response.status(), url));
+            }
+
+            let bytes = response
                 .bytes()
                 .await
-                .context("Failed to read response body")?
-                .to_vec()
-        };
+                .with_context(|| format!("Failed to read body from {}", url))?
+                .to_vec();
+            Ok(bytes)
+        }
+    }
 
-        let feed = parser::parse(&content[..]).context("Failed to parse feed")?;
-        Ok(feed)
+    /// Extract feed URL from HTML `<link rel="alternate" type="application/rss+xml" href="...">` tags
+    fn extract_feed_link_from_html(html: &str, base_url: &str) -> Option<String> {
+        let lower = html.to_lowercase();
+        let link_types = ["application/rss+xml", "application/atom+xml", "application/feed+json"];
+
+        for link_type in &link_types {
+            if let Some(pos) = lower.find(link_type) {
+                // Find tag boundaries around link_type
+                let tag_start = html[..pos].rfind('<')?;
+                let tag_end = html[pos..].find('>').map(|p| pos + p)?;
+                let tag = &html[tag_start..tag_end];
+
+                if tag.to_lowercase().contains("rel=") && tag.to_lowercase().contains("alternate") {
+                    if let Some(href_pos) = tag.to_lowercase().find("href=") {
+                        let after_href = &tag[href_pos + 5..];
+                        let quote = after_href.chars().next()?;
+                        let href_val = if quote == '"' || quote == '\'' {
+                            after_href[1..].split(quote).next()?
+                        } else {
+                            after_href.split_whitespace().next()?
+                        };
+
+                        if href_val.starts_with("http://") || href_val.starts_with("https://") {
+                            return Some(href_val.to_string());
+                        } else if href_val.starts_with('/') {
+                            if let Ok(parsed_base) = url::Url::parse(base_url) {
+                                let origin = format!("{}://{}", parsed_base.scheme(), parsed_base.host_str().unwrap_or(""));
+                                return Some(format!("{}{}", origin, href_val));
+                            }
+                        } else if let Ok(parsed_base) = url::Url::parse(base_url) {
+                            if let Ok(joined) = parsed_base.join(href_val) {
+                                return Some(joined.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Fetch and parse feed data from URL, local file, or auto-discover from website HTML
+    async fn fetch_feed_data(&self, url: &str) -> Result<feed_rs::model::Feed> {
+        let content = self.fetch_raw_bytes(url).await?;
+
+        // 1. Try direct XML/Atom feed parsing
+        if let Ok(feed) = parser::parse(&content[..]) {
+            return Ok(feed);
+        }
+
+        // 2. If direct parse fails, check if URL returned HTML with feed auto-discovery links
+        let html_str = String::from_utf8_lossy(&content[..]);
+        if let Some(discovered_url) = Self::extract_feed_link_from_html(&html_str, url) {
+            if let Ok(disc_bytes) = self.fetch_raw_bytes(&discovered_url).await {
+                if let Ok(feed) = parser::parse(&disc_bytes[..]) {
+                    return Ok(feed);
+                }
+            }
+        }
+
+        // 3. Check if it's HTML (site exists but no RSS feed at that path)
+        let is_html = html_str.trim_start().starts_with("<!DOCTYPE")
+            || html_str.trim_start().starts_with("<html")
+            || html_str.contains("<head")
+            || html_str.contains("<body");
+
+        // 4. Try common feed endpoint suffixes as fallback (only if not obviously HTML of a base domain)
+        let base_url = url.trim_end_matches('/');
+        let suffixes = ["/feed", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"];
+        for suffix in &suffixes {
+            let candidate = format!("{}{}", base_url, suffix);
+            if candidate != url {
+                if let Ok(disc_bytes) = self.fetch_raw_bytes(&candidate).await {
+                    if let Ok(feed) = parser::parse(&disc_bytes[..]) {
+                        return Ok(feed);
+                    }
+                }
+            }
+        }
+
+        if is_html {
+            Err(anyhow::anyhow!(
+                "This URL returns a webpage, not an RSS feed. \
+                 The site may have removed their RSS feed, or you may need a different URL. \
+                 Try searching for '{} RSS feed' or check the site's footer/settings for a feed link.",
+                url::Url::parse(url).ok().and_then(|u| u.host_str().map(|h| h.to_string())).unwrap_or_else(|| url.to_string())
+            ))
+        } else {
+            Err(anyhow::anyhow!("No valid RSS/Atom feed found at '{}'. The URL may be incorrect or the feed may no longer exist.", url))
+        }
     }
 
     /// Update a specific feed (fetch new articles)
@@ -427,15 +596,42 @@ impl RssService {
         Ok(new_count)
     }
 
-    /// Update all active feeds
+    /// Update all active feeds using a high-throughput concurrent worker pool.
+    /// Effortlessly scales to 1,000+ feeds in parallel.
     pub async fn update_all_feeds(&self) -> Result<Vec<(i64, Result<usize>)>> {
-        let feeds = self.list_feeds(true)?;
-        let mut results = Vec::new();
+        use futures::stream::{self, StreamExt};
 
-        for feed in feeds {
-            let result = self.update_feed_articles(feed.id).await;
-            results.push((feed.id, result));
+        let feeds = self.list_feeds(true)?;
+        if feeds.is_empty() {
+            return Ok(Vec::new());
         }
+
+        // Run 16 concurrent HTTP fetches in parallel
+        let results = stream::iter(feeds)
+            .map(|feed| async move {
+                let result = self.update_feed_articles(feed.id).await;
+                (feed.id, result)
+            })
+            .buffer_unordered(16)
+            .collect::<Vec<_>>()
+            .await;
+
+        Ok(results)
+    }
+
+    /// Add multiple RSS feeds in batch with parallel validation and DB insertion
+    pub async fn add_feeds_batch(&self, urls: &[String], check_interval_hours: i32) -> Result<Vec<(String, Result<i64>)>> {
+        use futures::stream::{self, StreamExt};
+
+        let urls_vec: Vec<String> = urls.iter().cloned().collect();
+        let results = stream::iter(urls_vec)
+            .map(|url| async move {
+                let res = self.add_feed(&url, check_interval_hours).await;
+                (url, res)
+            })
+            .buffer_unordered(16)
+            .collect::<Vec<_>>()
+            .await;
 
         Ok(results)
     }

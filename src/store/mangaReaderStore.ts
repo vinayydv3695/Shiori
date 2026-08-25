@@ -244,6 +244,9 @@ interface MangaUIState {
     isAutoScrolling: boolean;
     toggleAutoScroll: () => void;
     setAutoScroll: (val: boolean) => void;
+
+    isZoomed: boolean;
+    setIsZoomed: (val: boolean) => void;
 }
 
 export const useMangaUIStore = create<MangaUIState>((set) => ({
@@ -253,6 +256,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
     scrollProgress: 0,
     lastScrollActivityAt: 0,
     isAutoScrolling: false,
+    isZoomed: false,
 
     setTopBarVisible: (visible) => set({ isTopBarVisible: visible }),
     toggleTopBar: () => set((s) => ({ isTopBarVisible: !s.isTopBarVisible })),
@@ -268,6 +272,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
     })),
     closeSettings: () => set({ isSettingsOpen: false }),
     setScrollProgress: (progress) => set({ scrollProgress: progress }),
+    setIsZoomed: (val) => set({ isZoomed: val }),
     resetUI: () => set({
         isTopBarVisible: false,
         isSidebarOpen: false,
@@ -276,6 +281,7 @@ export const useMangaUIStore = create<MangaUIState>((set) => ({
         lastScrollActivityAt: 0,
         onNextChapter: undefined,
         isAutoScrolling: false,
+        isZoomed: false,
     }),
     setOnNextChapter: (fn) => set({ onNextChapter: fn }),
     toggleAutoScroll: () => set((state) => ({ isAutoScrolling: !state.isAutoScrolling })),

@@ -27,6 +27,42 @@ pub async fn add_rss_feed(
         .map_err(|e| ShioriError::Other(e.to_string()))
 }
 
+/// Add multiple RSS feeds in batch
+#[tauri::command]
+pub async fn add_rss_feeds_batch(
+    service: State<'_, Arc<RssService>>,
+    urls: Vec<String>,
+    check_interval_hours: Option<i32>,
+) -> crate::error::Result<Vec<(String, bool, String)>> {
+    let interval = check_interval_hours.unwrap_or(24);
+    let results = service
+        .add_feeds_batch(&urls, interval)
+        .await
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+    Ok(results
+        .into_iter()
+        .map(|(url, res)| match res {
+            Ok(id) => (url, true, id.to_string()),
+            Err(e) => (url, false, e.to_string()),
+        })
+        .collect())
+}
+
+/// Search online RSS directory for any keyword or topic
+#[tauri::command]
+pub async fn search_online_rss_feeds(
+    service: State<'_, Arc<RssService>>,
+    query: String,
+    count: Option<usize>,
+) -> crate::error::Result<Vec<crate::services::rss_service::DiscoveredFeedResult>> {
+    validate::require_non_empty(&query, "query")?;
+    service
+        .search_online_feeds(&query, count.unwrap_or(30))
+        .await
+        .map_err(|e| ShioriError::Other(e.to_string()))
+}
+
 /// Get feed by ID
 #[tauri::command]
 pub async fn get_rss_feed(

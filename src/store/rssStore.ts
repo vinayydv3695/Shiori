@@ -36,11 +36,15 @@ interface RssState {
   selectedFeedId: number | null;
   isLoading: boolean;
   error: string | null;
+  isAddDialogOpen: boolean;
   
   // Actions
+  openAddDialog: () => void;
+  closeAddDialog: () => void;
   loadFeeds: (activeOnly?: boolean) => Promise<void>;
   loadArticles: (feedId?: number, limit?: number) => Promise<void>;
   addFeed: (url: string, checkIntervalHours?: number) => Promise<number>;
+  addFeedsBatch: (urls: string[], checkIntervalHours?: number) => Promise<Array<[string, boolean, string]>>;
   updateFeed: (feedId: number, title?: string, checkIntervalHours?: number) => Promise<void>;
   deleteFeed: (feedId: number) => Promise<void>;
   toggleFeed: (feedId: number) => Promise<void>;
@@ -53,12 +57,32 @@ interface RssState {
   triggerSync: () => Promise<void>;
 }
 
+export function formatErrorMessage(err: any): string {
+  if (!err) return 'An unexpected error occurred';
+  if (typeof err === 'string') return err;
+  if (typeof err === 'object') {
+    if (err.userMessage && typeof err.userMessage === 'string') return err.userMessage;
+    if (err.message && typeof err.message === 'string') return err.message;
+    if (err.technicalDetails && typeof err.technicalDetails === 'string') return err.technicalDetails;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return 'An unexpected error occurred';
+    }
+  }
+  return String(err);
+}
+
 export const useRssStore = create<RssState>((set, get) => ({
   feeds: [],
   articles: [],
   selectedFeedId: null,
   isLoading: false,
   error: null,
+  isAddDialogOpen: false,
+
+  openAddDialog: () => set({ isAddDialogOpen: true }),
+  closeAddDialog: () => set({ isAddDialogOpen: false }),
 
   loadFeeds: async (activeOnly = false) => {
     try {
@@ -67,7 +91,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       set({ feeds, isLoading: false });
     } catch (error) {
       logger.error('Failed to load RSS feeds:', error);
-      set({ error: String(error), isLoading: false });
+      set({ error: formatErrorMessage(error), isLoading: false });
     }
   },
 
@@ -81,7 +105,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       set({ articles, isLoading: false });
     } catch (error) {
       logger.error('Failed to load articles:', error);
-      set({ error: String(error), isLoading: false });
+      set({ error: formatErrorMessage(error), isLoading: false });
     }
   },
 
@@ -100,7 +124,25 @@ export const useRssStore = create<RssState>((set, get) => ({
       return feedId;
     } catch (error) {
       logger.error('Failed to add feed:', error);
-      set({ error: String(error), isLoading: false });
+      set({ error: formatErrorMessage(error), isLoading: false });
+      throw error;
+    }
+  },
+
+  addFeedsBatch: async (urls: string[], checkIntervalHours = 24) => {
+    try {
+      set({ isLoading: true, error: null });
+      const results = await invoke<Array<[string, boolean, string]>>('add_rss_feeds_batch', { 
+        urls, 
+        checkIntervalHours 
+      });
+      
+      await get().loadFeeds();
+      set({ isLoading: false });
+      return results;
+    } catch (error) {
+      logger.error('Failed to add feeds in batch:', error);
+      set({ error: formatErrorMessage(error), isLoading: false });
       throw error;
     }
   },
@@ -117,7 +159,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       await get().loadFeeds();
     } catch (error) {
       logger.error('Failed to update feed:', error);
-      set({ error: String(error) });
+      set({ error: formatErrorMessage(error) });
       throw error;
     }
   },
@@ -133,7 +175,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       }));
     } catch (error) {
       logger.error('Failed to delete feed:', error);
-      set({ error: String(error) });
+      set({ error: formatErrorMessage(error) });
       throw error;
     }
   },
@@ -150,7 +192,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       }));
     } catch (error) {
       logger.error('Failed to toggle feed:', error);
-      set({ error: String(error) });
+      set({ error: formatErrorMessage(error) });
       throw error;
     }
   },
@@ -169,7 +211,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       return newCount;
     } catch (error) {
       logger.error('Failed to update feed articles:', error);
-      set({ error: String(error), isLoading: false });
+      set({ error: formatErrorMessage(error), isLoading: false });
       throw error;
     }
   },
@@ -189,7 +231,7 @@ export const useRssStore = create<RssState>((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       logger.error('Failed to update all feeds:', error);
-      set({ error: String(error), isLoading: false });
+      set({ error: formatErrorMessage(error), isLoading: false });
     }
   },
 

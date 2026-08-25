@@ -94,6 +94,11 @@ export function RadialMenu({ children, items }: RadialMenuProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const SVG_SIZE = 340;
+  const CENTER = SVG_SIZE / 2; // 170
+  const OUTER_RADIUS = 160;
+  const INNER_RADIUS = 46;
+
   return (
     <>
       <div 
@@ -112,11 +117,13 @@ export function RadialMenu({ children, items }: RadialMenuProps) {
         <AnimatePresence>
           {isOpen && (
             <div className="fixed inset-0 z-[100]" onContextMenu={(e) => e.preventDefault()}>
+              {/* Glassmorphic Backdrop */}
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/60 dark:bg-black/80 pointer-events-auto" 
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 bg-black/45 dark:bg-black/70 backdrop-blur-sm pointer-events-auto" 
                 onClick={() => setIsOpen(false)}
                 onTouchEnd={(e) => {
                   e.preventDefault();
@@ -124,105 +131,107 @@ export function RadialMenu({ children, items }: RadialMenuProps) {
                 }}
               />
               
-              <div 
-                className="absolute pointer-events-none"
-                style={{ left: position.x, top: position.y }}
+              {/* Perfectly Centered Radial Menu Container */}
+              <motion.div
+                initial={{ scale: 0.35, opacity: 0, rotate: -15 }}
+                animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                exit={{ scale: 0.35, opacity: 0, rotate: 15 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+                className="absolute pointer-events-none will-change-transform"
+                style={{
+                  left: position.x - CENTER,
+                  top: position.y - CENTER,
+                  width: SVG_SIZE,
+                  height: SVG_SIZE,
+                }}
               >
-                <motion.div
-                  initial={{ scale: 0.3, opacity: 0, rotate: -20 }}
-                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                  exit={{ scale: 0.3, opacity: 0, rotate: 20 }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                  className="absolute left-0 top-0 pointer-events-none will-change-transform"
-                >
-                  {/* SVG Pie Slices */}
-                  <svg width="340" height="340" className="absolute pointer-events-none" style={{ left: -170, top: -170 }}>
-                    {items.map((item, i) => {
-                      const anglePerSlice = 360 / items.length;
-                      const startAngle = i * anglePerSlice - anglePerSlice / 2;
-                      const endAngle = startAngle + anglePerSlice;
-                      const pathData = getPieSlice(170, 170, 160, 50, startAngle, endAngle);
-                      const isHovered = hoveredIndex === i;
-                      
-                      return (
-                        <path
-                          key={`slice-${item.label}`}
-                          d={pathData}
-                          className="pointer-events-auto cursor-pointer transition-colors duration-200"
-                          style={{
-                            fill: isHovered 
-                              ? (item.destructive ? "hsl(var(--destructive)/0.9)" : "hsl(var(--primary)/0.9)") 
-                              : "hsl(var(--card)/0.95)",
-                            stroke: "hsl(var(--border)/0.5)",
-                            strokeWidth: 1.5
-                          }}
-                          onTouchStart={() => setHoveredIndex(i)}
-                          onTouchEnd={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setHoveredIndex(null);
-                            setIsOpen(false);
-                            item.onClick();
-                          }}
-                          onMouseEnter={() => setHoveredIndex(i)}
-                          onMouseLeave={() => setHoveredIndex(null)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsOpen(false);
-                            item.onClick();
-                          }}
-                        />
-                      );
-                    })}
-                  </svg>
-                  
-                  {/* HTML Content Overlays */}
+                {/* SVG Pie Slices */}
+                <svg width={SVG_SIZE} height={SVG_SIZE} className="absolute inset-0 pointer-events-none drop-shadow-xl">
                   {items.map((item, i) => {
                     const anglePerSlice = 360 / items.length;
-                    const sliceCenterAngle = i * anglePerSlice;
-                    const r = (160 + 50) / 2; // Midpoint radius = 105
-                    const center = polarToCartesian(0, 0, r, sliceCenterAngle);
+                    const startAngle = i * anglePerSlice - anglePerSlice / 2;
+                    const endAngle = startAngle + anglePerSlice;
+                    const pathData = getPieSlice(CENTER, CENTER, OUTER_RADIUS, INNER_RADIUS, startAngle, endAngle);
                     const isHovered = hoveredIndex === i;
-
+                    
                     return (
-                      <div 
-                        key={`content-${item.label}`}
-                        className="absolute pointer-events-none flex flex-col items-center justify-center gap-1 transition-transform duration-200"
-                        style={{ 
-                          left: center.x, 
-                          top: center.y,
-                          transform: `translate(-50%, -50%) scale(${isHovered ? 1.1 : 1})`
+                      <path
+                        key={`slice-${item.label}`}
+                        d={pathData}
+                        className="pointer-events-auto cursor-pointer transition-all duration-200 ease-out"
+                        style={{
+                          fill: isHovered 
+                            ? (item.destructive ? "hsl(var(--destructive)/0.95)" : "hsl(var(--primary)/0.95)") 
+                            : "hsl(var(--card)/0.92)",
+                          stroke: isHovered
+                            ? (item.destructive ? "hsl(var(--destructive))" : "hsl(var(--primary))")
+                            : "hsl(var(--border)/0.6)",
+                          strokeWidth: isHovered ? 2 : 1.5
                         }}
-                      >
-                        <item.icon 
-                          size={24} 
-                          className={cn(
-                            "transition-colors",
-                            isHovered 
-                              ? (item.destructive ? "text-destructive-foreground" : "text-primary-foreground") 
-                              : (item.destructive ? "text-destructive" : "text-foreground")
-                          )} 
-                        />
-                        <span className={cn(
-                          "text-[11px] font-semibold text-center leading-tight transition-colors",
+                        onTouchStart={() => setHoveredIndex(i)}
+                        onTouchEnd={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setHoveredIndex(null);
+                          setIsOpen(false);
+                          item.onClick();
+                        }}
+                        onMouseEnter={() => setHoveredIndex(i)}
+                        onMouseLeave={() => setHoveredIndex(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsOpen(false);
+                          item.onClick();
+                        }}
+                      />
+                    );
+                  })}
+                </svg>
+                
+                {/* Item Icons & Labels */}
+                {items.map((item, i) => {
+                  const anglePerSlice = 360 / items.length;
+                  const sliceCenterAngle = i * anglePerSlice;
+                  const r = (OUTER_RADIUS + INNER_RADIUS) / 2; // Midpoint radius = 103
+                  const itemPos = polarToCartesian(CENTER, CENTER, r, sliceCenterAngle);
+                  const isHovered = hoveredIndex === i;
+
+                  return (
+                    <div 
+                      key={`content-${item.label}`}
+                      className="absolute pointer-events-none flex flex-col items-center justify-center gap-1 transition-transform duration-200 ease-out select-none"
+                      style={{ 
+                        left: itemPos.x, 
+                        top: itemPos.y,
+                        transform: `translate(-50%, -50%) scale(${isHovered ? 1.1 : 1})`
+                      }}
+                    >
+                      <item.icon 
+                        size={22} 
+                        className={cn(
+                          "transition-colors duration-200",
                           isHovered 
                             ? (item.destructive ? "text-destructive-foreground" : "text-primary-foreground") 
-                            : "text-muted-foreground"
-                        )}>
-                          {item.label}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </motion.div>
+                            : (item.destructive ? "text-destructive" : "text-foreground")
+                        )} 
+                      />
+                      <span className={cn(
+                        "text-[11px] font-bold text-center leading-tight transition-colors duration-200 max-w-[80px]",
+                        isHovered 
+                          ? (item.destructive ? "text-destructive-foreground" : "text-primary-foreground") 
+                          : "text-foreground/90"
+                      )}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
                 
-                {/* Center Cancel Button */}
-                <motion.div 
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  className="absolute w-16 h-16 rounded-full bg-card border border-border shadow-2xl flex items-center justify-center text-muted-foreground z-20 pointer-events-auto cursor-pointer hover:bg-muted hover:text-foreground hover:scale-110 transition-all duration-200 will-change-transform"
-                  style={{ left: -32, top: -32 }}
+                {/* Dead-Centered Cancel X Button */}
+                <button 
+                  type="button"
+                  aria-label="Close menu"
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[68px] h-[68px] rounded-full bg-card/95 backdrop-blur-xl border-2 border-border/80 shadow-2xl flex items-center justify-center text-foreground/80 z-20 pointer-events-auto cursor-pointer hover:bg-accent hover:text-foreground hover:scale-105 active:scale-95 transition-all duration-200 ease-out outline-none ring-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsOpen(false);
@@ -233,9 +242,9 @@ export function RadialMenu({ children, items }: RadialMenuProps) {
                     setIsOpen(false);
                   }}
                 >
-                  <X size={28} />
-                </motion.div>
-              </div>
+                  <X size={24} className="w-6 h-6 stroke-[2.5]" />
+                </button>
+              </motion.div>
             </div>
           )}
         </AnimatePresence>,

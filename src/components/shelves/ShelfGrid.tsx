@@ -602,16 +602,16 @@ export function ShelfGrid({
 
         {/* Search, Filter & Sort Controls Toolbar */}
         {allShelves.length > 0 && (
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-6 p-2 rounded-2xl bg-card/60 border border-border/50 backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-6">
             {/* Search Input */}
-            <div className="relative flex-1 min-w-[200px] max-w-full md:max-w-md group">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <div className="relative flex-1 max-w-full sm:max-w-xs md:max-w-sm group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
                 placeholder="Search shelves..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-8 py-2 text-xs sm:text-sm font-semibold bg-background/80 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-2 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                className="w-full pl-9 pr-8 h-9 text-xs font-semibold bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
               />
               {searchQuery && (
                 <button
@@ -625,17 +625,17 @@ export function ShelfGrid({
             </div>
 
             {/* Filter Chips & Sort Controls */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
               {/* Filter Chips */}
-              <div className="flex items-center gap-1 bg-background/80 p-1 rounded-xl border border-border/50 shrink-0">
+              <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-xl border border-border/40 shrink-0">
                 <button
                   type="button"
                   onClick={() => setFilterType('all')}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
                     filterType === 'all'
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                   )}
                 >
                   All ({counts.all})
@@ -645,10 +645,10 @@ export function ShelfGrid({
                     type="button"
                     onClick={() => setFilterType('favorites')}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1",
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
                       filterType === 'favorites'
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                     )}
                   >
                     <Heart className="w-3 h-3 fill-current" />
@@ -660,10 +660,10 @@ export function ShelfGrid({
                     type="button"
                     onClick={() => setFilterType('smart')}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1",
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
                       filterType === 'smart'
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                     )}
                   >
                     <Zap className="w-3 h-3" />
@@ -674,10 +674,10 @@ export function ShelfGrid({
                   type="button"
                   onClick={() => setFilterType('with-books')}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
                     filterType === 'with-books'
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                   )}
                 >
                   With Books ({counts.withBooks})
@@ -687,10 +687,10 @@ export function ShelfGrid({
                     type="button"
                     onClick={() => setFilterType('empty')}
                     className={cn(
-                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
                       filterType === 'empty'
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                     )}
                   >
                     Empty ({counts.empty})
@@ -703,10 +703,10 @@ export function ShelfGrid({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-background/80 hover:bg-background border border-border/50 text-xs font-bold text-foreground transition-all shrink-0 cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 h-9 px-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-xs font-bold text-foreground transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
                   >
                     <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
-                    <span className="hidden sm:inline">Sort:</span>
+                    <span className="hidden sm:inline text-muted-foreground">Sort:</span>
                     <span className="capitalize">
                       {sortType === 'name-asc' ? 'A–Z' :
                        sortType === 'name-desc' ? 'Z–A' :
@@ -716,19 +716,19 @@ export function ShelfGrid({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border shadow-2xl z-[150]">
-                  <DropdownMenuItem onClick={() => setSortType('name-asc')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
+                  <DropdownMenuItem onClick={() => setSortType('name-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
                     Name (A–Z)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('name-desc')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
+                  <DropdownMenuItem onClick={() => setSortType('name-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
                     Name (Z–A)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('books-desc')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
+                  <DropdownMenuItem onClick={() => setSortType('books-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
                     Most Books
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('books-asc')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
+                  <DropdownMenuItem onClick={() => setSortType('books-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
                     Fewest Books
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('newest')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
+                  <DropdownMenuItem onClick={() => setSortType('newest')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
                     Recently Created
                   </DropdownMenuItem>
                 </DropdownMenuContent>

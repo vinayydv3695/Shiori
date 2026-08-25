@@ -5,21 +5,19 @@ import { formatDate } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-interface AnnotationCardProps {
+interface AndroidAnnotationCardProps {
   result: AnnotationSearchResult;
   categories: AnnotationCategory[];
   onOpenBook?: (bookId: number, location?: string, annotationId?: number) => void;
   setQuoteCardData: (data: AnnotationSearchResult) => void;
-  compact?: boolean;
 }
 
-export function AnnotationCard({
+export function AndroidAnnotationCard({
   result,
   categories,
   onOpenBook,
   setQuoteCardData,
-  compact = false,
-}: AnnotationCardProps) {
+}: AndroidAnnotationCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
 
   let isVocabulary = false;
@@ -72,25 +70,23 @@ export function AnnotationCard({
   const rawSelected = (result.annotation.selectedText || '').trim();
   const rawTranslated = isTranslate && vocabData?.data?.translated_text ? vocabData.data.translated_text.trim() : '';
   const isDuplicateTranslation = isTranslate && (!rawTranslated || rawTranslated.toLowerCase() === rawSelected.toLowerCase());
+
   const wordToSpeak = isDefine ? (vocabData?.data?.word || rawSelected) : rawSelected;
 
   return (
-    <div
-      className={`break-inside-avoid relative group transition-all duration-300 bg-card border border-border/60 hover:border-primary/40 rounded-2xl shadow-md shadow-black/5 dark:shadow-black/25 hover:shadow-xl ${
-        compact ? 'p-3 space-y-1.5 mb-3' : 'p-4 md:p-5 space-y-2.5 mb-4 md:mb-6 hover:-translate-y-1'
-      }`}
-    >
+    <div className="bg-card border border-border/60 hover:border-primary/40 rounded-2xl p-3.5 space-y-2 text-foreground shadow-md shadow-black/5 dark:shadow-black/30 hover:shadow-lg transition-all duration-200 relative group">
+      
       {/* ── CASE 1: Vocabulary / Dictionary Definition ── */}
       {isDefine && vocabData?.data ? (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {/* Word Header + Phonetic + Audio Icon */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-2 min-w-0">
-              <h4 className="text-[16px] md:text-[17px] font-serif font-bold text-foreground tracking-tight truncate">
+              <h4 className="text-[16px] font-serif font-bold text-foreground tracking-tight truncate">
                 {vocabData.data.word || rawSelected}
               </h4>
               {vocabData.data.phonetic && (
-                <span className="text-xs md:text-sm font-serif italic text-muted-foreground/75">
+                <span className="text-xs font-serif italic text-muted-foreground/70">
                   {vocabData.data.phonetic}
                 </span>
               )}
@@ -107,14 +103,14 @@ export function AnnotationCard({
               }`}
               title="Speak pronunciation"
             >
-              <Volume2 size={16} />
+              <Volume2 size={15} />
             </button>
           </div>
 
           {/* Definitions */}
           {vocabData.data.meanings?.length > 0 && (
-            <div className="space-y-1.5 pt-0.5">
-              {vocabData.data.meanings.slice(0, compact ? 1 : 2).map((m: any, idx: number) => {
+            <div className="space-y-1 pt-0.5">
+              {vocabData.data.meanings.slice(0, 2).map((m: any, idx: number) => {
                 const firstDef = m.definitions?.[0];
                 return (
                   <div key={idx} className="space-y-0.5">
@@ -122,7 +118,7 @@ export function AnnotationCard({
                       • {m.part_of_speech}
                     </span>
                     {firstDef?.definition && (
-                      <p className="text-[13px] text-foreground/85 font-sans leading-relaxed">
+                      <p className="text-[12.5px] text-foreground/85 font-sans leading-snug">
                         {firstDef.definition}
                       </p>
                     )}
@@ -134,17 +130,17 @@ export function AnnotationCard({
         </div>
       ) : isTranslate ? (
         /* ── CASE 2: Translation Item ── */
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {rawSelected && (
-            <div className="pl-2.5 border-l-2 border-primary/60">
-              <span className="text-[13.5px] font-serif italic text-foreground/90 leading-snug block">
+            <div className="pl-2 border-l-2 border-primary/60">
+              <span className="text-[13px] font-serif italic text-foreground/90 leading-snug block">
                 {rawSelected}
               </span>
             </div>
           )}
 
           {!isDuplicateTranslation && rawTranslated && (
-            <div className="text-[13.5px] font-sans font-medium text-foreground leading-relaxed pt-0.5">
+            <div className="text-[13px] font-sans font-medium text-foreground leading-snug pt-0.5">
               {rawTranslated}
             </div>
           )}
@@ -154,25 +150,25 @@ export function AnnotationCard({
         </div>
       ) : (
         /* ── CASE 3: Normal Highlight / Note / Bookmark ── */
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {rawSelected && (
-            <div className="pl-2.5 border-l-2 border-primary/70">
-              <span className="text-[13.5px] md:text-[14.5px] font-serif font-medium text-foreground/90 leading-relaxed block line-clamp-6">
+            <div className="pl-2 border-l-2 border-primary/70">
+              <span className="text-[13px] font-serif font-medium text-foreground/90 leading-snug block line-clamp-4">
                 {rawSelected}
               </span>
             </div>
           )}
 
           {!isVocabulary && result.annotation.noteContent && (
-            <div className="text-[12.5px] font-sans text-muted-foreground leading-relaxed pt-1 border-t border-border/30 prose prose-sm dark:prose-invert max-w-none">
+            <div className="text-[12px] font-sans text-muted-foreground leading-relaxed pt-0.5 prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown>{result.annotation.noteContent}</ReactMarkdown>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Minimalist Card Footer ── */}
-      <div className="flex items-center justify-between text-[11px] text-muted-foreground/50 pt-1.5 border-t border-border/20 mt-1">
+      {/* ── Ultra-Subtle Minimalist Card Footer ── */}
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground/50 pt-1 border-t border-border/15 mt-1">
         <div className="flex items-center gap-1.5 min-w-0 truncate">
           <span>{formatDate(result.annotation.createdAt || '')}</span>
           {categoryObj && (
@@ -184,7 +180,7 @@ export function AnnotationCard({
           {result.annotation.chapterTitle && (
             <>
               <span>•</span>
-              <span className="italic truncate max-w-[160px]">{result.annotation.chapterTitle}</span>
+              <span className="italic truncate max-w-[120px]">{result.annotation.chapterTitle}</span>
             </>
           )}
         </div>
@@ -200,7 +196,7 @@ export function AnnotationCard({
                   className="p-1 text-muted-foreground/50 hover:text-primary rounded-md transition-colors cursor-pointer shrink-0"
                   aria-label="Go to location"
                 >
-                  <ExternalLink size={14} />
+                  <ExternalLink size={13} />
                 </button>
               </TooltipTrigger>
               <TooltipContent

@@ -289,7 +289,7 @@ function App() {
         onDeleteBooks={handleDeleteBooks}
         onDownloadBook={handleDownloadBook}
         onViewDetails={handleViewDetails}
-        onOpenRSSFeeds={() => handleNavigate('rss-feeds')}
+        onOpenRSSFeeds={() => handleNavigate('rss-articles')}
         onOpenRSSArticles={() => handleNavigate('rss-articles')}
         onGoHome={() => resetToHome()}
         onAutoGroupManga={handleAutoGroupManga}

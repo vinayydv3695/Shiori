@@ -426,7 +426,9 @@ export function ContinuousEpubView({
     if (!pendingAnnotationId) return;
 
     let attempts = 0;
-    const maxAttempts = 35;
+    // Android WebView renders asynchronously and applies highlights slower;
+    // give it more retries so the annotation mark has time to appear in the DOM.
+    const maxAttempts = isAndroid ? 60 : 35;
 
     const tryScroll = async () => {
       const container = containerRef.current;

@@ -1,3 +1,11 @@
+# Release Notes (v2.3.52)
+
+## Features & Improvements
+
+- **Fixed Statistics Book Pages and Reading Duration Tracking** — Fixed issue where closing a reader session before the 30-second heartbeat cycle left `duration_seconds` at 0 and dropped logged reading pages from `get_daily_reading_stats`. `end_reading_session` now automatically computes elapsed time and credits all pages read.
+- **Accurate Full-Library Overview Metrics in Statistics View** — Fixed `StatisticsView` relying on the paginated 50-book window in `libraryStore`. Statistics now fetch the full library catalog directly via IPC so books read, manga read, mean rating, and top-read titles accurately reflect the entire user collection.
+- **Minimalist Elevated Annotations UI for Desktop & Android** — Upgraded individual annotation cards with solid elevated card styling, subtle drop shadows, inline audio playback buttons, and tooltip-guided navigation actions.
+
 # Release Notes (v2.3.46)
 
 ## Features & Improvements

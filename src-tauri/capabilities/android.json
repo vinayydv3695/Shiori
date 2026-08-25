@@ -44,6 +44,7 @@
     "android-saf:allow-request-storage-permission",
     "android-saf:allow-open-app-settings",
     "android-saf:allow-solve-cloudflare",
-    "android-saf:allow-ping"
+    "android-saf:allow-ping",
+    "http:default"
   ]
 }

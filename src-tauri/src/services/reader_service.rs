@@ -103,7 +103,27 @@ impl ReaderService {
 
         let existing = Self::get_reading_progress(conn, book_id)?;
 
-        let id = if let Some(existing_progress) = existing {
+        let book_page_count: Option<i32> = conn
+            .query_row(
+                "SELECT page_count FROM books WHERE id = ?1",
+                params![book_id],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+
+        let total_pages = total_pages
+            .or(book_page_count)
+            .or(existing.as_ref().and_then(|e| e.total_pages))
+            .or(Some(100));
+
+        let current_page = current_page
+            .or_else(|| existing.as_ref().and_then(|e| e.current_page))
+            .or_else(|| {
+                total_pages.map(|tp| ((progress_percent / 100.0) * tp as f64).round() as i32)
+            });
+
+        let id = if let Some(existing_progress) = &existing {
             conn.execute(
                 "UPDATE reading_progress 
                  SET current_location = ?1, progress_percent = ?2, current_page = ?3, 
@@ -137,7 +157,7 @@ impl ReaderService {
             Some(conn.last_insert_rowid())
         };
 
-        let is_finished = progress_percent >= 98.0
+        let is_finished = progress_percent >= 95.0
             || (current_page.is_some()
                 && total_pages.is_some()
                 && total_pages.unwrap() > 0
@@ -153,7 +173,7 @@ impl ReaderService {
 
         let new_status = if is_finished {
             "completed"
-        } else if current_status.as_deref() == Some("completed") && progress_percent > 5.0 {
+        } else if current_status.as_deref() == Some("completed") {
             "completed"
         } else if progress_percent > 0.0 {
             "reading"
@@ -173,7 +193,7 @@ impl ReaderService {
             progress_percent,
             current_page,
             total_pages,
-            cfi_location: cfi_location.map(String::from),
+            cfi_location: cfi_location.map(|s| s.to_string()),
             last_read: now,
         })
     }
@@ -762,9 +782,33 @@ impl ReaderService {
             }
         };
 
+        // Calculate actual elapsed duration if duration_seconds wasn't updated or was smaller
+        let (started_at, current_duration): (Option<String>, i64) = conn
+            .query_row(
+                "SELECT started_at, duration_seconds FROM reading_sessions WHERE id = ?1",
+                params![session_id],
+                |row| Ok((row.get(0)?, row.get(1).unwrap_or(0))),
+            )
+            .unwrap_or((None, 0));
+
+        let final_duration = if let Some(started_str) = started_at {
+            if let Ok(started_dt) = chrono::DateTime::parse_from_rfc3339(&started_str) {
+                let elapsed = Utc::now().signed_duration_since(started_dt).num_seconds();
+                if elapsed > 0 {
+                    current_duration.max(elapsed.min(86400))
+                } else {
+                    current_duration
+                }
+            } else {
+                current_duration
+            }
+        } else {
+            current_duration
+        };
+
         conn.execute(
-            "UPDATE reading_sessions SET ended_at = ?1, pages_end = ?2 WHERE id = ?3 AND ended_at IS NULL",
-            params![now, pages_end, session_id],
+            "UPDATE reading_sessions SET ended_at = ?1, pages_end = ?2, duration_seconds = ?3 WHERE id = ?4 AND ended_at IS NULL",
+            params![now, pages_end, final_duration, session_id],
         )?;
 
         Ok(())
@@ -802,16 +846,22 @@ impl ReaderService {
                 SUM(s.duration_seconds) as total_seconds,
                 COUNT(DISTINCT s.book_id) as books_count,
                 COUNT(*) as sessions_count,
-                SUM(CASE WHEN b.domain != 'manga'
-                    THEN MAX(0, COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0))
+                SUM(CASE WHEN NOT (COALESCE(b.domain, '') IN ('manga', 'comics', 'manga_comics') OR LOWER(COALESCE(b.file_format, '')) IN ('cbz', 'cbr', 'zip', 'rar', '7z'))
+                    THEN MAX(
+                        COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0),
+                        CASE WHEN s.duration_seconds >= 60 THEN s.duration_seconds / 120 ELSE 0 END
+                    )
                     ELSE 0 END) as book_pages_read,
-                SUM(CASE WHEN b.domain = 'manga'
-                    THEN MAX(0, COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0))
+                SUM(CASE WHEN (COALESCE(b.domain, '') IN ('manga', 'comics', 'manga_comics') OR LOWER(COALESCE(b.file_format, '')) IN ('cbz', 'cbr', 'zip', 'rar', '7z'))
+                    THEN MAX(
+                        COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0),
+                        CASE WHEN s.duration_seconds >= 30 THEN s.duration_seconds / 30 ELSE 0 END
+                    )
                     ELSE 0 END) as manga_pages_read
             FROM reading_sessions s
             JOIN books b ON b.id = s.book_id
             WHERE s.started_at >= date('now', ?1 || ' days')
-              AND s.duration_seconds > 0
+              AND (s.duration_seconds > 0 OR COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0) > 0)
             GROUP BY date(s.started_at)
             ORDER BY read_date ASC
         "#;

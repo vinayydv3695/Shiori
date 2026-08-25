@@ -347,18 +347,18 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
         <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-[calc(100vw-2rem)] sm:max-w-3xl md:max-w-5xl lg:max-w-6xl translate-x-[-50%] translate-y-[-50%] border border-border/70 bg-card text-card-foreground p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 rounded-3xl overflow-hidden flex flex-col max-h-[90vh]">
           
           {/* Header */}
-          <div className="flex items-center justify-between p-5 sm:p-6 md:px-8 border-b border-border/50 bg-card/80 backdrop-blur-md shrink-0">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-[#02A9FF]/10 border border-[#02A9FF]/20 flex items-center justify-center text-[#02A9FF] shadow-xs shrink-0">
-                <AniListIcon className="w-6 h-6" />
+          <div className="flex items-center justify-between p-4 sm:p-5 md:px-7 border-b border-border/50 bg-card/80 backdrop-blur-md shrink-0">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-[#02A9FF]/10 border border-[#02A9FF]/20 flex items-center justify-center text-[#02A9FF] shadow-xs shrink-0">
+                <AniListIcon className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div className="min-w-0">
-                <Dialog.Title className="text-xl sm:text-2xl font-black text-foreground tracking-tight truncate">
+                <Dialog.Title className="text-lg sm:text-2xl font-black text-foreground tracking-tight truncate">
                   Import from AniList
                 </Dialog.Title>
                 <Dialog.Description className="text-xs sm:text-sm text-muted-foreground font-medium mt-0.5 truncate">
                   {isImporting 
-                    ? `Syncing ${progress.current} of ${progress.total} titles into library...`
+                    ? `Syncing ${progress.current} of ${progress.total} titles...`
                     : `Sync online manga titles directly into your library`
                   }
                 </Dialog.Description>
@@ -367,45 +367,45 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
 
             <Dialog.Close 
               disabled={isImporting} 
-              className="w-10 h-10 rounded-full bg-secondary/60 hover:bg-secondary text-foreground/80 hover:text-foreground border border-border/50 flex items-center justify-center transition-all disabled:opacity-30 shrink-0 cursor-pointer"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-secondary/60 hover:bg-secondary text-foreground/80 hover:text-foreground border border-border/50 flex items-center justify-center transition-all disabled:opacity-30 shrink-0 cursor-pointer"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </Dialog.Close>
           </div>
 
           {/* Main Body */}
-          <div className="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6 md:p-8 space-y-5 overscroll-contain custom-scrollbar">
+          <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 overscroll-contain custom-scrollbar">
             {!isImporting ? (
               <>
                 {/* Search & Filter Controls Bar */}
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search manga by title..."
-                      className="w-full pl-11 pr-10 py-3 rounded-2xl bg-secondary/40 border border-border/60 text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 transition-all shadow-2xs"
+                      className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-secondary/40 border border-border/60 text-foreground placeholder:text-muted-foreground text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 transition-all shadow-2xs"
                     />
                     {searchQuery && (
                       <button
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer transition-colors"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
 
                   {/* List Filter Tabs & Bulk Actions */}
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 overflow-x-auto py-1 max-w-full">
+                  <div className="flex items-center justify-between gap-2.5 flex-wrap">
+                    <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1 max-w-full no-scrollbar shrink-0 px-0.5">
                       <button
                         onClick={() => setSelectedListFilter('all')}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
                           selectedListFilter === 'all'
-                            ? 'bg-primary text-primary-foreground shadow-xs'
+                            ? 'bg-primary/20 text-primary border border-primary/30 shadow-2xs'
                             : 'bg-secondary/60 text-muted-foreground hover:text-foreground border border-border/50'
                         }`}
                       >
@@ -417,9 +417,9 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
                           <button
                             key={listName}
                             onClick={() => setSelectedListFilter(listName)}
-                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
                               selectedListFilter === listName
-                                ? 'bg-primary text-primary-foreground shadow-xs'
+                                ? 'bg-primary/20 text-primary border border-primary/30 shadow-2xs'
                                 : 'bg-secondary/60 text-muted-foreground hover:text-foreground border border-border/50'
                             }`}
                           >
@@ -429,24 +429,24 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
                       })}
                     </div>
 
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-1.5 ml-auto">
                       <button
                         onClick={selectAll}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-secondary/40 hover:bg-secondary/80 text-foreground border border-border/50 transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-secondary/50 hover:bg-secondary text-foreground border border-border/50 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
                       >
                         <CheckCheck className="w-3.5 h-3.5 text-primary" />
                         <span>Select All</span>
                       </button>
                       <button
                         onClick={deselectAll}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-secondary/40 hover:bg-secondary/80 text-muted-foreground hover:text-foreground border border-border/50 transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-secondary/50 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50 transition-all cursor-pointer flex items-center gap-1 active:scale-95"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Deselect All</span>
                       </button>
 
                       {/* View Mode Toggle */}
-                      <div className="flex items-center p-0.5 rounded-xl bg-secondary/60 border border-border/50 ml-1">
+                      <div className="flex items-center p-0.5 rounded-xl bg-secondary/60 border border-border/50 ml-0.5">
                         <button
                           onClick={() => setViewMode('grid')}
                           className={`p-1.5 rounded-lg transition-all cursor-pointer ${
@@ -824,25 +824,28 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between p-5 sm:p-6 md:px-8 border-t border-border/50 bg-card/90 backdrop-blur-md shrink-0 gap-3">
+          <div 
+            className="flex items-center justify-between p-4 sm:p-5 md:px-7 border-t border-border/50 bg-card/90 backdrop-blur-md shrink-0 gap-3"
+            style={{ paddingBottom: isAndroid ? 'calc(env(safe-area-inset-bottom, 0px) + 14px)' : undefined }}
+          >
             {!isImporting ? (
               <>
                 <div className="text-xs sm:text-sm font-semibold text-muted-foreground">
                   <strong className="text-foreground font-black text-sm sm:text-base">{selectedCount}</strong> of {allEntries.length} titles selected
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Button 
                     variant="ghost" 
                     onClick={onClose} 
-                    className="rounded-xl px-5 text-xs sm:text-sm font-bold hover:bg-secondary/70 cursor-pointer"
+                    className="rounded-xl px-4 sm:px-5 text-xs sm:text-sm font-bold hover:bg-secondary/70 cursor-pointer active:scale-95 transition-all"
                   >
                     Cancel
                   </Button>
                   <Button 
                     onClick={handleStartImport} 
                     disabled={selectedCount === 0} 
-                    className="gap-2 rounded-xl px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md hover:scale-102 active:scale-98 transition-all cursor-pointer"
+                    className="gap-2 rounded-xl px-5 sm:px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all cursor-pointer"
                   >
                     <BookPlus className="w-4 h-4" />
                     <span>Import Selected ({selectedCount})</span>
@@ -858,7 +861,7 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
                 <Button 
                   variant="outline" 
                   onClick={handleCancelImport}
-                  className="rounded-xl px-5 text-xs sm:text-sm font-bold hover:bg-destructive/10 hover:text-destructive border-border/60 cursor-pointer"
+                  className="rounded-xl px-4 sm:px-5 text-xs sm:text-sm font-bold hover:bg-destructive/10 hover:text-destructive border-border/60 cursor-pointer active:scale-95 transition-all"
                 >
                   Cancel Import
                 </Button>

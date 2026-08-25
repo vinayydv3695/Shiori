@@ -26,7 +26,7 @@ const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
 )
 
 import { SkeletonGrid } from "./online/SkeletonLoaders"
-
+import { SectionSkeletonLoader } from "./ui/SectionSkeletonLoader"
 import { CurrentView } from "@/store/uiStore"
 
 export interface ViewRouterProps {
@@ -61,15 +61,14 @@ export function ViewRouter({
   dialogs
 }: ViewRouterProps) {
   const pageVariants = {
-    initial: { opacity: 0, y: 10 },
-    in: { opacity: 1, y: 0 },
-    out: { opacity: 0, y: -10 }
+    initial: { opacity: 0, y: 12, scale: 0.995 },
+    in: { opacity: 1, y: 0, scale: 1 },
+    out: { opacity: 0, y: -8, scale: 0.995 }
   };
 
   const pageTransition = {
-    type: "tween",
-    ease: "easeOut",
-    duration: 0.2
+    duration: 0.28,
+    ease: [0.16, 1, 0.3, 1] // Apple-style cubic-bezier ease
   } as const;
 
   return (
@@ -84,7 +83,7 @@ export function ViewRouter({
         className="w-full h-full flex flex-col flex-1"
       >
         {currentView === 'home' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}>
             <HomePage 
               onOpenBook={handleOpenBook} 
               onViewSeries={dialogs.openSeriesView}
@@ -98,13 +97,13 @@ export function ViewRouter({
         )}
 
         {currentView === 'rss-feeds' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="list" />}>
             <RSSFeedManager onClose={() => handleNavigate('rss-articles')} />
           </Suspense>
         )}
 
         {currentView === 'rss-articles' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="list" />}>
             <RSSArticleList />
           </Suspense>
         )}
@@ -129,7 +128,7 @@ export function ViewRouter({
         )}
 
         {currentView === 'annotations' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="list" />}>
             <AnnotationsView 
               onClose={() => handleNavigate('library')} 
               onOpenBook={handleOpenBook}
@@ -138,7 +137,7 @@ export function ViewRouter({
         )}
 
         {currentView === 'history' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="history" />}>
             <HistoryView 
               onClose={() => handleNavigate('library')}
               onOpenBook={handleOpenBook}
@@ -152,44 +151,44 @@ export function ViewRouter({
         )}
 
         {currentView === 'shelves' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}>
             <ShelfView onOpenBook={handleOpenBook} />
           </Suspense>
         )}
 
         {currentView === 'statistics' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="dashboard" />}>
             <StatisticsView onClose={() => handleNavigate('library')} />
           </Suspense>
         )}
 
         {currentView === 'online-books' && (
-          <Suspense fallback={<div className="flex-1 w-full p-6 pt-24"><div className="max-w-7xl mx-auto"><SkeletonGrid count={12} /></div></div>}><OnlineBooksView /></Suspense>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><OnlineBooksView /></Suspense>
         )}
 
         {currentView === 'online-manga' && (
-          <Suspense fallback={<div className="flex-1 w-full p-6 pt-24"><div className="max-w-7xl mx-auto"><SkeletonGrid count={12} /></div></div>}><OnlineMangaView /></Suspense>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><OnlineMangaView /></Suspense>
         )}
 
 
         {currentView === 'torbox-discover' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="discover" /></Suspense>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><TorboxControlCenter initialTab="discover" /></Suspense>
         )}
 
         {currentView === 'torbox-books' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="books" /></Suspense>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><TorboxControlCenter initialTab="books" /></Suspense>
         )}
 
         {currentView === 'torbox-manga' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><TorboxControlCenter initialTab="manga" /></Suspense>
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><TorboxControlCenter initialTab="manga" /></Suspense>
         )}
 
         {currentView === 'recycle-bin' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}><RecycleBinView /></Suspense>
+          <Suspense fallback={<SectionSkeletonLoader variant="list" />}><RecycleBinView /></Suspense>
         )}
 
         {currentView === 'anilist' && (
-          <Suspense fallback={<LoadingSpinner className="py-24" />}>
+          <Suspense fallback={<SectionSkeletonLoader variant="dashboard" />}>
             <AniListDashboard onOpenSettings={() => dialogs.setSettingsDialogOpen(true)} />
           </Suspense>
         )}

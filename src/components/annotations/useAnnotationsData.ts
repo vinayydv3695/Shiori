@@ -31,7 +31,7 @@ export function useAnnotationsData() {
   const fetchAnnotations = useCallback(async () => {
     setLoading(true);
     try {
-      const typeParam = typeFilter === 'all' ? undefined : typeFilter;
+      const typeParam = typeFilter === 'all' || typeFilter === 'vocabulary' ? undefined : typeFilter;
       const catParam = categoryFilter === 'all' ? undefined : categoryFilter;
       
       let results: AnnotationSearchResult[];
@@ -120,7 +120,20 @@ export function useAnnotationsData() {
 
   // Filtered & Sorted Annotations for Main Pane
   const totalAnnotations = useMemo(() => {
-    const list = selectedBookId === 'all' ? [...annotations] : annotations.filter(a => a.annotation.bookId === selectedBookId);
+    let list = selectedBookId === 'all' ? [...annotations] : annotations.filter(a => a.annotation.bookId === selectedBookId);
+    
+    if (typeFilter === 'vocabulary') {
+      list = list.filter(a => {
+        if (!a.annotation.noteContent) return false;
+        try {
+          const v = JSON.parse(a.annotation.noteContent);
+          return v && (v.type === 'define' || v.type === 'translate');
+        } catch {
+          return false;
+        }
+      });
+    }
+
     if (sortOrder === 'newest') {
       list.sort((a, b) => new Date(b.annotation.createdAt || 0).getTime() - new Date(a.annotation.createdAt || 0).getTime());
     } else if (sortOrder === 'oldest') {
@@ -130,7 +143,7 @@ export function useAnnotationsData() {
     }
 
     return list;
-  }, [annotations, selectedBookId, sortOrder]);
+  }, [annotations, selectedBookId, typeFilter, sortOrder]);
 
   const displayedAnnotations = useMemo(() => totalAnnotations.slice(0, limit), [totalAnnotations, limit]);
 
@@ -151,9 +164,10 @@ export function useAnnotationsData() {
   }, [displayedAnnotations, selectedBookId]);
 
   const tabs = [
-    { id: 'all', label: 'All Notes' },
+    { id: 'all', label: 'All' },
     { id: 'highlight', label: 'Highlights' },
     { id: 'note', label: 'Notes' },
+    { id: 'vocabulary', label: 'Vocab' },
     { id: 'bookmark', label: 'Bookmarks' }
   ];
 

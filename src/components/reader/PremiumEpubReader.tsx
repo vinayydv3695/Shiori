@@ -723,7 +723,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // Skip all restore if user chose "Start from beginning".
         let startIndex = 0;
         let savedScrollRatio = 0;
-        const skipRestore = startFromBeginning;
+        // Read from the live store — NOT from the closed-over React state. On
+        // Android WebView the component can mount and this effect can fire before
+        // Zustand has propagated the updated values to the component's reactive
+        // closure, causing annotation jumps and resume targets to be silently
+        // discarded. getState() always reflects the latest committed store value.
+        const liveState = useReaderStore.getState();
+        const skipRestore = liveState.startFromBeginning;
 
         const normalizeChapterIndex = (rawIdx: number): number | null => {
           if (Number.isNaN(rawIdx)) return null;
@@ -747,7 +753,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
 
         if (!skipRestore) {
-          const directTarget = explicitResumeTarget?.bookId === bookId ? explicitResumeTarget : null;
+          // Also read explicitResumeTarget from live state for same reason.
+          const liveTarget = liveState.explicitResumeTarget;
+          const directTarget = liveTarget?.bookId === bookId ? liveTarget : null;
 
           if (directTarget) {
             const normalized = normalizeChapterIndex(directTarget.chapterIndex);
@@ -1013,7 +1021,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (!pendingAnnotationId) return;
 
     let attempts = 0;
-    const maxAttempts = 35;
+    // Android WebView renders asynchronously and applies highlights slower;
+    // give it more retries so the annotation mark has time to appear in the DOM.
+    const maxAttempts = isAndroid ? 60 : 35;
 
     const tryScroll = async () => {
       const container = contentContainerRef.current;

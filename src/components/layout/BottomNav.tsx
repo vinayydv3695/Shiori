@@ -120,7 +120,7 @@ export function BottomNav({
               </motion.div>
             </DropdownMenuItem>
 
-          <DropdownMenuItem asChild onClick={() => onNavigateToView('rss-feeds')}>
+          <DropdownMenuItem asChild onClick={() => onNavigateToView('rss-articles')}>
             <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
               <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
                 <Rss size={18} />

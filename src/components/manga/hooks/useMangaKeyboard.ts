@@ -63,10 +63,12 @@ export function useMangaKeyboard(onClose: () => void) {
 
         const key = e.key;
         const shift = e.shiftKey;
+        const isZoomed = useMangaUIStore.getState().isZoomed;
 
         switch (key) {
             case 'ArrowRight':
                 e.preventDefault();
+                if (isZoomed) return;
                 if (effectiveRtl) {
                     goBackward(1);
                 } else {
@@ -75,6 +77,7 @@ export function useMangaKeyboard(onClose: () => void) {
                 break;
             case 'ArrowLeft':
                 e.preventDefault();
+                if (isZoomed) return;
                 if (effectiveRtl) {
                     goForward(1);
                 } else {
@@ -85,18 +88,21 @@ export function useMangaKeyboard(onClose: () => void) {
                 // In scroll modes, let the browser handle native vertical scrolling
                 if (isScrollMode) return;
                 e.preventDefault();
+                if (isZoomed) return;
                 goForward(1);
                 break;
             case 'ArrowUp':
                 // In scroll modes, let the browser handle native vertical scrolling
                 if (isScrollMode) return;
                 e.preventDefault();
+                if (isZoomed) return;
                 goBackward(1);
                 break;
             case ' ':
                 // In scroll modes, let the browser handle native scroll (Space = page down)
                 if (isScrollMode) return;
                 e.preventDefault();
+                if (isZoomed) return;
                 if (shift) {
                     goBackward(1);
                 } else {

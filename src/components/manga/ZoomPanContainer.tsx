@@ -44,6 +44,7 @@ export function ZoomPanContainer({ children, className = '' }: ZoomPanContainerP
 
         const isCurrentlyZoomed = scale > 1.05;
         setIsZoomed(isCurrentlyZoomed);
+        useMangaUIStore.getState().setIsZoomed(isCurrentlyZoomed);
 
         if (animate) {
             contentRef.current.style.transition = 'transform 0.25s cubic-bezier(0.2, 0, 0.2, 1)';
@@ -143,10 +144,10 @@ export function ZoomPanContainer({ children, className = '' }: ZoomPanContainerP
                 let newX = startPosRef.current.x + dx;
                 let newY = startPosRef.current.y + dy;
 
-                // Bound panning so the canvas stays partially visible
+                // Bound panning strictly so the content NEVER goes out of bounds
                 const rect = container.getBoundingClientRect();
-                const maxPanX = (rect.width * (scaleRef.current - 1)) / (2 * scaleRef.current) + 100;
-                const maxPanY = (rect.height * (scaleRef.current - 1)) / (2 * scaleRef.current) + 200;
+                const maxPanX = Math.max(0, (rect.width * (scaleRef.current - 1)) / (2 * scaleRef.current));
+                const maxPanY = Math.max(0, (rect.height * (scaleRef.current - 1)) / (2 * scaleRef.current));
 
                 newX = Math.max(-maxPanX, Math.min(maxPanX, newX));
                 newY = Math.max(-maxPanY, Math.min(maxPanY, newY));
@@ -175,6 +176,7 @@ export function ZoomPanContainer({ children, className = '' }: ZoomPanContainerP
         container.addEventListener('touchcancel', handleTouchEnd);
 
         return () => {
+            useMangaUIStore.getState().setIsZoomed(false);
             container.removeEventListener('touchstart', handleTouchStart);
             container.removeEventListener('touchmove', handleTouchMove);
             container.removeEventListener('touchend', handleTouchEnd);

@@ -162,6 +162,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 46 {
             self.run_in_savepoint("v46", |mgr| mgr.migrate_to_v46())?;
         }
+        if current_version < 47 {
+            self.run_in_savepoint("v47", |mgr| mgr.migrate_to_v47())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2816,6 +2819,19 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v46_restore_v8_preference_columns");
         self.record_migration(46, "restore_v8_preference_columns", &hash)?;
+        Ok(())
+    }
+
+    fn migrate_to_v47(&self) -> Result<()> {
+        log::info!("[Migration] Applying v47: high volume RSS performance indexes");
+
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_rss_articles_feed_guid ON rss_articles(feed_id, guid);
+             CREATE INDEX IF NOT EXISTS idx_rss_articles_read_published ON rss_articles(is_read, published DESC);"
+        )?;
+
+        let hash = Self::calculate_checksum("v47_high_volume_rss_indexes");
+        self.record_migration(47, "high_volume_rss_indexes", &hash)?;
         Ok(())
     }
 }

@@ -3,8 +3,8 @@
     <style name="Theme.shiori" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowBackground">#fcfbf9</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">#fcfbf9</item>
+        <item name="android:statusBarColor">#fcfbf9</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
         <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>

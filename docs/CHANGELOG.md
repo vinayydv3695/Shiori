@@ -1,3 +1,10 @@
+# Release Notes (v2.3.59)
+
+## Features & Improvements
+
+- **Android Status Bar Safe-Space & Seamless Blending** — Restored `bars.top` safe padding in `MainActivity.kt` so top app controls (`Books`, `Manga`, `Filter`) never collide with status bar clock or battery icons. Matched `window.statusBarColor` and `window.decorView.setBackgroundColor()` to active theme hex with transparent webview background for 100% seamless color blending with zero rounded corners or dividing lines.
+- **Android Soft Keyboard Note Card Positioning** — Added `.text-selection-toolbar--note-active` positioning in `TextSelectionToolbar.tsx` and `premium-reader.css` so note cards float to the top of the screen when typing on Android, keeping text inputs fully visible above the virtual keyboard.
+
 # Release Notes (v2.3.58)
 
 ## Features & Improvements

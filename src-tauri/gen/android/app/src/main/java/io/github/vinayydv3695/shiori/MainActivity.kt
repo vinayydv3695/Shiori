@@ -52,11 +52,13 @@ class MainActivity : TauriActivity() {
       window.isNavigationBarContrastEnforced = false
     }
 
-    // Set zero padding on decorView so the WebView extends edge-to-edge
-    // seamlessly under the status bar with NO rounded corners or dividing lines.
-    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, _ ->
-      view.setPadding(0, 0, 0, 0)
-      WindowInsetsCompat.CONSUMED
+    // Pad decorView below system status bar so header buttons never collide with status bar icons.
+    // Setting decorView background color to the active theme hex (via setStatusBarTheme) guarantees
+    // 100% seamless color blending with zero rounded corners or dividing lines.
+    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+      val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+      view.setPadding(0, bars.top, 0, 0)
+      insets
     }
   }
 

@@ -1,3 +1,9 @@
+# Release Notes (v2.3.53)
+
+## Features & Improvements
+
+- **Fixed Manga ZoomPanContainer Store Import** — Resolved missing `useMangaUIStore` import in `ZoomPanContainer.tsx` that caused `beforeBuildCommand` (`tsc -b && vite build`) compilation failures during Tauri release builds.
+
 # Release Notes (v2.3.52)
 
 ## Features & Improvements

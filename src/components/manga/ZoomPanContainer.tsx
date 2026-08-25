@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { useMangaContentStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
+import { useMangaContentStore, useMangaSettingsStore, useMangaUIStore } from '@/store/mangaReaderStore';
 
 interface ZoomPanContainerProps {
     children: React.ReactNode;

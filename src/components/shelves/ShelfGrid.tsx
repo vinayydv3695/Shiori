@@ -608,19 +608,19 @@ export function ShelfGrid({
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
             {/* Search Input */}
             <div className="relative flex-1 max-w-full sm:max-w-xs md:max-w-sm group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search shelves..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8.5 pr-8 h-8 sm:h-9 text-xs font-semibold bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                className="w-full pl-9 pr-8 h-9 text-xs font-medium bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-md"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-md cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

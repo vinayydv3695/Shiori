@@ -2,6 +2,7 @@ package io.github.vinayydv3695.shiori
 
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.ActionMode
 import android.view.Menu
@@ -18,6 +19,7 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     memoryEventWebView = webView
+    webView.setBackgroundColor(Color.TRANSPARENT)
     webView.addJavascriptInterface(object {
       @JavascriptInterface
       fun setStatusBarTheme(colorHex: String, isLight: Boolean) {
@@ -25,9 +27,12 @@ class MainActivity : TauriActivity() {
           runCatching {
             val parsedColor = Color.parseColor(colorHex)
             window.statusBarColor = parsedColor
+            window.navigationBarColor = parsedColor
             window.decorView.setBackgroundColor(parsedColor)
+
             val controller = WindowInsetsControllerCompat(window, window.decorView)
             controller.isAppearanceLightStatusBars = isLight
+            controller.isAppearanceLightNavigationBars = isLight
           }
         }
       }
@@ -42,13 +47,16 @@ class MainActivity : TauriActivity() {
     // when the "Keep Screen On" reading setting is toggled.
     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-    // Edge-to-edge is enforced on targetSdk 35+; pad the decor view below the
-    // system status bar so page content is never hidden behind it. (The WebView
-    // reports no safe-area env() insets, so CSS cannot do this.)
-    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
-      val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-      view.setPadding(0, bars.top, 0, 0)
-      insets
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      window.isStatusBarContrastEnforced = false
+      window.isNavigationBarContrastEnforced = false
+    }
+
+    // Set zero padding on decorView so the WebView extends edge-to-edge
+    // seamlessly under the status bar with NO rounded corners or dividing lines.
+    ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, _ ->
+      view.setPadding(0, 0, 0, 0)
+      WindowInsetsCompat.CONSUMED
     }
   }
 

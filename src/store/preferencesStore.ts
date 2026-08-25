@@ -36,11 +36,24 @@ const themeColors: Record<string, string> = {
   paper: '#f5f0e8',
 };
 
+function isColorLight(colorHex: string): boolean {
+  if (!colorHex) return true;
+  const hex = colorHex.replace('#', '').trim();
+  if (hex.length === 6) {
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 128;
+  }
+  return true;
+}
+
 export function syncThemeColor(theme: string) {
   if (typeof document === 'undefined') return;
   const activeTheme = themeMap[theme] ?? theme;
   const hex = themeColors[activeTheme] || (activeTheme === 'white' || activeTheme === 'light' ? '#fcfbf9' : '#000000');
-  const isLight = activeTheme === 'white' || activeTheme === 'light' || activeTheme === 'paper';
+  const isLight = isColorLight(hex);
 
   let meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) {

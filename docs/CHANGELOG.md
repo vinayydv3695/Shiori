@@ -1,3 +1,10 @@
+# Release Notes (v2.3.57)
+
+## Features & Improvements
+
+- **Seamless Edge-to-Edge Android Status Bar Blending** — Removed padding from Android's `decorView` in `MainActivity.kt` so the app background flows continuously right to the top edge of the screen with zero rounded corners or dividing lines under the status bar. Added dynamic luminance calculation (`isColorLight`) in `preferencesStore.ts` so status bar icons (clock, battery, 4G) automatically render crisp dark icons on light themes (cream, paper) and white icons on dark themes.
+- **Fixed Shelves Search Input Alignment** — Replaced invalid Tailwind class (`pl-8.5`) with standard `pl-9` in `ShelfGrid.tsx` so search placeholder text and input cursor never overlap the magnifying glass search icon.
+
 # Release Notes (v2.3.56)
 
 ## Features & Improvements

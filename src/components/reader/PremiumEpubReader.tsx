@@ -602,6 +602,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [isFocusMode, setTopBarVisible, isTopBarShortcutOnly]);
 
+  // Auto-hide the top bar 2s after it appears (user request).
+  const isTopBarVisible = useReaderUIStore(state => state.isTopBarVisible);
+  useEffect(() => {
+    if (!isTopBarVisible) return;
+    const timer = setTimeout(() => setTopBarVisible(false), 2000);
+    return () => clearTimeout(timer);
+  }, [isTopBarVisible, setTopBarVisible]);
+
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
   // ────────────────────────────────────────────────────────────
@@ -1389,10 +1397,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
   const HOLD_AUTO_SCROLL_MS = 550;
   const HOLD_MOVE_TOLERANCE_PX = 14;
-  // ≈2 lines/sec at the default reader line height (~30px) — a comfortable
-  // reading pace (~240 wpm); 36px/s felt sluggish (~1.2 lines/sec).
-  const AUTO_SCROLL_SPEED_PX_PER_S = 60;
-  const PAGINATED_AUTO_ADVANCE_MS = 3000;
+  // ≈400+ wpm equivalent: ~3.3 lines/sec at the default line height (~30px).
+  const AUTO_SCROLL_SPEED_PX_PER_S = 100;
+  const PAGINATED_AUTO_ADVANCE_MS = 2000;
 
   const nextPageRef = useRef<() => void>(() => { });
   useEffect(() => { nextPageRef.current = nextPage; }, [nextPage]);

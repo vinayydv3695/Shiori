@@ -1389,8 +1389,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
   const HOLD_AUTO_SCROLL_MS = 550;
   const HOLD_MOVE_TOLERANCE_PX = 14;
-  const AUTO_SCROLL_SPEED_PX_PER_S = 36;
-  const PAGINATED_AUTO_ADVANCE_MS = 3500;
+  // ≈2 lines/sec at the default reader line height (~30px) — a comfortable
+  // reading pace (~240 wpm); 36px/s felt sluggish (~1.2 lines/sec).
+  const AUTO_SCROLL_SPEED_PX_PER_S = 60;
+  const PAGINATED_AUTO_ADVANCE_MS = 3000;
 
   const nextPageRef = useRef<() => void>(() => { });
   useEffect(() => { nextPageRef.current = nextPage; }, [nextPage]);

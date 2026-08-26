@@ -1,10 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.shiori" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:windowBackground">#fcfbf9</item>
+        <item name="android:windowBackground">#e5d6b6</item>
         <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
-        <item name="android:navigationBarColor">#fcfbf9</item>
-        <item name="android:statusBarColor">#fcfbf9</item>
+        <item name="android:navigationBarColor">#e5d6b6</item>
+        <item name="android:statusBarColor">#e5d6b6</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
         <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>

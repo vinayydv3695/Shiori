@@ -76,6 +76,15 @@ export function syncThemeColorHex(hex: string, isLight?: boolean) {
       console.warn('Failed to call ShioriAndroidTheme.setStatusBarTheme', e);
     }
   }
+
+  // Boot cache: index.html reads this BEFORE first paint so the native splash
+  // and window strip match the user's theme on the next cold start (the cache
+  // is only written with the APP theme — never the reader paper color).
+  try {
+    localStorage.setItem('shiori-boot-theme', JSON.stringify({ bg: hex, light }));
+  } catch {
+    // Storage unavailable — splash falls back to the default theme color.
+  }
 }
 
 export function syncThemeColor(theme: string) {

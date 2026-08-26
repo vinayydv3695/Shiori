@@ -27,7 +27,12 @@ export const AndroidSplashScreen = ({ onAnimationEnd, isReady }: AndroidSplashSc
       const timeout = setTimeout(() => {
         const splash = document.getElementById('native-splash');
         if (splash) {
+          // LinkedIn-style reveal: fade the backdrop while the logo gently
+          // zooms — both 0.5s ease, then drop the element.
           splash.style.opacity = '0';
+          splash.style.transform = 'scale(1.04)';
+          const logo = splash.querySelector('img');
+          if (logo) logo.style.transform = 'scale(1.06)';
           // Wait for the CSS fade-out transition (0.5s) to complete
           setTimeout(() => {
             splash.remove();

@@ -476,29 +476,9 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         }
     }, []);
 
-    usePremiumReaderKeyboard({
-        onPrevChapter: prevChapter,
-        onNextChapter: nextChapter,
-        onPrevPage: prevPage,
-        onNextPage: nextPage,
-    });
-
-    if (error) {
-        return (
-            <div className="premium-reader premium-reader--error">
-                <div className="premium-error-container">
-                    <AlertCircle className="premium-error-icon" />
-                    <p className="premium-error-title">{error}</p>
-                    <p className="premium-error-subtitle">Try opening a different book or check the file format.</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (!content) {
-        return null;
-    }
-
+    // ── Touch / Click handlers ──
+    // IMPORTANT: these refs and callbacks MUST stay above the early returns
+    // so that the hook call count is stable between renders (Rules of Hooks).
     const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
     const lastTouchNavigationRef = useRef<number>(0);
 
@@ -605,6 +585,29 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             }
         }
     }, [currentChapter, totalChapters]);
+
+    usePremiumReaderKeyboard({
+        onPrevChapter: prevChapter,
+        onNextChapter: nextChapter,
+        onPrevPage: prevPage,
+        onNextPage: nextPage,
+    });
+
+    if (error) {
+        return (
+            <div className="premium-reader premium-reader--error">
+                <div className="premium-error-container">
+                    <AlertCircle className="premium-error-icon" />
+                    <p className="premium-error-title">{error}</p>
+                    <p className="premium-error-subtitle">Try opening a different book or check the file format.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!content) {
+        return null;
+    }
 
     const handleContainerDoubleClick = (e: React.MouseEvent) => {
         if (isSelectionOrNoteActive()) return;

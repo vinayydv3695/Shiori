@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { api, isAndroid } from '@/lib/tauri';
+import { api, isAndroid, getEpubResourceUrl } from '@/lib/tauri';
 import type { BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
 import { findCurrentTocEntry } from '@/lib/toc';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
@@ -17,7 +17,8 @@ import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
-import { sanitizeBookContent, escapeHtml } from '@/lib/sanitize';
+import { escapeHtml } from '@/lib/sanitize';
+import DOMPurify from 'dompurify';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
@@ -40,36 +41,101 @@ interface PremiumEpubReaderProps {
   onClose: () => void;
 }
 
+// Sanitizer config mirrors sanitizeBookContent (rich book-content subset; script
+// and event-handler XSS stripped) but additionally permits the shiori-epub custom
+// protocol URIs that processEpubHtml emits (desktop: shiori-epub://, Windows:
+// tauri://; Android's http://shiori-epub.localhost is already http:). Kept local
+// because the default DOMPurify URI regexp drops any unknown scheme — which would
+// silently strip every resourced <img> src at injection time.
+const EPUB_SAFE_URI_REGEXP =
+  /^(?:(?:https?|mailto|tel|callto|sms|cid|xmpp):|(?:shiori-epub|tauri):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
+
+function sanitizeChapterHtml(content: string): string {
+  return DOMPurify.sanitize(content, {
+    // Keep style attributes — books rely on inline styles for formatting
+    ADD_ATTR: ['style'],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+    ALLOWED_URI_REGEXP: EPUB_SAFE_URI_REGEXP,
+  });
+}
+
 export function ChapterHtml({ content }: { content: string }) {
-  const html = useMemo(() => sanitizeBookContent(content), [content]);
+  const html = useMemo(() => sanitizeChapterHtml(content), [content]);
   return <div className="premium-chapter-content" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
-// Helper function to convert resource URLs to data URIs and inline CSS
-/** Convert a byte array to base64 without hitting call-stack limits on large files. */
-function bytesToBase64(data: number[] | Uint8Array | ArrayBuffer): string {
-  const bytes = data instanceof Uint8Array ? data
-    : data instanceof ArrayBuffer ? new Uint8Array(data)
-    : new Uint8Array(data);
-  let binary = '';
-  const CHUNK = 8192;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + CHUNK, bytes.length)));
+// Strip leading ../ and ./ (plus any fragment) from an EPUB-relative resource
+// path — same sanitization the old base64 inliner applied before fetching.
+function cleanEpubPath(path: string): string {
+  let clean = path.split('#')[0];
+  while (clean.startsWith('../') || clean.startsWith('./')) {
+    clean = clean.replace(/^\.\.\//, '').replace(/^\.\//, '');
   }
-  return btoa(binary);
+  return clean;
+}
+
+// Rewrite url() references inside inlined CSS to absolute shiori-epub:// URLs.
+// Relative refs inside CSS resolve against the CSS file's location (baseUrl),
+// NOT the app document — so fonts/images load lazily through the protocol.
+function rewriteCssUrls(css: string, baseUrl: string, bookId: number): string {
+  const urlRe = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi;
+  return css.replace(urlRe, (whole, quote: string, ref: string) => {
+    const trimmed = ref.trim();
+    if (trimmed.startsWith('data:') || trimmed.startsWith('http') || trimmed.startsWith('#')) {
+      return whole;
+    }
+    try {
+      const abs = new URL(trimmed, baseUrl);
+      // Only rewrite refs that resolve back into the EPUB protocol.
+      if (!/^(shiori-epub:|tauri:|https?:)/i.test(abs.protocol)) return whole;
+      // abs.pathname is percent-encoded and still carries the /<bookId>/ prefix.
+      const rel = decodeURIComponent(abs.pathname.replace(/^\/(\d+)\//, ''));
+      const cleaned = cleanEpubPath(rel);
+      if (cleaned) {
+        return `url(${quote || "'"}${getEpubResourceUrl(bookId, cleaned)}${quote || "'"})`;
+      }
+    } catch {
+      // malformed url() — leave untouched
+    }
+    return whole;
+  });
+}
+
+// Rewrite one src/srcset/href attribute value (no fetch, no base64).
+function rewriteResourceValue(attr: string, value: string, bookId: number): string {
+  if (attr === 'srcset') {
+    return value
+      .split(',')
+      .map((candidate) => {
+        const parts = candidate.trim().split(/\s+/);
+        const url = parts[0];
+        if (url.startsWith('http') || url.startsWith('data:')) return candidate;
+        const clean = cleanEpubPath(url);
+        if (!clean) return candidate;
+        const suffix = parts.length > 1 ? ` ${parts.slice(1).join(' ')}` : '';
+        return `${getEpubResourceUrl(bookId, clean)}${suffix}`;
+      })
+      .join(', ');
+  }
+  const clean = cleanEpubPath(value);
+  return clean ? getEpubResourceUrl(bookId, clean) : value;
 }
 
 export async function processEpubHtml(bookId: number, html: string): Promise<string> {
   let processedHtml = html;
 
-  // Step 1: Process CSS stylesheets - Convert <link> tags to <style> tags
+  // Step 1: Process CSS stylesheets. <link rel=stylesheet> tags can't be kept
+  // as-is: DOMPurify strips <link> tags entirely at injection time (and the
+  // reader injects into the app document, not an iframe). So the CSS is still
+  // inlined as <style> — but url() references inside it (fonts/images) are
+  // rewritten to absolute shiori-epub:// URLs instead of base64 data URIs, and
+  // the WebView fetches those lazily through the custom protocol.
   const cssLinkRegex = /<link[^>]+rel=["']stylesheet["'][^>]*>/gi;
-  const cssMatches = Array.from(html.matchAll(cssLinkRegex));
-
-  for (const match of cssMatches) {
+  for (const match of Array.from(html.matchAll(cssLinkRegex))) {
     const linkTag = match[0];
     const hrefMatch = linkTag.match(/href=["']([^"']+)["']/i);
-
     if (!hrefMatch) continue;
 
     const cssPath = hrefMatch[1];
@@ -80,25 +146,22 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
     }
 
     try {
-      let cleanPath = cssPath;
-      while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
-        cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      }
-
+      const cleanPath = cleanEpubPath(cssPath);
       const cssData = await api.getEpubResource(bookId, cleanPath);
       const cssText = new TextDecoder().decode(new Uint8Array(cssData));
-      const styleTag = `<style type="text/css">\n${cssText}\n</style>`;
+      const cssWithProtoUrls = rewriteCssUrls(cssText, getEpubResourceUrl(bookId, cleanPath), bookId);
+      const styleTag = `<style type="text/css">\n${cssWithProtoUrls}\n</style>`;
       processedHtml = processedHtml.replace(linkTag, styleTag);
     } catch {
       processedHtml = processedHtml.replace(linkTag, '');
     }
   }
 
-  // Step 2: Process images and other resources
-  const srcRegex = /(src|href)="([^"']+)"/g;
-  const matches = Array.from(processedHtml.matchAll(srcRegex));
-
-  for (const match of matches) {
+  // Step 2: Rewrite images/media/resources — no fetch + base64, just point
+  // src/srcset/href at the custom protocol and let the WebView fetch and
+  // decode lazily (custom protocols are async, so early injection is fine).
+  const srcRegex = /(src|srcset|href)="([^"']+)"/g;
+  for (const match of Array.from(processedHtml.matchAll(srcRegex))) {
     const attr = match[1];
     const originalPath = match[2];
 
@@ -116,36 +179,7 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
       continue;
     }
 
-    try {
-      let cleanPath = originalPath.split('#')[0]; // Strip hash if any
-      while (cleanPath.startsWith('../') || cleanPath.startsWith('./')) {
-        cleanPath = cleanPath.replace(/^\.\.\//, '').replace(/^\.\//, '');
-      }
-
-      const resourceData = await api.getEpubResource(bookId, cleanPath);
-
-      // Determine MIME type
-      let mimeType = 'application/octet-stream';
-      const ext = cleanPath.toLowerCase();
-      if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) mimeType = 'image/jpeg';
-      else if (ext.endsWith('.png')) mimeType = 'image/png';
-      else if (ext.endsWith('.gif')) mimeType = 'image/gif';
-      else if (ext.endsWith('.svg')) mimeType = 'image/svg+xml';
-      else if (ext.endsWith('.webp')) mimeType = 'image/webp';
-      else if (ext.endsWith('.bmp')) mimeType = 'image/bmp';
-      else if (ext.endsWith('.woff')) mimeType = 'font/woff';
-      else if (ext.endsWith('.woff2')) mimeType = 'font/woff2';
-      else if (ext.endsWith('.ttf')) mimeType = 'font/ttf';
-      else if (ext.endsWith('.otf')) mimeType = 'font/otf';
-
-      // Convert to base64 (chunked to avoid call-stack overflow on large files)
-      const base64 = bytesToBase64(resourceData);
-      const dataUri = `data:${mimeType};base64,${base64}`;
-
-      processedHtml = processedHtml.replace(`${attr}="${originalPath}"`, `${attr}="${dataUri}"`);
-    } catch {
-      // Skip failed resources silently
-    }
+    processedHtml = processedHtml.replace(match[0], `${attr}="${rewriteResourceValue(attr, originalPath, bookId)}"`);
   }
 
   return processedHtml;

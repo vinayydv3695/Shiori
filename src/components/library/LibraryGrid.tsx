@@ -348,6 +348,66 @@ export function LibraryGrid({
   const virtualItems = rowVirtualizer.getVirtualItems();
   const lastItem = virtualItems[virtualItems.length - 1];
 
+  // ── Single grid-level IntersectionObserver ──────────────────────────────
+  // One observer (root = the scroll container) drives lazy cover reveals for
+  // every card, replacing the old per-card observers (hundreds of native
+  // observers = JS↔native churn on Android WebView). Intersecting wrappers are
+  // batched into a single window event; cards reveal themselves on match.
+  const revealObserverRef = useRef<IntersectionObserver | null>(null);
+  const observedWrappersRef = useRef<Map<string, HTMLElement>>(new Map());
+
+  useEffect(() => {
+    if (!parentEl) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const ids: string[] = [];
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const id = entry.target.getAttribute("data-book-id");
+          if (id) ids.push(id);
+        }
+        if (ids.length > 0) {
+          window.dispatchEvent(
+            new CustomEvent("shiori:reveal-cover", { detail: { ids } }),
+          );
+        }
+      },
+      { root: parentEl, threshold: 0.05 },
+    );
+    revealObserverRef.current = observer;
+    return () => {
+      observer.disconnect();
+      observedWrappersRef.current.clear();
+    };
+  }, [parentEl]);
+
+  // Keep the observer's target set in sync with mounted card wrappers.
+  // observe() is idempotent, so re-running only when the mounted row window
+  // changes is cheap; detached wrappers are unobserved so the observer never
+  // leaks DOM nodes.
+  const mountedWrapperKey = virtualItems.map((v) => v.index).join(",");
+
+  useEffect(() => {
+    const observer = revealObserverRef.current;
+    if (!observer || !parentEl) return;
+    const observed = observedWrappersRef.current;
+    const live = new Set<string>();
+    parentEl.querySelectorAll<HTMLElement>("[data-book-id]").forEach((el) => {
+      const key = el.getAttribute("data-book-id")!;
+      live.add(key);
+      if (!observed.has(key)) {
+        observed.set(key, el);
+        observer.observe(el);
+      }
+    });
+    for (const [key, el] of observed) {
+      if (!live.has(key) || !el.isConnected) {
+        observer.unobserve(el);
+        observed.delete(key);
+      }
+    }
+  }, [parentEl, mountedWrapperKey, columns]);
+
   useEffect(() => {
     if (!lastItem) return;
 
@@ -468,6 +528,7 @@ export function LibraryGrid({
                           : `series-${item.data.id}`
                       }
                       role="gridcell"
+                      data-book-id={item.data.id}
                       style={{ flex: "1 1 0", minWidth: 0 }}
                     >
                       {item.type === "book" ? (
@@ -485,7 +546,6 @@ export function LibraryGrid({
                           onFavorite={handleFavorite}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentEl}
-                          forceVisible={true}
                         />
                       ) : (
                         <SeriesCard
@@ -498,7 +558,6 @@ export function LibraryGrid({
                           }}
                           animationDelay={Math.min(absoluteIndex * 10, 150)}
                           scrollRoot={parentEl}
-                          forceVisible={true}
                         />
                       )}
                     </div>

@@ -114,9 +114,9 @@ export const OnlineResultCard = memo(function OnlineResultCard({
     <div 
       className={cn(
         "group relative flex flex-row gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl transition-all duration-300",
-        "bg-card/60 hover:bg-card/90 border border-border/40 hover:border-primary/40",
+        "bg-card hover:bg-card border border-border/40 hover:border-primary/40",
         "shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-0.5",
-        "backdrop-blur-xl overflow-hidden"
+        "overflow-hidden"
       )}
     >
       {/* Cover / Thumbnail */}

@@ -80,7 +80,7 @@ export function MangaContentRow({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 w-8 p-0 rounded-full border-border/50 bg-card/60 backdrop-blur-sm cursor-pointer hover:bg-secondary"
+              className="h-8 w-8 p-0 rounded-full border-border/50 bg-card cursor-pointer hover:bg-secondary"
               onClick={() => scroll('left')}
               disabled={!canScrollLeft}
               aria-label="Scroll left"
@@ -90,7 +90,7 @@ export function MangaContentRow({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 w-8 p-0 rounded-full border-border/50 bg-card/60 backdrop-blur-sm cursor-pointer hover:bg-secondary"
+              className="h-8 w-8 p-0 rounded-full border-border/50 bg-card cursor-pointer hover:bg-secondary"
               onClick={() => scroll('right')}
               disabled={!canScrollRight}
               aria-label="Scroll right"

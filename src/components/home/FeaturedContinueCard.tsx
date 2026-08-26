@@ -58,6 +58,7 @@ export function FeaturedContinueCard({
           <img
             src={coverUrl}
             alt="Background"
+            decoding="async"
             className="w-full h-full object-cover object-center opacity-75 group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
@@ -74,7 +75,7 @@ export function FeaturedContinueCard({
           {/* Cover Thumbnail */}
           <div className="w-20 h-28 flex-shrink-0 rounded-lg overflow-hidden shadow-2xl ring-1 ring-border/40 group-hover:-translate-y-1 transition-transform duration-300 bg-muted">
             {coverUrl ? (
-              <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
+              <img src={coverUrl} alt={title} decoding="async" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full bg-muted flex items-center justify-center">
                 <BookOpen size={24} className="text-muted-foreground/50" />

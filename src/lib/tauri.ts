@@ -30,6 +30,24 @@ export function getProxyUrl(sourceId: string, url: string): string {
   return `${baseProxyUrl}?source=${sourceId}&url=${encodeURIComponent(url)}`;
 }
 
+// Build an absolute shiori-epub:// URL for an EPUB chapter resource (image,
+// font, media, or a CSS file). The base mirrors getProxyUrl's convertFileSrc
+// pattern:
+//   desktop: shiori-epub://localhost/<bookId>/<path>
+//   android: http://shiori-epub.localhost/<bookId>/<path>
+//   windows: tauri://shiori-epub.localhost/<bookId>/<path>
+// resourcePath must already be cleaned (no ../ ./ prefixes, no fragment); each
+// path segment is percent-encoded. The WebView fetches these lazily through the
+// shiori-epub custom protocol (served by AppState + RenderingService in Rust).
+export function getEpubResourceUrl(bookId: number, resourcePath: string): string {
+  let base = convertFileSrc('', 'shiori-epub');
+  if (base.endsWith('/')) {
+    base = base.slice(0, -1);
+  }
+  const encoded = resourcePath.split('/').map((seg) => encodeURIComponent(seg)).join('/');
+  return `${base}/${bookId}/${encoded}`;
+}
+
 // Cover hosts that serve images publicly (no Referer/UA requirement).
 // Everything else keeps going through the proxy (hotlink protection).
 const PUBLIC_COVER_SOURCES = new Set([

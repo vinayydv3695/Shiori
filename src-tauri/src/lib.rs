@@ -321,6 +321,118 @@ pub fn run() {
         });
     });
 
+    // shiori-epub: serve EPUB chapter resources (images, fonts, media) lazily to
+    // the WebView over a custom scheme. Replaces the old fetch+base64-inline path
+    // in the frontend that froze the main thread while every resource was encoded
+    // into a data URI. URL shape (host is arbitrary/platform-dependent — ignored
+    // here): shiori-epub://<host>/<bookId>/<percent-encoded relative path>
+    //   desktop: shiori-epub://localhost/<bookId>/<path>
+    //   android: http://shiori-epub.localhost/<bookId>/<path>
+    //   windows: tauri://shiori-epub.localhost/<bookId>/<path>
+    // Resources are content-addressed per book, so responses are cached forever.
+    builder = builder.register_asynchronous_uri_scheme_protocol("shiori-epub", |ctx, request, responder| {
+        let uri = request.uri().to_string();
+        let app_handle = ctx.app_handle().clone();
+
+        tauri::async_runtime::spawn(async move {
+            // Parse <bookId> + resource path from the URL path segments.
+            let mut book_id: Option<i64> = None;
+            let mut resource_path: Option<String> = None;
+
+            if let Ok(url) = url::Url::parse(&uri) {
+                let segments: Vec<String> = url
+                    .path_segments()
+                    .map(|segs| {
+                        segs.filter(|seg| !seg.is_empty())
+                            .map(|seg| {
+                                urlencoding::decode(seg)
+                                    .unwrap_or_else(|_| std::borrow::Cow::Borrowed(seg))
+                                    .into_owned()
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                if segments.len() >= 2 {
+                    if let Ok(id) = segments[0].parse::<i64>() {
+                        if id > 0 {
+                            book_id = Some(id);
+                            // Re-join the decoded path and mirror the frontend's
+                            // cleanPath logic (strip leading ../ and ./).
+                            let mut rel_path = segments[1..].join("/");
+                            while rel_path.starts_with("../") || rel_path.starts_with("./") {
+                                if let Some(stripped) = rel_path.strip_prefix("../") {
+                                    rel_path = stripped.to_string();
+                                } else if let Some(stripped) = rel_path.strip_prefix("./") {
+                                    rel_path = stripped.to_string();
+                                }
+                            }
+                            if let Some(stripped) = rel_path.strip_prefix('/') {
+                                rel_path = stripped.to_string();
+                            }
+                            if !rel_path.is_empty() {
+                                resource_path = Some(rel_path);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Content-Type by extension, resolved before the path is moved into
+            // the blocking task below.
+            let content_type = resource_path
+                .as_deref()
+                .map(|p| mime_guess::from_path(p).first_or_octet_stream().to_string())
+                .unwrap_or_else(|| "application/octet-stream".to_string());
+
+            // Same service call as the get_epub_resource command; it does blocking
+            // zip/file IO, so run it on a blocking thread pool.
+            let service = app_handle
+                .try_state::<commands::rendering::RenderingState>()
+                .map(|s| s.service.clone());
+            let db = app_handle.try_state::<AppState>().map(|s| s.db.clone());
+
+            let bytes_result = match (book_id, resource_path) {
+                (Some(id), Some(path)) => tauri::async_runtime::spawn_blocking(move || {
+                    match (service, db) {
+                        (Some(service), Some(db)) => {
+                            let _ = service.open_if_needed(&db, id);
+                            service.get_epub_resource(id, &path)
+                        }
+                        (None, _) => Err(ShioriError::Other(
+                            "EPUB renderer service unavailable".into(),
+                        )),
+                        _ => Err(ShioriError::Other("Library state unavailable".into())),
+                    }
+                })
+                .await,
+                _ => Ok(Err(ShioriError::Other("Invalid shiori-epub URL".into()))),
+            };
+
+            if let Ok(Ok(bytes)) = bytes_result {
+                if let Ok(resp) = tauri::http::Response::builder()
+                    .status(200)
+                    .header("Content-Type", content_type)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .header("Cache-Control", "public, max-age=31536000, immutable")
+                    .body(bytes)
+                {
+                    responder.respond(resp);
+                    return;
+                }
+            }
+
+            // Always answer — even on parse/not-found failures — Android wry has a
+            // 30s pipe cap per unanswered request.
+            if let Ok(resp) = tauri::http::Response::builder()
+                .status(404)
+                .body(Vec::new())
+            {
+                responder.respond(resp);
+            }
+        });
+    });
+
     #[cfg(not(target_os = "linux"))]
     {
         log::info!("Native TTS plugin enabled - initializing tauri-plugin-tts");

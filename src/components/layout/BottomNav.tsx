@@ -45,7 +45,7 @@ export function BottomNav({
   
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around min-h-[64px] bg-background/85 backdrop-blur-xl md:hidden border-t border-border/50 shadow-none outline-none ring-0"
+      className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around min-h-[64px] bg-background md:hidden border-t border-border/50 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] outline-none ring-0"
       style={{
         paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
         paddingLeft: 'env(safe-area-inset-left, 0px)',
@@ -89,7 +89,7 @@ export function BottomNav({
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background/90 backdrop-blur-2xl p-2 mb-2"
+            className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background p-2 mb-2"
           >
             <DropdownMenuItem asChild onClick={() => onNavigateToView('shelves')}>
               <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">

@@ -96,7 +96,6 @@ export const SeriesCard = memo(function SeriesCard({
   onSelect,
   onOpen,
   animationDelay = 0,
-  scrollRoot,
   forceVisible = false,
 }: SeriesCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -166,22 +165,22 @@ export const SeriesCard = memo(function SeriesCard({
     /rss|feed|daily reading|daily digest|newsletter/i.test(series.title);
   const hasCover = !!coverUrl && !imgError;
 
+  // Reveal is driven by the grid's single IntersectionObserver — no per-card
+  // observers (hundreds of native observers = JS↔native churn on Android
+  // WebView). The grid dispatches a batched `shiori:reveal-cover` event for
+  // every wrapper that enters the viewport; this card reveals on match.
   useEffect(() => {
     if (forceVisible) return;
-    const el = cardRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { root: scrollRoot ?? null, threshold: 0.05 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [scrollRoot, forceVisible]);
+    const onReveal = (e: Event) => {
+      const ids = (e as CustomEvent<{ ids: string[] }>).detail?.ids;
+      if (ids?.includes(String(series.id))) {
+        setVisible(true);
+        window.removeEventListener("shiori:reveal-cover", onReveal);
+      }
+    };
+    window.addEventListener("shiori:reveal-cover", onReveal);
+    return () => window.removeEventListener("shiori:reveal-cover", onReveal);
+  }, [forceVisible, series.id]);
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.shiftKey || e.ctrlKey || e.metaKey) && onSelect) {
@@ -279,7 +278,7 @@ export const SeriesCard = memo(function SeriesCard({
                   <div
                     className={cn(
                       "absolute inset-0 flex items-center justify-center z-30",
-                      "bg-background/60 backdrop-blur-[2px]",
+                      "bg-background/75",
                       "opacity-0 group-hover:opacity-100",
                       "transition-opacity duration-[150ms]",
                       "rounded-t-[inherit]",
@@ -288,7 +287,7 @@ export const SeriesCard = memo(function SeriesCard({
                     <div
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 rounded-lg",
-                        "bg-background/90 backdrop-blur-sm",
+                        "bg-background/95",
                         "border border-border/60",
                         "text-foreground/80 text-xs font-medium",
                         "shadow-sm",

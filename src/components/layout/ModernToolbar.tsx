@@ -132,7 +132,7 @@ export const ModernToolbar = ({
   }, [searchQuery, onSearch])
 
   return (
-    <div className="h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <div className="h-14 bg-background border-b border-border/40 sticky top-0 z-50">
       <div className="h-full px-4 flex items-center justify-between gap-2">
         {/* Left: Main Actions */}
         <div className="flex items-center gap-1">

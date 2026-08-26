@@ -137,8 +137,8 @@ interface OverlayProps {
 const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: OverlayProps) => {
   const btnCls = cn(
     'flex items-center justify-center w-8 h-8 rounded-full',
-    'bg-secondary/90 text-foreground hover:bg-secondary hover:scale-110',
-    'transition-all duration-200 backdrop-blur-md',
+    'bg-secondary/95 text-foreground hover:bg-secondary hover:scale-110',
+    'transition-transform duration-200',
     'border border-border/50',
     'shadow-sm'
   )
@@ -159,7 +159,7 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: Over
       <div
         className={cn(
           'absolute inset-0 flex flex-col items-center justify-center gap-3',
-          'bg-card-overlay/60 backdrop-blur-[2px]',
+          'bg-card-overlay/70',
           'opacity-0 group-hover:opacity-100',
           'transition-all duration-300 ease-out',
           'rounded-[inherit]',
@@ -247,7 +247,6 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   isFavorited: propIsFavorited,
   onFavorite,
   animationDelay = 0,
-  scrollRoot,
   forceVisible = false,
 }: BookCardProps) {
   const storeIsSelected = useLibraryStore((s) => s.selectedBookIds.has(book.id!))
@@ -270,17 +269,22 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const isManga = book.file_format === 'cbz' || book.file_format === 'cbr'
   const isRss = book.tags?.some((t: any) => t.name === 'RSS') ?? false;
 
+  // Reveal is driven by the grid's single IntersectionObserver — no per-card
+  // observers (hundreds of native observers = JS↔native churn on Android
+  // WebView). The grid dispatches a batched `shiori:reveal-cover` event for
+  // every wrapper that enters the viewport; this card reveals on match.
   useEffect(() => {
     if (forceVisible) return;
-    const el = cardRef.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.disconnect() } },
-      { root: scrollRoot ?? null, threshold: 0.05 },
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [scrollRoot, forceVisible])
+    const onReveal = (e: Event) => {
+      const ids = (e as CustomEvent<{ ids: string[] }>).detail?.ids;
+      if (ids?.includes(String(book.id))) {
+        setVisible(true);
+        window.removeEventListener('shiori:reveal-cover', onReveal);
+      }
+    };
+    window.addEventListener('shiori:reveal-cover', onReveal);
+    return () => window.removeEventListener('shiori:reveal-cover', onReveal);
+  }, [forceVisible, book.id])
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -323,9 +327,9 @@ export const PremiumBookCard = memo(function PremiumBookCard({
       }}
       className={cn(
         'group relative flex flex-col rounded-xl max-md:rounded-ui-xl overflow-hidden',
-        'bg-card/90 backdrop-blur-lg border border-border/40',
+        'bg-card border border-border/40',
         'cursor-pointer select-none',
-        'transition-all duration-[400ms] cubic-bezier(0.25, 1, 0.5, 1)',
+        'transition-transform duration-300 ease-out',
         !visible && 'opacity-0 scale-95',
         visible && 'animate-card-in',
         isSelected
@@ -393,7 +397,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             isSelected
               ? 'bg-primary border-primary shadow-sm opacity-100'
-              : 'bg-background/80 backdrop-blur-sm border-border/70 opacity-0 group-hover:opacity-100',
+              : 'bg-background/90 border-border/70 opacity-0 group-hover:opacity-100',
           )}
         >
           {isSelected && <IconCheck size={11} className="text-primary-foreground" />}
@@ -423,7 +427,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} onOpen={() => onOpen(book.id!)} />
           </div>
           {isRss && (coverUrl && !imgError) && (
-            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md backdrop-blur-md bg-orange-500/90 text-white border border-white/20 pointer-events-auto">
+            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md bg-orange-500 text-white border border-white/20 pointer-events-auto">
               <Rss size={10} />
               RSS
             </span>

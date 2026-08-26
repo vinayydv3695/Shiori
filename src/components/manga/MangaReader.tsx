@@ -26,6 +26,7 @@ import { useMangaKeyboard } from './hooks/useMangaKeyboard';
 import { imageCache } from './hooks/useMangaPreloader';
 import { clearOnlineImageCache } from './hooks/useUnifiedImageDecode';
 import { useReadingSession } from '@/hooks/useReadingSession';
+import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
 
 // Import manga reader styles
 import '@/styles/manga-reader.css';
@@ -249,6 +250,14 @@ export function MangaReader(props: MangaReaderProps) {
     // Apply theme on mount
     useEffect(() => {
         document.documentElement.setAttribute('data-manga-theme', theme);
+    }, [theme]);
+
+    // Sync Android system-bar color with the manga reading surface.
+    // Manga themes are 'light'|'dark'; map to the nearest ReaderTheme:
+    // light -> sepia (#F4ECD8 canvas), dark -> black (#000000 canvas).
+    useEffect(() => {
+        syncReaderStatusBar(theme === 'light' ? 'sepia' : 'black');
+        return () => restoreAppStatusBar();
     }, [theme]);
 
     // Keep onNextChapter updated in the UI store

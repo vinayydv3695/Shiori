@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { MangaReader } from '@/components/manga/MangaReader';
 import type { OnlineSourceConfig } from '@/store/mangaReaderStore';
+import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
 import '@/styles/manga-reader.css';
 
 /**
@@ -58,6 +59,18 @@ export function OnlineMangaReader() {
       pageUrls: pages.map(p => p.url),
     };
   }, [sourceId, contentId, contentTitle, chapterId, chapters, pages]);
+
+  // The fixed-dark loading/no-chapter screens use data-manga-theme="dark"
+  // (canvas #000000). Sync the Android system bars to match while they're
+  // shown; while the MangaReader child is visible it owns the sync itself.
+  const isReaderVisible = Boolean(sourceConfig);
+  useEffect(() => {
+    if (isReaderVisible) return;
+    syncReaderStatusBar('black');
+    return () => {
+      if (!isReaderVisible) restoreAppStatusBar();
+    };
+  }, [isReaderVisible]);
 
   const handleNextChapter = useCallback(() => {
     if (!sourceConfig) return;

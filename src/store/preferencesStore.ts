@@ -53,6 +53,31 @@ function isColorLight(colorHex: string): boolean {
   return true;
 }
 
+/**
+ * Apply a raw hex color to the Android system bars + theme-color meta.
+ * Shared by the app-level sync and the reader paper sync (statusBarTheme.ts).
+ */
+export function syncThemeColorHex(hex: string, isLight?: boolean) {
+  if (typeof document === 'undefined') return;
+  const light = isLight ?? isColorLight(hex);
+
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', hex);
+
+  if (typeof window !== 'undefined' && (window as any).ShioriAndroidTheme?.setStatusBarTheme) {
+    try {
+      (window as any).ShioriAndroidTheme.setStatusBarTheme(hex, light);
+    } catch (e) {
+      console.warn('Failed to call ShioriAndroidTheme.setStatusBarTheme', e);
+    }
+  }
+}
+
 export function syncThemeColor(theme: string) {
   if (typeof document === 'undefined') return;
   const activeTheme = themeMap[theme] ?? theme;
@@ -79,23 +104,7 @@ export function syncThemeColor(theme: string) {
     hex = isDarkTheme(activeTheme) ? '#121212' : '#fcfbf9';
   }
 
-  const isLight = isColorLight(hex);
-
-  let meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
-    document.head.appendChild(meta);
-  }
-  meta.setAttribute('content', hex);
-
-  if (typeof window !== 'undefined' && (window as any).ShioriAndroidTheme?.setStatusBarTheme) {
-    try {
-      (window as any).ShioriAndroidTheme.setStatusBarTheme(hex, isLight);
-    } catch (e) {
-      console.warn('Failed to call ShioriAndroidTheme.setStatusBarTheme', e);
-    }
-  }
+  syncThemeColorHex(hex, isColorLight(hex));
 }
 
 interface PreferencesStore {

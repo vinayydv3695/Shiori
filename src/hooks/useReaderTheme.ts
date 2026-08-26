@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { applyReaderThemeToElement, removeReaderThemeFromElement, type ReaderTheme } from '@/store/premiumReaderStore';
+import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
 
 /**
  * Applies and cleans up the reader theme on a container element.
@@ -11,7 +12,15 @@ export function useReaderTheme(
 ) {
   useEffect(() => {
     const el = containerRef.current;
-    if (el) applyReaderThemeToElement(el, theme);
-    return () => { if (el) removeReaderThemeFromElement(el); };
+    if (el) {
+      applyReaderThemeToElement(el, theme);
+      syncReaderStatusBar(theme);
+    }
+    return () => {
+      if (el) {
+        removeReaderThemeFromElement(el);
+        restoreAppStatusBar();
+      }
+    };
   }, [theme, containerRef]);
 }

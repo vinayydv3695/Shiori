@@ -9,6 +9,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// Upper bound on the processed-files set. Duplicate import protection is
+/// ALSO enforced by the DB (file_path/hash dedup in import_single_book), so
+/// clearing only risks re-checking a handful of files once — never a
+/// duplicate import. Clear-not-prune: a HashSet has no ordering, so pruning
+/// would need a full rebuild anyway; clearing is O(n) amortized and bounds
+/// memory for watch sessions that run for days.
+const MAX_PROCESSED_FILES: usize = 20_000;
+
 const SUPPORTED_FORMATS: &[&str] = &[
     "epub", "pdf", "mobi", "azw3", "docx", "fb2", "cbz", "cbr", "zip", "txt", "html", "htm", "md",
 ];
@@ -236,6 +244,9 @@ impl FolderWatchService {
                 let mut processed = processed_files.lock();
                 if processed.contains(path) {
                     continue;
+                }
+                if processed.len() >= MAX_PROCESSED_FILES {
+                    processed.clear();
                 }
                 processed.insert(path.clone());
             }

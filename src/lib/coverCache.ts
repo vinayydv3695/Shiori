@@ -39,8 +39,15 @@ function toAssetUrl(filePath: string): string | null {
 // ─── Module-level cache (lives for the lifetime of the app) ──────────────────
 // Size-guarded LRU: on a 50k-book library the path cache could otherwise grow
 // without bound as the user scrolls. 10k entries ≈ a few MB of strings.
+// Entries carry an access timestamp so stale paths (e.g. a cover replaced on
+// disk hours ago) expire after 60 minutes instead of living forever.
 const COVER_CACHE_MAX = 10_000
-const pathCache = new Map<number, string | null>()  // null = no cover exists
+const COVER_CACHE_TTL_MS = 60 * 60 * 1000
+interface CoverCacheEntry {
+  url: string | null  // null = no cover exists
+  at: number
+}
+const pathCache = new Map<number, CoverCacheEntry>()
 
 // ─── Pending batch state ──────────────────────────────────────────────────────
 type Resolver = (url: string | null) => void
@@ -59,7 +66,7 @@ function flushBatch() {
     .then((result) => {
       for (const id of ids) {
         const path = result[String(id)] ?? null
-        lruSet(pathCache, id, path, COVER_CACHE_MAX)
+        lruSet(pathCache, id, { url: path, at: Date.now() }, COVER_CACHE_MAX)
         const url = path ? toAssetUrl(path) : null
         const waiters = resolvers.get(id) ?? []
         for (const resolve of waiters) resolve(url)
@@ -68,7 +75,7 @@ function flushBatch() {
     .catch(() => {
       // On error, resolve everyone with null (card shows placeholder)
       for (const [id, waiters] of resolvers) {
-        lruSet(pathCache, id, null, COVER_CACHE_MAX)
+        lruSet(pathCache, id, { url: null, at: Date.now() }, COVER_CACHE_MAX)
         for (const resolve of waiters) resolve(null)
       }
     })
@@ -82,7 +89,11 @@ export function requestCoverUrl(id: number): Promise<string | null> {
   // Cache hit (lruGet refreshes recency)
   const cached = lruGet(pathCache, id)
   if (cached !== undefined) {
-    return Promise.resolve(cached ? toAssetUrl(cached) : null)
+    if (Date.now() - cached.at < COVER_CACHE_TTL_MS) {
+      return Promise.resolve(cached.url ? toAssetUrl(cached.url) : null)
+    }
+    // Stale entry: drop it and treat as a miss (requeue in the batch).
+    pathCache.delete(id)
   }
 
   // Queue into the current batch
@@ -103,7 +114,15 @@ export function requestCoverUrl(id: number): Promise<string | null> {
 
 /** Pre-warm the cache for a list of IDs (called by LibraryGrid after data loads) */
 export async function prefetchCovers(ids: number[]): Promise<void> {
-  const missing = ids.filter(id => !pathCache.has(id))
+  const missing = ids.filter(id => {
+    const entry = pathCache.get(id)
+    if (entry === undefined) return true
+    if (Date.now() - entry.at >= COVER_CACHE_TTL_MS) {
+      pathCache.delete(id)
+      return true
+    }
+    return false
+  })
   if (missing.length === 0) return
 
   // Chunk into 200-ID batches (matches Rust cap)
@@ -112,7 +131,7 @@ export async function prefetchCovers(ids: number[]): Promise<void> {
     try {
       const result = await invoke<Record<string, string>>('get_cover_paths_batch', { ids: chunk })
       for (const id of chunk) {
-        lruSet(pathCache, id, result[String(id)] ?? null, COVER_CACHE_MAX)
+        lruSet(pathCache, id, { url: result[String(id)] ?? null, at: Date.now() }, COVER_CACHE_MAX)
       }
     } catch {
       // Non-fatal: individual cards will retry via requestCoverUrl

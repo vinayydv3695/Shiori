@@ -267,6 +267,19 @@ impl SourceDiskCache {
         self.core.sweep(SOURCE_CACHE_MAX_AGE);
     }
 
+    /// Remove an entry immediately (e.g. after a source reconfiguration),
+    /// without waiting for its TTL to expire. Returns whether the key was
+    /// present in the index. Best-effort: the file removal failure is
+    /// ignored, the index entry is still dropped.
+    pub fn invalidate(&self, key: &str) -> bool {
+        let mut index = self.core.index.lock().unwrap_or_else(|p| p.into_inner());
+        let present = index.remove(key).is_some();
+        if present {
+            let _ = std::fs::remove_file(self.core.file_path(key));
+        }
+        present
+    }
+
     pub async fn get_or_fetch<T, F>(&self, key: &str, ttl: Duration, fetch: F) -> Result<T>
     where
         T: Serialize + DeserializeOwned + Clone,

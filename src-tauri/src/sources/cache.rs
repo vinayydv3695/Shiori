@@ -119,6 +119,17 @@ impl SourceResponseCache {
     pub fn clear(&self) {
         self.cache.lock().unwrap_or_else(|p| p.into_inner()).clear();
     }
+
+    /// Remove an entry immediately (e.g. after a source reconfiguration),
+    /// without waiting for its TTL to expire. Returns whether the key was
+    /// present in the cache.
+    pub fn invalidate(&self, key: &str) -> bool {
+        self.cache
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(key)
+            .is_some()
+    }
 }
 
 #[cfg(test)]

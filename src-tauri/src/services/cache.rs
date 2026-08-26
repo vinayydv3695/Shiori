@@ -88,10 +88,13 @@ impl BookCache {
             }
         }
 
-        // Add new item
-        if let Some(old_content) = state.lru.put(key, content) {
-            // Replace existing item — subtract old size
-            state.current_size_bytes -= Self::estimate_content_size(&old_content);
+        // Add new item. `push` (unlike `put`) also reports the pair evicted
+        // when the 1000-item count cap is hit internally, so the byte
+        // accounting can't leak: `put` only returns the replaced same-key
+        // value, silently skipping count-cap evictions.
+        if let Some((_, evicted)) = state.lru.push(key, content) {
+            state.current_size_bytes =
+                state.current_size_bytes.saturating_sub(Self::estimate_content_size(&evicted));
         }
         state.current_size_bytes += content_size;
     }

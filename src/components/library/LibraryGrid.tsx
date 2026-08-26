@@ -319,19 +319,28 @@ export function LibraryGrid({
 
   useEffect(() => {
     if (!parentEl) return;
-    
+
+    // Batch resize updates to one set per animation frame — a raw state
+    // update per observer callback can double-paint on rapid container
+    // resizes (rotation, split-view drag, window snap).
+    let raf = 0;
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width;
-      if (width) {
+      if (!width) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
         setContainerWidth(width);
         // Force at least 2 columns on mobile for normal density, but allow 1 if spacious
         const minCols = (isMobile && libraryDensity === "spacious") ? 1 : 2;
         setColumns(Math.max(minCols, Math.floor(width / densityColumnSize)));
-      }
+      });
     });
 
     observer.observe(parentEl);
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
   }, [parentEl, densityColumnSize, isMobile, libraryDensity]);
 
   const rowsCount = Math.ceil(groupedItems.length / columns);

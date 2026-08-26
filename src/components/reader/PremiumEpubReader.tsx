@@ -4,6 +4,7 @@ import { api, isAndroid } from '@/lib/tauri';
 import type { BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
 import { findCurrentTocEntry } from '@/lib/toc';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
+import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
 import { useReaderStore } from '@/store/readerStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
@@ -231,6 +232,10 @@ const MAX_PROCESSED_CHAPTERS = isAndroid ? 3 : 5;
 const MAX_PROCESSED_CHAPTER_BYTES = (isAndroid ? 16 : 64) * 1024 * 1024;
 const processedChapterCache = new Map<string, Chapter>();
 let processedChapterCacheBytes = 0;
+// Book whose chapters are currently cached; used to drop the previous book's
+// entries when the user switches books mid-session (the cache is keyed by
+// bookId, so stale entries from Book A would otherwise linger behind Book B).
+let cachedBookId: number | undefined = undefined;
 
 function estimateProcessedChapterBytes(chapter: Chapter): number {
   // JS strings are UTF-16; data-URI HTML also keeps browser-side decoded
@@ -319,6 +324,12 @@ export function clearProcessedChapterCache(bookId?: number): void {
 
 /** Fetch a chapter and process its HTML, reusing the module-level cache. */
 async function loadProcessedChapter(bookId: number, index: number, term?: string | null): Promise<Chapter> {
+  // Book switch: drop the previous book's cached chapters before loading the
+  // first chapter of the new book (per-chapter LRU caps stay intact).
+  if (cachedBookId !== undefined && cachedBookId !== bookId) {
+    clearProcessedChapterCache(cachedBookId);
+  }
+  cachedBookId = bookId;
   // Two-layer cache: the expensive resource-inlined base chapter is keyed
   // without the search term, so changing the search term reuses it and only
   // re-runs the cheap search-highlight pass. Term variants stay bounded by
@@ -567,9 +578,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const el = readerContainerRef.current;
     if (el) {
       applyReaderThemeToElement(el, theme);
+      // Android: match the system-bar strip to the reading surface (paper
+      // color) — PremiumEpubReader applies its theme directly (not via the
+      // useReaderTheme hook), so the sync must be wired here explicitly.
+      syncReaderStatusBar(theme);
     }
     return () => {
       if (el) removeReaderThemeFromElement(el);
+      restoreAppStatusBar();
     };
   }, [theme, isLoading, error]);
 
@@ -870,6 +886,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       }
       flushProgressNow();
       clearProcessedChapterCache(bookId);
+      // Drop the per-chapter scroll-ratio map when the reader closes or the
+      // book changes — indices from the previous book must not restore wrong
+      // positions in the next one (the 100-entry cap stays intact).
+      scrollPositionsRef.current = new Map<number, number>();
       api.closeBookRenderer(bookId).catch(logger.error);
     };
   }, [bookPath, bookId, flushProgressNow]);
@@ -1361,6 +1381,125 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // RENDER
   // ────────────────────────────────────────────────────────────
 
+  // ────────────────────────────────────────────────────────────
+  // HOLD-TO-AUTO-SCROLL (Android) — press and hold the reading
+  // surface to auto-scroll; release to stop. Native long-press text
+  // selection cancels it (checked per frame), and the existing
+  // tap / double-tap / swipe logic is untouched.
+  // ────────────────────────────────────────────────────────────
+  const HOLD_AUTO_SCROLL_MS = 550;
+  const HOLD_MOVE_TOLERANCE_PX = 14;
+  const AUTO_SCROLL_SPEED_PX_PER_S = 36;
+  const PAGINATED_AUTO_ADVANCE_MS = 3500;
+
+  const nextPageRef = useRef<() => void>(() => { });
+  useEffect(() => { nextPageRef.current = nextPage; }, [nextPage]);
+
+  const holdStateRef = useRef<{
+    timer: number | null;
+    raf: number | null;
+    autoPageTimer: number | null;
+    lastTs: number;
+    pointer: { x: number; y: number } | null;
+  }>({ timer: null, raf: null, autoPageTimer: null, lastTs: 0, pointer: null });
+  const autoScrollActiveRef = useRef(false);
+
+  const stopAutoScroll = useCallback(() => {
+    const h = holdStateRef.current;
+    if (h.timer != null) { clearTimeout(h.timer); h.timer = null; }
+    if (h.raf != null) { cancelAnimationFrame(h.raf); h.raf = null; }
+    if (h.autoPageTimer != null) { clearInterval(h.autoPageTimer); h.autoPageTimer = null; }
+    h.pointer = null;
+    if (autoScrollActiveRef.current) {
+      autoScrollActiveRef.current = false;
+      triggerHaptic(10);
+    }
+  }, []);
+
+  const beginAutoScroll = useCallback(() => {
+    if (autoScrollActiveRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    autoScrollActiveRef.current = true;
+    triggerHaptic(14);
+
+    const isPaginatedCanvas =
+      canvas.classList.contains('premium-reading-canvas--paginated') ||
+      canvas.classList.contains('premium-reading-canvas--two-page');
+
+    if (isPaginatedCanvas) {
+      nextPageRef.current();
+      holdStateRef.current.autoPageTimer = window.setInterval(() => {
+        nextPageRef.current();
+      }, PAGINATED_AUTO_ADVANCE_MS);
+      return;
+    }
+
+    // Continuous flow: smooth vertical scroll via requestAnimationFrame.
+    holdStateRef.current.lastTs = performance.now();
+    const step = (ts: number) => {
+      const h = holdStateRef.current;
+      if (!autoScrollActiveRef.current || h.raf == null) return;
+      const dt = Math.min(ts - h.lastTs, 100);
+      h.lastTs = ts;
+      // The OS long-press text selection cancels the scroll.
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        stopAutoScroll();
+        return;
+      }
+      const canvasEl = canvasRef.current;
+      if (!canvasEl) {
+        stopAutoScroll();
+        return;
+      }
+      canvasEl.scrollTop += (AUTO_SCROLL_SPEED_PX_PER_S * dt) / 1000;
+      const maxScroll = canvasEl.scrollHeight - canvasEl.clientHeight;
+      if (maxScroll <= 0 || canvasEl.scrollTop >= maxScroll - 2) {
+        stopAutoScroll();
+        return;
+      }
+      h.raf = requestAnimationFrame(step);
+    };
+    holdStateRef.current.raf = requestAnimationFrame(step);
+  }, [stopAutoScroll]);
+
+  const handleHoldTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!isAndroid || isDoodleMode) return;
+    if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(e.target as Element)) return;
+    if (e.touches.length !== 1) return;
+    stopAutoScroll();
+    const t = e.touches[0];
+    const h = holdStateRef.current;
+    h.pointer = { x: t.clientX, y: t.clientY };
+    h.timer = window.setTimeout(() => {
+      h.timer = null;
+      beginAutoScroll();
+    }, HOLD_AUTO_SCROLL_MS);
+  }, [beginAutoScroll, stopAutoScroll, isDoodleMode]);
+
+  const handleHoldTouchMove = useCallback((e: React.TouchEvent) => {
+    const h = holdStateRef.current;
+    if (h.timer == null || !h.pointer) return;
+    if (autoScrollActiveRef.current) return; // already scrolling — ignore drift
+    if (e.touches.length !== 1) {
+      stopAutoScroll();
+      return;
+    }
+    const t = e.touches[0];
+    const dx = t.clientX - h.pointer.x;
+    const dy = t.clientY - h.pointer.y;
+    if (Math.sqrt(dx * dx + dy * dy) > HOLD_MOVE_TOLERANCE_PX) {
+      if (h.timer != null) { clearTimeout(h.timer); h.timer = null; }
+      h.pointer = null;
+    }
+  }, [stopAutoScroll]);
+
+  const handleHoldTouchEnd = useCallback((_e: React.TouchEvent) => { stopAutoScroll(); }, [stopAutoScroll]);
+  const handleHoldTouchCancel = useCallback((_e: React.TouchEvent) => { stopAutoScroll(); }, [stopAutoScroll]);
+
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
+
   const handleContainerDoubleClick = useCallback((e: React.MouseEvent) => {
     if (isDoodleMode || isSelectionOrNoteActive()) return;
     
@@ -1454,8 +1593,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} 
       onClick={handleContainerClick} 
       onDoubleClick={handleContainerDoubleClick}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={(e) => { handleTouchStart(e); handleHoldTouchStart(e); }}
+      onTouchEnd={(e) => { handleTouchEnd(e); handleHoldTouchEnd(e); }}
+      onTouchMove={handleHoldTouchMove}
+      onTouchCancel={handleHoldTouchCancel}
     >
       {/* Auto-hide Top Bar */}
       <ReaderTopBar

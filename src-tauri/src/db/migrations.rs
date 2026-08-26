@@ -165,6 +165,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 47 {
             self.run_in_savepoint("v47", |mgr| mgr.migrate_to_v47())?;
         }
+        if current_version < 48 {
+            self.run_in_savepoint("v48", |mgr| mgr.migrate_to_v48())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2832,6 +2835,25 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v47_high_volume_rss_indexes");
         self.record_migration(47, "high_volume_rss_indexes", &hash)?;
+        Ok(())
+    }
+
+    /// v48: search-performance indexes, profiled with EXPLAIN QUERY PLAN on a
+    /// seeded 3000-book library — publisher and rating+date filters were doing
+    /// full `SCAN books`, and format/language/status filtered residuals one row
+    /// at a time on the status index.
+    fn migrate_to_v48(&self) -> Result<()> {
+        log::info!("[Migration] Applying v48: search composite indexes");
+
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_books_publisher ON books(publisher);
+             CREATE INDEX IF NOT EXISTS idx_books_publisher_added ON books(publisher, added_date DESC);
+             CREATE INDEX IF NOT EXISTS idx_books_rating ON books(rating);
+             CREATE INDEX IF NOT EXISTS idx_books_status_format_lang ON books(reading_status, file_format, language);"
+        )?;
+
+        let hash = Self::calculate_checksum("v48_search_composite_indexes");
+        self.record_migration(48, "search_composite_indexes", &hash)?;
         Ok(())
     }
 }

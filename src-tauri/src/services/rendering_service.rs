@@ -41,7 +41,14 @@ impl RenderingService {
         }
     }
 
-    /// Open a book and prepare it for rendering
+    /// Open a book and prepare it for rendering (sync entry point).
+    ///
+    /// Call this from blocking contexts (e.g. `spawn_blocking` closures,
+    /// sync tests). The async adapter load is offloaded via `block_in_place`,
+    /// which is a no-op on the blocking thread pool and hands the worker core
+    /// off when invoked from a multi-threaded runtime worker. Async Tauri
+    /// commands should use [`Self::open_book_async`] instead so the heavy IO
+    /// stays on the blocking pool at the async boundary.
     pub fn open_book(&self, book_id: i64, path: &str, format: &str) -> Result<BookMetadata> {
         log::debug!(
             "[RenderingService::open_book] book_id={} path={} format={}",
@@ -177,6 +184,26 @@ impl RenderingService {
                 path: path.to_string(),
             }),
         }
+    }
+
+    /// Async variant of [`Self::open_book`] for Tauri commands.
+    ///
+    /// The whole blocking open (adapter construction + load + metadata) is
+    /// moved onto the Tokio blocking thread pool via `spawn_blocking` so it
+    /// never occupies an async worker thread. Requires an `Arc<Self>` because
+    /// the blocking task must outlive the call.
+    pub async fn open_book_async(
+        self: &Arc<Self>,
+        book_id: i64,
+        path: &str,
+        format: &str,
+    ) -> Result<BookMetadata> {
+        let this = self.clone();
+        let path = path.to_string();
+        let format = format.to_string();
+        tokio::task::spawn_blocking(move || this.open_book(book_id, &path, &format))
+            .await
+            .map_err(|e| ShioriError::Other(format!("Task panicked: {}", e)))?
     }
 
     /// Close a book and free resources
@@ -611,7 +638,9 @@ impl RenderingService {
         self.cache.clear();
     }
 
-    /// Render a specific page as a PNG image Buffer (for native PDF/image books)
+    /// Render a specific page as a PNG image Buffer (for native PDF/image
+    /// books). Sync entry point for blocking contexts; the async PDF page
+    /// rasterization is offloaded via `block_in_place` where it runs.
     pub fn render_page(&self, book_id: i64, page_index: usize, scale: f32) -> Result<Vec<u8>> {
         if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
             return tokio::task::block_in_place(|| {
@@ -624,6 +653,20 @@ impl RenderingService {
             "Book {} not opened or doesn't support page rendering",
             book_id
         )))
+    }
+
+    /// Async variant of [`Self::render_page`] for Tauri commands; runs the
+    /// page rasterization on the Tokio blocking thread pool.
+    pub async fn render_page_async(
+        self: &Arc<Self>,
+        book_id: i64,
+        page_index: usize,
+        scale: f32,
+    ) -> Result<Vec<u8>> {
+        let this = self.clone();
+        tokio::task::spawn_blocking(move || this.render_page(book_id, page_index, scale))
+            .await
+            .map_err(|e| ShioriError::Other(format!("Task panicked: {}", e)))?
     }
 
     /// Get native page dimensions (width, height) at 1.0 scale

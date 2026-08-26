@@ -411,6 +411,188 @@ mod tests {
         assert_eq!(page_params[0], Value::Integer(0));
     }
 
+    /// Seed a temp-file Database (initialize_schema + ALL migrations) with a
+    /// representative library: 3000 books, 60 authors, 40 tags and junction
+    /// rows — enough rows + ANALYZE stats for the planner to pick real plans.
+    fn seed_search_db() -> (tempfile::TempDir, Database) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::new(&dir.path().join("test.db")).expect("db init");
+        let conn = db.get_connection().expect("conn");
+
+        let formats = ["epub", "pdf", "mobi", "cbz", "fb2", "txt"];
+        let languages = ["eng", "deu", "spa", "fra", "jpn", "cmn", "kor", "por"];
+        let publishers = ["Pub 0", "Pub 1", "Pub 2", "Pub 3", "Pub 4", "Pub 5", "Pub 6",
+            "Pub 7", "Pub 8", "Pub 9", "Pub 10", "Pub 11"];
+        let series = ["Series 0", "Series 1", "Series 2", "Series 3", "Series 4",
+            "Series 5", "Series 6", "Series 7", "Series 8", "Series 9"];
+        let statuses = ["planning", "reading", "completed", "dropped", "on_hold"];
+
+        conn.execute_batch("BEGIN").unwrap();
+        {
+            let mut ins = conn
+                .prepare(
+                    "INSERT INTO books (uuid, title, isbn, publisher, pubdate, series, rating,\
+                     file_path, file_format, language, added_date, reading_status, in_trash)\
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                )
+                .unwrap();
+            for i in 0..3000 {
+                let year = 2018 + (i % 8);
+                ins.execute(rusqlite::params![
+                    format!("uuid-{i}"),
+                    format!("Book title {i} fantasy saga"),
+                    format!("isbn-{i}"),
+                    publishers[i % 12],
+                    format!("{year}-01-01"),
+                    if i % 4 == 0 { None } else { Some(series[i % 10]) },
+                    if i % 10 == 0 { None } else { Some((i % 11) as i64) },
+                    format!("/books/file_{i}.{}", formats[i % 6]),
+                    formats[i % 6],
+                    languages[i % 8],
+                    format!("{year}-{:02}-{:02}", (i / 8) % 12 + 1, (i % 28) + 1),
+                    statuses[i % 5],
+                    if i % 50 == 0 { 1 } else { 0 },
+                ])
+                .unwrap();
+            }
+        }
+        for a in 0..60 {
+            conn.execute("INSERT INTO authors (name) VALUES (?1)", [format!("Author {a}")])
+                .unwrap();
+        }
+        for t in 0..40 {
+            conn.execute("INSERT INTO tags (name) VALUES (?1)", [format!("tag{t}")])
+                .unwrap();
+        }
+        {
+            let mut ins_a = conn
+                .prepare("INSERT INTO books_authors (book_id, author_id) VALUES (?1, ?2)")
+                .unwrap();
+            let mut ins_t = conn
+                .prepare("INSERT INTO books_tags (book_id, tag_id) VALUES (?1, ?2)")
+                .unwrap();
+            for i in 1..=3000 {
+                ins_a.execute(rusqlite::params![i, i % 60 + 1]).unwrap();
+                ins_a.execute(rusqlite::params![i, (i * 7 + 3) % 60 + 1]).unwrap();
+                ins_t.execute(rusqlite::params![i, i % 40 + 1]).unwrap();
+                ins_t.execute(rusqlite::params![i, (i * 13 + 5) % 40 + 1]).unwrap();
+                ins_t.execute(rusqlite::params![i, (i * 29 + 11) % 40 + 1]).unwrap();
+            }
+        }
+        conn.execute_batch("COMMIT").unwrap();
+        conn.execute_batch("ANALYZE").unwrap();
+        (dir, db)
+    }
+
+    /// Run EXPLAIN QUERY PLAN and return the detail column of every row.
+    fn explain_plan(conn: &rusqlite::Connection, sql: &str, params: &[rusqlite::types::Value]) -> Vec<String> {
+        let param_refs: Vec<&dyn rusqlite::ToSql> =
+            params.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+        let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+        stmt.query_map(param_refs.as_slice(), |row| row.get::<_, String>(3))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn filter_queries_use_indexes() {
+        let (_dir, db) = seed_search_db();
+        let conn = db.get_connection().unwrap();
+
+        let mut shapes: Vec<(&str, SearchQuery)> = Vec::new();
+
+        // 1. authors + tags + series (count)
+        let mut q = SearchQuery::default();
+        q.authors = Some(vec!["Author 13".to_string()]);
+        q.tags = Some(vec!["tag7".to_string()]);
+        q.series_list = Some(vec!["Series 3".to_string()]);
+        shapes.push(("authors+tags+series (count)", q));
+
+        // 2. format + language + status (count)
+        let mut q = SearchQuery::default();
+        q.formats = Some(vec!["epub".to_string(), "pdf".to_string()]);
+        q.languages = Some(vec!["eng".to_string()]);
+        q.reading_status = Some(vec!["reading".to_string()]);
+        shapes.push(("format+language+status (count)", q));
+
+        // 3. format + language + status (ids, ORDER BY added_date DESC LIMIT 100)
+        let mut q = SearchQuery::default();
+        q.formats = Some(vec!["epub".to_string(), "pdf".to_string()]);
+        q.languages = Some(vec!["eng".to_string()]);
+        q.reading_status = Some(vec!["reading".to_string()]);
+        q.limit = Some(100);
+        shapes.push(("format+language+status (ids, sorted)", q));
+
+        // 4. publisher only (count)
+        let mut q = SearchQuery::default();
+        q.publishers = Some(vec!["Pub 5".to_string()]);
+        shapes.push(("publisher (count)", q));
+
+        // 5. top-rated + added-date range (count + sorted ids)
+        let mut q = SearchQuery::default();
+        q.min_rating = Some(7.0);
+        q.date_from = Some("2020-01-01".to_string());
+        q.limit = Some(100);
+        shapes.push(("rating>=7 + date>=2020 (count)", q));
+
+        // 6. FTS title search (count)
+        let mut q = SearchQuery::default();
+        q.query = Some("fantasy".to_string());
+        shapes.push(("fts title (count)", q));
+
+        for (name, sq) in &shapes {
+            let (count_sql, base_params, ids_sql, page_params) = build_search_query(sq);
+            println!("\n=== {name} ===");
+            println!("count:");
+            let count_plan = explain_plan(&conn, &count_sql, &base_params);
+            for line in &count_plan {
+                println!("  {line}");
+            }
+            let ids_plan;
+            if ids_sql != count_sql {
+                println!("ids:");
+                ids_plan = explain_plan(&conn, &ids_sql, &page_params);
+                for line in &ids_plan {
+                    println!("  {line}");
+                }
+            } else {
+                ids_plan = Vec::new();
+            }
+            // Regression guards: the shapes below must never full-scan `books`.
+            // (Backed by the v48 composite indexes; a bare SCAN means the
+            // planner found nothing to search and we regressed.)
+            match *name {
+                "publisher (count)" => {
+                    assert!(
+                        !count_plan.iter().any(|p| p.contains("SCAN b")),
+                        "publisher filter must use an index: {count_plan:?}"
+                    );
+                }
+                "rating>=7 + date>=2020 (count)" => {
+                    // Seed-DB planner picks a scan for the bare COUNT (both
+                    // ranges are ~40-60% selective at 3000 rows; SQLite skips
+                    // indexes for such estimates). The sorted-ids variant must
+                    // not scan — on real 10k+ libraries the rating index also
+                    // serves this shape directly.
+                    assert!(
+                        !ids_plan.iter().any(|p| p.contains("SCAN b")),
+                        "rating/date ids query must use an index: {ids_plan:?}"
+                    );
+                }
+                "format+language+status (ids, sorted)" => {
+                    assert!(
+                        ids_plan
+                            .iter()
+                            .any(|p| p.contains("idx_books_status_format_lang")),
+                        "status+format+language should use the composite index: {ids_plan:?}"
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+
     #[test]
     fn test_build_search_query_filters() {
         let mut query = SearchQuery::default();

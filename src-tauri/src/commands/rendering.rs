@@ -43,16 +43,10 @@ pub async fn open_book_renderer(
     );
 
     let service = state.service.clone();
-    let result = tokio::task::spawn_blocking(move || service.open_book(book_id, &path, &format))
-        .await
-        .unwrap_or_else(|e| {
-            Err(crate::error::ShioriError::Other(format!(
-                "Task panicked: {}",
-                e
-            )))
-        });
-
-    result
+    // Async service variant runs the blocking adapter load on the Tokio
+    // blocking thread pool (no extra spawn_blocking wrapper here — that
+    // would be a nested offload).
+    service.open_book_async(book_id, &path, &format).await
 }
 
 #[tauri::command]
@@ -212,17 +206,18 @@ pub async fn render_pdf_page(
     validate::require_positive_id(book_id, "book_id")?;
     let service = state.service.clone();
     let db = app_state.inner().db.clone();
-    tokio::task::spawn_blocking(move || {
-        let _ = service.open_if_needed(&db, book_id);
-        service.render_page(book_id, page_index, scale)
+    // Lazy-open is a sync service call; run it on the blocking pool, then
+    // render via the async variant (itself spawn_blocking) — never nested.
+    tokio::task::spawn_blocking({
+        let service = service.clone();
+        move || {
+            let _ = service.open_if_needed(&db, book_id);
+        }
     })
     .await
-    .unwrap_or_else(|e| {
-        Err(crate::error::ShioriError::Other(format!(
-            "Task panicked: {}",
-            e
-        )))
-    })
+    .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
+
+    service.render_page_async(book_id, page_index, scale).await
 }
 
 #[tauri::command]

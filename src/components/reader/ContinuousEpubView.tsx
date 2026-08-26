@@ -420,38 +420,71 @@ export function ContinuousEpubView({
     };
   }, [chapters, bookId, loadAnnotations]);
 
-  // Dedicated reactive listener for continuous view to jump directly to exact clicked annotation mark
+  // Dedicated reactive listener for continuous view to jump directly to the exact
+  // clicked annotation mark. Resolves the target chapter FIRST (loading it into the
+  // rendered window if the lazy window doesn't contain it), then applies highlights
+  // and scrolls in a single requestAnimationFrame (one layout pass), retries ONCE on
+  // the next frame, then gives up and clears pending — no busy retry loop.
   const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
   useEffect(() => {
     if (!pendingAnnotationId) return;
 
-    let attempts = 0;
-    // Android WebView renders asynchronously and applies highlights slower;
-    // give it more retries so the annotation mark has time to appear in the DOM.
-    const maxAttempts = isAndroid ? 60 : 35;
+    let cancelled = false;
+    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
     const tryScroll = async () => {
+      if (cancelled) return;
       const container = containerRef.current;
       if (!container) {
-        if (attempts < maxAttempts) {
-          attempts++;
-          setTimeout(tryScroll, 80);
-        }
-        return;
-      }
-
-      let success = scrollToAnnotationMark(container, pendingAnnotationId);
-      if (success) {
+        // Container exists once mounted; nothing else to wait for.
         useReaderUIStore.getState().setPendingAnnotationId(null);
         return;
       }
+      const startActiveIndex = activeChapterIndexRef.current;
 
-      // Proactively ensure highlights are applied
+      // Resolve the annotation's chapter from its location BEFORE scrolling.
+      let targetIndex: number | null = null;
       try {
         const annotations = await loadAnnotations();
-        chapters.forEach((ch) => {
-          const el = chapterRefs.current.get(ch.index);
-          if (el) {
+        if (cancelled) return;
+        const target = annotations.find((a) => a.id === pendingAnnotationId);
+        const chapterMatch = target?.location?.match(/^chapter_(\d+)/);
+        if (chapterMatch) targetIndex = parseInt(chapterMatch[1], 10);
+      } catch {
+        // Non-critical — fall through and scroll anyway.
+      }
+
+      // Cross-chapter: continuous mode lazily loads chapters around the active
+      // window, so a clicked annotation's chapter may not be rendered yet. Fetch
+      // it and insert it into the window; the side effects re-run on state change.
+      if (targetIndex !== null && targetIndex >= 0 && targetIndex < metadata.total_chapters) {
+        if (!chaptersRef.current.some((c) => c.index === targetIndex)) {
+          const ch = await fetchChapter(targetIndex);
+          if (cancelled) return;
+          if (!ch) {
+            useReaderUIStore.getState().setPendingAnnotationId(null);
+            return;
+          }
+          setChapters((prev) =>
+            prev.some((c) => c.index === ch.index)
+              ? prev
+              : [...prev, ch].sort((a, b) => a.index - b.index)
+          );
+          // Let React commit and register the chapter ref before scrolling.
+          await sleep(60);
+          if (cancelled) return;
+        }
+      }
+
+      // Apply highlights and scroll in ONE rAF (single layout pass).
+      requestAnimationFrame(async () => {
+        if (cancelled) return;
+        try {
+          const annotations = await loadAnnotations();
+          if (cancelled) return;
+          chaptersRef.current.forEach((ch) => {
+            const el = chapterRefs.current.get(ch.index);
+            if (!el) return;
             const chapterLocation = `chapter_${ch.index}`;
             const chapterAnnotations = annotations.filter(
               (a) =>
@@ -459,28 +492,43 @@ export function ContinuousEpubView({
                 a.location.startsWith(`${chapterLocation}:`)
             );
             applyHighlightsToDOM(el, chapterAnnotations);
-          }
-        });
-        success = scrollToAnnotationMark(container, pendingAnnotationId);
+          });
+        } catch {
+          // Continue to the scroll attempt anyway.
+        }
+        if (cancelled) return;
+        const success = scrollToAnnotationMark(containerRef.current, pendingAnnotationId);
         if (success) {
           useReaderUIStore.getState().setPendingAnnotationId(null);
+          // Cross-chapter: after a chapter switch the layout effect re-scrolls to
+          // the chapter position (~100ms later, plus an image-loading pass).
+          // Re-assert the exact mark position once, after that window closes.
+          if (targetIndex !== null && targetIndex !== startActiveIndex) {
+            setTimeout(() => {
+              if (!cancelled) scrollToAnnotationMark(containerRef.current, pendingAnnotationId);
+            }, 200);
+          }
           return;
         }
-      } catch {
-        // continue
-      }
-
-      if (attempts < maxAttempts) {
-        attempts++;
-        setTimeout(tryScroll, 80);
-      } else {
-        useReaderUIStore.getState().setPendingAnnotationId(null);
-      }
+        // ONE rAF-delayed retry for highlights-DOM timing, then give up and
+        // clear pending exactly once.
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          if (scrollToAnnotationMark(containerRef.current, pendingAnnotationId)) {
+            useReaderUIStore.getState().setPendingAnnotationId(null);
+          } else {
+            useReaderUIStore.getState().setPendingAnnotationId(null);
+          }
+        });
+      });
     };
 
     const timerId = setTimeout(tryScroll, 40);
-    return () => clearTimeout(timerId);
-  }, [pendingAnnotationId, chapters, bookId, loadAnnotations]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [pendingAnnotationId, bookId, loadAnnotations, metadata.total_chapters]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (onScroll) onScroll(e);

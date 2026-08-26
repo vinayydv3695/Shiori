@@ -339,22 +339,137 @@ function createHighlightMark(annotation: Annotation): HTMLElement {
 }
 
 /**
- * Smoothly scroll to an exact annotation mark in the reader container
- * and trigger a luminous pulse animation so the user immediately spots the exact line.
+ * Find the horizontally-scrolled paginated/two-page canvas that contains
+ * the mark (CSS multi-column layout — each column is one page/spread).
+ */
+function findPaginatedScroller(mark: HTMLElement): HTMLElement | null {
+  let el: HTMLElement | null = mark.parentElement;
+  while (el) {
+    if (
+      el.classList.contains('premium-reading-canvas--paginated') ||
+      el.classList.contains('premium-reading-canvas--two-page')
+    ) {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Jump a horizontally-paginated canvas to the exact page (CSS column/spread)
+ * containing the mark. Pages are laid out as multi-column content with a
+ * fixed column pitch; the snap grid advances one viewport per spread, so the
+ * target scrollLeft is the snapped column's start offset — the same geometry
+ * the reader's nextPage/prevPage and restore-position math relies on.
+ */
+function scrollPaginatedCanvasToMark(scroller: HTMLElement, mark: HTMLElement): void {
+  const scrollerRect = scroller.getBoundingClientRect();
+  const markRect = mark.getBoundingClientRect();
+  // Canvas-space X of the mark (independent of the current scroll offset).
+  const markX = scroller.scrollLeft + (markRect.left - scrollerRect.left);
+
+  const content = scroller.querySelector<HTMLElement>('.premium-chapter-content');
+  let firstColumnStart = 0;
+  let pitch = scroller.clientWidth;
+  let columnsPerPage = scroller.classList.contains('premium-reading-canvas--two-page') ? 2 : 1;
+
+  if (content) {
+    const cs = getComputedStyle(content);
+    const colWidth = parseFloat(cs.columnWidth);
+    const colGap = parseFloat(cs.columnGap);
+    firstColumnStart = content.getBoundingClientRect().left - scrollerRect.left + scroller.scrollLeft;
+    if (Number.isFinite(colWidth) && colWidth > 0 && Number.isFinite(colGap) && colGap >= 0) {
+      pitch = colWidth + colGap;
+    } else {
+      columnsPerPage = 1;
+    }
+  }
+
+  const columnIndex = Math.max(0, Math.floor((markX - firstColumnStart) / pitch));
+  // Snap to the first column of the containing page (spread = 2 columns).
+  const snapColumn = Math.floor(columnIndex / columnsPerPage) * columnsPerPage;
+  const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+  const target = Math.max(0, Math.min(maxScroll, firstColumnStart + snapColumn * pitch));
+
+  // Instant jump — on Android exactness beats animation; a smooth CSS
+  // scroll-behavior would animate and could fight scroll-snap.
+  const previousBehavior = scroller.style.scrollBehavior;
+  scroller.style.scrollBehavior = 'auto';
+  try {
+    scroller.scrollLeft = target;
+  } finally {
+    scroller.style.scrollBehavior = previousBehavior;
+  }
+}
+
+/**
+ * Scroll the mark into the center of the viewport instantly, even when CSS
+ * sets scroll-behavior: smooth on the scroll container (behavior:'auto'
+ * would otherwise honour the CSS animation).
+ */
+function scrollMarkIntoViewInstant(mark: HTMLElement): void {
+  const overridden: HTMLElement[] = [];
+  let el: HTMLElement | null = mark.parentElement;
+  while (el && el !== document.body?.parentElement) {
+    const style = getComputedStyle(el);
+    const scrollable =
+      style.overflowY === 'auto' || style.overflowY === 'scroll' ||
+      style.overflowX === 'auto' || style.overflowX === 'scroll';
+    if (scrollable && style.scrollBehavior !== 'auto') {
+      overridden.push(el);
+      el.style.scrollBehavior = 'auto';
+    }
+    el = el.parentElement;
+  }
+  try {
+    mark.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' });
+  } finally {
+    for (const s of overridden) s.style.scrollBehavior = '';
+  }
+}
+
+/**
+ * Scroll to an exact annotation mark in the reader container — instantly
+ * (exactness on Android) and trigger a luminous pulse animation so the user
+ * immediately spots the exact line.
+ *
+ * Works in both reading modes: in horizontally-paginated canvases the mark
+ * lives on a CSS column page, so the canvas is jumped straight to the page
+ * containing the mark; everywhere else the mark is centered in the viewport.
+ *
+ * If the mark is not in the DOM yet (highlights may have just been applied
+ * to freshly rendered content in the same frame — the known flakiness source
+ * on Android WebView), it retries once on the next animation frame before
+ * returning false. Callers decide when to give up and clear pending state.
  */
 export function scrollToAnnotationMark(
   container: HTMLElement | Document | null,
   annotationId: number | string | null | undefined
 ): boolean {
   if (!container || !annotationId) return false;
-  const mark = container.querySelector<HTMLElement>(
+  const root = container instanceof Document ? container.documentElement : container;
+  const mark = root.querySelector<HTMLElement>(
     `mark.epub-highlight[data-annotation-id="${annotationId}"], mark.pdf-highlight[data-annotation-id="${annotationId}"], [data-annotation-id="${annotationId}"]`
   );
-  if (!mark) return false;
+  if (!mark) {
+    // ONE rAF-delayed retry for highlights-DOM timing, then give up (false).
+    requestAnimationFrame(() => {
+      scrollToAnnotationMark(container, annotationId);
+    });
+    return false;
+  }
 
   try {
-    // Smoothly center the exact highlighted line in the viewport
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    const paginatedScroller = findPaginatedScroller(mark);
+    if (paginatedScroller) {
+      // Paginated/two-page mode: jump the canvas to the exact page first;
+      // the whole page column is visible in the viewport, so the mark is
+      // guaranteed on screen and the pulse below points at the exact line.
+      scrollPaginatedCanvasToMark(paginatedScroller, mark);
+    } else {
+      scrollMarkIntoViewInstant(mark);
+    }
 
     // Trigger visual pulse glow on target
     mark.classList.remove('annotation-jump-focus');

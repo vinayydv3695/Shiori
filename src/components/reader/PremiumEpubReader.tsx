@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { api, isAndroid, getEpubResourceUrl } from '@/lib/tauri';
-import type { BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
+import type { Annotation, BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
 import { findCurrentTocEntry } from '@/lib/toc';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
 import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
@@ -1078,56 +1078,101 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     };
   }, [currentChapter, currentIndex, isLoading, applyAnnotationsNow]);
 
-  // Dedicated reactive listener to smoothly scroll directly to the exact line of any clicked annotation
+  // Dedicated reactive listener to jump directly to the exact line of any clicked
+  // annotation. Flow: resolve the target chapter BEFORE scrolling — if it differs
+  // from the loaded chapter, switch chapters first and let this effect re-run after
+  // currentIndex changes (React commits → effects run), then apply highlights and
+  // scroll in a single requestAnimationFrame (one layout pass, no busy retry loop).
   const pendingAnnotationId = useReaderUIStore((state) => state.pendingAnnotationId);
   useEffect(() => {
     if (!pendingAnnotationId) return;
+    // Continuous mode renders ContinuousEpubView (and shares contentContainerRef) —
+    // it owns pending-annotation scrolling there; acting here would double-run.
+    if (continuousFlow) return;
+    // Chapter (re)load in progress: the container still shows the old chapter.
+    // Return without touching pending — the effect re-runs when isLoading flips.
+    if (isLoading) return;
 
-    let attempts = 0;
-    // Android WebView renders asynchronously and applies highlights slower;
-    // give it more retries so the annotation mark has time to appear in the DOM.
-    const maxAttempts = isAndroid ? 60 : 35;
+    let cancelled = false;
+    let redirects = 0;
 
     const tryScroll = async () => {
+      if (cancelled) return;
       const container = contentContainerRef.current;
-      if (!container) {
-        if (attempts < maxAttempts) {
-          attempts++;
-          setTimeout(tryScroll, 80);
-        }
-        return;
-      }
+      if (!container) return; // not rendered yet — effect re-runs via deps below
 
-      // 1. Try to scroll to mark if already in DOM
-      let success = scrollToAnnotationMark(container, pendingAnnotationId);
-      if (success) {
-        useReaderUIStore.getState().setPendingAnnotationId(null);
-        return;
-      }
-
-      // 2. If mark not found in DOM yet, re-apply highlights now to newly rendered content
+      // Resolve the annotation's chapter from its location BEFORE scrolling.
+      let targetIndex: number | null = null;
+      let chapterAnnotations: Annotation[] = [];
       try {
-        await applyAnnotationsNow();
-        success = scrollToAnnotationMark(container, pendingAnnotationId);
-        if (success) {
+        const annotations = await api.getAnnotations(bookId);
+        if (cancelled) return;
+        const target = annotations.find((a) => a.id === pendingAnnotationId);
+        const chapterMatch = target?.location?.match(/^chapter_(\d+)/);
+        if (chapterMatch) targetIndex = parseInt(chapterMatch[1], 10);
+        const chapterLocation = `chapter_${currentIndexRef.current}`;
+        chapterAnnotations = annotations.filter(
+          (a) =>
+            a.location === chapterLocation ||
+            a.location.startsWith(`${chapterLocation}:`)
+        );
+      } catch {
+        // Non-critical — fall through and scroll anyway.
+      }
+
+      // Cross-chapter: load the target chapter FIRST, wait for the render, and
+      // let the follow-up effect run (currentIndex dep) finish the scroll.
+      if (targetIndex !== null && targetIndex !== currentIndexRef.current) {
+        const inBounds =
+          targetIndex >= 0 &&
+          (!metadataRef.current || targetIndex < metadataRef.current.total_chapters);
+        if (!inBounds) {
           useReaderUIStore.getState().setPendingAnnotationId(null);
           return;
         }
-      } catch {
-        // continue to retry
+        await loadChapterRef.current(targetIndex);
+        if (cancelled) return;
+        if (currentIndexRef.current !== targetIndex && redirects < 3) {
+          // Load was deferred (another chapter load in flight) or still settling:
+          // bounded re-check, not a busy loop; give up after 3 redirects.
+          redirects++;
+          setTimeout(tryScroll, 120);
+        } else if (currentIndexRef.current !== targetIndex) {
+          useReaderUIStore.getState().setPendingAnnotationId(null);
+        }
+        return;
       }
 
-      if (attempts < maxAttempts) {
-        attempts++;
-        setTimeout(tryScroll, 80);
-      } else {
-        useReaderUIStore.getState().setPendingAnnotationId(null);
-      }
+      // Same chapter: apply highlights and scroll in ONE rAF (single layout
+      // pass), then ONE rAF-delayed retry for highlights-DOM timing, then give
+      // up and clear pending exactly once.
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const c = contentContainerRef.current;
+        if (!c) return;
+        applyHighlightsToDOM(c, chapterAnnotations);
+        if (scrollToAnnotationMark(c, pendingAnnotationId)) {
+          useReaderUIStore.getState().setPendingAnnotationId(null);
+          return;
+        }
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          if (scrollToAnnotationMark(contentContainerRef.current, pendingAnnotationId)) {
+            useReaderUIStore.getState().setPendingAnnotationId(null);
+          } else {
+            // Give up — mark never materialised.
+            useReaderUIStore.getState().setPendingAnnotationId(null);
+          }
+        });
+      });
     };
 
     const timerId = setTimeout(tryScroll, 40);
-    return () => clearTimeout(timerId);
-  }, [pendingAnnotationId, currentIndex, isLoading, applyAnnotationsNow]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+    };
+  }, [pendingAnnotationId, currentIndex, isLoading, continuousFlow, bookId]);
 
   const isHorizontalPaging = twoPageView || isPaginated;
 
@@ -1431,9 +1476,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
   const HOLD_AUTO_SCROLL_MS = 550;
   const HOLD_MOVE_TOLERANCE_PX = 14;
-  // ≈400+ wpm equivalent: ~3.3 lines/sec at the default line height (~30px).
-  const AUTO_SCROLL_SPEED_PX_PER_S = 100;
-  const PAGINATED_AUTO_ADVANCE_MS = 2000;
+  // Hold-to-auto-scroll speed curve: starts fast and accelerates while held.
+  const HOLD_AUTO_SCROLL_START_PX_PER_S = 150;
+  const HOLD_AUTO_SCROLL_RAMP_PX_PER_S2 = 15; // +15 px/s per second held
+  const HOLD_AUTO_SCROLL_MAX_PX_PER_S = 300;
+  // Paginated advance interval: 1600ms initially, accelerating to 900ms over 10s held.
+  const PAGINATED_AUTO_ADVANCE_START_MS = 1600;
+  const PAGINATED_AUTO_ADVANCE_MIN_MS = 900;
 
   const nextPageRef = useRef<() => void>(() => { });
   useEffect(() => { nextPageRef.current = nextPage; }, [nextPage]);
@@ -1441,17 +1490,17 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const holdStateRef = useRef<{
     timer: number | null;
     raf: number | null;
-    autoPageTimer: number | null;
     lastTs: number;
+    startTs: number;
+    pageAccMs: number;
     pointer: { x: number; y: number } | null;
-  }>({ timer: null, raf: null, autoPageTimer: null, lastTs: 0, pointer: null });
+  }>({ timer: null, raf: null, lastTs: 0, startTs: 0, pageAccMs: 0, pointer: null });
   const autoScrollActiveRef = useRef(false);
 
   const stopAutoScroll = useCallback(() => {
     const h = holdStateRef.current;
     if (h.timer != null) { clearTimeout(h.timer); h.timer = null; }
     if (h.raf != null) { cancelAnimationFrame(h.raf); h.raf = null; }
-    if (h.autoPageTimer != null) { clearInterval(h.autoPageTimer); h.autoPageTimer = null; }
     h.pointer = null;
     if (autoScrollActiveRef.current) {
       autoScrollActiveRef.current = false;
@@ -1470,21 +1519,22 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       canvas.classList.contains('premium-reading-canvas--paginated') ||
       canvas.classList.contains('premium-reading-canvas--two-page');
 
+    const h = holdStateRef.current;
+    h.lastTs = performance.now();
+    h.startTs = h.lastTs;
+    h.pageAccMs = 0;
+
+    // Match the previous on-hold feel: the first paginated advance is immediate;
+    // afterwards the single rAF loop below re-advances via an accumulator.
     if (isPaginatedCanvas) {
       nextPageRef.current();
-      holdStateRef.current.autoPageTimer = window.setInterval(() => {
-        nextPageRef.current();
-      }, PAGINATED_AUTO_ADVANCE_MS);
-      return;
     }
 
-    // Continuous flow: smooth vertical scroll via requestAnimationFrame.
-    holdStateRef.current.lastTs = performance.now();
     const step = (ts: number) => {
-      const h = holdStateRef.current;
-      if (!autoScrollActiveRef.current || h.raf == null) return;
-      const dt = Math.min(ts - h.lastTs, 100);
-      h.lastTs = ts;
+      const hs = holdStateRef.current;
+      if (!autoScrollActiveRef.current || hs.raf == null) return;
+      const dt = Math.min(ts - hs.lastTs, 100);
+      hs.lastTs = ts;
       // The OS long-press text selection cancels the scroll.
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) {
@@ -1496,15 +1546,38 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         stopAutoScroll();
         return;
       }
-      canvasEl.scrollTop += (AUTO_SCROLL_SPEED_PX_PER_S * dt) / 1000;
-      const maxScroll = canvasEl.scrollHeight - canvasEl.clientHeight;
-      if (maxScroll <= 0 || canvasEl.scrollTop >= maxScroll - 2) {
-        stopAutoScroll();
-        return;
+
+      const heldSeconds = (ts - hs.startTs) / 1000;
+
+      if (isPaginatedCanvas) {
+        // Accelerating page-advance interval: 1600ms → 900ms over 10s held.
+        hs.pageAccMs += dt;
+        const interval = Math.max(
+          PAGINATED_AUTO_ADVANCE_MIN_MS,
+          PAGINATED_AUTO_ADVANCE_START_MS -
+            (PAGINATED_AUTO_ADVANCE_START_MS - PAGINATED_AUTO_ADVANCE_MIN_MS) *
+              Math.min(heldSeconds / 10, 1),
+        );
+        if (hs.pageAccMs >= interval) {
+          hs.pageAccMs = 0;
+          nextPageRef.current();
+        }
+      } else {
+        // Accelerating continuous scroll: 150 px/s, +15 px/s per second held, cap 300 px/s.
+        const speed = Math.min(
+          HOLD_AUTO_SCROLL_START_PX_PER_S + HOLD_AUTO_SCROLL_RAMP_PX_PER_S2 * heldSeconds,
+          HOLD_AUTO_SCROLL_MAX_PX_PER_S,
+        );
+        canvasEl.scrollTop += (speed * dt) / 1000;
+        const maxScroll = canvasEl.scrollHeight - canvasEl.clientHeight;
+        if (maxScroll <= 0 || canvasEl.scrollTop >= maxScroll - 2) {
+          stopAutoScroll();
+          return;
+        }
       }
-      h.raf = requestAnimationFrame(step);
+      hs.raf = requestAnimationFrame(step);
     };
-    holdStateRef.current.raf = requestAnimationFrame(step);
+    h.raf = requestAnimationFrame(step);
   }, [stopAutoScroll]);
 
   const handleHoldTouchStart = useCallback((e: React.TouchEvent) => {
@@ -1573,24 +1646,33 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (Date.now() - lastTouchNavigationRef.current < 400) return;
     if (window.getSelection()?.toString().trim()) return;
 
-    const windowWidth = window.innerWidth;
-    const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
-    const clickRatio = clickX / windowWidth;
-    const leftBoundary = isAndroid ? 0.35 : 0.25;
-    const rightBoundary = isAndroid ? 0.65 : 0.75;
+    // Desktop only: keep the left/right page-turn zones. On Android a single tap
+    // must never page-turn (which scrolls in continuous flow), so every tap here
+    // just closes the sidebar (if open) or toggles the top bar.
+    if (!isAndroid) {
+      const windowWidth = window.innerWidth;
+      const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
+      const clickRatio = clickX / windowWidth;
+      const leftBoundary = 0.25;
+      const rightBoundary = 0.75;
+
+      triggerHaptic(10);
+      if (clickRatio < leftBoundary) {
+        prevPage();
+        return;
+      }
+      if (clickRatio > rightBoundary) {
+        nextPage();
+        return;
+      }
+    }
 
     triggerHaptic(10);
-    if (clickRatio < leftBoundary) {
-      prevPage();
-    } else if (clickRatio > rightBoundary) {
-      nextPage();
+    const uiStore = useReaderUIStore.getState();
+    if (uiStore.isSidebarOpen) {
+      uiStore.closeSidebar();
     } else {
-      const uiStore = useReaderUIStore.getState();
-      if (uiStore.isSidebarOpen) {
-        uiStore.closeSidebar();
-      } else {
-        setTopBarVisible(!uiStore.isTopBarVisible);
-      }
+      setTopBarVisible(!uiStore.isTopBarVisible);
     }
   }, [isDoodleMode, prevPage, nextPage, setTopBarVisible]);
 

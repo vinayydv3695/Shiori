@@ -139,7 +139,7 @@ export const BookDetailsDialog = ({
   };
 
   const coverSrc = book?.cover_path ? resolveCoverSrc(book.cover_path) : null;
-  const isManga = book?.file_format ? (book.file_format.toLowerCase() === 'cbz' || book.file_format.toLowerCase() === 'cbr') : false;
+  const isManga = book?.file_format ? ['cbz', 'cbr', 'zip', 'rar', 'online-manga'].includes(book.file_format.toLowerCase()) : false;
 
   const handleMetadataFetched = async () => {
     await loadBook();
@@ -466,6 +466,7 @@ export const BookDetailsDialog = ({
               </div>
             </div>
           </div>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
 

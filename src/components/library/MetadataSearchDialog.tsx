@@ -234,8 +234,9 @@ export const MetadataSearchDialog = ({
     setSearching(true);
     setResults([]);
     try {
-      if (isManga) {
-        const parsedTitle = await invoke<string>('parse_manga_filename', { filename: bookTitle || '' }).catch(() => bookTitle || '');
+      if (isMangaSearch) {
+        const titleToSearch = searchQuery || bookTitle || targetSingleBook?.title || '';
+        const parsedTitle = await invoke<string>('parse_manga_filename', { filename: titleToSearch }).catch(() => titleToSearch);
         const query = searchQuery || parsedTitle;
         const mangaResults = await invoke<MangaMetadata[]>('search_manga_metadata', { title: query, includeNsfw: preferences?.includeNsfw ?? false });
         setResults(mangaResults);
@@ -770,7 +771,7 @@ export const MetadataSearchDialog = ({
                     Find Metadata Match
                   </Dialog.Title>
                   <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 font-medium">
-                    Search {isManga ? 'AniList' : 'Open Library'} for covers and details
+                    Search {isMangaSearch ? 'AniList' : 'Open Library'} for covers and details
                   </Dialog.Description>
                 </div>
               </div>
@@ -787,7 +788,7 @@ export const MetadataSearchDialog = ({
                 <div className="flex-1 relative">
                   <input
                     type="text"
-                    placeholder={`Search ${isManga ? 'manga title' : 'book title or author'}...`}
+                    placeholder={`Search ${isMangaSearch ? 'manga title' : 'book title or author'}...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && performSingleSearch()}

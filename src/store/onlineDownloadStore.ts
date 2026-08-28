@@ -4,6 +4,45 @@ import { listen } from '@tauri-apps/api/event';
 import { useDownloadQueueUI } from '@/components/online/DownloadQueuePanel';
 import { useToastStore } from './toastStore';
 
+/** Buckets of an import result that matter for post-import feedback. */
+interface ImportOutcome {
+  success: string[];
+  duplicates: string[];
+  previouslyDeleted?: string[];
+}
+
+/**
+ * Surface explicit feedback for an online import that produced no new
+ * library entry. Without this, a duplicate or tombstoned file only shows the
+ * download reaching 100% and then nothing — a silent failure. Success/failure
+ * toasts stay with the callers; this only adds info toasts for the
+ * duplicate/tombstone cases they don't cover.
+ */
+export function showImportOutcomeFeedback(result: ImportOutcome, title?: string): void {
+  const { addToast } = useToastStore.getState();
+
+  if (result.success.length === 0 && result.duplicates.length > 0) {
+    addToast({
+      title: 'Already in your library',
+      description: title
+        ? `"${title}" is already in your library.`
+        : 'This book is already in your library.',
+      variant: 'info',
+      duration: 5000,
+    });
+  }
+
+  const tombstoned = result.previouslyDeleted?.length ?? 0;
+  if (tombstoned > 0) {
+    addToast({
+      title: tombstoned === 1 ? 'Previously deleted' : `${tombstoned} files previously deleted`,
+      description: `Skipped ${tombstoned} file${tombstoned === 1 ? '' : 's'} that ${tombstoned === 1 ? 'was' : 'were'} previously deleted from your library. Re-import from the library dialog to restore it.`,
+      variant: 'info',
+      duration: 5000,
+    });
+  }
+}
+
 export interface DownloadProgress {
   target_id: string; // url or id
   status: 'downloading' | 'completed' | 'error';

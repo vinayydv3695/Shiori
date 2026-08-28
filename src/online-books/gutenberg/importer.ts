@@ -1,10 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { downloadGutenbergEpub } from './downloads';
+import { showImportOutcomeFeedback } from '@/store/onlineDownloadStore';
 
 export interface ImportResult {
   success: string[];
   failed: [string, string][];
   duplicates: string[];
+  previouslyDeleted: string[];
 }
 
 export async function downloadAndImportGutenberg(epubUrl: string, titleHint: string): Promise<ImportResult> {
@@ -12,7 +14,9 @@ export async function downloadAndImportGutenberg(epubUrl: string, titleHint: str
   const tempPath = await downloadGutenbergEpub(epubUrl, titleHint);
 
   // Import to library as a book, not manga
-  return invoke<ImportResult>('import_books', {
+  const result = await invoke<ImportResult>('import_books', {
     paths: [tempPath],
   });
+  showImportOutcomeFeedback(result, titleHint);
+  return result;
 }

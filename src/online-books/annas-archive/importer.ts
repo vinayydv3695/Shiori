@@ -1,10 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { downloadAnnasArchiveBook } from './downloads';
+import { showImportOutcomeFeedback } from '@/store/onlineDownloadStore';
 
 export interface ImportResult {
   success: string[];
   failed: [string, string][];
   duplicates: string[];
+  previouslyDeleted: string[];
 }
 
 export async function downloadAndImportAnnas(
@@ -13,7 +15,9 @@ export async function downloadAndImportAnnas(
 ): Promise<ImportResult> {
   const tempPath = await downloadAnnasArchiveBook(contentId, titleHint);
 
-  return invoke<ImportResult>('import_books', {
+  const result = await invoke<ImportResult>('import_books', {
     paths: [tempPath],
   });
+  showImportOutcomeFeedback(result, titleHint);
+  return result;
 }

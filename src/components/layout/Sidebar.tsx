@@ -1,4 +1,4 @@
-import { Library, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter, AniListIcon } from "../icons"
+import { Library, NotebookPen, Tag, Settings, ChevronLeft, ChevronRight, FolderOpen, Highlighter, AniListIcon } from "../icons"
 import { Globe, BookOpen, Trash2, BarChart2 } from "lucide-react"
 import { useUIStore } from "../../store/uiStore"
 import { usePreferencesStore } from "../../store/preferencesStore"

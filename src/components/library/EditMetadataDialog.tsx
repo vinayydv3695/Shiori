@@ -570,6 +570,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
               />
             </div>
           </div>
+          )}
 
           {/* Footer Actions */}
           <div 

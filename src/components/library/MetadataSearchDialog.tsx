@@ -151,6 +151,15 @@ export const MetadataSearchDialog = ({
 }: MetadataSearchDialogProps) => {
   const isSeriesMode = typeof seriesId === 'number' && seriesId > 0;
   const isBatch = !isSeriesMode && bookIds.length > 1;
+  // Single-book mode resolves the book from the store, and manga/comic
+  // formats route searches to AniList (commit 9c961344 wiring).
+  const targetSingleBook = (!isSeriesMode && bookIds.length === 1)
+    ? useLibraryStore.getState().books.find(b => b.id === bookIds[0])
+    : undefined;
+  const isMangaSearch = Boolean(
+    isManga ||
+    (targetSingleBook && ['cbz', 'cbr', 'zip', 'manga'].includes((targetSingleBook.file_format || '').toLowerCase())),
+  );
   const [searching, setSearching] = useState(false);
   const preferences = usePreferencesStore(state => state.preferences);
   const [downloading, setDownloading] = useState<number | null>(null);

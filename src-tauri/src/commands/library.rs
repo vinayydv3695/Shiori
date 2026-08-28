@@ -226,9 +226,14 @@ pub async fn get_books(state: State<'_, AppState>, limit: u32, offset: u32) -> R
 }
 
 #[tauri::command]
-pub fn get_books_by_paths(state: State<AppState>, paths: Vec<String>) -> Result<Vec<Book>> {
-    let db = &state.db;
-    library_service::get_books_by_paths(db, paths)
+pub async fn get_books_by_paths(
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<Vec<Book>> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || library_service::get_books_by_paths(&db, paths))
+        .await
+        .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?
 }
 
 #[tauri::command]
@@ -245,14 +250,16 @@ pub fn get_book(state: State<AppState>, id: i64) -> Result<Book> {
 }
 
 #[tauri::command]
-pub fn add_book(state: State<AppState>, book: Book) -> Result<i64> {
+pub async fn add_book(state: State<'_, AppState>, book: Book) -> Result<i64> {
     validate::require_non_empty(&book.title, "title")?;
     validate::require_max_length(&book.title, 1000, "title")?;
     validate::require_non_empty(&book.file_path, "file_path")?;
     validate::require_safe_path(&book.file_path, "file_path")?;
     validate::require_non_empty(&book.file_format, "file_format")?;
-    let db = &state.db;
-    library_service::add_book(db, book)
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || library_service::add_book(&db, book))
+        .await
+        .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?
 }
 
 #[tauri::command]
@@ -294,15 +301,22 @@ pub async fn delete_books(state: State<'_, AppState>, ids: Vec<i64>) -> Result<(
 }
 
 #[tauri::command]
-pub fn delete_book(state: State<AppState>, id: i64) -> Result<()> {
+pub async fn delete_book(state: State<'_, AppState>, id: i64) -> Result<()> {
     validate::require_positive_id(id, "book id")?;
     log::info!(
         "[command::delete_book] Received request to delete book id: {}",
         id
     );
-    let db = &state.db;
-    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
-    let result = library_service::delete_book(db, id, app_data_dir);
+    let db = state.db.clone();
+    let app_data_dir = state
+        .covers_dir
+        .parent()
+        .unwrap_or(&state.covers_dir)
+        .to_path_buf();
+    let result =
+        tokio::task::spawn_blocking(move || library_service::delete_book(&db, id, &app_data_dir))
+            .await
+            .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
     match &result {
         Ok(_) => log::info!(
             "[command::delete_book] Successfully deleted book id: {}",
@@ -341,15 +355,23 @@ pub fn restore_book(state: State<AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn permanent_delete_book(state: State<AppState>, id: i64) -> Result<()> {
+pub async fn permanent_delete_book(state: State<'_, AppState>, id: i64) -> Result<()> {
     validate::require_positive_id(id, "book id")?;
     log::info!(
         "[command::permanent_delete_book] Received request to permanently delete book id: {}",
         id
     );
-    let db = &state.db;
-    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
-    let result = library_service::permanent_delete_book(db, id, app_data_dir);
+    let db = state.db.clone();
+    let app_data_dir = state
+        .covers_dir
+        .parent()
+        .unwrap_or(&state.covers_dir)
+        .to_path_buf();
+    let result = tokio::task::spawn_blocking(move || {
+        library_service::permanent_delete_book(&db, id, &app_data_dir)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
     match &result {
         Ok(_) => log::info!(
             "[command::permanent_delete_book] Successfully deleted book id: {}",
@@ -380,9 +402,9 @@ pub fn clear_tombstone(
 }
 
 #[tauri::command]
-pub fn empty_trash(state: State<AppState>) -> Result<()> {
+pub async fn empty_trash(state: State<'_, AppState>) -> Result<()> {
     log::info!("[command::empty_trash] Received request to empty trash");
-    let db = &state.db;
+    let db = state.db.clone();
     // convert_book writes to {app_data_dir}/converted; covers_dir is
     // {app_data_dir}/covers, so the converted root is its sibling.
     let converted_root = state
@@ -390,7 +412,11 @@ pub fn empty_trash(state: State<AppState>) -> Result<()> {
         .parent()
         .unwrap_or(&state.covers_dir)
         .join("converted");
-    let result = library_service::empty_trash(db, &converted_root);
+    let result = tokio::task::spawn_blocking(move || {
+        library_service::empty_trash(&db, &converted_root)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
     match &result {
         Ok(_) => log::info!("[command::empty_trash] Successfully emptied trash"),
         Err(e) => log::error!("[command::empty_trash] Failed to empty trash: {:?}", e),
@@ -669,14 +695,18 @@ pub async fn get_book_summaries(
 }
 
 #[tauri::command]
-pub fn get_book_summaries_by_domain(
+pub async fn get_book_summaries_by_domain(
     state: State<'_, AppState>,
     domain: String,
     limit: u32,
     offset: u32,
 ) -> Result<Vec<crate::models::BookSummary>> {
-    let db = &state.db;
-    crate::services::library_service::get_book_summaries_by_domain(db, &domain, limit, offset)
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::services::library_service::get_book_summaries_by_domain(&db, &domain, limit, offset)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?
 }
 
 #[tauri::command]
@@ -720,7 +750,7 @@ pub fn update_reading_status(
 }
 
 #[tauri::command]
-pub fn get_books_by_reading_status(
+pub async fn get_books_by_reading_status(
     app_state: State<'_, AppState>,
     status: String,
     limit: u32,
@@ -731,7 +761,12 @@ pub fn get_books_by_reading_status(
         &["planning", "reading", "completed", "on_hold", "dropped"],
         "reading status",
     )?;
-    library_service::get_books_by_reading_status(&app_state.db, &status, limit, offset)
+    let db = app_state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        library_service::get_books_by_reading_status(&db, &status, limit, offset)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?
 }
 
 #[tauri::command]

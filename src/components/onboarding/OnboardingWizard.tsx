@@ -76,59 +76,6 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
       <ParticleCanvas />
 
       <div className="relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden">
-        {/* Premium High-Contrast Integrated Top Header Bar */}
-        {state.currentStep > 1 && (
-          <header className="w-full shrink-0 border-b border-border/40 bg-background/80 backdrop-blur-2xl px-2 sm:px-10 py-2.5 sm:py-4 z-50 transition-colors duration-500">
-            <div
-              className="mx-auto flex w-full max-w-6xl items-center justify-between gap-1.5 sm:gap-4 h-12"
-              style={{
-                paddingTop: 'env(safe-area-inset-top, 0px)',
-              }}
-            >
-              {/* Left: Step Counter Pill */}
-              <div className="flex items-center shrink-0">
-                <span className="text-[11px] sm:text-sm font-extrabold uppercase tracking-wider px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full bg-card text-foreground border border-border/80 sm:border-2 shadow-sm whitespace-nowrap">
-                  Step <span className="text-primary">{visualStep}</span> of {totalSteps}
-                </span>
-              </div>
-
-              {/* Center: Prominent Progress Dots */}
-              <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
-                {Array.from({ length: totalSteps }).map((_, idx) => {
-                  const stepNum = idx + 1;
-                  const isActive = visualStep === stepNum;
-                  const isPassed = visualStep > stepNum;
-                  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        "h-2 sm:h-3 rounded-full transition-all duration-300",
-                        isActive
-                          ? "w-6 sm:w-10 bg-primary shadow-md shadow-primary/40 ring-2 sm:ring-4 ring-primary/25"
-                          : isPassed
-                          ? "w-2 sm:w-4 bg-primary/60"
-                          : "w-2 sm:w-3 bg-muted-foreground/30"
-                      )}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Right: Skip Setup Button Pill */}
-              <div className="flex items-center shrink-0">
-                <button
-                  type="button"
-                  onClick={handleFinish}
-                  className="text-[11px] sm:text-sm font-bold text-foreground flex items-center gap-1 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full bg-card hover:bg-muted text-foreground border border-border/80 sm:border-2 hover:border-primary/60 transition-all active:scale-95 shadow-sm hover:shadow-md cursor-pointer whitespace-nowrap"
-                >
-                  <span>Skip Setup</span>
-                  <span className="text-xs sm:text-base leading-none">→</span>
-                </button>
-              </div>
-            </div>
-          </header>
-        )}
-
         <AnimatePresence mode="wait">
           <motion.div
             key={state.currentStep}

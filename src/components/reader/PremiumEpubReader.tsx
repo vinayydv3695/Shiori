@@ -465,11 +465,44 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
   const readingSettings = useReadingSettings();
-  const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle } = readingSettings;
+  const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle, fontSize, uiScale, margin, paperTextureIntensity } = readingSettings;
+
+  /** Signature of everything that changes how pagination lays out. When it
+   *  changes, the paginated page cache must be rebuilt (F2). Initialised to
+   *  the mount-time key so the first settings effect run doesn't re-paginate. */
+  const lastLayoutKeyRef = useRef<string | null>(
+    JSON.stringify([theme, width, twoPageView, isPaginated, fontSize, uiScale, margin, paperTextureIntensity])
+  );
+  /** Pending (debounced) re-pagination from a layout-setting change. */
+  const _rePagSettingsTimerRef = useRef<number | null>(null);
 
   // Apply all reading settings (typography, margins, etc.) on mount and when they change
   useEffect(() => {
     applyAllSettingsToDOM(readingSettings);
+
+    // F2 — a LAYOUT-affecting setting changed: the paginated page cache was
+    // built for the old width/font/margins, so text would clip at stale page
+    // boundaries. Rebuild the current chapter's pages (position preserved) via
+    // a short debounce. Continuous flow reflows in place — nothing to rebuild.
+    const layoutKey = JSON.stringify([theme, width, twoPageView, isPaginated, fontSize, uiScale, margin, paperTextureIntensity]);
+    if (layoutKey !== lastLayoutKeyRef.current) {
+      lastLayoutKeyRef.current = layoutKey;
+      if ((isPaginated || twoPageView) && !continuousFlow) {
+        if (_rePagSettingsTimerRef.current !== null) {
+          window.clearTimeout(_rePagSettingsTimerRef.current);
+        }
+        _rePagSettingsTimerRef.current = window.setTimeout(() => {
+          _rePagSettingsTimerRef.current = null;
+          rePaginatePreservingPosition();
+        }, 150);
+      }
+    }
+    return () => {
+      if (_rePagSettingsTimerRef.current !== null) {
+        window.clearTimeout(_rePagSettingsTimerRef.current);
+        _rePagSettingsTimerRef.current = null;
+      }
+    };
   }, [readingSettings]);
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
   const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
@@ -796,6 +829,24 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   useEffect(() => {
     hasLoadedChapterRef.current = Boolean(currentChapter);
   }, [currentChapter]);
+
+  /**
+   * Rebuild the paginated layout for the current chapter while preserving the
+   * reader's position. Shared by the twoPageView toggle, the resize /
+   * orientation listener (F1) and the layout-affecting settings handler (F2).
+   *
+   * Position is preserved by loadChapter itself: it snapshots the current
+   * horizontal scroll ratio into scrollPositionsRef before re-rendering, then
+   * re-applies that ratio once the new pagination has stabilized. No-op unless
+   * a paginated (CSS-columns) layout is active; continuous flow already reflows
+   * in place and needs no rebuild.
+   */
+  const rePaginatePreservingPosition = useCallback(() => {
+    if (!hasLoadedChapterRef.current) return;
+    if (continuousFlow) return;
+    if (!isPaginated && !twoPageView) return;
+    void loadChapterRef.current(currentIndexRef.current);
+  }, [continuousFlow, isPaginated, twoPageView]);
 
   useEffect(() => {
     metadataRef.current = metadata;
@@ -1128,8 +1179,38 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
     if (previousTwoPageViewRef.current === twoPageView) return;
     previousTwoPageViewRef.current = twoPageView;
-    void loadChapterRef.current(currentIndexRef.current);
-  }, [twoPageView]);
+    rePaginatePreservingPosition();
+  }, [twoPageView, rePaginatePreservingPosition]);
+
+  // F1 — resize / orientation: pagination is laid out for the current width,
+  // so rotating the phone or resizing the window leaves pages built for the old
+  // width (cut / overlapping until chapter reload). Rebuild on demand —
+  // rAF-batched with a short debounce so a drag-resize storm only fires once it
+  // settles. The paginated/two-page guard lives in the shared helper.
+  useEffect(() => {
+    let debounceId: number | null = null;
+    let rafId = 0;
+
+    const schedule = () => {
+      if (debounceId !== null) window.clearTimeout(debounceId);
+      debounceId = window.setTimeout(() => {
+        debounceId = null;
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          rePaginatePreservingPosition();
+        });
+      }, 100);
+    };
+    const orientation = window.matchMedia('(orientation: portrait)');
+    window.addEventListener('resize', schedule);
+    orientation.addEventListener('change', schedule);
+    return () => {
+      window.removeEventListener('resize', schedule);
+      orientation.removeEventListener('change', schedule);
+      if (debounceId !== null) window.clearTimeout(debounceId);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [rePaginatePreservingPosition]);
 
   useEffect(() => {
     if (previousDoodleChapterRef.current === currentIndex) return;

@@ -129,15 +129,14 @@ export function ContinuousEpubView({
       const ch1 = await fetchChapter(initialChapterIndex);
       if (!active || !ch1) return;
       
-      const initialList = [ch1];
-      
-      if (initialChapterIndex + 1 < metadata.total_chapters) {
-        const ch2 = await fetchChapter(initialChapterIndex + 1);
-        if (ch2 && active) initialList.push(ch2);
-      }
-      
-      setChapters(initialList);
+      // Fix: Do NOT eagerly preload ch N+1 here. Putting it in the DOM before
+      // the initial scroll settles causes the IntersectionObserver to fire with
+      // ch N+1 as the "most visible" chapter, which overwrites the saved position
+      // and causes the reader to jump 1–2 chapters ahead on reopen.
+      // ch N+1 will load naturally via loadMoreChapters when the user scrolls.
+      setChapters([ch1]);
       hasAppliedInitialScroll.current = false;
+      initialScrollSettledRef.current = false;
     };
     loadInitial();
     
@@ -177,6 +176,9 @@ export function ContinuousEpubView({
 
   // Handle scroll anchoring and initial scroll
   const hasAppliedInitialScroll = useRef(false);
+  // Guard: IntersectionObserver must not fire onChapterChange until the initial
+  // scroll position has stabilised. Set to true 300ms after scroll is applied.
+  const initialScrollSettledRef = useRef(false);
   const previousRequestedChapterRef = useRef(initialChapterIndex);
 
   // Parent-level chapter navigation can change initialChapterIndex while the
@@ -211,6 +213,8 @@ export function ContinuousEpubView({
           el.scrollIntoView({ behavior: 'instant', block: 'start' });
         }
         hasAppliedInitialScroll.current = true;
+        // Allow fonts/images a moment to finish layout before the observer fires
+        setTimeout(() => { initialScrollSettledRef.current = true; }, 350);
       }
       return;
     }
@@ -299,7 +303,10 @@ export function ContinuousEpubView({
         }
       });
 
-      if (maxVisibleHeight > 0 && mostVisibleIdx !== activeChapterIndexRef.current) {
+      // Only fire onChapterChange once the initial scroll has fully settled.
+      // Firing before settlement overwrites the saved DB position with ch N+1
+      // (the eagerly-loaded next chapter) causing the 2-chapter-ahead jump bug.
+      if (maxVisibleHeight > 0 && mostVisibleIdx !== activeChapterIndexRef.current && initialScrollSettledRef.current) {
         activeChapterIndexRef.current = mostVisibleIdx;
         setActiveChapterIndex(mostVisibleIdx);
         onChapterChangeRef.current(mostVisibleIdx);

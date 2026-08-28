@@ -317,6 +317,19 @@ export function LibraryGrid({
 
   const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null);
 
+  // First-frame correctness: initialize width/columns from the REAL container
+  // width before the virtualizer renders, so the first pass never uses stale
+  // defaults (a stale column count on mount hid whole rows until a refresh).
+  useEffect(() => {
+    if (!parentEl) return;
+    const width = parentEl.clientWidth;
+    if (width > 0) {
+      const minCols = (isMobile && libraryDensity === "spacious") ? 1 : 2;
+      setContainerWidth(width);
+      setColumns(Math.max(minCols, Math.floor(width / densityColumnSize)));
+    }
+  }, [parentEl, densityColumnSize, isMobile, libraryDensity]);
+
   useEffect(() => {
     if (!parentEl) return;
 
@@ -353,6 +366,7 @@ export function LibraryGrid({
     estimateSize: () => estimatedRowHeight,
     overscan: 3,
   });
+  const gridRowVirtualizer = rowVirtualizer;
 
   const virtualItems = rowVirtualizer.getVirtualItems();
   const lastItem = virtualItems[virtualItems.length - 1];
@@ -514,12 +528,12 @@ export function LibraryGrid({
             return (
               <div
                 key={virtualRow.index}
+                ref={(el) => { if (el) rowVirtualizer.measureElement(el); }}
                 style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
                   width: "100%",
-                  height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                   display: "flex",
                   gap: "16px",

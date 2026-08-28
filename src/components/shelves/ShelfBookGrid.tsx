@@ -428,7 +428,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
 
   return (
     <div 
-      className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden pb-32 md:pb-12 custom-scrollbar relative"
+      className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden pb-36 sm:pb-32 md:pb-16 custom-scrollbar relative"
       style={{
         paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
@@ -921,28 +921,31 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}
-            className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-full bg-card/95 backdrop-blur-2xl border border-border shadow-2xl"
+            className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)] md:bottom-8 left-1/2 -translate-x-1/2 z-[65] flex items-center gap-2 sm:gap-3 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-full bg-card/95 backdrop-blur-2xl border border-border/80 shadow-2xl max-w-[calc(100vw-1.25rem)]"
           >
-            <span className="text-xs font-extrabold text-foreground pr-2 border-r border-border/50">
-              {selectedBookIds.size} Selected
+            <span className="text-xs font-extrabold text-foreground pr-2 border-r border-border/50 whitespace-nowrap shrink-0">
+              {selectedBookIds.size} <span className="max-xs:hidden">Selected</span>
             </span>
 
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shrink-0 px-1"
             >
-              {selectedBookIds.size === filteredAndSortedBooks.length ? 'Deselect All' : 'Select All'}
+              {selectedBookIds.size === filteredAndSortedBooks.length ? 'Deselect' : 'Select All'}
             </button>
 
             <button
               type="button"
               onClick={handleBatchRemove}
               disabled={isRemovingBatch}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all cursor-pointer shadow-md"
+              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all cursor-pointer shadow-md whitespace-nowrap shrink-0 active:scale-95"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Remove from Shelf</span>
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                <span className="xs:hidden">Remove</span>
+                <span className="max-xs:hidden">Remove from Shelf</span>
+              </span>
             </button>
           </motion.div>
         )}

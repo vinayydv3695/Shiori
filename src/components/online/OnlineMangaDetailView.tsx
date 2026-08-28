@@ -291,7 +291,7 @@ export function OnlineMangaDetailView({
       <div className="absolute top-0 left-0 right-0 h-[65vh] bg-gradient-to-b from-background/20 via-background/60 to-background pointer-events-none" />
 
       {/* Main Content Area */}
-      <div className="relative z-10 p-3.5 sm:p-6 md:p-10 max-w-[1400px] mx-auto w-full pt-[calc(env(safe-area-inset-top,0px)+1rem)] md:pt-10 pb-32 md:pb-16">
+      <div className="relative z-10 p-3.5 sm:p-6 md:p-10 max-w-[1400px] mx-auto w-full pt-[calc(env(safe-area-inset-top,0px)+0.375rem)] md:pt-10 pb-32 md:pb-16">
         {/* Top Action Bar */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           {/* Back Button */}

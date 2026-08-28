@@ -47,10 +47,10 @@ export function OnlineSearchHeader({
     <div 
       className={cn(
         "flex-shrink-0 relative overflow-hidden z-20 transition-colors duration-500",
-        isMobile ? "sticky top-0 pb-2 px-3 bg-background/90 backdrop-blur-xl border-b border-border/40 shadow-2xs" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
+        isMobile ? "sticky top-0 pb-1.5 px-3 bg-background/90 backdrop-blur-xl border-b border-border/40 shadow-2xs" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
       )}
       style={isMobile ? {
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 10px)',
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
         paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)',
       } : undefined}
@@ -59,7 +59,7 @@ export function OnlineSearchHeader({
       {!isMobile && <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />}
       
       <div className="max-w-7xl mx-auto relative z-10">
-        <div className="flex flex-col gap-3 md:gap-4">
+        <div className="flex flex-col md:gap-4">
           <div className="hidden md:flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground drop-shadow-sm">

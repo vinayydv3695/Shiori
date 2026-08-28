@@ -128,3 +128,54 @@ fn format_filter_finds_lowercased_formats() {
     assert_eq!(result.books.len(), 1);
     assert_eq!(result.books[0].title, "Epub Novel");
 }
+
+/// Domain filter (empty-grid fix): the Books view must show epub/pdf books
+/// with a NULL or 'books' domain but exclude manga-format files, and the Manga
+/// view must include both domain-tagged manga and cbz/cbr/zip files whatever
+/// their stored domain says.
+#[test]
+fn domain_filter_partitions_books_and_manga() {
+    let (db, _temp_dir) = create_temp_db("domain_filter");
+
+    let mut novel = test_book("dm-1", "Novel One", "epub", "Fiction");
+    novel.domain = Some("books".to_string());
+    add_book(&db, novel).unwrap();
+
+    let mut comic = test_book("dm-2", "Comic Two", "cbz", "Pictures");
+    comic.domain = Some("comics".to_string());
+    add_book(&db, comic).unwrap();
+
+    let mut legacy = test_book("dm-3", "Legacy Three", "pdf", "Old");
+    legacy.domain = None; // pre-domain imports carry a NULL domain
+    add_book(&db, legacy).unwrap();
+
+    let mut mystery = test_book("dm-4", "Mystery Four", "cbz", "Also cbz");
+    mystery.domain = Some("books".to_string()); // cbz imported as a regular book
+    add_book(&db, mystery).unwrap();
+
+    // Books domain: NULL/'books' domain AND non-manga formats.
+    let mut q = SearchQuery::default();
+    q.domain = Some("books".to_string());
+    q.limit = Some(10);
+    let result = search(&db, q).unwrap();
+    let mut titles: Vec<&str> = result.books.iter().map(|b| b.title.as_str()).collect();
+    titles.sort_unstable();
+    assert_eq!(
+        titles,
+        vec!["Legacy Three", "Novel One"],
+        "books domain must include NULL-domain books and exclude cbz"
+    );
+
+    // Manga domain: domain-tagged manga/comics OR manga-like formats.
+    let mut q = SearchQuery::default();
+    q.domain = Some("manga_comics".to_string());
+    q.limit = Some(10);
+    let result = search(&db, q).unwrap();
+    let mut titles: Vec<&str> = result.books.iter().map(|b| b.title.as_str()).collect();
+    titles.sort_unstable();
+    assert_eq!(
+        titles,
+        vec!["Comic Two", "Mystery Four"],
+        "manga domain must include cbz even when stored domain is 'books'"
+    );
+}

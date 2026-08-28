@@ -389,6 +389,45 @@ mod tests {
     }
 
     #[test]
+    fn test_build_search_query_domain_books() {
+        // Books view: NULL/'books' domain AND non-manga file formats. The
+        // clause must already cover the (in_trash = 0) baseline and never
+        // match cbz/cbr/zip/rar/7z/online-manga files.
+        let mut query = SearchQuery::default();
+        query.domain = Some("books".to_string());
+
+        let (count_sql, base_params, _ids_sql, _page_params) = build_search_query(&query);
+        let domain_clause = format!(
+            "b.domain IS NULL OR b.domain NOT IN ('manga', 'comics', 'manga_comics', 'online-manga')"
+        );
+        assert!(count_sql.contains(&domain_clause), "{count_sql}");
+        assert!(
+            count_sql.contains("b.file_format IS NULL OR b.file_format NOT IN ('cbz', 'cbr', 'zip', 'rar', '7z', 'online-manga')"),
+            "{count_sql}"
+        );
+        assert!(base_params.is_empty(), "domain filter needs no params");
+    }
+
+    #[test]
+    fn test_build_search_query_domain_manga() {
+        // Manga view: domain-tagged manga/comics OR manga-like formats, so an
+        // imported cbz with domain='books' still lands in the Manga view.
+        let mut query = SearchQuery::default();
+        query.domain = Some("manga_comics".to_string());
+
+        let (count_sql, base_params, _ids_sql, _page_params) = build_search_query(&query);
+        assert!(
+            count_sql.contains("b.domain IN ('manga', 'comics', 'manga_comics', 'online-manga')"),
+            "{count_sql}"
+        );
+        assert!(
+            count_sql.contains("b.file_format IN ('cbz', 'cbr', 'zip', 'rar', '7z', 'online-manga')"),
+            "{count_sql}"
+        );
+        assert!(base_params.is_empty(), "domain filter needs no params");
+    }
+
+    #[test]
     fn test_build_search_query_author_sort_is_batched() {
         let mut query = SearchQuery::default();
         query.sort_by = Some("author".to_string());

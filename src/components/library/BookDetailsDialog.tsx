@@ -90,25 +90,56 @@ export const BookDetailsDialog = ({
   }, [open, bookId, toast]);
 
   useEffect(() => {
+    let canceled = false;
+
     if (open && bookId) {
-      loadBook();
+      // Synchronously sync from libraryStore to eliminate loading delay & state flashes
+      const cached = useLibraryStore.getState().books.find(b => b.id === bookId);
+      if (cached) {
+        setBook(cached);
+        setReadingStatus(cached.reading_status || 'planning');
+        setLoading(false);
+      } else {
+        setBook(null);
+        setLoading(true);
+      }
+
+      // Fetch fresh / complete metadata from API
+      api.getBook(bookId)
+        .then(bookData => {
+          if (!canceled) {
+            setBook(bookData);
+            if (bookData.reading_status) setReadingStatus(bookData.reading_status);
+            setLoading(false);
+          }
+        })
+        .catch(error => {
+          logger.error('Failed to load book:', error);
+          if (!canceled) setLoading(false);
+        });
+    } else if (!open) {
+      // Clear book state when closed so stale metadata is discarded
+      setBook(null);
+      setLoading(false);
     }
+
+    return () => {
+      canceled = true;
+    };
   }, [open, bookId]);
 
   const loadBook = async () => {
     try {
-      setLoading(true);
       const bookData = await api.getBook(bookId);
       setBook(bookData);
+      if (bookData.reading_status) setReadingStatus(bookData.reading_status);
     } catch (error) {
       logger.error('Failed to load book:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const coverSrc = book?.cover_path ? resolveCoverSrc(book.cover_path) : null;
-  const isManga = book?.file_format.toLowerCase() === 'cbz' || book?.file_format.toLowerCase() === 'cbr';
+  const isManga = book?.file_format ? (book.file_format.toLowerCase() === 'cbz' || book.file_format.toLowerCase() === 'cbr') : false;
 
   const handleMetadataFetched = async () => {
     await loadBook();
@@ -127,29 +158,16 @@ export const BookDetailsDialog = ({
     return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  if (loading || !book) {
-    return (
-      <Dialog.Root open={open} onOpenChange={onOpenChange}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] transition-opacity" />
-          <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[210] w-[94vw] sm:w-[90vw] max-w-2xl bg-card border border-border rounded-3xl shadow-2xl flex items-center justify-center p-12 focus:outline-none">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    );
-  }
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/65 z-[200] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content 
           aria-describedby={undefined} 
-          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-3xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300"
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-3xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 transform-gpu"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/60 backdrop-blur-xl shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/80 shrink-0">
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs shrink-0">
                 <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -159,7 +177,7 @@ export const BookDetailsDialog = ({
                   Book Details
                 </Dialog.Title>
                 <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 font-medium">
-                  {book.title}
+                  {book?.title || 'Loading...'}
                 </Dialog.Description>
               </div>
             </div>
@@ -173,24 +191,34 @@ export const BookDetailsDialog = ({
             </button>
           </div>
 
-          {/* Scrollable Content Area */}
-          <div 
-            className="flex-1 overflow-y-auto p-4 sm:p-7 custom-scrollbar space-y-4 sm:space-y-6"
-            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
-          >
-            <div className="flex flex-col sm:flex-row gap-5 sm:gap-8 items-start">
-              
-              {/* Left Column: Cover & Primary Action */}
-              <div className="w-full sm:w-[220px] shrink-0 flex flex-col items-center gap-3 sm:gap-4">
-                <div className="relative group w-[140px] min-[380px]:w-[160px] min-[440px]:w-[180px] sm:w-full aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border border-border/50 bg-muted/20 hover:scale-[1.02] transition-all duration-300">
-                  {coverSrc ? (
-                    <img
-                      src={coverSrc}
-                      alt={book.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transition-transform duration-500 sm:group-hover:scale-105"
-                    />
+          {/* Body Content */}
+          {loading && !book ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[300px]">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+          ) : !book ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[300px] text-muted-foreground text-sm font-medium">
+              Book details unavailable.
+            </div>
+          ) : (
+            /* Scrollable Content Area */
+            <div 
+              className="flex-1 overflow-y-auto p-4 sm:p-7 custom-scrollbar space-y-4 sm:space-y-6"
+              style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
+            >
+              <div className="flex flex-col sm:flex-row gap-5 sm:gap-8 items-start">
+                
+                {/* Left Column: Cover & Primary Action */}
+                <div className="w-full sm:w-[220px] shrink-0 flex flex-col items-center gap-3 sm:gap-4">
+                  <div className="relative group w-[140px] min-[380px]:w-[160px] min-[440px]:w-[180px] sm:w-full aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border border-border/50 bg-muted/20 hover:scale-[1.02] transition-all duration-300">
+                    {coverSrc ? (
+                      <img
+                        src={coverSrc}
+                        alt={book.title}
+                        loading="eager"
+                        decoding="async"
+                        className="w-full h-full object-cover transition-transform duration-500 sm:group-hover:scale-105"
+                      />
                   ) : (
                     <FallbackBookCover
                       title={book.title}

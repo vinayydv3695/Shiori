@@ -40,13 +40,70 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
   const setBooks = useLibraryStore(state => state.setBooks);
 
   useEffect(() => {
+    let canceled = false;
+
     if (open && bookId) {
-      loadBook();
+      // Synchronously sync from libraryStore to eliminate loading delay & state flashes
+      const cached = useLibraryStore.getState().books.find(b => b.id === bookId);
+      if (cached) {
+        setBook(cached);
+        setFormData({
+          title: cached.title || '',
+          authors: cached.authors?.map(a => a.name).join(', ') || '',
+          isbn: cached.isbn || '',
+          isbn13: cached.isbn13 || '',
+          publisher: cached.publisher || '',
+          pubdate: cached.pubdate || '',
+          series: cached.series || '',
+          series_index: cached.series_index?.toString() || '',
+          rating: cached.rating?.toString() || '',
+          language: cached.language || 'en',
+          notes: cached.notes || '',
+        });
+        setLockedFields(cached.metadata_locked || {});
+        setLoading(false);
+      } else {
+        setBook(null);
+        setLoading(true);
+      }
+
+      // Fetch fresh / complete metadata from API
+      api.getBook(bookId)
+        .then(loadedBook => {
+          if (!canceled) {
+            setBook(loadedBook);
+            setFormData({
+              title: loadedBook.title || '',
+              authors: loadedBook.authors?.map(a => a.name).join(', ') || '',
+              isbn: loadedBook.isbn || '',
+              isbn13: loadedBook.isbn13 || '',
+              publisher: loadedBook.publisher || '',
+              pubdate: loadedBook.pubdate || '',
+              series: loadedBook.series || '',
+              series_index: loadedBook.series_index?.toString() || '',
+              rating: loadedBook.rating?.toString() || '',
+              language: loadedBook.language || 'en',
+              notes: loadedBook.notes || '',
+            });
+            setLockedFields(loadedBook.metadata_locked || {});
+            setLoading(false);
+          }
+        })
+        .catch(error => {
+          logger.error('Failed to load book for editing:', error);
+          if (!canceled) setLoading(false);
+        });
+    } else if (!open) {
+      setBook(null);
+      setLoading(false);
     }
+
+    return () => {
+      canceled = true;
+    };
   }, [open, bookId]);
 
   const loadBook = async () => {
-    setLoading(true);
     try {
       const loadedBook = await api.getBook(bookId);
       setBook(loadedBook);
@@ -63,14 +120,9 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
         language: loadedBook.language || 'en',
         notes: loadedBook.notes || '',
       });
-      
       setLockedFields(loadedBook.metadata_locked || {});
     } catch (error) {
       logger.error('Failed to load book for editing:', error);
-      toast.error('Failed to load book', 'Could not fetch book details');
-      onOpenChange(false);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -126,31 +178,16 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     }
   };
 
-  if (!book && loading) {
-    return (
-      <Dialog.Root open={open} onOpenChange={onOpenChange}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] transition-opacity" />
-          <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[210] w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-2xl bg-card border border-border rounded-2xl sm:rounded-3xl shadow-2xl flex items-center justify-center p-12 focus:outline-none">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    );
-  }
-
-  if (!book) return null;
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/65 z-[200] transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content 
           aria-describedby={undefined} 
-          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-2xl bg-card border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-300"
+          className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-1.5rem)] sm:w-[90vw] max-w-2xl bg-card border border-border/80 rounded-2xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 transform-gpu"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/70 backdrop-blur-xl shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border/50 bg-card/80 shrink-0">
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center text-primary shadow-xs shrink-0">
                 <Pencil className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -160,7 +197,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
                   Edit Metadata
                 </Dialog.Title>
                 <Dialog.Description className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 line-clamp-1 font-semibold">
-                  {book.title}
+                  {book?.title || 'Loading...'}
                 </Dialog.Description>
               </div>
             </div>
@@ -174,8 +211,18 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
             </button>
           </div>
 
-          {/* Scrollable Form Content */}
-          <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-3 sm:space-y-4 custom-scrollbar">
+          {/* Body Content */}
+          {loading && !book ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[300px]">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+          ) : !book ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[300px] text-muted-foreground text-sm font-medium">
+              Book details unavailable.
+            </div>
+          ) : (
+            /* Scrollable Form Content */
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 space-y-3 sm:space-y-4 custom-scrollbar">
             
             {/* Title Card */}
             <div className="bg-card/70 hover:bg-card border border-border/70 rounded-xl sm:rounded-2xl p-3 sm:p-4 space-y-2 transition-all duration-200 shadow-xs">

@@ -58,8 +58,8 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 bg-black/40 backdrop-blur-md" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background border border-border rounded-lg shadow-lg w-[90vw] max-w-md z-50">
+        <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/65 transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
+        <Dialog.Content aria-describedby={undefined} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[210] bg-card border border-border/80 rounded-2xl shadow-2xl w-[90vw] max-w-md focus:outline-none duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 transform-gpu">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
             <Dialog.Title className="text-lg font-semibold text-foreground flex items-center gap-2">

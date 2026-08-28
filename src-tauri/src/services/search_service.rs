@@ -49,6 +49,19 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
         }
     }
 
+    // Filter by domain (books vs manga/comics)
+    if let Some(ref domain) = query.domain {
+        if domain == "manga" || domain == "manga_comics" {
+            where_clauses.push(
+                "(b.domain IN ('manga', 'comics', 'manga_comics', 'online-manga') OR b.file_format IN ('cbz', 'cbr', 'zip', 'rar', '7z', 'online-manga'))".to_string()
+            );
+        } else if domain == "books" {
+            where_clauses.push(
+                "((b.domain IS NULL OR b.domain NOT IN ('manga', 'comics', 'manga_comics', 'online-manga')) AND (b.file_format IS NULL OR b.file_format NOT IN ('cbz', 'cbr', 'zip', 'rar', '7z', 'online-manga')))".to_string()
+            );
+        }
+    }
+
     // Filter by authors
     if let Some(ref authors) = query.authors {
         if !authors.is_empty() {

@@ -197,6 +197,7 @@ export interface MangaVolume {
 
 export interface SearchQuery {
   query?: string
+  domain?: string
   authors?: string[]
   tags?: string[]
   formats?: string[]

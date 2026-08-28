@@ -142,6 +142,7 @@ pub struct SearchResult {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SearchQuery {
     pub query: Option<String>,
+    pub domain: Option<String>,
     pub authors: Option<Vec<String>>,
     pub tags: Option<Vec<String>>,
     pub formats: Option<Vec<String>>,

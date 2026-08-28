@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useDeferredValue } from 'react';
 import { useLibraryStore, matchesAdvancedFilters } from '@/store/libraryStore';
 import { useShelfStore } from '@/store/shelfStore';
+import { useUIStore } from '@/store/uiStore';
 import { api, type Book, type SearchQuery } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import { useDebounce } from './useDebounce';
@@ -18,6 +19,7 @@ export function useLibraryFilter(searchQuery: string) {
   const setServerSearchQuery = useLibraryStore(state => state.setServerSearchQuery);
   const loadInitialBooks = useLibraryStore(state => state.loadInitialBooks);
   const selectedShelf = useShelfStore(state => state.selectedShelf);
+  const currentDomain = useUIStore(state => state.currentDomain);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
 
   // Filter books only when shelf changes.
@@ -127,6 +129,7 @@ export function useLibraryFilter(searchQuery: string) {
 
     const next: SearchQuery = {
       query: textTokens || undefined,
+      domain: currentDomain || undefined,
       authors: authors.length > 0 ? authors : undefined,
       tags: tags.length > 0 ? tags : undefined,
       formats: formats.length > 0 ? formats : undefined,
@@ -145,6 +148,7 @@ export function useLibraryFilter(searchQuery: string) {
 
     const hasCriteria = Boolean(
       next.query ||
+      next.domain ||
       (next.authors && next.authors.length > 0) ||
       (next.tags && next.tags.length > 0) ||
       (next.formats && next.formats.length > 0) ||
@@ -162,7 +166,7 @@ export function useLibraryFilter(searchQuery: string) {
     );
 
     return hasCriteria ? next : null;
-  }, [canUseServerSearch, query, selectedFilters, activeFilters]);
+  }, [canUseServerSearch, query, selectedFilters, activeFilters, currentDomain]);
 
   // Debounce the server-side query so typing doesn't fire a searchBooks IPC
   // round-trip per keystroke on a 50k-book library. Display logic keeps using

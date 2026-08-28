@@ -123,29 +123,18 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
-      // ArrowLeft / Left: Previous Page in 2-page/paginated, or Previous Chapter in vertical mode
+      // ArrowLeft / Left: Previous Chapter on every layout (matches the
+      // edge-tap behavior — page turns stay on swipes / Up-Down keys).
       if (key === 'ArrowLeft' || key === 'Left') {
         e.preventDefault();
-        if (isMod) {
-          handlersRef.current.onPrevChapter?.();
-        } else if (handlersRef.current.isPaginatedOrTwoPage) {
-          handlersRef.current.onPrevPage?.();
-        } else {
-          handlersRef.current.onPrevChapter?.();
-        }
+        handlersRef.current.onPrevChapter?.();
         return;
       }
 
-      // ArrowRight / Right: Next Page in 2-page/paginated, or Next Chapter in vertical mode
+      // ArrowRight / Right: Next Chapter on every layout.
       if (key === 'ArrowRight' || key === 'Right') {
         e.preventDefault();
-        if (isMod) {
-          handlersRef.current.onNextChapter?.();
-        } else if (handlersRef.current.isPaginatedOrTwoPage) {
-          handlersRef.current.onNextPage?.();
-        } else {
-          handlersRef.current.onNextChapter?.();
-        }
+        handlersRef.current.onNextChapter?.();
         return;
       }
 

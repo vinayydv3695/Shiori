@@ -319,6 +319,60 @@ export async function waitForStableReaderLayout(element: HTMLElement | null): Pr
 }
 
 
+/** Block-level tags that can anchor a paragraph-level resume position. */
+const PARAGRAPH_ANCHOR_TAG_RE = /^(?:H[1-6]|P|LI|BLOCKQUOTE|PRE|FIGURE|DIV)$/;
+
+/**
+ * Direct block children of a chapter's content wrapper
+ * (`premium-chapter-content`). Save and restore MUST use this identical list
+ * so the recorded index resolves to the same paragraph across sessions and
+ * font/device changes. Non-empty check drops spacer/wrapper divs.
+ */
+function getChapterBlockElements(canvas: HTMLElement, chapterIndex: number): HTMLElement[] {
+  const content = canvas.querySelector<HTMLElement>(`[data-chapter-index="${chapterIndex}"] .premium-chapter-content`);
+  if (!content) return [];
+  const blocks: HTMLElement[] = [];
+  const children = content.children;
+  for (let i = 0; i < children.length; i += 1) {
+    const el = children[i] as HTMLElement;
+    if (!PARAGRAPH_ANCHOR_TAG_RE.test(el.tagName)) continue;
+    if (!el.textContent || !el.textContent.trim()) continue;
+    blocks.push(el);
+  }
+  return blocks;
+}
+
+/**
+ * Index (in getChapterBlockElements order) of the block whose top edge is at
+ * the canvas viewport top — closest while ≥ -2px — or -1 when none qualifies.
+ */
+function getChapterBlockAtViewportTop(canvas: HTMLElement, chapterIndex: number): number {
+  const blocks = getChapterBlockElements(canvas, chapterIndex);
+  if (blocks.length === 0) return -1;
+  const viewTop = canvas.getBoundingClientRect().top;
+  let best = -1;
+  let bestTop = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < blocks.length; i += 1) {
+    const top = blocks[i].getBoundingClientRect().top;
+    if (top >= viewTop - 2 && top < bestTop) {
+      bestTop = top;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** Bounded wait for visible font readiness. document.fonts.ready can hang on
+ *  broken font providers, so cap it — navigation must never block. */
+async function waitForVisibleFonts(timeoutMs = 500): Promise<void> {
+  const fonts = document.fonts;
+  if (!fonts?.ready) return;
+  await Promise.race([
+    fonts.ready,
+    new Promise<void>((resolve) => window.setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
 function setCachedChapter(bookId: number, index: number, term: string | null | undefined, chapter: Chapter): void {
   const key = `${bookId}:${index}:${term ?? ''}`;
   const size = estimateProcessedChapterBytes(chapter);
@@ -438,8 +492,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const readerContainerRef = useRef<HTMLDivElement>(null);
   const pageFlipRef = useRef<PageFlipHandle>(null);
   const scrollPositionsRef = useRef<Map<number, number>>(new Map());
+  /** Parallel per-chapter paragraph anchor (block index at viewport top). Kept
+   *  separate so scrollPositionsRef's `Map<number, number>` shape (and every
+   *  existing consumer of it) stays untouched. */
+  const blockPositionsRef = useRef<Map<number, number>>(new Map());
   /** Keep the per-chapter scroll map bounded on long books. */
-  const rememberScrollPosition = (index: number, ratio: number): void => {
+  const rememberScrollPosition = (index: number, ratio: number, blockIndex?: number): void => {
     const map = scrollPositionsRef.current;
     if (map.has(index)) map.delete(index);
     map.set(index, ratio);
@@ -447,7 +505,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       const oldest = map.keys().next().value;
       if (oldest === undefined) break;
       map.delete(oldest);
+      blockPositionsRef.current.delete(oldest);
     }
+    if (blockIndex === undefined) return;
+    if (blockIndex >= 0) blockPositionsRef.current.set(index, blockIndex);
+    else blockPositionsRef.current.delete(index);
   };
   const currentIndexRef = useRef(0);
   const metadataRef = useRef<BookMetadata | null>(null);
@@ -484,7 +546,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         } else {
           const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
           const scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
-          rememberScrollPosition(currentIndex, scrollRatio);
+          const blockIndex = getChapterBlockAtViewportTop(canvasRef.current, currentIndex);
+          rememberScrollPosition(currentIndex, scrollRatio, blockIndex >= 0 ? blockIndex : undefined);
         }
       }
 
@@ -512,8 +575,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         : 0;
 
       const scrollRatio = scrollPositionsRef.current.get(index) || 0;
+      const savedBlockIndex = blockPositionsRef.current.get(index);
       const location = scrollRatio > 0
-        ? `chapter_${index}:scroll_${scrollRatio.toFixed(6)}`
+        ? `chapter_${index}:scroll_${scrollRatio.toFixed(6)}${savedBlockIndex !== undefined ? `:b${savedBlockIndex}` : ''}`
         : `chapter_${index}`;
       const cfi = `epubcfi(/0/${index}!/scroll/${scrollRatio.toFixed(6)})`;
 
@@ -524,6 +588,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       }
 
       await waitForStableReaderLayout(canvasRef.current);
+      if (requestToken !== chapterRequestRef.current) return;
+
+      // Fonts can swap in after the first stability pass (late @font-face
+      // loads — worst on resume in continuous flow). Re-check visible font
+      // readiness before the FIRST ratio apply; short timeout, same bound as
+      // waitForStableReaderLayout, so navigation never hangs.
+      await waitForVisibleFonts();
       if (requestToken !== chapterRequestRef.current) return;
 
       const canvas = canvasRef.current;
@@ -553,6 +624,32 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             } else {
               canvas.scrollTop = 0;
             }
+          }
+        }
+
+        // Paragraph-anchor restore: after the ratio is applied, additionally
+        // center the remembered block (index into getChapterBlockElements).
+        // Bounded retries absorb late font swaps / late-mounting content; a
+        // missing or out-of-range block silently falls back to the ratio scroll.
+        if (!isPendingAnnotation && !termToHighlight && !isHoriz) {
+          const requestedBlock = blockPositionsRef.current.get(index);
+          if (requestedBlock !== undefined && requestedBlock >= 0) {
+            void (async () => {
+              for (let attempt = 0; attempt < 3; attempt += 1) {
+                const canv = canvasRef.current;
+                if (!canv || canv.clientHeight <= 0) return;
+                const blocks = getChapterBlockElements(canv, index);
+                const target = blocks[requestedBlock];
+                if (target) {
+                  const canvasRect = canv.getBoundingClientRect();
+                  const elRect = target.getBoundingClientRect();
+                  const delta = (elRect.top - canvasRect.top) - (canv.clientHeight / 2) + (elRect.height / 2);
+                  canv.scrollBy({ top: Math.round(delta), behavior: 'instant' });
+                  return;
+                }
+                await new Promise<void>((resolve) => requestAnimationFrame(() => window.setTimeout(resolve, 60)));
+              }
+            })();
           }
         }
       }
@@ -638,11 +735,52 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   // Auto-hide the top bar 2s after it appears (user request).
   const isTopBarVisible = useReaderUIStore(state => state.isTopBarVisible);
+  const isSidebarOpen = useReaderUIStore(state => state.isSidebarOpen);
+  const [isPointerOverTopBar, setIsPointerOverTopBar] = useState(false);
+
+  // ReaderSettings keeps its open state locally inside ReaderTopBar, so detect
+  // the mounted panel (desktop dropdown or mobile sheet) to keep the bar pinned
+  // while the user is inside the settings dialog — on all platforms.
+  const [isReaderSettingsOpen, setIsReaderSettingsOpen] = useState(false);
   useEffect(() => {
-    if (!isTopBarVisible) return;
-    const timer = setTimeout(() => setTopBarVisible(false), 2000);
-    return () => clearTimeout(timer);
-  }, [isTopBarVisible, setTopBarVisible]);
+    const check = () => {
+      const open = Boolean(document.querySelector('.premium-settings-panel'));
+      setIsReaderSettingsOpen(prev => (prev === open ? prev : open));
+    };
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  // Single shared schedule-hide helper — every trigger (visibility flip,
+  // pointer leave, sidebar/settings close) routes through it.
+  const topBarHideTimerRef = useRef<number | null>(null);
+  const cancelTopBarHide = useCallback(() => {
+    if (topBarHideTimerRef.current !== null) {
+      clearTimeout(topBarHideTimerRef.current);
+      topBarHideTimerRef.current = null;
+    }
+  }, []);
+  const scheduleTopBarHide = useCallback(() => {
+    cancelTopBarHide();
+    topBarHideTimerRef.current = window.setTimeout(() => {
+      topBarHideTimerRef.current = null;
+      setTopBarVisible(false);
+    }, 2000);
+  }, [cancelTopBarHide, setTopBarVisible]);
+
+  // Skip auto-hide while the sidebar, the settings dialog, or the pointer
+  // (desktop hover over the top bar / its dropdowns) is active; re-arm 2s
+  // after they clear.
+  useEffect(() => {
+    if (!isTopBarVisible || isSidebarOpen || isReaderSettingsOpen || isPointerOverTopBar) {
+      cancelTopBarHide();
+      return;
+    }
+    scheduleTopBarHide();
+    return cancelTopBarHide;
+  }, [isTopBarVisible, isSidebarOpen, isReaderSettingsOpen, isPointerOverTopBar, scheduleTopBarHide, cancelTopBarHide]);
 
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
@@ -668,6 +806,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const chapterIndex = currentIndexRef.current;
     const canvas = canvasRef.current;
     let scrollRatio = scrollPositionsRef.current.get(chapterIndex) ?? 0;
+    let blockIndex = -1;
 
     if (canvas) {
       const isPag = canvas.classList.contains('premium-reading-canvas--paginated') ||
@@ -675,6 +814,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       if (isPag) {
         const { scrollLeft, scrollWidth, clientWidth } = canvas;
         scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
+        rememberScrollPosition(chapterIndex, scrollRatio);
       } else {
         const activeEl = canvas.querySelector(`[data-chapter-index="${chapterIndex}"]`) as HTMLElement;
         if (activeEl) {
@@ -685,13 +825,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
            const { scrollTop, scrollHeight, clientHeight } = canvas;
            scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
         }
+        // Vertical flow only: remember which block sits at the viewport top so
+        // "continue reading" can re-center the exact paragraph on restore.
+        // Horizontal (paged) layouts get no anchor — their scroll math is
+        // scrollLeft-based and centering a block would break column alignment.
+        blockIndex = getChapterBlockAtViewportTop(canvas, chapterIndex);
+        rememberScrollPosition(chapterIndex, scrollRatio, blockIndex);
       }
-      rememberScrollPosition(chapterIndex, scrollRatio);
     }
 
     const progressPercent = ((chapterIndex + scrollRatio) / totalChapters) * 100;
     const loc = scrollRatio > 0
-      ? `chapter_${chapterIndex}:scroll_${scrollRatio.toFixed(6)}`
+      ? `chapter_${chapterIndex}:scroll_${scrollRatio.toFixed(6)}${blockIndex >= 0 ? `:b${blockIndex}` : ''}`
       : `chapter_${chapterIndex}`;
     const cfi = `epubcfi(/0/${chapterIndex}!/scroll/${scrollRatio.toFixed(6)})`;
 
@@ -782,6 +927,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // Skip all restore if user chose "Start from beginning".
         let startIndex = 0;
         let savedScrollRatio = 0;
+        let savedBlockIndex: number | null = null;
         // Read from the live store — NOT from the closed-over React state. On
         // Android WebView the component can mount and this effect can fire before
         // Zustand has propagated the updated values to the component's reactive
@@ -832,8 +978,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               const progress = await api.getReadingProgress(bookId);
               if (progress) {
                 const fallbackFromLocation = () => {
-                  if (!progress.currentLocation) return { chapter: null as number | null, scroll: null as number | null };
-                  // Legacy location format: "chapter_N" or "chapter_N:scroll_R"
+                  if (!progress.currentLocation) return { chapter: null as number | null, scroll: null as number | null, block: null as number | null };
+                  // Legacy location format: "chapter_N" or "chapter_N:scroll_R";
+                  // paragraph anchors are appended as ":b<blockIndex>" (absent
+                  // in older saves — those fall back to ratio-only restore).
                   const parts = progress.currentLocation.split(':');
 
                   let chapter: number | null = null;
@@ -850,7 +998,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                     }
                   }
 
-                  return { chapter, scroll };
+                  let block: number | null = null;
+                  if (parts[2]?.startsWith('b')) {
+                    const b = parseInt(parts[2].slice(1), 10);
+                    if (!Number.isNaN(b) && b >= 0) block = b;
+                  }
+
+                  return { chapter, scroll, block };
                 };
 
                 let cfiChapter: number | null = null;
@@ -881,6 +1035,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 const fallback = fallbackFromLocation();
                 startIndex = cfiChapter ?? fallback.chapter ?? startIndex;
                 savedScrollRatio = cfiScroll ?? fallback.scroll ?? savedScrollRatio;
+                savedBlockIndex = fallback.block;
               }
             } catch {
               // Silently ignore
@@ -891,6 +1046,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // Seed the scroll map so continuous-flow mode restores the exact position.
         if (savedScrollRatio > 0) {
           rememberScrollPosition(startIndex, savedScrollRatio);
+        }
+        if (savedBlockIndex !== null) {
+          blockPositionsRef.current.set(startIndex, savedBlockIndex);
         }
 
         await loadChapterRef.current(startIndex, null, savedScrollRatio);
@@ -932,6 +1090,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       // book changes — indices from the previous book must not restore wrong
       // positions in the next one (the 100-entry cap stays intact).
       scrollPositionsRef.current = new Map<number, number>();
+      blockPositionsRef.current = new Map<number, number>();
       api.closeBookRenderer(bookId).catch(logger.error);
     };
   }, [bookPath, bookId, flushProgressNow]);
@@ -1646,10 +1805,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (Date.now() - lastTouchNavigationRef.current < 400) return;
     if (window.getSelection()?.toString().trim()) return;
 
-    // Desktop only: keep the left/right page-turn zones. On Android a single tap
-    // must never page-turn (which scrolls in continuous flow), so every tap here
-    // just closes the sidebar (if open) or toggles the top bar.
-    if (!isAndroid) {
+    // Tap zones are opt-in (tapZonesEnabled setting, off for everyone by
+    // default) and desktop-only. When enabled, left/right edge taps change
+    // chapter instead of page. Android stays tap-to-toggle only.
+    const tapZonesEnabled = readingSettings.tapZonesEnabled;
+    if (!isAndroid && tapZonesEnabled) {
       const windowWidth = window.innerWidth;
       const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
       const clickRatio = clickX / windowWidth;
@@ -1658,11 +1818,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
       triggerHaptic(10);
       if (clickRatio < leftBoundary) {
-        prevPage();
+        prevChapter();
         return;
       }
       if (clickRatio > rightBoundary) {
-        nextPage();
+        nextChapter();
         return;
       }
     }
@@ -1674,7 +1834,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       setTopBarVisible(!uiStore.isTopBarVisible);
     }
-  }, [isDoodleMode, prevPage, nextPage, setTopBarVisible]);
+  }, [isDoodleMode, prevChapter, nextChapter, setTopBarVisible, readingSettings]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -1723,8 +1883,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       onTouchMove={handleHoldTouchMove}
       onTouchCancel={handleHoldTouchCancel}
     >
-      {/* Auto-hide Top Bar */}
-      <ReaderTopBar
+      {/* Auto-hide Top Bar — hover keeps it pinned, leaving re-arms the 2s timer */}
+      <div
+        onPointerEnter={() => setIsPointerOverTopBar(true)}
+        onPointerLeave={() => setIsPointerOverTopBar(false)}
+      >
+        <ReaderTopBar
         bookId={bookId}
         title={metadata?.title || readerContent?.title || 'Loading...'}
         subtitle={chapterSubtitle}
@@ -1777,7 +1941,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             </button>
           </>
         }
-      />
+        />
+      </div>
 
       {/* Reading Canvas */}
       {continuousFlow && metadata ? (

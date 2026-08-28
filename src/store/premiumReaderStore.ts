@@ -93,6 +93,7 @@ interface ReadingSettings {
   width: 'narrow' | 'medium' | 'wide' | 'full';
   margin: number; // 0-80px content margin
   twoPageView: boolean;
+  tapZonesEnabled: boolean; // Desktop only: tap left/right edges to change chapter
 
   // Brightness
   brightness: number; // 0.5-1.5
@@ -141,6 +142,7 @@ interface ReadingSettings {
   setAnimationStyle: (style: 'slide' | 'fade' | 'none') => void;
   setPaperTextureIntensity: (intensity: number) => void;
   setUiScale: (scale: number) => void;
+  setTapZonesEnabled: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
 
@@ -168,6 +170,7 @@ const defaultSettings = {
   animationStyle: 'slide' as const,
   paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
+  tapZonesEnabled: false,
 };
 
 const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark', 'sepia', 'dark'];
@@ -210,6 +213,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
   setAnimationStyle: 0;
   setPaperTextureIntensity: 0;
   setUiScale: 0;
+  setTapZonesEnabled: 0;
   setKeepScreenOn: 0;
   resetToDefaults: 0;
 }> => {
@@ -239,6 +243,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     animationStyle: clampStringEnum(source.animationStyle, defaultSettings.animationStyle, ANIMATION_STYLE_OPTIONS),
     paperTextureIntensity: clampNumber(source.paperTextureIntensity, defaultSettings.paperTextureIntensity, 0, 0.2),
     uiScale: clampNumber(source.uiScale, defaultSettings.uiScale, 0.8, 1.4),
+    tapZonesEnabled: typeof source.tapZonesEnabled === 'boolean' ? source.tapZonesEnabled : defaultSettings.tapZonesEnabled,
   };
 };
 
@@ -397,6 +402,8 @@ export const useReadingSettings = create<ReadingSettings>()(
         set({ uiScale: clamped });
         applyUiScaleToDOM(clamped);
       },
+
+      setTapZonesEnabled: (enabled) => set({ tapZonesEnabled: enabled }),
 
       resetToDefaults: () => set(defaultSettings),
     }),

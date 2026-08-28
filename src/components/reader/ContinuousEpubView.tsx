@@ -28,8 +28,10 @@ interface LoadedChapter {
 
 // Chapters outside [active-KEEP_ABOVE, active+KEEP_BELOW] are unloaded to bound
 // memory (long books previously kept every scrolled chapter, OOM-crashing Android).
-const KEEP_ABOVE = isAndroid ? 1 : 3;
-const KEEP_BELOW = isAndroid ? 1 : 3;
+// Desktop keeps a wider window so pruning (and its scroll anchoring) happens far
+// less often during normal reading; Android stays tight for memory.
+const KEEP_ABOVE = isAndroid ? 1 : 5;
+const KEEP_BELOW = isAndroid ? 1 : 5;
 
 export function ContinuousEpubView({
   bookId,
@@ -65,10 +67,23 @@ export function ContinuousEpubView({
   
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  // Baseline heights per chapter index for scroll compensation: only chapters
+  // fully ABOVE the viewport whose height changed (late images/fonts) shift the
+  // visible content, and their delta is added to scrollTop.
+  const chapterSizesRef = useRef<Map<number, number>>(new Map());
   const chapterRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const isFetchingRef = useRef(false);
   const annotationsRef = useRef<Annotation[] | null>(null);
   const annotationsPromiseRef = useRef<Promise<Annotation[]> | null>(null);
+
+  // IntersectionObserver reports up to once per frame while a chapter boundary
+  // is crossed (21 ratio thresholds per element). Flooding setActiveChapterIndex
+  // churns React at scroll speed, so the most-visible chapter is committed at
+  // most once per COMMIT_DEBOUNCE_MS and only when it actually differs.
+  const COMMIT_DEBOUNCE_MS = 100;
+  const pendingActiveIdxRef = useRef<number | null>(null);
+  const commitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadAnnotations = useCallback(async (force = false): Promise<Annotation[]> => {
     if (!force && annotationsRef.current) return annotationsRef.current;
@@ -285,6 +300,29 @@ export function ContinuousEpubView({
     const container = containerRef.current;
     if (!container) return;
 
+    // Commit the pending most-visible chapter. Runs at most once per
+    // COMMIT_DEBOUNCE_MS; the published index is the last one observed.
+    const commitPendingActive = () => {
+      commitTimerRef.current = null;
+      const pending = pendingActiveIdxRef.current;
+      pendingActiveIdxRef.current = null;
+      if (pending === null) return;
+      // The chapter may have been pruned since it was observed — a removed
+      // element can't be most-visible, and committing it would yank scroll.
+      if (!chapterRefs.current.has(pending)) return;
+      if (pending === activeChapterIndexRef.current) return;
+      activeChapterIndexRef.current = pending;
+      setActiveChapterIndex(pending);
+      onChapterChangeRef.current(pending);
+    };
+
+    const scheduleCommit = (idx: number) => {
+      pendingActiveIdxRef.current = idx;
+      if (commitTimerRef.current === null) {
+        commitTimerRef.current = setTimeout(commitPendingActive, COMMIT_DEBOUNCE_MS);
+      }
+    };
+
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
       let maxVisibleHeight = 0;
       let mostVisibleIdx = activeChapterIndexRef.current;
@@ -307,9 +345,7 @@ export function ContinuousEpubView({
       // Firing before settlement overwrites the saved DB position with ch N+1
       // (the eagerly-loaded next chapter) causing the 2-chapter-ahead jump bug.
       if (maxVisibleHeight > 0 && mostVisibleIdx !== activeChapterIndexRef.current && initialScrollSettledRef.current) {
-        activeChapterIndexRef.current = mostVisibleIdx;
-        setActiveChapterIndex(mostVisibleIdx);
-        onChapterChangeRef.current(mostVisibleIdx);
+        scheduleCommit(mostVisibleIdx);
       }
     };
 
@@ -319,12 +355,74 @@ export function ContinuousEpubView({
       threshold: Array.from({ length: 21 }, (_, i) => i * 0.05), // More granular thresholds for long chapters
     });
 
+    // ResizeObserver: a chapter fully above the viewport that grows after the
+    // scroll anchor ran (images/fonts decode late) pushes the reading position
+    // down — compensate by exactly that delta. Coalesced: all entry deltas in
+    // one callback are summed into a single scrollTop write.
+    const chapterSizes = chapterSizesRef.current;
+    resizeObserverRef.current = new ResizeObserver((entries) => {
+      if (!containerRef.current) return;
+      // An anchor is pending: the layout effect is about to write scrollTop;
+      // skip this frame so the two never double-adjust. Stable heights that
+      // changed later re-fire the observer.
+      if (pendingScrollAnchorRef.current) return;
+      const container = containerRef.current;
+      let delta = 0;
+      for (const entry of entries) {
+        const target = entry.target as HTMLElement;
+        const idxStr = target.getAttribute('data-chapter-index');
+        if (!idxStr) continue;
+        const idx = parseInt(idxStr, 10);
+        const size = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+        const prev = chapterSizes.get(idx);
+        chapterSizes.set(idx, size);
+        if (prev === undefined || size === prev) continue;
+        // Fully above the viewport? Its growth moves everything below it.
+        // If the viewport is INSIDE this chapter, growth may be below the fold
+        // and must not shift the reading position — never touch scrollTop.
+        if (target.getBoundingClientRect().bottom <= 0) {
+          delta += size - prev;
+        }
+      }
+      if (delta !== 0) container.scrollTop += delta;
+    });
+
     chapterRefs.current.forEach(el => observerRef.current?.observe(el));
+    chapterRefs.current.forEach(el => resizeObserverRef.current?.observe(el));
 
     return () => {
+      if (commitTimerRef.current !== null) {
+        clearTimeout(commitTimerRef.current);
+        commitTimerRef.current = null;
+      }
+      pendingActiveIdxRef.current = null;
       observerRef.current?.disconnect();
+      resizeObserverRef.current?.disconnect();
+      chapterSizes.clear();
     };
   }, [chapters, metadata.total_chapters]);
+
+  // Layout stabilizer for loaded images: once an image decodes, persist its
+  // intrinsic size as width/height attributes. The FIRST decode's layout shift
+  // is absorbed by the ResizeObserver above; these attributes keep later DOM
+  // mutations (search-highlight toggles, re-layouts) from shifting layout again.
+  // <img> 'load' events don't bubble, but they DO capture — the container-level
+  // capture listener sees every chapter's images. Fonts are left alone
+  // (ponytail: font-display:swap in EPUB CSS plus bounded font waits elsewhere).
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onLoadCapture = (e: Event) => {
+      const img = e.target as HTMLImageElement;
+      if (!(img instanceof HTMLImageElement)) return;
+      if (img.naturalWidth > 0 && !img.hasAttribute('width') && !img.hasAttribute('height')) {
+        img.setAttribute('width', String(img.naturalWidth));
+        img.setAttribute('height', String(img.naturalHeight));
+      }
+    };
+    container.addEventListener('load', onLoadCapture, true);
+    return () => container.removeEventListener('load', onLoadCapture, true);
+  }, []);
 
   const loadMoreChapters = async (direction: 'up' | 'down') => {
     if (chapters.length === 0 || isFetchingRef.current || !containerRef.current) return;

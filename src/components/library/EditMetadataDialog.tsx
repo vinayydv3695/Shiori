@@ -178,6 +178,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     }
   };
 
+  return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/45 backdrop-blur-xl z-[200] transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />

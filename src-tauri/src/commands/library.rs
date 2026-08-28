@@ -22,6 +22,15 @@ struct ScanCompletePayload {
     total_indexed: usize,
 }
 
+/// Failure payload for the `download_failed` event — emitted right before the
+/// LibGen/Gutenberg download commands return `Err`, so the frontend queue can
+/// mark the item failed instead of leaving it "Downloading…" forever.
+#[derive(Clone, Serialize)]
+struct DownloadPayload {
+    title: String,
+    error: String,
+}
+
 fn allowed_extensions(content_type: &str) -> &'static [&'static str] {
     match content_type.trim().to_lowercase().as_str() {
         "manga" => &["cbz", "cbr", "zip"],
@@ -811,11 +820,31 @@ pub async fn download_gutenberg_epub(
 ) -> Result<String> {
     use futures::StreamExt;
     use std::io::Write;
+    use std::time::Duration;
     use tauri::Manager;
 
-    let resp = reqwest::get(&url)
-        .await
+    // No total request timeout (reqwest's `timeout()` aborts slow large
+    // downloads MID-STREAM). Use a connect timeout plus a per-chunk idle
+    // watchdog: 60s without a single chunk means a stalled connection.
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(20))
+        .build()
         .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| {
+            let msg = e.to_string();
+            let _ = app_handle.emit(
+                "download_failed",
+                DownloadPayload {
+                    title: title_hint.clone(),
+                    error: msg.clone(),
+                },
+            );
+            crate::error::ShioriError::Other(msg)
+        })?;
     let total_bytes = resp.content_length();
 
     let safe_title = title_hint
@@ -852,10 +881,39 @@ pub async fn download_gutenberg_epub(
 
     let mut last_emit = std::time::Instant::now();
 
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-        file.write_all(&chunk)
-            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
+    // Local helper: surface the failure to the frontend queue, then build the
+    // ShioriError. Without it the item would stay "Downloading…" forever.
+    let fail = |msg: String| -> crate::error::ShioriError {
+        let _ = app_handle.emit(
+            "download_failed",
+            DownloadPayload {
+                title: title_hint.clone(),
+                error: msg.clone(),
+            },
+        );
+        crate::error::ShioriError::Other(msg)
+    };
+
+    loop {
+        // Per-chunk idle watchdog: no chunk within 60s = stalled connection.
+        let chunk_result =
+            match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => break,
+                Err(_) => {
+                    return Err(fail(
+                        "Download stalled: no data received for 60s (connection timed out)."
+                            .to_string(),
+                    ))
+                }
+            };
+        let chunk = match chunk_result {
+            Ok(chunk) => chunk,
+            Err(e) => return Err(fail(format!("Download failed: {}", e))),
+        };
+        if let Err(e) = file.write_all(&chunk) {
+            return Err(fail(format!("Failed to write download to disk: {}", e)));
+        }
         downloaded_bytes += chunk.len() as u64;
 
         if last_emit.elapsed().as_millis() > 100 {
@@ -888,13 +946,15 @@ pub async fn download_libgen_epub(
     title_hint: String,
     format_ext: Option<String>,
 ) -> Result<String> {
+    use futures::StreamExt;
+    use std::io::Write;
     use std::time::Duration;
 
     let all_mirrors: Vec<String> = serde_json::from_str(&url).unwrap_or_else(|_| vec![url.clone()]);
 
     let client = reqwest::Client::builder()
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        .timeout(Duration::from_secs(120))
+        .connect_timeout(Duration::from_secs(20))
         .build()
         .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
 
@@ -945,7 +1005,11 @@ pub async fn download_libgen_epub(
     let _download_guard =
         crate::ActiveDownloads::increment(app_handle.state::<crate::ActiveDownloads>());
 
-    let mut resp_opt: Option<reqwest::Response> = None;
+    // Every successfully-fetched (non-HTML) candidate — the get.php attempt
+    // plus each mirror. Unlike the old single-`resp_opt` flow, a mid-stream
+    // failure on one candidate falls back to the next instead of failing the
+    // whole command. Each is streamed fresh (no byte-range resume).
+    let mut resp_list: Vec<reqwest::Response> = Vec::new();
     let mut bad_download_reason: Option<String> = None;
 
     // Attempt 1: Try get.php from libgen.li (bypasses Cloudflare entirely)
@@ -974,36 +1038,10 @@ pub async fn download_libgen_epub(
                                     .and_then(|v| v.to_str().ok())
                                     .unwrap_or("");
                                 if !content_type.contains("text/html") {
-                                    // Stream to disk, then verify magic bytes. If the
-                                    // served content doesn't match the advertised
-                                    // format, fall through to the mirror loop below.
-                                    match stream_response_to_file(
-                                        file_resp,
-                                        &file_path,
-                                        &app_handle,
-                                        &target_id,
-                                    )
-                                    .await
-                                    {
-                                        Ok(()) => match verify_downloaded_file(&file_path, &ext) {
-                                            Ok(()) => {
-                                                emit_download_completed(
-                                                    &app_handle,
-                                                    &target_id,
-                                                    &file_path,
-                                                );
-                                                return Ok(file_path.to_string_lossy().to_string());
-                                            }
-                                            Err(reason) => {
-                                                bad_download_reason = Some(reason);
-                                                let _ = std::fs::remove_file(&file_path);
-                                            }
-                                        },
-                                        Err(e) => {
-                                            bad_download_reason = Some(e.to_string());
-                                            let _ = std::fs::remove_file(&file_path);
-                                        }
-                                    }
+                                    // Queue the get.php candidate; it is streamed
+                                    // (with the per-chunk watchdog + mirror
+                                    // fallback) in the per-candidate loop below.
+                                    resp_list.push(file_resp);
                                 }
                             }
                         }
@@ -1013,9 +1051,10 @@ pub async fn download_libgen_epub(
         }
     }
 
-    // Attempt 2: Fall back to existing mirror scraping logic if get.php fails
-    if resp_opt.is_none() {
-        for mirror_url in &all_mirrors {
+    // Attempt 2: mirror-scraping fallback. Always run — it queues mirror
+    // candidates even when get.php already queued one; each is streamed and
+    // verified in order below, and mid-stream failures fall back to the next.
+    for mirror_url in &all_mirrors {
             if mirror_url.trim().is_empty() {
                 continue;
             }
@@ -1090,7 +1129,9 @@ pub async fn download_libgen_epub(
                 }
             }
 
-            // 2. Try to fetch the actual file from download_url
+            // 2. Try to fetch the actual file from download_url. Keep every
+            // successful (non-HTML) candidate — a later mid-stream failure falls
+            // back to the next mirror instead of failing the whole download.
             if let Ok(file_resp) = client.get(&download_url).send().await {
                 if file_resp.status().is_success() {
                     let content_type = file_resp
@@ -1101,37 +1142,106 @@ pub async fn download_libgen_epub(
                     if content_type.contains("text/html") {
                         continue; // STILL an HTML page
                     }
-                    resp_opt = Some(file_resp);
+                    resp_list.push(file_resp);
+                }
+            }
+        }
+
+    // Local helper: surface the final failure to the frontend queue, then build
+    // the ShioriError so items never hang on "Downloading…" forever.
+    let fail = |msg: String| -> crate::error::ShioriError {
+        let _ = app_handle.emit(
+            "download_failed",
+            DownloadPayload {
+                title: title_hint.clone(),
+                error: msg.clone(),
+            },
+        );
+        crate::error::ShioriError::Other(msg)
+    };
+
+    // Stream each candidate in turn with a 60s per-chunk idle watchdog. A
+    // mid-stream failure (timeout / io / abort) removes the partial file and
+    // tries the next mirror; only after ALL candidates fail do we emit
+    // `download_failed` and return Err.
+    for resp in resp_list {
+        let total_bytes = resp.content_length();
+        let mut file = match std::fs::File::create(&file_path) {
+            Ok(f) => f,
+            Err(e) => {
+                bad_download_reason = Some(format!("could not create file: {}", e));
+                continue;
+            }
+        };
+
+        let mut downloaded_bytes = 0u64;
+        let mut stream = resp.bytes_stream();
+        let mut last_emit = std::time::Instant::now();
+        let mut stream_failed: Option<String> = None;
+
+        loop {
+            // 60s idle watchdog: no chunk within a minute = stalled connection.
+            let chunk_result =
+                match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
+                    Ok(Some(chunk)) => chunk,
+                    Ok(None) => break,
+                    Err(_) => {
+                        stream_failed =
+                            Some("no data received for 60s (connection stalled)".to_string());
+                        break;
+                    }
+                };
+            match chunk_result {
+                Ok(chunk) => {
+                    if let Err(e) = file.write_all(&chunk) {
+                        stream_failed = Some(format!("failed to write to disk: {}", e));
+                        break;
+                    }
+                    downloaded_bytes += chunk.len() as u64;
+
+                    if last_emit.elapsed().as_millis() > 100 {
+                        let payload = serde_json::json!({
+                            "target_id": target_id,
+                            "status": "downloading",
+                            "downloaded_bytes": downloaded_bytes,
+                            "total_bytes": total_bytes
+                        });
+                        let _ = app_handle.emit("online-book-download-progress", payload);
+                        last_emit = std::time::Instant::now();
+                    }
+                }
+                Err(e) => {
+                    stream_failed = Some(e.to_string());
                     break;
                 }
             }
         }
-    }
 
-    let resp = match resp_opt {
-        Some(r) => r,
-        None => {
+        if let Some(reason) = stream_failed {
+            bad_download_reason = Some(reason);
             let _ = std::fs::remove_file(&file_path);
-            let mut msg = "All Libgen mirrors failed or were blocked by Cloudflare/ISP. Try downloading from another source like Gutenberg.".to_string();
-            if let Some(reason) = bad_download_reason {
-                msg.push_str(&format!(" ({})", reason));
-            }
-            return Err(crate::error::ShioriError::Other(msg));
+            continue;
         }
-    };
 
-    stream_response_to_file(resp, &file_path, &app_handle, &target_id).await?;
+        // Final format verification: a mirror may serve an HTML error page or a
+        // different format than the entry advertised — treat as failure,
+        // try the next mirror.
+        if let Err(reason) = verify_downloaded_file(&file_path, &ext) {
+            bad_download_reason = Some(reason);
+            let _ = std::fs::remove_file(&file_path);
+            continue;
+        }
 
-    // Final format verification: a mirror may serve an HTML error page or a
-    // different format than the entry advertised.
-    if let Err(reason) = verify_downloaded_file(&file_path, &ext) {
-        let _ = std::fs::remove_file(&file_path);
-        return Err(crate::error::ShioriError::Other(reason));
+        emit_download_completed(&app_handle, &target_id, &file_path);
+        return Ok(file_path.to_string_lossy().to_string());
     }
 
-    emit_download_completed(&app_handle, &target_id, &file_path);
-
-    Ok(file_path.to_string_lossy().to_string())
+    let _ = std::fs::remove_file(&file_path);
+    let mut msg = "All Libgen mirrors failed or were blocked by Cloudflare/ISP. Try downloading from another source like Gutenberg.".to_string();
+    if let Some(reason) = bad_download_reason {
+        msg.push_str(&format!(" ({})", reason));
+    }
+    return Err(fail(msg));
 }
 
 /// Detect book format from magic bytes (cheap prefix scan — no full parse).
@@ -1215,45 +1325,6 @@ fn verify_downloaded_file(
             expected_ext
         ))
     }
-}
-
-/// Stream a response body to disk, emitting progress events along the way.
-async fn stream_response_to_file(
-    resp: reqwest::Response,
-    file_path: &std::path::Path,
-    app_handle: &tauri::AppHandle,
-    target_id: &str,
-) -> Result<()> {
-    use futures::StreamExt;
-    use std::io::Write;
-
-    let total_bytes = resp.content_length();
-    let mut file = std::fs::File::create(file_path)
-        .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-
-    let mut downloaded_bytes = 0u64;
-    let mut stream = resp.bytes_stream();
-    let mut last_emit = std::time::Instant::now();
-
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-        file.write_all(&chunk)
-            .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-        downloaded_bytes += chunk.len() as u64;
-
-        if last_emit.elapsed().as_millis() > 100 {
-            let payload = serde_json::json!({
-                "target_id": target_id,
-                "status": "downloading",
-                "downloaded_bytes": downloaded_bytes,
-                "total_bytes": total_bytes
-            });
-            let _ = app_handle.emit("online-book-download-progress", payload);
-            last_emit = std::time::Instant::now();
-        }
-    }
-
-    Ok(())
 }
 
 /// Emit the completed progress event for a finished download.

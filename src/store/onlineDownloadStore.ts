@@ -52,6 +52,8 @@ export interface DownloadProgress {
   title?: string;
   /** Measurement unit, e.g. 'bytes' (default) or 'pages' for manga */
   unit?: 'bytes' | 'pages';
+  /** Failure message set when the backend emits `download_failed`. */
+  error?: string;
 }
 
 interface OnlineDownloadStore {
@@ -144,6 +146,34 @@ export const useOnlineDownloadStore = create<OnlineDownloadStore>()(
               },
             },
           }));
+        });
+
+        // Backend emits `download_failed` right before the LibGen/Gutenberg
+        // command returns Err (stalled connection, per-chunk timeout, all
+        // mirrors failed). Mark every in-flight item with this title as failed
+        // so the queue stops the spinner and shows the error state, and push a
+        // toast with the actual error. Never leave an item "Downloading…".
+        listen<{ title: string; error: string }>('download_failed', (event) => {
+          const { title, error } = event.payload;
+          set((state) => {
+            const updated = { ...state.downloads };
+            let changed = false;
+            for (const [id, item] of Object.entries(updated)) {
+              if (item.status === 'downloading' && item.title === title) {
+                updated[id] = { ...item, status: 'error', error };
+                changed = true;
+              }
+            }
+            return changed ? { downloads: updated } : state;
+          });
+          setTimeout(() => {
+            useToastStore.getState().addToast({
+              title: 'Download failed',
+              description: error,
+              variant: 'error',
+              duration: 5000,
+            });
+          }, 0);
         });
 
         listen<{

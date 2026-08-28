@@ -1805,26 +1805,23 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (Date.now() - lastTouchNavigationRef.current < 400) return;
     if (window.getSelection()?.toString().trim()) return;
 
-    // Tap zones are opt-in (tapZonesEnabled setting, off for everyone by
-    // default) and desktop-only. When enabled, left/right edge taps change
-    // chapter instead of page. Android stays tap-to-toggle only.
-    const tapZonesEnabled = readingSettings.tapZonesEnabled;
-    if (!isAndroid && tapZonesEnabled) {
-      const windowWidth = window.innerWidth;
-      const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
-      const clickRatio = clickX / windowWidth;
-      const leftBoundary = 0.25;
-      const rightBoundary = 0.75;
+    // Tap edges to change chapter — fixed, uniform on all platforms:
+    // left edge → previous chapter, right edge → next chapter.
+    // Center tap toggles the UI (top bar/sidebar).
+    const windowWidth = window.innerWidth;
+    const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
+    const clickRatio = clickX / windowWidth;
+    const leftBoundary = 0.25;
+    const rightBoundary = 0.75;
 
-      triggerHaptic(10);
-      if (clickRatio < leftBoundary) {
-        prevChapter();
-        return;
-      }
-      if (clickRatio > rightBoundary) {
-        nextChapter();
-        return;
-      }
+    triggerHaptic(10);
+    if (clickRatio < leftBoundary) {
+      prevChapter();
+      return;
+    }
+    if (clickRatio > rightBoundary) {
+      nextChapter();
+      return;
     }
 
     triggerHaptic(10);
@@ -1834,7 +1831,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       setTopBarVisible(!uiStore.isTopBarVisible);
     }
-  }, [isDoodleMode, prevChapter, nextChapter, setTopBarVisible, readingSettings]);
+  }, [isDoodleMode, prevChapter, nextChapter, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

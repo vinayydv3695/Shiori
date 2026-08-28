@@ -758,7 +758,10 @@ const RSSFeedManager: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   return (
     <div className="flex flex-col h-full bg-background relative overflow-hidden">
       {/* Header Bar */}
-      <div className="flex-none px-4 sm:px-6 py-3.5 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] md:pt-4 border-b border-border/50 bg-background/95 backdrop-blur-xl flex flex-col gap-3 shadow-xs z-20">
+      <div 
+        className="flex-none px-4 sm:px-6 pb-2.5 sm:pb-3 border-b border-border/50 bg-background/95 backdrop-blur-xl flex flex-col gap-3 shadow-xs z-20"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' }}
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {onClose && (

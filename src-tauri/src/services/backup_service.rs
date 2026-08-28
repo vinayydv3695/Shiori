@@ -291,7 +291,11 @@ fn quote_col(c: &str) -> String {
 /// Read every row of `table` as a JSON object keyed by column name.
 fn export_table_rows(conn: &rusqlite::Connection, table: &str) -> Result<Vec<Map<String, Value>>> {
     let cols = table_columns(conn, "main", table)?;
-    let col_list = cols.iter().map(|c| quote_col(c)).collect::<Vec<_>>().join(", ");
+    let col_list = cols
+        .iter()
+        .map(|c| quote_col(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     let mut stmt = conn.prepare(&format!("SELECT {col_list} FROM main.{table}"))?;
     let mut rows = stmt.query([])?;
     let mut out = Vec::new();
@@ -317,7 +321,10 @@ fn add_book_links(
     let mut stmt = conn.prepare("SELECT id, uuid, file_hash FROM books")?;
     let map: HashMap<i64, (String, Option<String>)> = stmt
         .query_map([], |row| {
-            Ok((row.get::<_, i64>(0)?, (row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?)))
+            Ok((
+                row.get::<_, i64>(0)?,
+                (row.get::<_, String>(1)?, row.get::<_, Option<String>>(2)?),
+            ))
         })?
         .collect::<std::result::Result<_, _>>()?;
     for row in rows {
@@ -344,7 +351,9 @@ fn add_name_links(
 ) -> Result<()> {
     let mut stmt = conn.prepare(&format!("SELECT id, {name_col} FROM {table}"))?;
     let map: HashMap<i64, String> = stmt
-        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
         .collect::<std::result::Result<_, _>>()?;
     for row in rows {
         if let Some(id) = row.get(id_col).and_then(|v| v.as_i64()) {
@@ -535,7 +544,8 @@ fn create_full_backup(
             }
 
             if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
-                let pct = 15.0 + ((covers_max_pct - 15.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
+                let pct = 15.0
+                    + ((covers_max_pct - 15.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
                 emit_backup_progress(
                     progress,
                     start_time,
@@ -562,7 +572,9 @@ fn create_full_backup(
         for (idx, file_path) in paths.iter().enumerate() {
             let book_path = Path::new(file_path);
             if book_path.exists() && book_path.is_file() {
-                let canonical = book_path.canonicalize().unwrap_or_else(|_| book_path.to_path_buf());
+                let canonical = book_path
+                    .canonicalize()
+                    .unwrap_or_else(|_| book_path.to_path_buf());
                 if let Some(_existing_entry) = added_canonical_paths.get(&canonical) {
                     continue;
                 }
@@ -656,7 +668,10 @@ fn create_full_backup(
         includes_books: include_books,
         total_size_bytes: total_size,
         schema_version: SCHEMA_VERSION,
-        categories: BackupCategory::ALL.iter().map(|c| c.as_str().to_string()).collect(),
+        categories: BackupCategory::ALL
+            .iter()
+            .map(|c| c.as_str().to_string())
+            .collect(),
         category_counts,
         skipped_files,
         book_files: HashMap::new(),
@@ -750,7 +765,11 @@ fn create_subset_backup(
         let rows: usize = json
             .get("tables")
             .and_then(|t| t.as_object())
-            .map(|t| t.values().map(|v| v.as_array().map_or(0, |a| a.len())).sum())
+            .map(|t| {
+                t.values()
+                    .map(|v| v.as_array().map_or(0, |a| a.len()))
+                    .sum()
+            })
             .unwrap_or(0);
         let entry = format!("category_{}.json", cat.as_str());
         if seen_entries.insert(entry.clone()) {
@@ -827,7 +846,11 @@ fn create_subset_backup(
                 }
             }
             let total_covers = cover_files.len() as u64;
-            let covers_max_pct = if cats.contains(&BackupCategory::Books) { 60.0 } else { 90.0 };
+            let covers_max_pct = if cats.contains(&BackupCategory::Books) {
+                60.0
+            } else {
+                90.0
+            };
 
             for (idx, path) in cover_files.iter().enumerate() {
                 if let Ok(relative) = path.strip_prefix(&covers_dir) {
@@ -843,7 +866,8 @@ fn create_subset_backup(
                 }
 
                 if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
-                    let pct = 35.0 + ((covers_max_pct - 35.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
+                    let pct = 35.0
+                        + ((covers_max_pct - 35.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
                     emit_backup_progress(
                         progress,
                         start_time,
@@ -885,10 +909,11 @@ fn create_subset_backup(
         let mut book_file_count: u64 = 0;
         let total_books = books.len() as u64;
 
-        for (idx, (uuid, file_path, is_managed, managed_relpath, _file_format)) in books.into_iter().enumerate() {
+        for (idx, (uuid, file_path, is_managed, managed_relpath, _file_format)) in
+            books.into_iter().enumerate()
+        {
             let resolved: Option<PathBuf> = if is_managed {
-                managed_relpath
-                    .map(|rel| managed_root.local_path().join(rel))
+                managed_relpath.map(|rel| managed_root.local_path().join(rel))
             } else {
                 Some(PathBuf::from(&file_path))
             };
@@ -1039,7 +1064,14 @@ fn export_category_json(
         match *table {
             "books_authors" => {
                 add_book_links(conn, &mut rows, "book_id")?;
-                add_name_links(conn, &mut rows, "author_id", "authors", "name", "_author_name")?;
+                add_name_links(
+                    conn,
+                    &mut rows,
+                    "author_id",
+                    "authors",
+                    "name",
+                    "_author_name",
+                )?;
             }
             "books_tags" => {
                 add_book_links(conn, &mut rows, "book_id")?;
@@ -1058,10 +1090,37 @@ fn export_category_json(
                     "name",
                     "_category_name",
                 )?;
+                // Optional tag re-link — only populated when the source schema
+                // actually has an annotations.tag_id column.
+                add_name_links(conn, &mut rows, "tag_id", "tags", "name", "_tag_name")?;
+            }
+            "shelves" => {
+                // Self-FK re-link (parent_id → shelves): stable by name.
+                add_name_links(
+                    conn,
+                    &mut rows,
+                    "parent_id",
+                    "shelves",
+                    "name",
+                    "_parent_name",
+                )?;
             }
             "shelf_books" => {
                 add_book_links(conn, &mut rows, "book_id")?;
-                add_name_links(conn, &mut rows, "shelf_id", "shelves", "name", "_shelf_name")?;
+                add_name_links(
+                    conn,
+                    &mut rows,
+                    "shelf_id",
+                    "shelves",
+                    "name",
+                    "_shelf_name",
+                )?;
+            }
+            "rss_settings" => {
+                // Optional FK re-links — only active on schemas that carry
+                // rss_settings.feed_id / epub_book_id columns.
+                add_book_links(conn, &mut rows, "epub_book_id")?;
+                add_name_links(conn, &mut rows, "feed_id", "rss_feeds", "url", "_feed_url")?;
             }
             "rss_articles" => {
                 add_book_links(conn, &mut rows, "epub_book_id")?;
@@ -1084,7 +1143,10 @@ fn export_category_json(
             }
             _ => {}
         }
-        tables.insert((*table).to_string(), Value::Array(rows.into_iter().map(Value::Object).collect()));
+        tables.insert(
+            (*table).to_string(),
+            Value::Array(rows.into_iter().map(Value::Object).collect()),
+        );
     }
 
     let mut obj = Map::new();
@@ -1138,7 +1200,10 @@ fn export_sources(
 
     let mut session_files = Vec::new();
     if include_credentials && sessions_dir.exists() {
-        for entry in WalkDir::new(&sessions_dir).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(&sessions_dir)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
             let path = entry.path();
             if path.is_file() {
                 if let Ok(relative) = path.strip_prefix(&sessions_dir) {
@@ -1161,7 +1226,11 @@ fn export_sources(
     Ok(Some((Value::Object(obj), session_files)))
 }
 
-fn write_json_entry(zip: &mut ZipWriter<BufWriter<File>>, entry: &str, json: &Value) -> Result<u64> {
+fn write_json_entry(
+    zip: &mut ZipWriter<BufWriter<File>>,
+    entry: &str,
+    json: &Value,
+) -> Result<u64> {
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     let bytes = serde_json::to_vec_pretty(json)?;
     zip.start_file(entry, options)?;
@@ -1425,9 +1494,9 @@ fn restore_full_snapshot(
     let temp_db_path = temp_dir.path().join("library.db");
 
     {
-        let mut db_file = archive
-            .by_name("database/library.db")
-            .map_err(|_| ShioriError::Other("Invalid backup: missing database/library.db".to_string()))?;
+        let mut db_file = archive.by_name("database/library.db").map_err(|_| {
+            ShioriError::Other("Invalid backup: missing database/library.db".to_string())
+        })?;
         let mut temp_file = File::create(&temp_db_path)?;
         std::io::copy(&mut db_file, &mut temp_file)?;
     }
@@ -1483,10 +1552,13 @@ fn restore_full_snapshot(
             }
 
             let current_cols = table_columns(&tx, "main", table)?;
-            let backup_cols: HashSet<String> =
-                table_columns(&tx, "backup_db", table)?.into_iter().collect();
-            let shared: Vec<String> =
-                current_cols.into_iter().filter(|c| backup_cols.contains(c)).collect();
+            let backup_cols: HashSet<String> = table_columns(&tx, "backup_db", table)?
+                .into_iter()
+                .collect();
+            let shared: Vec<String> = current_cols
+                .into_iter()
+                .filter(|c| backup_cols.contains(c))
+                .collect();
             if shared.is_empty() {
                 continue;
             }
@@ -1536,7 +1608,11 @@ fn restore_full_snapshot(
             }
         }
         let total_covers = cover_indices.len() as u64;
-        let covers_max_pct = if effective.contains(&BackupCategory::Books) { 65.0 } else { 92.0 };
+        let covers_max_pct = if effective.contains(&BackupCategory::Books) {
+            65.0
+        } else {
+            92.0
+        };
 
         for (idx, i) in cover_indices.iter().enumerate() {
             let mut file = archive.by_index(*i)?;
@@ -1560,7 +1636,8 @@ fn restore_full_snapshot(
             }
 
             if idx % 10 == 0 || (idx + 1) as u64 == total_covers {
-                let pct = 35.0 + ((covers_max_pct - 35.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
+                let pct = 35.0
+                    + ((covers_max_pct - 35.0) * (idx + 1) as f32 / total_covers.max(1) as f32);
                 emit_restore_progress(
                     progress,
                     start_time,
@@ -1685,17 +1762,12 @@ fn restore_subset_archive(
                     let mut content = String::new();
                     file.read_to_string(&mut content)?;
                     let json: Value = serde_json::from_str(&content)?;
-                    restore_category_json(
-                        &tx,
-                        *cat,
-                        &json,
-                        selection.conflict_policy,
-                        report,
-                    )?;
+                    restore_category_json(&tx, *cat, &json, selection.conflict_policy, report)?;
                 }
-                Err(_) => report
-                    .errors
-                    .push(format!("Category '{}' not present in archive", cat.as_str())),
+                Err(_) => report.errors.push(format!(
+                    "Category '{}' not present in archive",
+                    cat.as_str()
+                )),
             }
 
             emit_restore_progress(
@@ -1876,9 +1948,9 @@ fn restore_book_files(
         let target: Option<PathBuf> = if is_managed {
             let Some(rel) = managed_relpath else {
                 report.skipped += 1;
-                report
-                    .errors
-                    .push(format!("Book file skipped: managed book {uuid} has no managed_relpath"));
+                report.errors.push(format!(
+                    "Book file skipped: managed book {uuid} has no managed_relpath"
+                ));
                 continue;
             };
             let target = managed_root.local_path().join(&rel);
@@ -1974,7 +2046,10 @@ fn restore_sources(
         let mut content = String::new();
         file.read_to_string(&mut content)?;
         let json: Value = serde_json::from_str(&content)?;
-        let redacted = json.get("redacted").and_then(|v| v.as_bool()).unwrap_or(false);
+        let redacted = json
+            .get("redacted")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let store = json.get("store").and_then(|v| v.as_object());
 
         if let Some(store) = store {
@@ -1988,15 +2063,19 @@ fn restore_sources(
             } else if redacted {
                 // User asked for credentials the backup never captured.
                 report.skipped += 1;
-                report
-                    .errors
-                    .push("Sources backup was made without credentials; credential keys not restored".to_string());
+                report.errors.push(
+                    "Sources backup was made without credentials; credential keys not restored"
+                        .to_string(),
+                );
             }
             let sources_path = app_data_dir.join("sources.json");
             if let Some(parent) = sources_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::write(&sources_path, serde_json::to_string_pretty(&Value::Object(out))?)?;
+            fs::write(
+                &sources_path,
+                serde_json::to_string_pretty(&Value::Object(out))?,
+            )?;
             *report.restored.entry("sources".to_string()).or_insert(0) += 1;
             any = true;
         }
@@ -2066,37 +2145,53 @@ fn restore_category_json(
         let Some(rows) = tables.get(*table).and_then(|v| v.as_array()) else {
             continue;
         };
-        let mut rows: Vec<&Map<String, Value>> = rows.iter().filter_map(|v| v.as_object()).collect();
+        let mut rows: Vec<&Map<String, Value>> =
+            rows.iter().filter_map(|v| v.as_object()).collect();
 
         match *table {
             "books" => restore_books(conn, &mut rows, policy, cat_name, report)?,
-            "authors" => restore_unique_name_rows(conn, "authors", &mut rows, policy, cat_name, report)?,
+            "authors" => {
+                restore_unique_name_rows(conn, "authors", &mut rows, policy, cat_name, report)?
+            }
             "tags" => restore_unique_name_rows(conn, "tags", &mut rows, policy, cat_name, report)?,
-            "books_authors" => restore_junction(conn, "books_authors", &mut rows, policy, cat_name, report)?,
-            "books_tags" => restore_junction(conn, "books_tags", &mut rows, policy, cat_name, report)?,
+            "books_authors" => {
+                restore_junction(conn, "books_authors", &mut rows, policy, cat_name, report)?
+            }
+            "books_tags" => {
+                restore_junction(conn, "books_tags", &mut rows, policy, cat_name, report)?
+            }
             "book_formats" => restore_book_formats(conn, &mut rows, policy, cat_name, report)?,
             "shelves" => restore_shelves(conn, &mut rows, policy, cat_name, report)?,
             "shelf_books" => restore_shelf_books(conn, &mut rows, policy, cat_name, report)?,
-            "annotation_categories" => {
-                restore_unique_name_rows(conn, "annotation_categories", &mut rows, policy, cat_name, report)?
-            }
+            "annotation_categories" => restore_unique_name_rows(
+                conn,
+                "annotation_categories",
+                &mut rows,
+                policy,
+                cat_name,
+                report,
+            )?,
             "annotations" => restore_annotations(conn, &mut rows, policy, cat_name, report)?,
-            "reading_progress" => restore_reading_progress(conn, &mut rows, policy, cat_name, report)?,
-            "reading_sessions" => restore_reading_sessions(conn, &mut rows, policy, cat_name, report)?,
-            "rss_feeds" => restore_rss_feeds(conn, &mut rows, policy, cat_name, report)?,
-            "rss_settings" => restore_singleton(conn, "rss_settings", &mut rows, policy, cat_name, report)?,
-            "rss_articles" => restore_rss_articles(conn, &mut rows, policy, cat_name, report)?,
-            "user_preferences" => {
-                restore_singleton_redacted(
-                    conn,
-                    "user_preferences",
-                    &mut rows,
-                    policy,
-                    cat_name,
-                    &redacted_columns,
-                    report,
-                )?
+            "reading_progress" => {
+                restore_reading_progress(conn, &mut rows, policy, cat_name, report)?
             }
+            "reading_sessions" => {
+                restore_reading_sessions(conn, &mut rows, policy, cat_name, report)?
+            }
+            "rss_feeds" => restore_rss_feeds(conn, &mut rows, policy, cat_name, report)?,
+            "rss_settings" => {
+                restore_singleton(conn, "rss_settings", &mut rows, policy, cat_name, report)?
+            }
+            "rss_articles" => restore_rss_articles(conn, &mut rows, policy, cat_name, report)?,
+            "user_preferences" => restore_singleton_redacted(
+                conn,
+                "user_preferences",
+                &mut rows,
+                policy,
+                cat_name,
+                &redacted_columns,
+                report,
+            )?,
             _ => {}
         }
     }
@@ -2107,9 +2202,11 @@ fn restore_category_json(
 fn find_book_id(conn: &rusqlite::Connection, row: &Map<String, Value>) -> Result<Option<i64>> {
     if let Some(u) = row.get("_book_uuid").and_then(|v| v.as_str()) {
         if let Some(id) = conn
-            .query_row("SELECT id FROM books WHERE uuid = ?1", rusqlite::params![u], |r| {
-                r.get::<_, i64>(0)
-            })
+            .query_row(
+                "SELECT id FROM books WHERE uuid = ?1",
+                rusqlite::params![u],
+                |r| r.get::<_, i64>(0),
+            )
             .optional()?
         {
             return Ok(Some(id));
@@ -2130,6 +2227,36 @@ fn find_book_id(conn: &rusqlite::Connection, row: &Map<String, Value>) -> Result
     Ok(None)
 }
 
+/// Defense-in-depth: a FOREIGN KEY violation on ONE row (e.g. a child row
+/// whose parent failed to restore, or a stale archive id) must not abort the
+/// whole restore transaction. SQLite reports FK failures as a constraint
+/// violation, so that code family is what we detect here.
+fn fk_violation(db_err: &rusqlite::Error) -> bool {
+    db_err.sqlite_error_code() == Some(rusqlite::ErrorCode::ConstraintViolation)
+}
+
+/// Run a single row write (INSERT/UPDATE), swallowing FK violations: the row is
+/// counted as skipped with a descriptive error entry and the restore continues.
+/// Returns `Ok(true)` when the row was skipped due to an FK violation.
+fn write_row_checked(
+    report: &mut RestoreReport,
+    cat_name: &str,
+    what: &str,
+    op: impl FnOnce() -> Result<()>,
+) -> Result<bool> {
+    match op() {
+        Ok(()) => Ok(false),
+        Err(ShioriError::Database(e)) if fk_violation(&e) => {
+            report.skipped += 1;
+            report.errors.push(format!(
+                "Skipped restore of {what} (category '{cat_name}'): FOREIGN KEY constraint failed — {e}"
+            ));
+            Ok(true)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 /// Insert `row` into `table`, dropping the `_`-prefixed link keys and any
 /// columns in `drop_cols` (typically the autoincrement `id` so the DB assigns
 /// a fresh one). If `replace_uuid` is set, the books uuid is regenerated
@@ -2147,7 +2274,11 @@ fn insert_row(
         .collect();
     // Sort for deterministic SQL (serde_json Map is a BTreeMap, but be safe).
     cols.sort();
-    let col_list = cols.iter().map(|c| quote_col(c)).collect::<Vec<_>>().join(", ");
+    let col_list = cols
+        .iter()
+        .map(|c| quote_col(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     let placeholders = (1..=cols.len())
         .map(|i| format!("?{i}"))
         .collect::<Vec<_>>()
@@ -2189,8 +2320,12 @@ fn update_row_by_id(
         .map(|(i, c)| format!("{} = ?{}", quote_col(c), i + 1))
         .collect::<Vec<_>>()
         .join(", ");
-    let sql = format!("UPDATE {table} SET {set_list} WHERE id = ?{}", cols.len() + 1);
-    let mut vals: Vec<rusqlite::types::Value> = cols.iter().map(|c| json_to_sql(&row[*c])).collect();
+    let sql = format!(
+        "UPDATE {table} SET {set_list} WHERE id = ?{}",
+        cols.len() + 1
+    );
+    let mut vals: Vec<rusqlite::types::Value> =
+        cols.iter().map(|c| json_to_sql(&row[*c])).collect();
     vals.push(rusqlite::types::Value::Integer(id));
     conn.execute(&sql, rusqlite::params_from_iter(vals))?;
     Ok(())
@@ -2204,13 +2339,22 @@ fn restore_books(
     report: &mut RestoreReport,
 ) -> Result<()> {
     for row in rows {
-        let uuid = row.get("uuid").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let hash = row.get("file_hash").and_then(|v| v.as_str()).map(str::to_string);
+        let uuid = row
+            .get("uuid")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let hash = row
+            .get("file_hash")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
 
         let existing = if !uuid.is_empty() {
-            conn.query_row("SELECT id FROM books WHERE uuid = ?1", rusqlite::params![uuid], |r| {
-                r.get::<_, i64>(0)
-            })
+            conn.query_row(
+                "SELECT id FROM books WHERE uuid = ?1",
+                rusqlite::params![uuid],
+                |r| r.get::<_, i64>(0),
+            )
             .optional()?
         } else {
             None
@@ -2278,7 +2422,11 @@ fn restore_unique_name_rows(
 ) -> Result<()> {
     let name_col = "name";
     for row in rows {
-        let name = row.get(name_col).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let name = row
+            .get(name_col)
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let existing = conn
             .query_row(
                 &format!("SELECT id FROM {table} WHERE {name_col} = ?1"),
@@ -2339,6 +2487,14 @@ fn restore_junction(
             report.skipped += 1;
             continue;
         };
+        let what = format!(
+            "{table} row (book #{book_id}, {} '{name}')",
+            if table == "books_authors" {
+                "author"
+            } else {
+                "tag"
+            }
+        );
         // Ensure the referenced author/tag exists (create minimal row if needed).
         let ref_id = match conn
             .query_row(
@@ -2360,7 +2516,14 @@ fn restore_junction(
 
         let exists: bool = conn
             .query_row(
-                &format!("SELECT 1 FROM {table} WHERE book_id = ?1 AND {} = ?2", if table == "books_authors" { "author_id" } else { "tag_id" }),
+                &format!(
+                    "SELECT 1 FROM {table} WHERE book_id = ?1 AND {} = ?2",
+                    if table == "books_authors" {
+                        "author_id"
+                    } else {
+                        "tag_id"
+                    }
+                ),
                 rusqlite::params![book_id, ref_id],
                 |r| r.get::<_, i64>(0).map(|v| v > 0),
             )
@@ -2372,13 +2535,23 @@ fn restore_junction(
             continue;
         }
         if !exists {
-            conn.execute(
-                &format!(
-                    "INSERT INTO {table} (book_id, {}) VALUES (?1, ?2)",
-                    if table == "books_authors" { "author_id" } else { "tag_id" }
-                ),
-                rusqlite::params![book_id, ref_id],
-            )?;
+            if write_row_checked(report, cat_name, &what, || {
+                conn.execute(
+                    &format!(
+                        "INSERT INTO {table} (book_id, {}) VALUES (?1, ?2)",
+                        if table == "books_authors" {
+                            "author_id"
+                        } else {
+                            "tag_id"
+                        }
+                    ),
+                    rusqlite::params![book_id, ref_id],
+                )
+                .map(|_| ())
+                .map_err(ShioriError::Database)
+            })? {
+                continue;
+            }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
     }
@@ -2403,7 +2576,11 @@ fn restore_book_formats(
         r.remove("_book_hash");
         r.insert("book_id".to_string(), Value::from(book_id));
 
-        let hash = r.get("file_hash").and_then(|v| v.as_str()).map(str::to_string);
+        let what = format!("book format (book #{book_id})");
+        let hash = r
+            .get("file_hash")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
         let existing = match &hash {
             Some(h) => conn
                 .query_row(
@@ -2420,13 +2597,25 @@ fn restore_book_formats(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "book_formats", &r, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "book_formats", &r, &["id"], None)
+                })? {
+                    continue;
+                }
             }
             ConflictPolicy::Overwrite => {
                 if let Some(id) = existing {
-                    update_row_by_id(conn, "book_formats", &r, id)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        update_row_by_id(conn, "book_formats", &r, id)
+                    })? {
+                        continue;
+                    }
                 } else {
-                    insert_row(conn, "book_formats", &r, &["id"], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "book_formats", &r, &["id"], None)
+                    })? {
+                        continue;
+                    }
                 }
             }
             ConflictPolicy::KeepBoth => {
@@ -2435,7 +2624,11 @@ fn restore_book_formats(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "book_formats", &r, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "book_formats", &r, &["id"], None)
+                })? {
+                    continue;
+                }
             }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
@@ -2450,8 +2643,26 @@ fn restore_shelves(
     cat_name: &str,
     report: &mut RestoreReport,
 ) -> Result<()> {
+    // Pass 1: insert/update every shelf with the raw `parent_id` REMOVED
+    // (archive ids are stale — shelf ids are regenerated on restore, so
+    // writing them back would be a self-FK violation). Record each shelf's new
+    // id plus its `_parent_name` so pass 2 can re-link the self-FK by name.
+    // `_parent_name` is underscore-prefixed, so insert_row/update_row_by_id
+    // already drop it.
+    let mut pending: Vec<(i64, Option<String>)> = Vec::with_capacity(rows.len());
     for row in rows {
-        let name = row.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let name = row
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let parent_name = row
+            .get("_parent_name")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        let mut r = (*row).clone();
+        r.remove("parent_id");
+
         let existing = conn
             .query_row(
                 "SELECT id FROM shelves WHERE name = ?1",
@@ -2459,26 +2670,79 @@ fn restore_shelves(
                 |r| r.get::<_, i64>(0),
             )
             .optional()?;
+        let what = format!("shelf '{name}'");
+        let row_id: Option<i64>;
         match policy {
             ConflictPolicy::Skip => {
                 if existing.is_some() {
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "shelves", row, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "shelves", &r, &["id"], None)
+                })? {
+                    continue;
+                }
+                row_id = Some(conn.last_insert_rowid());
             }
             ConflictPolicy::Overwrite => {
                 if let Some(id) = existing {
-                    update_row_by_id(conn, "shelves", row, id)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        update_row_by_id(conn, "shelves", &r, id)
+                    })? {
+                        continue;
+                    }
+                    row_id = Some(id);
                 } else {
-                    insert_row(conn, "shelves", row, &["id"], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "shelves", &r, &["id"], None)
+                    })? {
+                        continue;
+                    }
+                    row_id = Some(conn.last_insert_rowid());
                 }
             }
             ConflictPolicy::KeepBoth => {
-                insert_row(conn, "shelves", row, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "shelves", &r, &["id"], None)
+                })? {
+                    continue;
+                }
+                row_id = Some(conn.last_insert_rowid());
             }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
+        if let Some(id) = row_id {
+            pending.push((id, parent_name));
+        }
+    }
+    // Pass 2: re-link `parent_id` by the archived parent shelf name. A missing
+    // parent is left NULL; a single bad self-FK must not abort the transaction.
+    for (id, parent_name) in pending {
+        let Some(parent_name) = parent_name else {
+            continue;
+        };
+        let Some(parent_id) = conn
+            .query_row(
+                "SELECT id FROM shelves WHERE name = ?1",
+                rusqlite::params![parent_name],
+                |r| r.get::<_, i64>(0),
+            )
+            .optional()?
+        else {
+            continue;
+        };
+        let what = format!("shelf #{id} parent '{parent_name}'");
+        if write_row_checked(report, cat_name, &what, || {
+            conn.execute(
+                "UPDATE shelves SET parent_id = ?1 WHERE id = ?2",
+                rusqlite::params![parent_id, id],
+            )
+            .map(|_| ())
+            .map_err(ShioriError::Database)
+        })? {
+            continue;
+        }
     }
     Ok(())
 }
@@ -2545,12 +2809,16 @@ fn restore_annotations(
     cat_name: &str,
     report: &mut RestoreReport,
 ) -> Result<()> {
+    let has_tag_col = table_columns(conn, "main", "annotations")?
+        .iter()
+        .any(|c| c == "tag_id");
     for row in rows {
         let Some(book_id) = find_book_id(conn, row)? else {
             report.skipped += 1;
             continue;
         };
         // Resolve category by name captured at export time.
+        let what = format!("annotation (book #{book_id})");
         let mut row = (*row).clone();
         let category_id = match row.get("_category_name").and_then(|v| v.as_str()) {
             Some(name) => conn
@@ -2572,11 +2840,48 @@ fn restore_annotations(
             row.insert("category_id".to_string(), Value::Null);
         }
 
+        // Re-link tag by name captured at export time. Schema-agnostic: the
+        // re-link only writes a tag_id when the database actually has the
+        // annotations.tag_id column — on schemas without it any stale tag
+        // reference is dropped instead of being written back.
+        if row.contains_key("tag_id") || row.contains_key("_tag_name") {
+            if has_tag_col {
+                let tag_id = match row.get("_tag_name").and_then(|v| v.as_str()) {
+                    Some(name) => conn
+                        .query_row(
+                            "SELECT id FROM tags WHERE name = ?1",
+                            rusqlite::params![name],
+                            |r| r.get::<_, i64>(0),
+                        )
+                        .optional()?,
+                    None => None,
+                };
+                row.remove("tag_id");
+                row.remove("_tag_name");
+                row.insert(
+                    "tag_id".to_string(),
+                    tag_id.map(Value::from).unwrap_or(Value::Null),
+                );
+            } else {
+                row.remove("tag_id");
+                row.remove("_tag_name");
+            }
+        }
+
         let key = |r: &Map<String, Value>| {
             (
-                r.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                r.get("location").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                r.get("created_at").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                r.get("type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                r.get("location")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                r.get("created_at")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
             )
         };
         let existing = conn
@@ -2593,17 +2898,33 @@ fn restore_annotations(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "annotations", &row, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "annotations", &row, &["id"], None)
+                })? {
+                    continue;
+                }
             }
             ConflictPolicy::Overwrite => {
                 if let Some(id) = existing {
-                    update_row_by_id(conn, "annotations", &row, id)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        update_row_by_id(conn, "annotations", &row, id)
+                    })? {
+                        continue;
+                    }
                 } else {
-                    insert_row(conn, "annotations", &row, &["id"], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "annotations", &row, &["id"], None)
+                    })? {
+                        continue;
+                    }
                 }
             }
             ConflictPolicy::KeepBoth => {
-                insert_row(conn, "annotations", &row, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "annotations", &row, &["id"], None)
+                })? {
+                    continue;
+                }
             }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
@@ -2629,6 +2950,7 @@ fn restore_reading_progress(
         r.remove("_book_hash");
         r.insert("book_id".to_string(), Value::from(book_id));
 
+        let what = format!("reading progress (book #{book_id})");
         let existing = conn
             .query_row(
                 "SELECT id FROM reading_progress WHERE book_id = ?1",
@@ -2642,14 +2964,26 @@ fn restore_reading_progress(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "reading_progress", &r, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "reading_progress", &r, &["id"], None)
+                })? {
+                    continue;
+                }
             }
             ConflictPolicy::Overwrite | ConflictPolicy::KeepBoth => {
                 // UNIQUE(book_id) — keep_both falls back to overwrite.
                 if let Some(id) = existing {
-                    update_row_by_id(conn, "reading_progress", &r, id)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        update_row_by_id(conn, "reading_progress", &r, id)
+                    })? {
+                        continue;
+                    }
                 } else {
-                    insert_row(conn, "reading_progress", &r, &["id"], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "reading_progress", &r, &["id"], None)
+                    })? {
+                        continue;
+                    }
                 }
             }
         }
@@ -2676,7 +3010,12 @@ fn restore_reading_sessions(
         r.remove("_book_hash");
         r.insert("book_id".to_string(), Value::from(book_id));
 
-        let id = r.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let id = r
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let what = format!("reading session '{id}' (book #{book_id})");
         let existing = if id.is_empty() {
             None
         } else {
@@ -2694,7 +3033,11 @@ fn restore_reading_sessions(
                     continue;
                 }
                 // Keep the original text pk.
-                insert_row(conn, "reading_sessions", &r, &[], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "reading_sessions", &r, &[], None)
+                })? {
+                    continue;
+                }
             }
             ConflictPolicy::Overwrite => {
                 if existing.is_some() {
@@ -2710,20 +3053,37 @@ fn restore_reading_sessions(
                         .map(|(i, c)| format!("{} = ?{}", quote_col(c), i + 1))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let sql = format!("UPDATE reading_sessions SET {set_list} WHERE id = ?{}", cols.len() + 1);
+                    let sql = format!(
+                        "UPDATE reading_sessions SET {set_list} WHERE id = ?{}",
+                        cols.len() + 1
+                    );
                     let mut vals: Vec<rusqlite::types::Value> =
                         cols.iter().map(|c| json_to_sql(&r[c])).collect();
                     vals.push(rusqlite::types::Value::Text(id.clone()));
-                    conn.execute(&sql, rusqlite::params_from_iter(vals))?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        conn.execute(&sql, rusqlite::params_from_iter(vals))
+                            .map(|_| ())
+                            .map_err(ShioriError::Database)
+                    })? {
+                        continue;
+                    }
                 } else {
-                    insert_row(conn, "reading_sessions", &r, &[], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "reading_sessions", &r, &[], None)
+                    })? {
+                        continue;
+                    }
                 }
             }
             ConflictPolicy::KeepBoth => {
                 // New id (pk is a text uuid).
                 let new_id = uuid::Uuid::new_v4().to_string();
                 r.insert("id".to_string(), Value::String(new_id));
-                insert_row(conn, "reading_sessions", &r, &[], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "reading_sessions", &r, &[], None)
+                })? {
+                    continue;
+                }
             }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
@@ -2740,14 +3100,19 @@ fn restore_singleton(
     cat_name: &str,
     report: &mut RestoreReport,
 ) -> Result<()> {
+    // rss_settings carries optional FK columns on some schemas; resolve their
+    // real column list once so the re-link below stays schema-agnostic.
+    let rss_cols: Option<Vec<String>> = if table == "rss_settings" {
+        Some(table_columns(conn, "main", table)?)
+    } else {
+        None
+    };
     for row in rows {
         if policy == ConflictPolicy::Skip {
             let exists: bool = conn
-                .query_row(
-                    &format!("SELECT 1 FROM {table} WHERE id = 1"),
-                    [],
-                    |r| r.get::<_, i64>(0).map(|v| v > 0),
-                )
+                .query_row(&format!("SELECT 1 FROM {table} WHERE id = 1"), [], |r| {
+                    r.get::<_, i64>(0).map(|v| v > 0)
+                })
                 .optional()?
                 .unwrap_or(false);
             if exists {
@@ -2756,6 +3121,38 @@ fn restore_singleton(
             }
         }
         let mut r = (*row).clone();
+        if table == "rss_settings" {
+            // Never write raw archive ids back: re-link `feed_id` by the feed
+            // URL and `epub_book_id` by book uuid/hash captured at export time.
+            // Schema-agnostic — only written when the table actually has the
+            // columns; missing parents become NULL.
+            let cols = rss_cols.as_deref().unwrap_or_default();
+            r.remove("feed_id");
+            r.remove("epub_book_id");
+            if cols.contains(&"feed_id".to_string()) {
+                let feed_id = match r.get("_feed_url").and_then(|v| v.as_str()) {
+                    Some(url) => conn
+                        .query_row(
+                            "SELECT id FROM rss_feeds WHERE url = ?1",
+                            rusqlite::params![url],
+                            |r| r.get::<_, i64>(0),
+                        )
+                        .optional()?,
+                    None => None,
+                };
+                r.insert(
+                    "feed_id".to_string(),
+                    feed_id.map(Value::from).unwrap_or(Value::Null),
+                );
+            }
+            if cols.contains(&"epub_book_id".to_string()) {
+                let book_id = find_book_id(conn, &r)?;
+                r.insert(
+                    "epub_book_id".to_string(),
+                    book_id.map(Value::from).unwrap_or(Value::Null),
+                );
+            }
+        }
         r.insert("id".to_string(), Value::from(1));
         let cols: Vec<String> = r
             .keys()
@@ -2773,8 +3170,14 @@ fn restore_singleton(
             .join(", ");
         let sql = format!(
             "INSERT INTO {table} (id, {}) VALUES (1, {}) ON CONFLICT(id) DO UPDATE SET {}",
-            cols.iter().map(|c| quote_col(c)).collect::<Vec<_>>().join(", "),
-            (1..=cols.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(", "),
+            cols.iter()
+                .map(|c| quote_col(c))
+                .collect::<Vec<_>>()
+                .join(", "),
+            (1..=cols.len())
+                .map(|i| format!("?{i}"))
+                .collect::<Vec<_>>()
+                .join(", "),
             set_list
         );
         let vals: Vec<rusqlite::types::Value> = cols.iter().map(|c| json_to_sql(&r[c])).collect();
@@ -2841,8 +3244,14 @@ fn restore_singleton_redacted(
             .join(", ");
         let sql = format!(
             "INSERT INTO {table} (id, {}) VALUES (1, {}) ON CONFLICT(id) DO UPDATE SET {}",
-            cols.iter().map(|c| quote_col(c)).collect::<Vec<_>>().join(", "),
-            (1..=cols.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(", "),
+            cols.iter()
+                .map(|c| quote_col(c))
+                .collect::<Vec<_>>()
+                .join(", "),
+            (1..=cols.len())
+                .map(|i| format!("?{i}"))
+                .collect::<Vec<_>>()
+                .join(", "),
             set_list
         );
         let vals: Vec<rusqlite::types::Value> = cols.iter().map(|c| json_to_sql(&r[c])).collect();
@@ -2864,7 +3273,12 @@ fn restore_rss_feeds(
     report: &mut RestoreReport,
 ) -> Result<()> {
     for row in rows {
-        let url = row.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let url = row
+            .get("url")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let what = format!("rss feed '{url}'");
         let existing = conn
             .query_row(
                 "SELECT id FROM rss_feeds WHERE url = ?1",
@@ -2878,13 +3292,25 @@ fn restore_rss_feeds(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "rss_feeds", row, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "rss_feeds", row, &["id"], None)
+                })? {
+                    continue;
+                }
             }
             ConflictPolicy::Overwrite => {
                 if let Some(id) = existing {
-                    update_row_by_id(conn, "rss_feeds", row, id)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        update_row_by_id(conn, "rss_feeds", row, id)
+                    })? {
+                        continue;
+                    }
                 } else {
-                    insert_row(conn, "rss_feeds", row, &["id"], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "rss_feeds", row, &["id"], None)
+                    })? {
+                        continue;
+                    }
                 }
             }
             ConflictPolicy::KeepBoth => {
@@ -2893,7 +3319,11 @@ fn restore_rss_feeds(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "rss_feeds", row, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "rss_feeds", row, &["id"], None)
+                })? {
+                    continue;
+                }
             }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
@@ -2937,7 +3367,12 @@ fn restore_rss_articles(
             None => r.insert("epub_book_id".to_string(), Value::Null),
         };
 
-        let guid = r.get("guid").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let guid = r
+            .get("guid")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let what = format!("rss article '{guid}' (feed #{feed_id})");
         let existing = conn
             .query_row(
                 "SELECT id FROM rss_articles WHERE feed_id = ?1 AND guid = ?2",
@@ -2952,17 +3387,33 @@ fn restore_rss_articles(
                     report.skipped += 1;
                     continue;
                 }
-                insert_row(conn, "rss_articles", &r, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "rss_articles", &r, &["id"], None)
+                })? {
+                    continue;
+                }
             }
             ConflictPolicy::Overwrite => {
                 if let Some(id) = existing {
-                    update_row_by_id(conn, "rss_articles", &r, id)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        update_row_by_id(conn, "rss_articles", &r, id)
+                    })? {
+                        continue;
+                    }
                 } else {
-                    insert_row(conn, "rss_articles", &r, &["id"], None)?;
+                    if write_row_checked(report, cat_name, &what, || {
+                        insert_row(conn, "rss_articles", &r, &["id"], None)
+                    })? {
+                        continue;
+                    }
                 }
             }
             ConflictPolicy::KeepBoth => {
-                insert_row(conn, "rss_articles", &r, &["id"], None)?;
+                if write_row_checked(report, cat_name, &what, || {
+                    insert_row(conn, "rss_articles", &r, &["id"], None)
+                })? {
+                    continue;
+                }
             }
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;

@@ -126,15 +126,15 @@ export function HistoryViewAndroid({
       
       {/* ── Mobile Sticky Header with Safe-Area Insets ── */}
       <div 
-        className="flex-none pb-2.5 px-4 border-b border-border/40 bg-background/90 backdrop-blur-xl z-20 sticky top-0 shadow-xs"
+        className="flex-none pb-2 px-4 border-b border-border/40 bg-background/90 backdrop-blur-xl z-20 sticky top-0 shadow-xs"
         style={{
-          paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
           paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
           paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)'
         }}
       >
         {/* Top App Bar Row */}
-        <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
               <History size={17} />

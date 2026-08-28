@@ -157,17 +157,32 @@ fn test_crafted_zip_slip_entries_never_extract() {
     .expect("crafted restore completes");
 
     // Every evil entry was rejected and reported.
-    assert_eq!(report.skipped_invalid_paths, 4, "all 4 evil entries rejected");
+    assert_eq!(
+        report.skipped_invalid_paths, 4,
+        "all 4 evil entries rejected"
+    );
     assert!(
-        report.errors.iter().any(|e| e.contains("unsafe archive entry")),
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("unsafe archive entry")),
         "rejections must be reported in errors: {:?}",
         report.errors
     );
 
     // Nothing escaped the extraction roots.
-    assert!(!env.temp_dir.join("evil.txt").exists(), "covers/../../evil.txt escaped");
-    assert!(!env.app_data_dir.join("storage/escape.txt").exists(), "books/../escape.txt escaped");
-    assert!(!env.temp_dir.join("out").exists(), "sessions/../out escaped");
+    assert!(
+        !env.temp_dir.join("evil.txt").exists(),
+        "covers/../../evil.txt escaped"
+    );
+    assert!(
+        !env.app_data_dir.join("storage/escape.txt").exists(),
+        "books/../escape.txt escaped"
+    );
+    assert!(
+        !env.temp_dir.join("out").exists(),
+        "sessions/../out escaped"
+    );
     assert!(
         !Path::new("/etc/cron.d/x").exists(),
         "books//etc/cron.d/x must not write"
@@ -208,12 +223,19 @@ fn test_non_managed_invalid_file_paths_skipped() {
         &[("books/u-r1.epub", b"R1"), ("books/u-r2.epub", b"R2")],
     );
 
-    let report = backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
-        .expect("restore completes");
+    let report =
+        backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
+            .expect("restore completes");
 
-    assert_eq!(report.skipped_invalid_paths, 2, "both invalid paths skipped");
+    assert_eq!(
+        report.skipped_invalid_paths, 2,
+        "both invalid paths skipped"
+    );
     assert!(
-        report.errors.iter().any(|e| e.contains("u-r1") && e.contains("../relative.epub")),
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("u-r1") && e.contains("../relative.epub")),
         "u-r1 must be reported: {:?}",
         report.errors
     );
@@ -244,10 +266,16 @@ fn test_non_managed_existing_parent_restored() {
         "categories": ["books"],
         "book_files": { "u-c": "books/u-c.epub" }
     });
-    let zip_path = build_zip(&env, "valid.zip", &manifest, &[("books/u-c.epub", b"CONTENT-C")]);
+    let zip_path = build_zip(
+        &env,
+        "valid.zip",
+        &manifest,
+        &[("books/u-c.epub", b"CONTENT-C")],
+    );
 
-    let report = backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
-        .expect("restore completes");
+    let report =
+        backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
+            .expect("restore completes");
 
     assert_eq!(report.restored.get("books"), Some(&1));
     assert_eq!(report.skipped, 0);
@@ -271,8 +299,9 @@ fn test_non_managed_missing_parent_skipped() {
     });
     let zip_path = build_zip(&env, "ghost.zip", &manifest, &[("books/u-d.epub", b"D")]);
 
-    let report = backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
-        .expect("restore completes without crashing");
+    let report =
+        backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
+            .expect("restore completes without crashing");
 
     assert_eq!(report.skipped_invalid_paths, 1);
     assert!(
@@ -294,7 +323,13 @@ fn test_non_managed_missing_parent_skipped() {
 fn test_managed_relpath_escape_refused_normal_restored() {
     let env = TestEnv::new();
     insert_book(&env, "u-e1", "/tmp/unused1.epub", true, Some("../escape"));
-    insert_book(&env, "u-e2", "/tmp/unused2.epub", true, Some("sub/book_e2.epub"));
+    insert_book(
+        &env,
+        "u-e2",
+        "/tmp/unused2.epub",
+        true,
+        Some("sub/book_e2.epub"),
+    );
 
     let manifest = serde_json::json!({
         "version": "2.0",
@@ -312,12 +347,16 @@ fn test_managed_relpath_escape_refused_normal_restored() {
         &[("books/u-e1.epub", b"E1"), ("books/u-e2.epub", b"E2")],
     );
 
-    let report = backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
-        .expect("restore completes");
+    let report =
+        backup_service::restore_backup(&env.db, &env.app_data_dir, &zip_path, &books_restore())
+            .expect("restore completes");
 
     assert_eq!(report.skipped_invalid_paths, 1, "escape relpath refused");
     assert!(
-        report.errors.iter().any(|e| e.contains("u-e1") && e.contains("escapes")),
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("u-e1") && e.contains("escapes")),
         "escape must be reported: {:?}",
         report.errors
     );
@@ -328,7 +367,10 @@ fn test_managed_relpath_escape_refused_normal_restored() {
 
     // Normal managed relpath restored under the managed root (dirs created).
     let managed = env.app_data_dir.join("Library/sub/book_e2.epub");
-    assert!(managed.exists(), "managed book restored under the managed root");
+    assert!(
+        managed.exists(),
+        "managed book restored under the managed root"
+    );
     assert_eq!(fs::read(&managed).unwrap(), b"E2");
     assert_eq!(report.restored.get("books"), Some(&1));
 }
@@ -357,7 +399,9 @@ fn test_everything_round_trip_unchanged() {
         )
         .unwrap();
         let shelf_id: i64 = conn
-            .query_row("SELECT id FROM shelves WHERE name = 'Favorites'", [], |r| r.get(0))
+            .query_row("SELECT id FROM shelves WHERE name = 'Favorites'", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         conn.execute(
             "INSERT INTO shelf_books (shelf_id, book_id, added_at) VALUES (?1, ?2, '2024-01-01')",
@@ -405,7 +449,13 @@ fn test_everything_round_trip_unchanged() {
 #[test]
 fn test_backslash_traversal_rejected() {
     let env = TestEnv::new();
-    insert_book(&env, "u-g", env.app_data_dir.join("g.epub").to_str().unwrap(), false, None);
+    insert_book(
+        &env,
+        "u-g",
+        env.app_data_dir.join("g.epub").to_str().unwrap(),
+        false,
+        None,
+    );
 
     let manifest = serde_json::json!({
         "version": "2.0",
@@ -436,13 +486,288 @@ fn test_backslash_traversal_rejected() {
     )
     .expect("restore completes");
 
-    assert!(report.skipped_invalid_paths >= 2, "backslash traversal rejected");
     assert!(
-        report.errors.iter().any(|e| e.contains("unsafe archive entry")),
+        report.skipped_invalid_paths >= 2,
+        "backslash traversal rejected"
+    );
+    assert!(
+        report
+            .errors
+            .iter()
+            .any(|e| e.contains("unsafe archive entry")),
         "rejections must be reported: {:?}",
         report.errors
     );
     assert!(!env.app_data_dir.join("evil.txt").exists());
     assert!(!env.app_data_dir.join("evil2.txt").exists());
     assert!(!env.temp_dir.join("evil.txt").exists());
+}
+
+fn table_info(env: &TestEnv, table: &str) -> Vec<String> {
+    let conn = env.conn();
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table))
+        .unwrap();
+    stmt.query_map([], |r| r.get::<_, String>(1))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect()
+}
+
+/// Round-trip subset restore with FK-dense data: parent + child shelves
+/// (self-FK on parent_id), a tagged annotation (schema-dependent tag_id
+/// column), RSS feed/settings/articles referencing the book and the feed.
+///
+/// Regression: the per-category restore used to write raw backup ids back
+/// into FK columns — but every `id` is regenerated on restore, so the old
+/// parent_id/tag_id/feed_id/epub_book_id values pointed at nothing and SQLite
+/// aborted the ENTIRE restore transaction with "FOREIGN KEY constraint
+/// failed". All FK columns must now be re-linked by stable keys (name / url /
+/// book uuid), and the restored database must pass `foreign_key_check`.
+#[test]
+fn test_fk_dense_subset_round_trip() {
+    let src = TestEnv::new();
+    insert_book(&src, "u-fk", "/tmp/fk.epub", false, None);
+
+    // The optional FK columns (annotations.tag_id, rss_settings.feed_id /
+    // epub_book_id) only exist on some schemas — introspect and exercise the
+    // re-link path whenever they do.
+    let src_has_tag_col = table_info(&src, "annotations")
+        .iter()
+        .any(|c| c == "tag_id");
+    let src_has_feed_col = table_info(&src, "rss_settings")
+        .iter()
+        .any(|c| c == "feed_id");
+    let src_has_epub_col = table_info(&src, "rss_settings")
+        .iter()
+        .any(|c| c == "epub_book_id");
+
+    {
+        let conn = src.conn();
+        let book_id: i64 = conn
+            .query_row("SELECT id FROM books WHERE uuid = 'u-fk'", [], |r| r.get(0))
+            .unwrap();
+
+        // (a) Parent + child shelves — parent_id is a self-FK.
+        conn.execute(
+            "INSERT INTO shelves (name, created_at) VALUES ('Parent Shelf', '2024-01-01')",
+            [],
+        )
+        .unwrap();
+        let parent_id: i64 = conn
+            .query_row(
+                "SELECT id FROM shelves WHERE name = 'Parent Shelf'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        conn.execute(
+            "INSERT INTO shelves (name, parent_id, created_at)
+             VALUES ('Child Shelf', ?1, '2024-01-01')",
+            rusqlite::params![parent_id],
+        )
+        .unwrap();
+
+        // (b) Tag + annotation with non-null tag_id when the column exists.
+        conn.execute("INSERT INTO tags (name) VALUES ('SciFi')", [])
+            .unwrap();
+        if src_has_tag_col {
+            let tag_id: i64 = conn
+                .query_row("SELECT id FROM tags WHERE name = 'SciFi'", [], |r| r.get(0))
+                .unwrap();
+            conn.execute(
+                "INSERT INTO annotations (book_id, type, location, tag_id, created_at, updated_at)
+                 VALUES (?1, 'highlight', 'loc-tag', ?2, '2024-01-01', '2024-01-01')",
+                rusqlite::params![book_id, tag_id],
+            )
+            .unwrap();
+        } else {
+            conn.execute(
+                "INSERT INTO annotations (book_id, type, location, created_at, updated_at)
+                 VALUES (?1, 'highlight', 'loc-1', '2024-01-01', '2024-01-01')",
+                rusqlite::params![book_id],
+            )
+            .unwrap();
+        }
+
+        // (c) RSS feed + settings row referencing feed/book when columns exist.
+        conn.execute(
+            "INSERT INTO rss_feeds (url, title, created_at)
+             VALUES ('https://example.com/feed.xml', 'Example Feed', '2024-01-01')",
+            [],
+        )
+        .unwrap();
+        let feed_id: i64 = conn
+            .query_row(
+                "SELECT id FROM rss_feeds WHERE url = 'https://example.com/feed.xml'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut settings_sql = String::from("UPDATE rss_settings SET auto_download = 1");
+        let mut settings_params: Vec<rusqlite::types::Value> = Vec::new();
+        if src_has_feed_col {
+            settings_sql.push_str(", feed_id = ?");
+            settings_params.push(rusqlite::types::Value::Integer(feed_id));
+        }
+        if src_has_epub_col {
+            settings_sql.push_str(", epub_book_id = ?");
+            settings_params.push(rusqlite::types::Value::Integer(book_id));
+        }
+        settings_sql.push_str(" WHERE id = 1");
+        conn.execute(&settings_sql, rusqlite::params_from_iter(settings_params))
+            .unwrap();
+
+        // (d) RSS article with epub_book_id → the inserted book.
+        conn.execute(
+            "INSERT INTO rss_articles (feed_id, title, content, guid, epub_book_id, created_at)
+             VALUES (?1, 'Article One', 'body', 'guid-1', ?2, '2024-01-01')",
+            rusqlite::params![feed_id, book_id],
+        )
+        .unwrap();
+    }
+
+    // Subset archive (NOT everything → JSON category path, not the full
+    // library.db snapshot).
+    let subset = BackupSelection {
+        categories: vec![
+            BackupCategory::Library,
+            BackupCategory::Annotations,
+            BackupCategory::Progress,
+            BackupCategory::Rss,
+        ],
+        include_credentials: false,
+        include_books: false,
+        frontend_settings: false,
+    };
+    backup_service::create_backup(&src.db, &src.app_data_dir, &src.backup_path, &subset, None)
+        .expect("subset backup succeeds");
+
+    // Restore into a fresh database.
+    let dst = TestEnv::new();
+    let report = backup_service::restore_backup(
+        &dst.db,
+        &dst.app_data_dir,
+        &src.backup_path,
+        &RestoreSelection {
+            categories: vec![
+                BackupCategory::Library,
+                BackupCategory::Annotations,
+                BackupCategory::Progress,
+                BackupCategory::Rss,
+            ],
+            conflict_policy: ConflictPolicy::Overwrite,
+            include_credentials: false,
+        },
+    )
+    .expect("subset restore completes without FK violation");
+
+    assert!(
+        report.errors.is_empty(),
+        "restore must not report errors: {:?}",
+        report.errors
+    );
+    assert_eq!(report.skipped, 0);
+    assert_eq!(count_rows(&dst, "books"), 1);
+    assert_eq!(count_rows(&dst, "shelves"), 2);
+    assert_eq!(count_rows(&dst, "annotations"), 1);
+    assert_eq!(count_rows(&dst, "rss_feeds"), 1);
+    assert_eq!(count_rows(&dst, "rss_articles"), 1);
+
+    let dst_conn = dst.conn();
+    let new_book: i64 = dst_conn
+        .query_row("SELECT id FROM books WHERE uuid = 'u-fk'", [], |r| r.get(0))
+        .unwrap();
+
+    // (a) Child shelf must point at the RESTORED parent shelf (by name).
+    let parent_id: i64 = dst_conn
+        .query_row(
+            "SELECT id FROM shelves WHERE name = 'Parent Shelf'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let child_parent: Option<i64> = dst_conn
+        .query_row(
+            "SELECT parent_id FROM shelves WHERE name = 'Child Shelf'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        Some(parent_id),
+        child_parent,
+        "child shelf parent_id must re-link to the restored parent"
+    );
+
+    // (d) RSS article must point at the restored book.
+    let art_book: Option<i64> = dst_conn
+        .query_row(
+            "SELECT epub_book_id FROM rss_articles WHERE guid = 'guid-1'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(Some(new_book), art_book);
+
+    // (b) Tag re-link — only meaningful when the schema has the column.
+    if src_has_tag_col {
+        let tag_id: i64 = dst_conn
+            .query_row("SELECT id FROM tags WHERE name = 'SciFi'", [], |r| r.get(0))
+            .unwrap();
+        let ann_tag: Option<i64> = dst_conn
+            .query_row(
+                "SELECT tag_id FROM annotations WHERE location = 'loc-tag'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(Some(tag_id), ann_tag, "annotation tag_id must re-link");
+    }
+
+    // (c) rss_settings re-links — only when the columns exist.
+    let feed_id: i64 = dst_conn
+        .query_row(
+            "SELECT id FROM rss_feeds WHERE url = 'https://example.com/feed.xml'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    if src_has_feed_col {
+        let set_feed: Option<i64> = dst_conn
+            .query_row("SELECT feed_id FROM rss_settings WHERE id = 1", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(
+            Some(feed_id),
+            set_feed,
+            "rss_settings.feed_id must re-link by url"
+        );
+    }
+    if src_has_epub_col {
+        let set_book: Option<i64> = dst_conn
+            .query_row(
+                "SELECT epub_book_id FROM rss_settings WHERE id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            Some(new_book),
+            set_book,
+            "rss_settings.epub_book_id must re-link to the restored book"
+        );
+    }
+
+    // The restored database must be fully referentially clean.
+    let violations: i64 = dst_conn
+        .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        violations, 0,
+        "restored DB must satisfy every FK constraint"
+    );
 }

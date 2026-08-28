@@ -48,9 +48,9 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden">
       {/* ── Ultra-Sleek Sticky Mobile Header ── */}
       <div 
-        className="flex-none pb-2 px-3 border-b border-border/30 bg-background/95 backdrop-blur-xl z-20 sticky top-0 shadow-2xs space-y-1.5"
+        className="flex-none pb-1.5 px-3 border-b border-border/30 bg-background/95 backdrop-blur-xl z-20 sticky top-0 shadow-2xs space-y-1"
         style={{
-          paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
           paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
           paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
         }}

@@ -742,7 +742,7 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
     <div 
       className={`flex h-full flex-col bg-background text-foreground relative overflow-hidden ${isMobile ? 'pb-28' : 'p-4 md:p-6 pb-28 md:pb-6'}`}
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 8px)',
         paddingRight: 'calc(env(safe-area-inset-right, 0px) + 8px)'
       }}

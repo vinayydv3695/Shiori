@@ -362,7 +362,10 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-hidden select-none">
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 md:p-6 lg:p-8 pt-1 sm:pt-2 bg-background">
+      <div 
+        className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4 md:p-6 lg:p-8 bg-background"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)' }}
+      >
         <div className={cn("max-w-6xl mx-auto space-y-6 pt-1", isAndroid ? "pb-36" : "pb-28 md:pb-20")}>
 
           {error ? (

@@ -556,9 +556,9 @@ export function ShelfGrid({
 
   return (
     <div 
-      className="p-3 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden w-full relative custom-scrollbar pb-28 md:pb-8"
+      className="px-3 pt-0 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden w-full relative custom-scrollbar pb-28 md:pb-8"
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)',
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
         paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
       }}

@@ -106,7 +106,10 @@ export const RSSArticleList: React.FC<RSSArticleListProps> = ({ activeFeedId = n
   return (
     <div className="flex-1 flex flex-col h-full bg-background relative overflow-hidden">
       {/* Header Controls Bar */}
-      <div className="flex-none px-4 sm:px-6 py-3 sm:py-4 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] md:pt-4 border-b border-border/50 bg-background/95 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs z-20">
+      <div 
+        className="flex-none px-4 sm:px-6 pb-2.5 sm:pb-3 border-b border-border/50 bg-background/95 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs z-20"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' }}
+      >
         
         {/* Row 1 on Mobile / Left Side on Desktop: Feed Selector + Primary Quick Actions */}
         <div className="flex items-center justify-between md:justify-start gap-2.5 w-full md:w-auto">

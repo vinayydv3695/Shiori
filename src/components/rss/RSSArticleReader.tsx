@@ -78,7 +78,10 @@ export const RSSArticleReader: React.FC<RSSArticleReaderProps> = ({ article, onC
       onTouchEnd={handleTouchEnd}
     >
       {/* Top Navigation Bar */}
-      <div className="flex-none flex items-center justify-between px-3 sm:px-6 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] border-b border-border/50 bg-background/95 backdrop-blur-xl sticky top-0 z-20 shadow-xs">
+      <div 
+        className="flex-none flex items-center justify-between px-3 sm:px-6 pb-2.5 border-b border-border/50 bg-background/95 backdrop-blur-xl sticky top-0 z-20 shadow-xs"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' }}
+      >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <button
             onClick={onClose}

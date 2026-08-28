@@ -157,7 +157,7 @@ export function RecycleBinView() {
     <div 
       className="h-full flex flex-col p-4 sm:p-6 space-y-4 md:space-y-5 pb-24 md:pb-6 bg-background relative overflow-hidden"
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
         paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)'
       }}

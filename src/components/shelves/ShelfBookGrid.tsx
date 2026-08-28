@@ -428,9 +428,12 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
 
   return (
     <div 
-      className="p-4 sm:p-6 md:p-8 h-full overflow-y-auto overflow-x-hidden pb-36 sm:pb-32 md:pb-16 custom-scrollbar relative"
+      className={cn(
+        "h-full overflow-y-auto overflow-x-hidden pb-36 sm:pb-32 md:pb-16 custom-scrollbar relative",
+        isAndroidOrMobile ? "px-4 pt-0 sm:p-6 md:p-8" : "p-4 sm:p-6 md:p-8"
+      )}
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)',
+        paddingTop: isAndroidOrMobile ? 0 : 'max(env(safe-area-inset-top, 0px), 12px)',
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 16px)',
         paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)'
       }}
@@ -438,7 +441,10 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
       <div className="max-w-[1400px] mx-auto">
         {/* Sticky Top Header Bar */}
         {isAndroidOrMobile ? (
-          <div className="mb-4 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-2.5 pt-1.5 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2">
+          <div 
+            className="mb-3 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-2 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2"
+            style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' }}
+          >
             {/* Row 1: Back | Shelf Title + Count | Select & Add */}
             <div className="flex items-center justify-between gap-2">
               <button 

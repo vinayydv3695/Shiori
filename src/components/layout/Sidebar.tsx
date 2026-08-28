@@ -29,7 +29,7 @@ export function Sidebar({ onOpenSettings, onCreateShelf, onEditShelf }: SidebarP
     { icon: FolderOpen, label: "Shelves", action: () => setCurrentView("shelves") },
     { icon: Globe, label: "Online Books", action: () => setCurrentView("online-books") },
     { icon: BookOpen, label: "Online Manga", action: () => setCurrentView("online-manga") },
-    { icon: Highlighter, label: "Annotations", action: () => setCurrentView("annotations") },
+    { icon: NotebookPen, label: "Annotations", action: () => setCurrentView("annotations") },
     { icon: AniListIcon, label: "AniList", action: () => setCurrentView("anilist") },
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },

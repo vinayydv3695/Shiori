@@ -3,7 +3,7 @@ import { usePreferencesStore } from "@/store/preferencesStore"
 import {
   BookOpen,
   Globe,
-  Highlighter,
+  NotebookPen,
   Home,
   Library,
   Trash2,
@@ -70,7 +70,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Annotations",
     targetView: "annotations",
     isActive: (view) => view === "annotations",
-    icon: Highlighter,
+    icon: NotebookPen,
     section: "WORKSPACE",
   },
   {

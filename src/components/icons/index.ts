@@ -34,6 +34,7 @@ export {
   Bookmark,
   BookmarkPlus,
   Highlighter,
+  NotebookPen,
   MessageSquare,
   StickyNote,
   FolderOpen,

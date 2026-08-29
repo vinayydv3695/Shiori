@@ -1044,18 +1044,22 @@ input:-webkit-autofill:active{
 .dialog-overlay,
 [data-radix-dialog-overlay],
 [data-radix-alert-dialog-overlay] {
-  background-color: rgba(0, 0, 0, 0.42) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 /* Sepia Theme Dialog Overlay — Warm espresso dimming with rich blur */
 [data-theme="sepia"] .dialog-overlay,
 [data-theme="sepia"] [data-radix-dialog-overlay],
 [data-theme="sepia"] [data-radix-alert-dialog-overlay] {
-  background-color: rgba(35, 22, 10, 0.38) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(35, 22, 10, 0.42) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 /* Light / White Theme Dialog Overlay */
@@ -1064,27 +1068,43 @@ input:-webkit-autofill:active{
 [data-theme="white"] [data-radix-alert-dialog-overlay],
 :root:not([data-theme="black"]):not([data-theme="premium-dark"]):not([data-theme="sepia"]) .dialog-overlay,
 :root:not([data-theme="black"]):not([data-theme="premium-dark"]):not([data-theme="sepia"]) [data-radix-dialog-overlay] {
-  background-color: rgba(0, 0, 0, 0.38) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(0, 0, 0, 0.42) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 /* OLED Midnight Dialog Overlay */
 [data-theme="black"] .dialog-overlay,
 [data-theme="black"] [data-radix-dialog-overlay],
 [data-theme="black"] [data-radix-alert-dialog-overlay] {
-  background-color: rgba(0, 0, 0, 0.7) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 /* Premium Dark Dialog Overlay */
 [data-theme="premium-dark"] .dialog-overlay,
 [data-theme="premium-dark"] [data-radix-dialog-overlay],
 [data-theme="premium-dark"] [data-radix-alert-dialog-overlay] {
-  background-color: rgba(0, 0, 0, 0.6) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background-color: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  transform: translateZ(0);
+  will-change: opacity, transform;
+}
+
+/* Force hardware acceleration & glass backdrop filter for Android WebView dialog content cards */
+.dialog-content,
+[data-radix-dialog-content],
+[data-radix-alert-dialog-content] {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* ─────────────────────────────────────────────────────────────────

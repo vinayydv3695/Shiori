@@ -708,7 +708,7 @@ export const SeriesView = memo(function SeriesView({
             />
 
           {/* Controls Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4 md:px-6 py-3 border-b border-border/40 bg-card/75 backdrop-blur-2xl shrink-0 sticky top-0 z-20 shadow-xs">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4 md:px-6 py-3 border-b border-border/60 bg-background/95 dark:bg-background/95 backdrop-blur-3xl shrink-0 sticky top-0 z-30 shadow-xs">
             {/* Left: Search & Jump */}
             <div className="flex items-center gap-2.5 w-full md:w-auto">
               <div className="relative flex-1 md:w-72 group">
@@ -718,7 +718,7 @@ export const SeriesView = memo(function SeriesView({
                   placeholder="Search volumes..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-8 h-10 bg-secondary/50 hover:bg-secondary/80 focus-visible:bg-secondary border-border/40 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-sm font-medium transition-all shadow-xs"
+                  className="pl-9 pr-8 h-10 bg-muted/80 hover:bg-muted focus-visible:bg-background border-border/60 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-sm font-medium transition-all shadow-xs"
                 />
                 {searchQuery && (
                   <button 
@@ -739,7 +739,7 @@ export const SeriesView = memo(function SeriesView({
                   placeholder="Vol #" 
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
-                  className="h-10 w-24 bg-secondary/50 hover:bg-secondary/80 focus-visible:bg-secondary border-border/40 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-center text-sm font-bold transition-all shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="h-10 w-24 bg-muted/80 hover:bg-muted focus-visible:bg-background border-border/60 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-center text-sm font-bold transition-all shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   title="Jump to Volume Number"
                 />
               </form>
@@ -748,7 +748,7 @@ export const SeriesView = memo(function SeriesView({
             {/* Right: Filter Segmented Control, Sort Controls, and Layout Toggles */}
             <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
               {/* Segmented Filter Pills */}
-              <div className="inline-flex items-center p-1 bg-secondary/60 backdrop-blur-xl border border-border/40 rounded-full shadow-inner">
+              <div className="inline-flex items-center p-1 bg-muted/80 backdrop-blur-xl border border-border/60 rounded-full shadow-inner">
                 <button 
                   type="button"
                   onClick={() => setFilterStatus('all')} 
@@ -791,7 +791,7 @@ export const SeriesView = memo(function SeriesView({
               </div>
 
               {/* Sort Action Group */}
-              <div className="inline-flex items-center gap-0.5 p-1 bg-secondary/60 backdrop-blur-xl border border-border/40 rounded-full shadow-inner shrink-0">
+              <div className="inline-flex items-center gap-0.5 p-1 bg-muted/80 backdrop-blur-xl border border-border/60 rounded-full shadow-inner shrink-0">
                 <button 
                   type="button"
                   onClick={() => setSortOrder('chapter_asc')} 
@@ -830,7 +830,7 @@ export const SeriesView = memo(function SeriesView({
               <div className="h-5 w-px bg-border/40 mx-0.5 hidden md:block shrink-0" />
 
               {/* Grid / List View Mode Switcher */}
-              <div className="inline-flex items-center gap-0.5 p-1 bg-secondary/60 backdrop-blur-xl border border-border/40 rounded-full shadow-inner shrink-0">
+              <div className="inline-flex items-center gap-0.5 p-1 bg-muted/80 backdrop-blur-xl border border-border/60 rounded-full shadow-inner shrink-0">
                 <button 
                   type="button"
                   onClick={() => setViewMode('grid')} 

@@ -1103,8 +1103,6 @@ input:-webkit-autofill:active{
 [data-radix-alert-dialog-content] {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  transform: translateZ(0);
-  will-change: transform;
 }
 
 /* ─────────────────────────────────────────────────────────────────

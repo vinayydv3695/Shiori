@@ -314,7 +314,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           "z-[101] flex flex-col overflow-hidden focus:outline-none",
           isMobile 
             ? "fixed inset-0 w-full h-full rounded-none" 
-            : "dialog-content settings-dialog fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh]",
+            : "fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh]",
           // Transparent mode must stay near-opaque: at /80 the inner panels
           // (bg-background/30 sidebar, /50 content) stacked on the /40 overlay
           // let the app's icons show through the panel. /95 + heavy blur keeps
@@ -2603,7 +2603,7 @@ const AboutSettings = () => {
           {([
             { label: 'GitHub Repository', url: 'https://github.com/vinayydv3695/Shiori', icon: ExternalLink },
             { label: 'Report an Issue', url: 'https://github.com/vinayydv3695/Shiori/issues', icon: AlertTriangle },
-            { label: 'License (MIT)', url: 'https://github.com/vinayydv3695/Shiori?tab=MIT-1-ov-file', icon: FileText },
+            { label: 'License (GPL v3.0)', url: 'https://opensource.org/license/gpl-3.0', icon: FileText },
             { label: 'Official Website', url: 'http://shiori.vinayydv.me/', icon: ExternalLink },
           ]).map((link) => (
             <a

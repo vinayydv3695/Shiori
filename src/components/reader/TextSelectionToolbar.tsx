@@ -517,7 +517,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       {isVisible && (
         <motion.div
           ref={toolbarRef}
-          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${(!showNoteInput && !showTranslation && !showColorPicker) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
+          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showColorPicker) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
           style={isAndroid ? undefined : { left: position.x, top: position.y }}
           initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.96 }}
           animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
@@ -603,42 +603,42 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                   </button>
                 </div>
               ) : (
-                /* Vertical Sub-view for Android More Menu: Back | Note | Aloud */
-                <div className="flex flex-col gap-1 p-1.5 w-full min-w-[200px]">
+                /* Compact Vertical Sub-view for Android More Menu: Back | Note | Aloud */
+                <div className="flex flex-col gap-0.5 p-1 w-full min-w-[150px] max-w-[190px]">
                   <button
                     type="button"
-                    className="flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
+                    className="flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
                       setShowAndroidMore(false);
                     }}
                   >
-                    <ArrowLeft size={18} className="text-foreground/90 shrink-0" />
-                    <span className="text-xs sm:text-sm font-semibold tracking-tight text-foreground/90">Back</span>
+                    <ArrowLeft size={16} className="text-foreground/90 shrink-0" />
+                    <span className="text-xs font-semibold tracking-tight text-foreground/90">Back</span>
                   </button>
 
                   <button
                     type="button"
-                    className="flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
+                    className="flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
                       setShowNoteInput(true);
                     }}
                   >
-                    <StickyNote size={18} className="text-foreground/90 shrink-0" />
-                    <span className="text-xs sm:text-sm font-semibold tracking-tight text-foreground/90">Note</span>
+                    <StickyNote size={16} className="text-foreground/90 shrink-0" />
+                    <span className="text-xs font-semibold tracking-tight text-foreground/90">Note</span>
                   </button>
 
                   <button
                     type="button"
-                    className="flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
+                    className="flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
                       ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
                     }}
                   >
-                    <Volume2 size={18} className={`shrink-0 ${ttsState === 'speaking' ? "text-primary animate-pulse" : "text-foreground/90"}`} />
-                    <span className="text-xs sm:text-sm font-semibold tracking-tight text-foreground/90">{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                    <Volume2 size={16} className={`shrink-0 ${ttsState === 'speaking' ? "text-primary animate-pulse" : "text-foreground/90"}`} />
+                    <span className="text-xs font-semibold tracking-tight text-foreground/90">{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
                   </button>
                 </div>
               )

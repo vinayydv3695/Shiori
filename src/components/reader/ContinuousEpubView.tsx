@@ -699,8 +699,15 @@ export function ContinuousEpubView({
           const selection = window.getSelection();
           if (selection && selection.toString().trim().length > 0) return;
 
-          if (onToggleUI) {
-            onToggleUI();
+          const clickX = e.clientX || (e.nativeEvent as any)?.clientX || 0;
+          const width = window.innerWidth;
+          const clickRatio = width > 0 ? clickX / width : 0.5;
+
+          // Only center region (25% - 75%) toggles UI; edges do nothing
+          if (clickRatio >= 0.25 && clickRatio <= 0.75) {
+            if (onToggleUI) {
+              onToggleUI();
+            }
           }
         }}
         className={`premium-content-container premium-content-container--${widthClass}`}

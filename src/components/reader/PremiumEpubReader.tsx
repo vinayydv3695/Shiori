@@ -1537,7 +1537,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [isHorizontalPaging, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
-  // Click zone handling: left 35% prev, right 35% next, center 30% toggle top bar
+  // Center tap toggles top bar UI; edge single-tap page turns are disabled (user navigates via scroll / swipe only)
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (Date.now() - lastTouchNavigationRef.current < 500) return;
@@ -1552,23 +1552,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
     const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
     const width = window.innerWidth;
-    const leftThreshold = isAndroid ? 0.35 : 0.25;
-    const rightThreshold = isAndroid ? 0.65 : 0.75;
-    const clickRatio = clickX / width;
+    const clickRatio = width > 0 ? clickX / width : 0.5;
 
-    if (clickRatio < leftThreshold) {
-      prevPage();
-      return;
+    // Only center area (25% - 75%) toggles top bar; edge single clicks do nothing
+    if (clickRatio >= 0.25 && clickRatio <= 0.75) {
+      if (!isFocusMode && !isTopBarShortcutOnly) {
+        setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
+      }
     }
-    if (clickRatio > rightThreshold) {
-      nextPage();
-      return;
-    }
-
-    if (!isFocusMode && !isTopBarShortcutOnly) {
-      setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
-    }
-  }, [prevPage, nextPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1692,10 +1684,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Single Tap (< 350ms, |dx| < 20, |dy| < 20)
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> Center tap toggles UI; left/right edge taps do nothing
     if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
-      if (isAndroid) {
-        // On Android: edge tap page turning disabled entirely. Single tap toggles top bar UI.
+      const windowWidth = window.innerWidth;
+      const tapX = touchEnd.clientX;
+      const tapRatio = windowWidth > 0 ? tapX / windowWidth : 0.5;
+
+      // Only center area (25% - 75%) toggles top bar; edge single taps are completely disabled
+      if (tapRatio >= 0.25 && tapRatio <= 0.75) {
         triggerHaptic(8);
         const uiStore = useReaderUIStore.getState();
         if (uiStore.isSidebarOpen) {
@@ -1703,33 +1699,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         } else {
           setTopBarVisible(!uiStore.isTopBarVisible);
         }
-      } else {
-        const windowWidth = window.innerWidth;
-        const tapX = touchEnd.clientX;
-        const tapRatio = tapX / windowWidth;
-        const leftBoundary = 0.25;
-        const rightBoundary = 0.75;
-
-        if (tapRatio < leftBoundary) {
-          lastTouchNavigationRef.current = Date.now();
-          triggerHaptic(10);
-          prevPage();
-        } else if (tapRatio > rightBoundary) {
-          lastTouchNavigationRef.current = Date.now();
-          triggerHaptic(10);
-          nextPage();
-        } else {
-          triggerHaptic(8);
-          const uiStore = useReaderUIStore.getState();
-          if (uiStore.isSidebarOpen) {
-            uiStore.closeSidebar();
-          } else {
-            setTopBarVisible(!uiStore.isTopBarVisible);
-          }
-        }
       }
     }
-  }, [isDoodleMode, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isDoodleMode, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

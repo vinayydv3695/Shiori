@@ -2850,6 +2850,14 @@ select {
   transition: top 0.25s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, transform 0.25s ease !important;
 }
 
+.text-selection-toolbar--android.text-selection-toolbar--more-active {
+  width: auto !important;
+  min-width: 140px !important;
+  max-width: 190px !important;
+  padding: 4px 6px !important;
+  border-radius: 20px !important;
+}
+
 /* When typing a note on Android, position the card at top of screen above the soft keyboard */
 .text-selection-toolbar--android.text-selection-toolbar--note-active,
 .text-selection-toolbar--android:has(textarea:focus),

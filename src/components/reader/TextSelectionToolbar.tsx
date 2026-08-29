@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Highlighter, StickyNote, X, Volume2, ChevronDown } from '@/components/icons';
+import { Highlighter, StickyNote, X, Volume2, ChevronDown, Copy, MoreVertical, Search, Share2, ArrowLeft, BookOpen } from '@/components/icons';
 import { api, isAndroid } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
@@ -108,6 +108,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     }
   }, []);
 
+  const [showAndroidMore, setShowAndroidMore] = useState(false);
+
   const hideToolbar = useCallback(() => {
     if (hideTimerRef.current !== null) {
       window.clearTimeout(hideTimerRef.current);
@@ -117,6 +119,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setIsVisible(false);
     setShowColorPicker(false);
     setShowNoteInput(false);
+    setShowAndroidMore(false);
     setNoteText('');
     setSelectedCategoryId(undefined);
     setShowTranslation(false);
@@ -254,6 +257,29 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     hideToolbar();
     window.getSelection()?.removeAllRanges();
   }, [selectedText, hideToolbar]);
+
+  const handleWebSearch = useCallback(() => {
+    const query = encodeURIComponent(selectedText.trim());
+    window.open(`https://www.google.com/search?q=${query}`, '_blank');
+    hideToolbar();
+    window.getSelection()?.removeAllRanges();
+  }, [selectedText, hideToolbar]);
+
+  const handleShare = useCallback(async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          text: `"${selectedText}"`,
+        });
+      } catch {
+        // User cancelled or share not supported
+      }
+    } else {
+      handleCopy();
+    }
+    hideToolbar();
+    window.getSelection()?.removeAllRanges();
+  }, [selectedText, handleCopy, hideToolbar]);
 
   const getResolvedLocation = useCallback(() => {
     const selection = window.getSelection();
@@ -508,117 +534,139 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
             }
           }}
         >
-          {/* Main action buttons: Single-row on Desktop (!isAndroid), 2-Row collapsible on Android (isAndroid) */}
+          {/* Main action buttons: Fig 3 Icon-Top + Fig 2 Sub-view on Android, Single-row on Desktop */}
           {!showNoteInput && !showTranslation && (
             isAndroid ? (
-              <div className="flex items-center gap-1 p-1 max-w-[calc(100vw-1.5rem)] overflow-x-auto no-scrollbar whitespace-nowrap">
-                <button
-                  type="button"
-                  className="text-selection-toolbar-btn shrink-0"
-                  onClick={() => {
-                    hapticTick();
-                    handleTranslate();
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
-                  </svg>
-                  <span>Translate</span>
-                </button>
-
-                <span className="text-selection-toolbar-divider shrink-0" />
-
-                <button
-                  type="button"
-                  className="text-selection-toolbar-btn shrink-0"
-                  onClick={() => {
-                    hapticTick();
-                    setShowNoteInput(true);
-                  }}
-                >
-                  <StickyNote size={14} />
-                  <span>Note</span>
-                </button>
-
-                <span className="text-selection-toolbar-divider shrink-0" />
-
-                <button
-                  type="button"
-                  className="text-selection-toolbar-btn shrink-0"
-                  onClick={() => {
-                    hapticTick();
-                    setShowColorPicker(!showColorPicker);
-                  }}
-                >
-                  <Highlighter size={14} />
-                  <span>Highlight</span>
-                </button>
-
-                {/* Expanded Actions: Aloud | Define | Copy inline in single horizontal row */}
-                {isExpanded && (
+              <div className="flex items-center justify-around gap-1 p-1 min-w-[280px] sm:min-w-[320px]">
+                {!showAndroidMore ? (
+                  /* Primary Fig 3 Bar: Copy | Highlight | Translate | Dictionary | More ⋮ */
                   <>
-                    <span className="text-selection-toolbar-divider shrink-0" />
-
                     <button
                       type="button"
-                      className="text-selection-toolbar-btn shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
-                      }}
-                    >
-                      <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
-                      <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
-                    </button>
-
-                    <span className="text-selection-toolbar-divider shrink-0" />
-
-                    <button
-                      type="button"
-                      className="text-selection-toolbar-btn shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        handleDefine();
-                      }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                      </svg>
-                      <span>Define</span>
-                    </button>
-
-                    <span className="text-selection-toolbar-divider shrink-0" />
-
-                    <button
-                      type="button"
-                      className="text-selection-toolbar-btn shrink-0"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
                       onClick={() => {
                         hapticTick();
                         handleCopy();
                       }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      <Copy size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Copy</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        setShowColorPicker(!showColorPicker);
+                      }}
+                    >
+                      <Highlighter size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Highlight</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        handleTranslate();
+                      }}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/90 mb-1">
+                        <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
                       </svg>
-                      <span>Copy</span>
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Translate</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        handleDefine();
+                      }}
+                    >
+                      <BookOpen size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Dictionary</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        setShowAndroidMore(true);
+                      }}
+                    >
+                      <MoreVertical size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">More</span>
+                    </button>
+                  </>
+                ) : (
+                  /* Secondary Fig 2 Sub-view: ← Back | Note | Aloud | Web Search | Share */
+                  <>
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        setShowAndroidMore(false);
+                      }}
+                    >
+                      <ArrowLeft size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Back</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        setShowNoteInput(true);
+                      }}
+                    >
+                      <StickyNote size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Note</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
+                      }}
+                    >
+                      <Volume2 size={18} className={`mb-1 ${ttsState === 'speaking' ? "text-primary animate-pulse" : "text-foreground/90"}`} />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        handleWebSearch();
+                      }}
+                    >
+                      <Search size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Search</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                      onClick={() => {
+                        hapticTick();
+                        handleShare();
+                      }}
+                    >
+                      <Share2 size={18} className="text-foreground/90 mb-1" />
+                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Share</span>
                     </button>
                   </>
                 )}
-
-                {/* Right Chevron Toggle Button (Android only) */}
-                <button
-                  type="button"
-                  className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/20 active:scale-95 ml-0.5"
-                  style={{ color: 'var(--text-primary, currentColor)' }}
-                  onClick={() => {
-                    hapticTick();
-                    setIsExpanded(!isExpanded);
-                  }}
-                  title={isExpanded ? 'Collapse toolbar' : 'Expand toolbar'}
-                >
-                  <ChevronDown size={14} className={`transition-transform duration-200 ${isExpanded ? '-rotate-90' : 'rotate-90'}`} />
-                </button>
               </div>
             ) : (
               /* Single Horizontal Row for Desktop */

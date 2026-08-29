@@ -61,8 +61,9 @@ export {
   Pause,
   Clock,
   Maximize2,
-  Minimize2,
   ArrowLeft,
+  Copy,
+  Share2,
 } from "lucide-react"
 
 export { AniListIcon } from './AniListIcon'

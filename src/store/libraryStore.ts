@@ -240,7 +240,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     const prev = get().serverSearchQuery
     const same = JSON.stringify(prev) === JSON.stringify(serverSearchQuery)
     if (same) return
-    set({ serverSearchQuery, books: [], hasMore: true, totalCount: 0 })
+    set({ serverSearchQuery, hasMore: true })
   },
   loadInitialBooks: async () => {
     const id = ++requestId

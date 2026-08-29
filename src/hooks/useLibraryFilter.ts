@@ -168,11 +168,9 @@ export function useLibraryFilter(searchQuery: string) {
     return hasCriteria ? next : null;
   }, [canUseServerSearch, query, selectedFilters, activeFilters, currentDomain]);
 
-  // Debounce the server-side query so typing doesn't fire a searchBooks IPC
-  // round-trip per keystroke on a 50k-book library. Display logic keeps using
-  // the raw (deferred) serverSearchQuery, so the previous results stay on
-  // screen while the debounce window elapses — no loading flicker.
-  const debouncedServerSearchQuery = useDebounce(serverSearchQuery, 250);
+  // Debounce the server-side query only when typing text search so keystrokes don't
+  // fire searchBooks IPC round-trips. Domain/section switches apply instantly (0ms).
+  const debouncedServerSearchQuery = useDebounce(serverSearchQuery, query ? 250 : 0);
 
   // Keep store in sync with server-side query mode.
   useEffect(() => {

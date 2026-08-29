@@ -503,11 +503,17 @@ export function LibraryGrid({
       />
 
       {isEmpty ? (
-        <EmptyState
-          domain={currentDomain}
-          hasFilters={books.length > 0}
-          onImport={onImport}
-        />
+        isLoading ? (
+          <div className="w-full flex-1 flex items-center justify-center p-12 min-h-[300px]">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+          </div>
+        ) : (
+          <EmptyState
+            domain={currentDomain}
+            hasFilters={books.length > 0}
+            onImport={onImport}
+          />
+        )
       ) : (
         <div
           style={{

@@ -134,21 +134,21 @@ export function HistoryViewAndroid({
         }}
       >
         {/* Sleek Integrated Search & Action Bar (History) */}
-        <div className="flex items-center gap-2 mb-2 pt-1">
+        <div className="flex items-center gap-2 mb-2.5 pt-1">
           <div className="relative flex-1 group">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input 
               type="text" 
               placeholder={`Search ${filteredAndSortedBooks.length} history items...`} 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
-              className="w-full pl-9 pr-8 h-9.5 text-xs font-medium bg-muted/40 border border-border/40 focus:bg-background focus:border-primary/50 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground" 
+              className="w-full pl-10 pr-9 h-10 text-xs font-medium bg-muted/50 border border-border/60 focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-full outline-none transition-all placeholder:text-muted-foreground/60 text-foreground" 
             />
             {searchQuery && (
               <button 
                 type="button" 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground p-1 rounded-md cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -159,26 +159,26 @@ export function HistoryViewAndroid({
             {books.length > 0 && (
               <button 
                 onClick={() => setClearDialogOpen(true)} 
-                className="w-9 h-9 flex items-center justify-center rounded-2xl bg-muted/60 hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border/40 transition-all active:scale-95 shadow-xs" 
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border/60 transition-all active:scale-95 shadow-xs" 
                 title="Clear History"
               >
-                <Trash2 size={15} />
+                <Trash2 size={16} />
               </button>
             )}
             {onClose && (
               <button 
                 onClick={onClose} 
-                className="w-9 h-9 flex items-center justify-center rounded-2xl bg-muted/60 hover:bg-muted text-foreground border border-border/40 transition-all active:scale-95 shadow-xs" 
+                className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-foreground border border-border/60 transition-all active:scale-95 shadow-xs" 
                 title="Close"
               >
-                <X size={16} />
+                <X size={17} />
               </button>
             )}
           </div>
         </div>
 
         {/* Horizontal Filter Tabs Row */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1 mb-2">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1 mb-2.5">
           {filterTabs.map(tab => {
             const isActive = activeTab === tab.id;
             return (
@@ -187,7 +187,7 @@ export function HistoryViewAndroid({
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "flex-none px-3 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0",
+                  "flex-none px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border shrink-0",
                   isActive
                     ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
                     : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/50"
@@ -200,83 +200,83 @@ export function HistoryViewAndroid({
         </div>
 
         {/* Controls Row: Sort & View Toggle */}
-        <div className="flex items-center justify-between gap-2 pt-0.5">
+        <div className="flex items-center justify-between gap-2 py-0.5">
           {/* Sort Dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-muted/50 border border-border/50 text-[11px] font-bold text-foreground transition-all shadow-xs outline-none cursor-pointer">
-              <Clock size={12} className="text-muted-foreground shrink-0" />
+            <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 hover:bg-muted border border-border/60 text-xs font-semibold text-foreground transition-all shadow-xs outline-none cursor-pointer active:scale-95">
+              <Clock size={13} className="text-muted-foreground shrink-0" />
               <span className="truncate max-w-[130px]">
                 {sortOption === 'recent' ? 'Recent' : sortOption === 'oldest' ? 'Oldest' : sortOption === 'progress' ? 'Progress' : 'A–Z'}
               </span>
-              <ChevronDown size={11} className="text-muted-foreground shrink-0" />
+              <ChevronDown size={12} className="text-muted-foreground shrink-0" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-44 bg-popover !bg-popover !opacity-100 border border-border/80 shadow-2xl rounded-2xl p-1 z-[200]">
+            <DropdownMenuContent align="start" className="w-48 bg-popover !bg-popover !opacity-100 border border-border/80 shadow-2xl rounded-2xl p-1 z-[200]">
               <DropdownMenuItem
                 onClick={() => setSortOption('recent')}
                 className={cn(
-                  "flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer",
+                  "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer",
                   sortOption === 'recent' ? "bg-primary/15 text-primary font-bold" : "text-popover-foreground hover:bg-accent"
                 )}
               >
                 <span>Most Recent</span>
-                {sortOption === 'recent' && <CheckCircle2 size={13} className="text-primary" />}
+                {sortOption === 'recent' && <CheckCircle2 size={14} className="text-primary" />}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setSortOption('oldest')}
                 className={cn(
-                  "flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer",
+                  "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer",
                   sortOption === 'oldest' ? "bg-primary/15 text-primary font-bold" : "text-popover-foreground hover:bg-accent"
                 )}
               >
                 <span>Oldest Activity</span>
-                {sortOption === 'oldest' && <CheckCircle2 size={13} className="text-primary" />}
+                {sortOption === 'oldest' && <CheckCircle2 size={14} className="text-primary" />}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setSortOption('progress')}
                 className={cn(
-                  "flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer",
+                  "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer",
                   sortOption === 'progress' ? "bg-primary/15 text-primary font-bold" : "text-popover-foreground hover:bg-accent"
                 )}
               >
                 <span>Highest Progress</span>
-                {sortOption === 'progress' && <CheckCircle2 size={13} className="text-primary" />}
+                {sortOption === 'progress' && <CheckCircle2 size={14} className="text-primary" />}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setSortOption('title')}
                 className={cn(
-                  "flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium cursor-pointer",
+                  "flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer",
                   sortOption === 'title' ? "bg-primary/15 text-primary font-bold" : "text-popover-foreground hover:bg-accent"
                 )}
               >
                 <span>Title (A–Z)</span>
-                {sortOption === 'title' && <CheckCircle2 size={13} className="text-primary" />}
+                {sortOption === 'title' && <CheckCircle2 size={14} className="text-primary" />}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-muted/60 rounded-xl p-0.5 border border-border/50 shrink-0">
+          <div className="flex items-center bg-muted/50 rounded-full p-0.5 border border-border/60 shadow-xs shrink-0">
             <button
               type="button"
               onClick={() => setViewMode('timeline')}
               title="Timeline List"
               className={cn(
-                "p-1 rounded-lg transition-all",
-                viewMode === 'timeline' ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground"
+                "p-1.5 rounded-full transition-all flex items-center justify-center",
+                viewMode === 'timeline' ? "bg-background text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <List size={13} />
+              <List size={14} />
             </button>
             <button
               type="button"
               onClick={() => setViewMode('grid')}
               title="Cards Grid"
               className={cn(
-                "p-1 rounded-lg transition-all",
-                viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground"
+                "p-1.5 rounded-full transition-all flex items-center justify-center",
+                viewMode === 'grid' ? "bg-background text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <LayoutGrid size={13} />
+              <LayoutGrid size={14} />
             </button>
           </div>
         </div>

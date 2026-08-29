@@ -96,6 +96,7 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
                 <X size={15} />
               </button>
             )}
+          </div>
         </div>
 
         {/* Row 2: Scrollable Minimal Filter Bar */}

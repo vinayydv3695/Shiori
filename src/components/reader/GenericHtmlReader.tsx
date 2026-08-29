@@ -567,26 +567,14 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
         }
         if (Date.now() - lastTouchNavigationRef.current < 400) return;
 
-        const windowWidth = window.innerWidth;
-        const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
-        const clickRatio = clickX / windowWidth;
-        const leftBoundary = isAndroid ? 0.35 : 0.25;
-        const rightBoundary = isAndroid ? 0.65 : 0.75;
-
         triggerHaptic(10);
-        if (clickRatio < leftBoundary && currentChapter > 0) {
-            setCurrentChapter(c => c - 1);
-        } else if (clickRatio > rightBoundary && currentChapter < totalChapters - 1) {
-            setCurrentChapter(c => c + 1);
+        const uiStore = useReaderUIStore.getState();
+        if (uiStore.isSidebarOpen) {
+            uiStore.closeSidebar();
         } else {
-            const uiStore = useReaderUIStore.getState();
-            if (uiStore.isSidebarOpen) {
-                uiStore.closeSidebar();
-            } else {
-                uiStore.setTopBarVisible(!uiStore.isTopBarVisible);
-            }
+            uiStore.setTopBarVisible(!uiStore.isTopBarVisible);
         }
-    }, [currentChapter, totalChapters]);
+    }, []);
 
     usePremiumReaderKeyboard({
         onPrevChapter: prevChapter,

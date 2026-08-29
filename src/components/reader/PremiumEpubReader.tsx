@@ -917,11 +917,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           if (canvas) {
             const scrollTop = canvas.scrollTop;
 
-            if (!isFocusMode && !isTopBarShortcutOnly) {
-              if (scrollTop > lastScrollTop + 20) {
-                setTopBarVisible(false);
-              } else if (scrollTop < lastScrollTop - 20) {
-                setTopBarVisible(true);
+            if (!isFocusMode && !isTopBarShortcutOnly && !isPointerOverTopBar) {
+              const uiState = useReaderUIStore.getState();
+              if (!uiState.isTopBarVisible) {
+                if (scrollTop > lastScrollTop + 60) {
+                  setTopBarVisible(false);
+                } else if (scrollTop < lastScrollTop - 30) {
+                  setTopBarVisible(true);
+                }
               }
             }
             lastScrollTop = scrollTop;
@@ -1916,25 +1919,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (Date.now() - lastTouchNavigationRef.current < 400) return;
     if (window.getSelection()?.toString().trim()) return;
 
-    // Tap edges to change chapter — fixed, uniform on all platforms:
-    // left edge → previous chapter, right edge → next chapter.
-    // Center tap toggles the UI (top bar/sidebar).
-    const windowWidth = window.innerWidth;
-    const clickX = e.clientX || (e.nativeEvent as any)?.clientX || (e.nativeEvent as any)?.changedTouches?.[0]?.clientX || 0;
-    const clickRatio = clickX / windowWidth;
-    const leftBoundary = 0.25;
-    const rightBoundary = 0.75;
-
-    triggerHaptic(10);
-    if (clickRatio < leftBoundary) {
-      prevChapter();
-      return;
-    }
-    if (clickRatio > rightBoundary) {
-      nextChapter();
-      return;
-    }
-
+    // Single tap on canvas toggles top bar / sidebar UI cleanly without accidental page jumps
     triggerHaptic(10);
     const uiStore = useReaderUIStore.getState();
     if (uiStore.isSidebarOpen) {
@@ -1942,7 +1927,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       setTopBarVisible(!uiStore.isTopBarVisible);
     }
-  }, [isDoodleMode, prevChapter, nextChapter, setTopBarVisible]);
+  }, [isDoodleMode, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

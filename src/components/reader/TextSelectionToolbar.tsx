@@ -537,137 +537,111 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           {/* Main action buttons: Fig 3 Icon-Top + Fig 2 Sub-view on Android, Single-row on Desktop */}
           {!showNoteInput && !showTranslation && (
             isAndroid ? (
-              <div className="flex items-center justify-around gap-1 p-1 min-w-[280px] sm:min-w-[320px]">
-                {!showAndroidMore ? (
-                  /* Primary Fig 3 Bar: Copy | Highlight | Translate | Dictionary | More ⋮ */
-                  <>
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        handleCopy();
-                      }}
-                    >
-                      <Copy size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Copy</span>
-                    </button>
+              !showAndroidMore ? (
+                /* Primary Fig 3 Bar: Copy | Highlight | Translate | Dictionary | More ⋮ */
+                <div className="flex items-center justify-around gap-1 p-1 min-w-[280px] sm:min-w-[320px]">
+                  <button
+                    type="button"
+                    className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                    onClick={() => {
+                      hapticTick();
+                      handleCopy();
+                    }}
+                  >
+                    <Copy size={18} className="text-foreground/90 mb-1" />
+                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Copy</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        setShowColorPicker(!showColorPicker);
-                      }}
-                    >
-                      <Highlighter size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Highlight</span>
-                    </button>
+                  <button
+                    type="button"
+                    className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                    onClick={() => {
+                      hapticTick();
+                      setShowColorPicker(!showColorPicker);
+                    }}
+                  >
+                    <Highlighter size={18} className="text-foreground/90 mb-1" />
+                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Highlight</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        handleTranslate();
-                      }}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/90 mb-1">
-                        <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
-                      </svg>
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Translate</span>
-                    </button>
+                  <button
+                    type="button"
+                    className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                    onClick={() => {
+                      hapticTick();
+                      handleTranslate();
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/90 mb-1">
+                      <path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" />
+                    </svg>
+                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Translate</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        handleDefine();
-                      }}
-                    >
-                      <BookOpen size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Dictionary</span>
-                    </button>
+                  <button
+                    type="button"
+                    className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                    onClick={() => {
+                      hapticTick();
+                      handleDefine();
+                    }}
+                  >
+                    <BookOpen size={18} className="text-foreground/90 mb-1" />
+                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Dictionary</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        setShowAndroidMore(true);
-                      }}
-                    >
-                      <MoreVertical size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">More</span>
-                    </button>
-                  </>
-                ) : (
-                  /* Secondary Fig 2 Sub-view: ← Back | Note | Aloud | Web Search | Share */
-                  <>
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        setShowAndroidMore(false);
-                      }}
-                    >
-                      <ArrowLeft size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Back</span>
-                    </button>
+                  <button
+                    type="button"
+                    className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
+                    onClick={() => {
+                      hapticTick();
+                      setShowAndroidMore(true);
+                    }}
+                  >
+                    <MoreVertical size={18} className="text-foreground/90 mb-1" />
+                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">More</span>
+                  </button>
+                </div>
+              ) : (
+                /* Vertical Sub-view for Android More Menu: Back | Note | Aloud */
+                <div className="flex flex-col gap-1 p-1.5 w-full min-w-[200px]">
+                  <button
+                    type="button"
+                    className="flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
+                    onClick={() => {
+                      hapticTick();
+                      setShowAndroidMore(false);
+                    }}
+                  >
+                    <ArrowLeft size={18} className="text-foreground/90 shrink-0" />
+                    <span className="text-xs sm:text-sm font-semibold tracking-tight text-foreground/90">Back</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        setShowNoteInput(true);
-                      }}
-                    >
-                      <StickyNote size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Note</span>
-                    </button>
+                  <button
+                    type="button"
+                    className="flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
+                    onClick={() => {
+                      hapticTick();
+                      setShowNoteInput(true);
+                    }}
+                  >
+                    <StickyNote size={18} className="text-foreground/90 shrink-0" />
+                    <span className="text-xs sm:text-sm font-semibold tracking-tight text-foreground/90">Note</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
-                      }}
-                    >
-                      <Volume2 size={18} className={`mb-1 ${ttsState === 'speaking' ? "text-primary animate-pulse" : "text-foreground/90"}`} />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        handleWebSearch();
-                      }}
-                    >
-                      <Search size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Search</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-muted/80 active:scale-95 transition-all text-foreground cursor-pointer shrink-0"
-                      onClick={() => {
-                        hapticTick();
-                        handleShare();
-                      }}
-                    >
-                      <Share2 size={18} className="text-foreground/90 mb-1" />
-                      <span className="text-[10px] sm:text-[11px] font-medium tracking-tight text-foreground/80">Share</span>
-                    </button>
-                  </>
-                )}
-              </div>
+                  <button
+                    type="button"
+                    className="flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-muted/80 active:scale-98 transition-all text-foreground cursor-pointer text-left"
+                    onClick={() => {
+                      hapticTick();
+                      ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
+                    }}
+                  >
+                    <Volume2 size={18} className={`shrink-0 ${ttsState === 'speaking' ? "text-primary animate-pulse" : "text-foreground/90"}`} />
+                    <span className="text-xs sm:text-sm font-semibold tracking-tight text-foreground/90">{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                  </button>
+                </div>
+              )
             ) : (
               /* Single Horizontal Row for Desktop */
               <div className="flex items-center gap-1 p-1">

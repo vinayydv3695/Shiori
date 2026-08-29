@@ -352,7 +352,7 @@ export function ContinuousEpubView({
     observerRef.current = new IntersectionObserver(handleIntersect, {
       root: container,
       rootMargin: '0px', // Exact viewport
-      threshold: Array.from({ length: 21 }, (_, i) => i * 0.05), // More granular thresholds for long chapters
+      threshold: [0, 0.25, 0.5, 0.75, 1.0], // High performance threshold checkpoints
     });
 
     // ResizeObserver: a chapter fully above the viewport that grows after the

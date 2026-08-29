@@ -64,6 +64,9 @@ export function ReaderTopBar({
     <div
       className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''} ${isSidebarOpen ? 'premium-top-bar--sidebar-open' : ''}`}
       data-tauri-drag-region
+      onClick={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
     >
       <div className="premium-top-bar-content">
         {/* ── LEFT: Back Button + Uncropped Title & Subtitle ── */}

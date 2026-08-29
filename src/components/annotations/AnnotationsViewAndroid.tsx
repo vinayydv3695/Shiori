@@ -54,6 +54,7 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
           paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
           paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
         }}
+      >
         {/* Row 1: Integrated Mobile Search & Quick Actions Bar */}
         <div className="flex items-center justify-between gap-2 h-9.5 pt-0.5">
           <div className="relative flex-1 group">

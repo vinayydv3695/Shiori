@@ -12,6 +12,8 @@ import { useLibraryStore } from '../../store/libraryStore';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 
+import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag';
+
 interface EditMetadataDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -178,16 +180,29 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
     }
   };
 
+  const { isExpanded, handleProps, dragOffset } = useBottomSheetDrag({
+    onClose: () => onOpenChange(false),
+  });
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/45 backdrop-blur-xl z-[200] transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content 
           aria-describedby={undefined} 
-          className="fixed inset-x-0 bottom-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:w-[90vw] max-w-2xl bg-card/85 backdrop-blur-2xl border-t sm:border border-border/80 rounded-t-3xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col max-h-[84vh] sm:max-h-[85vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-full data-[state=open]:slide-in-from-bottom-full sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 duration-300 transform-gpu"
+          className={`fixed inset-x-0 bottom-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:w-[90vw] max-w-2xl bg-card/85 backdrop-blur-2xl border-t sm:border border-border/80 rounded-t-3xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col overflow-hidden focus:outline-none transition-all duration-300 transform-gpu ${
+            isExpanded ? 'h-[95vh] sm:h-auto sm:max-h-[85vh]' : 'max-h-[84vh] sm:max-h-[85vh]'
+          }`}
+          style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
         >
-          {/* Mobile Drag Handle */}
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mt-2 mb-0.5 sm:hidden shrink-0" />
+          {/* Mobile Interactive Touch Drag Handle */}
+          <div 
+            className="w-full py-2.5 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing shrink-0 touch-none sm:hidden select-none"
+            {...handleProps}
+            title="Drag down to close, tap or drag up to expand full screen"
+          >
+            <div className="w-12 h-1.5 rounded-full bg-muted-foreground/40 hover:bg-muted-foreground/70 transition-colors" />
+          </div>
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-5 border-b border-border/50 bg-card/80 shrink-0">

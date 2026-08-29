@@ -3,7 +3,7 @@ import { useAnnotationsData } from './useAnnotationsData';
 import { AndroidAnnotationCard } from './AndroidAnnotationCard';
 import { AnnotationExportDialog } from '../reader/AnnotationExportDialog';
 import { QuoteCardDialog } from './QuoteCardDialog';
-import { X, Search, Share2, Bookmark, ChevronDown, Check, Filter, BookOpen, RotateCcw } from 'lucide-react';
+import { X, Search, Share2, Bookmark, ChevronDown, Check, Filter, BookOpen, Layers, RotateCcw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,106 +99,112 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
           </div>
         </div>
 
-        {/* Row 2: Scrollable Filter Bar with Categories & Books Dropdowns */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-3 px-3 py-1">
-          {/* Type Filter Pills */}
-          {tabs.map(tab => {
-            const isActive = typeFilter === tab.id;
-            return (
-              <button 
-                key={tab.id} 
-                type="button"
-                onClick={() => setTypeFilter(tab.id)} 
-                className={`h-7.5 px-3 rounded-xl text-xs font-bold transition-all border shrink-0 cursor-pointer active:scale-95 flex items-center justify-center ${
-                  isActive 
-                    ? 'bg-primary text-primary-foreground border-primary shadow-xs' 
-                    : 'bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground border-border/30'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-
-          <div className="h-4 w-px bg-border/50 shrink-0 mx-0.5" />
+        {/* Row 2: Full-Width Connected Segmented Dropdowns (Type, Category, Book) */}
+        <div className="flex items-center gap-2 pt-1 pb-0.5 w-full">
+          {/* Type Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 h-10 px-3 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
+              typeFilter !== 'all'
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted/50 hover:bg-muted/80 text-foreground border-border/50'
+            }`}>
+              <Layers size={14} className={typeFilter !== 'all' ? 'text-primary-foreground' : 'text-primary'} />
+              <span className="truncate">
+                {tabs.find(t => t.id === typeFilter)?.label || 'Type'}
+              </span>
+              <ChevronDown size={13} className={typeFilter !== 'all' ? 'text-primary-foreground' : 'text-muted-foreground'} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+              {tabs.map((tab) => (
+                <DropdownMenuItem
+                  key={tab.id}
+                  onClick={() => setTypeFilter(tab.id)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                    typeFilter === tab.id ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  {typeFilter === tab.id && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Category Dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className={`flex items-center gap-1.5 h-7.5 px-3 rounded-xl border text-xs font-bold transition-all outline-none cursor-pointer shrink-0 active:scale-95 ${
+            <DropdownMenuTrigger className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 h-10 px-3 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
               categoryFilter !== 'all'
-                ? 'bg-primary/15 text-primary border-primary/30 shadow-xs'
-                : 'bg-muted/30 hover:bg-muted/60 text-muted-foreground border-border/30'
+                ? 'bg-primary/15 text-primary border-primary/30'
+                : 'bg-muted/50 hover:bg-muted/80 text-foreground border-border/50'
             }`}>
-              <Filter size={11} className={categoryFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
-              <span className="whitespace-nowrap max-w-[110px] truncate">
+              <Filter size={14} className={categoryFilter !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
+              <span className="truncate">
                 {categoryFilter === 'all' ? 'Category' : categories.find(c => c.id === categoryFilter)?.name || 'Category'}
               </span>
-              <ChevronDown size={11} className="text-muted-foreground shrink-0" />
+              <ChevronDown size={13} className="text-muted-foreground shrink-0" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+            <DropdownMenuContent align="center" className="w-56 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
               <DropdownMenuItem
                 onClick={() => setCategoryFilter('all')}
-                className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer ${
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
                   categoryFilter === 'all' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
                 }`}
               >
                 <span>All Categories</span>
-                {categoryFilter === 'all' && <Check size={13} className="text-primary" />}
+                {categoryFilter === 'all' && <Check size={14} className="text-primary" />}
               </DropdownMenuItem>
               {categories.map((c) => (
                 <DropdownMenuItem
                   key={c.id ?? c.name}
                   onClick={() => c.id !== undefined && setCategoryFilter(c.id)}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer ${
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
                     categoryFilter === c.id ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
                   }`}
                 >
                   <span className="truncate pr-2">{c.name}</span>
-                  {categoryFilter === c.id && <Check size={13} className="text-primary shrink-0" />}
+                  {categoryFilter === c.id && <Check size={14} className="text-primary shrink-0" />}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* Book Filter Dropdown */}
-          {uniqueBooks.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger className={`flex items-center gap-1.5 h-7.5 px-3 rounded-xl border text-xs font-bold transition-all outline-none cursor-pointer shrink-0 active:scale-95 ${
-                selectedBookId !== 'all'
-                  ? 'bg-primary/15 text-primary border-primary/30 shadow-xs'
-                  : 'bg-muted/30 hover:bg-muted/60 text-muted-foreground border-border/30'
-              }`}>
-                <BookOpen size={11} className={selectedBookId !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
-                <span className="whitespace-nowrap max-w-[120px] truncate">
-                  {selectedBookId === 'all' ? 'All Books' : uniqueBooks.find(b => b.id === selectedBookId)?.title || 'All Books'}
-                </span>
-                <ChevronDown size={11} className="text-muted-foreground shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 max-h-64 overflow-y-auto bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+          <DropdownMenu>
+            <DropdownMenuTrigger className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 h-10 px-3 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
+              selectedBookId !== 'all'
+                ? 'bg-primary/15 text-primary border-primary/30'
+                : 'bg-muted/50 hover:bg-muted/80 text-foreground border-border/50'
+            }`}>
+              <BookOpen size={14} className={selectedBookId !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
+              <span className="truncate">
+                {selectedBookId === 'all' ? 'All Books' : uniqueBooks.find(b => b.id === selectedBookId)?.title || 'All Books'}
+              </span>
+              <ChevronDown size={13} className="text-muted-foreground shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-60 max-h-72 overflow-y-auto bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+              <DropdownMenuItem
+                onClick={() => setSelectedBookId('all')}
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                  selectedBookId === 'all' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                }`}
+              >
+                <span>All Books</span>
+                {selectedBookId === 'all' && <Check size={14} className="text-primary" />}
+              </DropdownMenuItem>
+              {uniqueBooks.map((b) => (
                 <DropdownMenuItem
-                  onClick={() => setSelectedBookId('all')}
-                  className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer ${
-                    selectedBookId === 'all' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                  key={b.id}
+                  onClick={() => setSelectedBookId(b.id as number)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                    selectedBookId === b.id ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
                   }`}
                 >
-                  <span>All Books</span>
-                  {selectedBookId === 'all' && <Check size={13} className="text-primary" />}
+                  <span className="truncate pr-2">{b.title}</span>
+                  {selectedBookId === b.id && <Check size={14} className="text-primary shrink-0" />}
                 </DropdownMenuItem>
-                {uniqueBooks.map((b) => (
-                  <DropdownMenuItem
-                    key={b.id}
-                    onClick={() => setSelectedBookId(b.id as number)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium cursor-pointer ${
-                      selectedBookId === b.id ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <span className="truncate pr-2">{b.title}</span>
-                    {selectedBookId === b.id && <Check size={13} className="text-primary shrink-0" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

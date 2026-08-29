@@ -174,6 +174,7 @@ export function HistoryViewAndroid({
                 <X size={16} />
               </button>
             )}
+          </div>
         </div>
 
         {/* Horizontal Filter Tabs Row */}

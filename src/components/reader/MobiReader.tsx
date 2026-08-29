@@ -589,22 +589,24 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             return;
         }
 
-        // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> Tap to turn chapter
+        // Single Tap (< 350ms, |dx| < 20, |dy| < 20)
         if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
-            const windowWidth = window.innerWidth;
-            const tapX = touchEnd.clientX;
-            const tapRatio = tapX / windowWidth;
-            const leftBoundary = isAndroid ? 0.35 : 0.25;
-            const rightBoundary = isAndroid ? 0.65 : 0.75;
+            if (!isAndroid) {
+                const windowWidth = window.innerWidth;
+                const tapX = touchEnd.clientX;
+                const tapRatio = tapX / windowWidth;
+                const leftBoundary = 0.25;
+                const rightBoundary = 0.75;
 
-            if (tapRatio < leftBoundary) {
-                lastTouchNavigationRef.current = Date.now();
-                triggerHaptic(10);
-                prevChapter();
-            } else if (tapRatio > rightBoundary) {
-                lastTouchNavigationRef.current = Date.now();
-                triggerHaptic(10);
-                nextChapter();
+                if (tapRatio < leftBoundary) {
+                    lastTouchNavigationRef.current = Date.now();
+                    triggerHaptic(10);
+                    prevChapter();
+                } else if (tapRatio > rightBoundary) {
+                    lastTouchNavigationRef.current = Date.now();
+                    triggerHaptic(10);
+                    nextChapter();
+                }
             }
         }
     }, [isDoodleMode, nextChapter, prevChapter]);

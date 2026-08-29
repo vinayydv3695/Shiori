@@ -11,7 +11,7 @@ interface PageFlipEngineProps {
     prevContent?: string | null;
     flipSpeed: number;
     enabled: boolean;
-    animationStyle: 'slide' | 'fade' | 'none';
+    animationStyle: 'slide' | 'fade' | 'curl' | 'none';
     onFlipComplete?: (direction: 'forward' | 'backward') => void;
     onRendered?: () => void;
     className?: string;
@@ -26,9 +26,10 @@ export interface PageFlipHandle {
 /**
  * Framer Motion Page Transition Engine for Shiori EPUB Reader.
  *
- * Supports three clean animation styles:
+ * Supports four clean animation styles:
  * - slide: smooth horizontal slide transition
  * - fade: soft crossfade transition
+ * - curl: realistic 3D book page curl with paper perspective & shadow depth
  * - none: instant page switch
  */
 export const PageFlipEngine = memo(
@@ -77,6 +78,30 @@ export const PageFlipEngine = memo(
             exit: { opacity: 0 },
         };
 
+        const curlVariants: Variants = {
+            enter: (dir: number) => ({
+                rotateY: dir > 0 ? 0 : -45,
+                x: dir > 0 ? '0%' : '-8%',
+                scale: dir > 0 ? 0.97 : 1,
+                opacity: dir > 0 ? 0.6 : 0.2,
+                transformOrigin: 'left center',
+            }),
+            center: {
+                rotateY: 0,
+                x: '0%',
+                scale: 1,
+                opacity: 1,
+                transformOrigin: 'left center',
+            },
+            exit: (dir: number) => ({
+                rotateY: dir > 0 ? -45 : 0,
+                x: dir > 0 ? '-8%' : '0%',
+                scale: dir > 0 ? 1 : 0.97,
+                opacity: dir > 0 ? 0.2 : 0.6,
+                transformOrigin: 'left center',
+            }),
+        };
+
         const noneVariants: Variants = {
             enter: { opacity: 1 },
             center: { opacity: 1 },
@@ -87,6 +112,7 @@ export const PageFlipEngine = memo(
             switch (animationStyle) {
                 case 'slide': return slideVariants;
                 case 'fade': return fadeVariants;
+                case 'curl': return curlVariants;
                 case 'none': return noneVariants;
             }
         };
@@ -100,6 +126,12 @@ export const PageFlipEngine = memo(
                 return {
                     duration: durationSec,
                     ease: [0.25, 1, 0.5, 1] as [number, number, number, number],
+                };
+            }
+            if (animationStyle === 'curl') {
+                return {
+                    duration: durationSec * 1.1,
+                    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
                 };
             }
             return {

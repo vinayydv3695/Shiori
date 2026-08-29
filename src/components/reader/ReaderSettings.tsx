@@ -548,6 +548,7 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
                     {([
                       { id: 'slide' as const, label: 'Slide' },
                       { id: 'fade' as const, label: 'Fade' },
+                      { id: 'curl' as const, label: 'Curl' },
                       { id: 'none' as const, label: 'Instant' },
                     ]).map((opt) => (
                       <button

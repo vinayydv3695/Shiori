@@ -11,6 +11,9 @@
     width: 100%;
     min-height: 100%;
     overflow: hidden;
+    perspective: 1400px;
+    perspective-origin: center center;
+    transform-style: preserve-3d;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -21,6 +24,8 @@
     min-height: 100%;
     will-change: transform, opacity;
     position: relative;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
 }
 
 /* ────────────────────────────────────────────────────────────

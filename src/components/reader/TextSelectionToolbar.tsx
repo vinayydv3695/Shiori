@@ -604,41 +604,41 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                 </div>
               ) : (
                 /* Compact Vertical Sub-view for Android More Menu: Back | Note | Aloud */
-                <div className="flex flex-col gap-0.5 p-1 w-full min-w-[150px] max-w-[190px]">
+                <div className="flex flex-col gap-1 p-1 w-full min-w-[170px]">
                   <button
                     type="button"
-                    className="text-selection-toolbar-android-btn flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
+                    className="text-selection-toolbar-android-btn flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
                       setShowAndroidMore(false);
                     }}
                   >
-                    <ArrowLeft size={16} className="shrink-0" style={{ color: 'var(--text-primary)' }} />
-                    <span className="text-xs font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>Back</span>
+                    <ArrowLeft size={18} className="shrink-0" style={{ color: 'var(--text-primary)' }} />
+                    <span className="text-[13.5px] font-medium tracking-tight" style={{ color: 'var(--text-primary)' }}>Back</span>
                   </button>
 
                   <button
                     type="button"
-                    className="text-selection-toolbar-android-btn flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
+                    className="text-selection-toolbar-android-btn flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
                       setShowNoteInput(true);
                     }}
                   >
-                    <StickyNote size={16} className="shrink-0" style={{ color: 'var(--text-primary)' }} />
-                    <span className="text-xs font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>Note</span>
+                    <StickyNote size={18} className="shrink-0" style={{ color: 'var(--text-primary)' }} />
+                    <span className="text-[13.5px] font-medium tracking-tight" style={{ color: 'var(--text-primary)' }}>Note</span>
                   </button>
 
                   <button
                     type="button"
-                    className="text-selection-toolbar-android-btn flex items-center gap-3 w-full px-3 py-2 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
+                    className="text-selection-toolbar-android-btn flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
                       ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
                     }}
                   >
-                    <Volume2 size={16} className={`shrink-0 ${ttsState === 'speaking' ? "text-primary animate-pulse" : ""}`} style={ttsState !== 'speaking' ? { color: 'var(--text-primary)' } : undefined} />
-                    <span className="text-xs font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
+                    <Volume2 size={18} className={`shrink-0 ${ttsState === 'speaking' ? "text-primary animate-pulse" : ""}`} style={ttsState !== 'speaking' ? { color: 'var(--text-primary)' } : undefined} />
+                    <span className="text-[13.5px] font-medium tracking-tight" style={{ color: 'var(--text-primary)' }}>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
                   </button>
                 </div>
               )
@@ -851,19 +851,22 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
                   </AnimatePresence>
                 </div>
               )}
-              <div className="text-selection-note-actions">
+              <div className="flex items-center justify-end gap-2.5 pt-1">
                 <button
-                  className="text-selection-toolbar-btn text-selection-toolbar-btn--cancel"
+                  type="button"
+                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:bg-white/10 active:scale-95 cursor-pointer"
+                  style={{ color: 'var(--text-secondary)' }}
                   onClick={() => { setShowNoteInput(false); setNoteText(''); }}
                 >
-                  <X size={12} />
-                  <span>Cancel</span>
+                  Cancel
                 </button>
                 <button
-                  className="text-selection-toolbar-btn text-selection-toolbar-btn--save"
+                  type="button"
+                  className="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md active:scale-95 transition-all cursor-pointer"
+                  style={{ backgroundColor: 'var(--ui-focus, #3b82f6)', color: '#ffffff' }}
                   onClick={handleAddNote}
                 >
-                  <span>Save</span>
+                  Save
                 </button>
               </div>
             </motion.div>

@@ -297,6 +297,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   const Portal: any = isMobile ? Drawer.Portal : Dialog.Portal;
   const Overlay: any = isMobile ? Drawer.Overlay : Dialog.Overlay;
   const Content: any = isMobile ? Drawer.Content : Dialog.Content;
+  const Title: any = isMobile ? Drawer.Title : Dialog.Title;
 
   return (
     <Wrapper open={open} onOpenChange={onOpenChange}>
@@ -362,8 +363,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               )}
             </div>
 
-            {/* Hidden Dialog.Title for Accessibility */}
-            <Dialog.Title className="sr-only">Settings</Dialog.Title>
+            {/* Hidden Title for Accessibility */}
+            <Title className="sr-only">Settings</Title>
 
             {/* Right: Close Settings Button */}
             {isMobile ? (

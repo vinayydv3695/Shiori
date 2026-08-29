@@ -29,6 +29,7 @@ import {
   ArrowUpDown,
   Filter,
   Layers,
+  Check,
   X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -568,51 +569,17 @@ export function ShelfGrid({
       <div className="absolute bottom-20 right-1/4 w-[400px] h-[400px] bg-purple-500/4 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-[1440px] mx-auto relative z-10">
-        {/* Desktop Header Bar (hidden on mobile) */}
-        <div className="hidden sm:flex items-center justify-between gap-3 mb-3 sm:mb-6">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div>
-              <p className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-0.5">
-                Your Collection
-              </p>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-none">
-                  Shelves
-                </h1>
-                {allShelves.length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-secondary/80 text-muted-foreground border border-border/40">
-                    {allShelves.length}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
 
-          {onCreateShelf && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              onClick={onCreateShelf}
-              className="group flex items-center gap-1.5 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full text-xs sm:text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-sm sm:shadow-md shadow-primary/20 transition-all duration-300 cursor-pointer active:scale-95 shrink-0"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-            >
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover:rotate-90" />
-              <span>New Shelf</span>
-            </motion.button>
-          )}
-        </div>
-
-        {/* Sleek Mobile Header Row (Mobile / Android) */}
-        <div className="flex items-center justify-between gap-2 mb-2.5 sm:hidden">
+        {/* Sleek Mobile Header Row 1 (Search + New Shelf) */}
+        <div className="flex items-center justify-between gap-2 mb-2 sm:hidden">
           <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               placeholder={`Search ${allShelves.length} shelves...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 h-9.5 text-xs font-medium bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-2xs"
+              className="w-full pl-10 pr-8 h-10 text-xs sm:text-sm font-medium bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-2xs"
             />
             {searchQuery && (
               <button
@@ -628,7 +595,7 @@ export function ShelfGrid({
           {onCreateShelf && (
             <motion.button
               onClick={onCreateShelf}
-              className="flex items-center gap-1 px-3 h-9.5 rounded-2xl text-xs font-bold text-primary-foreground bg-primary shadow-sm shadow-primary/20 cursor-pointer active:scale-95 shrink-0"
+              className="flex items-center gap-1.5 px-3.5 h-10 rounded-2xl text-xs sm:text-sm font-extrabold text-primary-foreground bg-primary shadow-sm shadow-primary/20 cursor-pointer active:scale-95 shrink-0"
               whileTap={{ scale: 0.95 }}
             >
               <Plus className="w-4 h-4" />
@@ -637,18 +604,141 @@ export function ShelfGrid({
           )}
         </div>
 
-        {/* Search, Filter & Sort Controls Toolbar */}
+        {/* Sleek Mobile Header Row 2 (Full-Width Filter & Sort Dropdowns for Android/Mobile) */}
         {allShelves.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 mb-3.5 sm:hidden w-full">
+            {/* Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 h-10 px-3 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
+                filterType !== 'all'
+                  ? 'bg-primary/15 text-primary border-primary/30'
+                  : 'bg-secondary/50 hover:bg-secondary/80 text-foreground border-border/50'
+              }`}>
+                <Filter size={14} className={filterType !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
+                <span className="truncate">
+                  {filterType === 'all' ? `Filter: All (${counts.all})` :
+                   filterType === 'favorites' ? `Filter: Fav (${counts.favorites})` :
+                   filterType === 'smart' ? `Filter: Smart (${counts.smart})` :
+                   filterType === 'with-books' ? `Filter: Books (${counts.withBooks})` :
+                   `Filter: Empty (${counts.empty})`}
+                </span>
+                <ChevronRight size={13} className="text-muted-foreground shrink-0 rotate-90" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+                <DropdownMenuItem
+                  onClick={() => setFilterType('all')}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                    filterType === 'all' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                  }`}
+                >
+                  <span>All Shelves ({counts.all})</span>
+                  {filterType === 'all' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+                {counts.favorites > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setFilterType('favorites')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                      filterType === 'favorites' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Heart className="w-3.5 h-3.5 fill-current text-destructive" />
+                      Favorites ({counts.favorites})
+                    </span>
+                    {filterType === 'favorites' && <Check size={14} className="text-primary" />}
+                  </DropdownMenuItem>
+                )}
+                {counts.smart > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setFilterType('smart')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                      filterType === 'smart' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      Smart Shelves ({counts.smart})
+                    </span>
+                    {filterType === 'smart' && <Check size={14} className="text-primary" />}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => setFilterType('with-books')}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                    filterType === 'with-books' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                  }`}
+                >
+                  <span>With Books ({counts.withBooks})</span>
+                  {filterType === 'with-books' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+                {counts.empty > 0 && (
+                  <DropdownMenuItem
+                    onClick={() => setFilterType('empty')}
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${
+                      filterType === 'empty' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <span>Empty ({counts.empty})</span>
+                    {filterType === 'empty' && <Check size={14} className="text-primary" />}
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Sort Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 h-10 px-3 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
+                sortType !== 'name-asc'
+                  ? 'bg-primary/15 text-primary border-primary/30'
+                  : 'bg-secondary/50 hover:bg-secondary/80 text-foreground border-border/50'
+              }`}>
+                <ArrowUpDown size={14} className="text-primary" />
+                <span className="truncate capitalize">
+                  {sortType === 'name-asc' ? 'Sort: A–Z' :
+                   sortType === 'name-desc' ? 'Sort: Z–A' :
+                   sortType === 'books-desc' ? 'Sort: Most Books' :
+                   sortType === 'books-asc' ? 'Sort: Fewest Books' : 'Sort: Newest'}
+                </span>
+                <ChevronRight size={13} className="text-muted-foreground shrink-0 rotate-90" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+                <DropdownMenuItem onClick={() => setSortType('name-asc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'name-asc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                  <span>Name (A–Z)</span>
+                  {sortType === 'name-asc' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortType('name-desc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'name-desc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                  <span>Name (Z–A)</span>
+                  {sortType === 'name-desc' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortType('books-desc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'books-desc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                  <span>Most Books</span>
+                  {sortType === 'books-desc' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortType('books-asc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'books-asc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                  <span>Fewest Books</span>
+                  {sortType === 'books-asc' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSortType('newest')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'newest' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                  <span>Recently Created</span>
+                  {sortType === 'newest' && <Check size={14} className="text-primary" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Search, Filter & Sort Controls Toolbar (Desktop) */}
+        {allShelves.length > 0 && (
+          <div className="hidden sm:flex flex-row items-center justify-between gap-3 mb-6">
             {/* Search Input (Desktop) */}
-            <div className="hidden sm:block relative flex-1 max-w-full sm:max-w-xs md:max-w-sm group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
+            <div className="relative flex-1 max-w-md group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search shelves..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-8 h-9 text-xs font-medium bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                className="w-full pl-10 pr-8 h-10 text-xs sm:text-sm font-medium bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 focus:ring-1 focus:ring-primary/20 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-2xs"
               />
               {searchQuery && (
                 <button
@@ -661,115 +751,111 @@ export function ShelfGrid({
               )}
             </div>
 
-            {/* Filter Chips & Sort Controls */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:pb-0">
-              {/* Filter Chips */}
-              <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-xl border border-border/40 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setFilterType('all')}
-                  className={cn(
-                    "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
-                    filterType === 'all'
-                      ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                  )}
-                >
-                  All ({counts.all})
-                </button>
-                {counts.favorites > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterType('favorites')}
-                    className={cn(
-                      "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
-                      filterType === 'favorites'
-                        ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                    )}
-                  >
-                    <Heart className="w-3 h-3 fill-current" />
-                    Fav
-                  </button>
-                )}
-                {counts.smart > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterType('smart')}
-                    className={cn(
-                      "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95",
-                      filterType === 'smart'
-                        ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                    )}
-                  >
-                    <Zap className="w-3 h-3" />
-                    Smart ({counts.smart})
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setFilterType('with-books')}
-                  className={cn(
-                    "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
-                    filterType === 'with-books'
-                      ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                  )}
-                >
-                  With Books ({counts.withBooks})
-                </button>
-                {counts.empty > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterType('empty')}
-                    className={cn(
-                      "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95",
-                      filterType === 'empty'
-                        ? "bg-primary/20 text-primary border border-primary/30 shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                    )}
-                  >
-                    Empty ({counts.empty})
-                  </button>
-                )}
-              </div>
-
-              {/* Sort Selector Dropdown */}
+            {/* Desktop Filter & Sort Controls */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              {/* Filter Dropdown */}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-secondary/40 hover:bg-secondary/70 border border-border/40 text-xs font-bold text-foreground transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
-                  >
-                    <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
-                    <span className="hidden sm:inline text-muted-foreground">Sort:</span>
-                    <span className="capitalize">
-                      {sortType === 'name-asc' ? 'A–Z' :
-                       sortType === 'name-desc' ? 'Z–A' :
-                       sortType === 'books-desc' ? 'Most Books' :
-                       sortType === 'books-asc' ? 'Fewest Books' : 'Newest'}
-                    </span>
-                  </button>
+                <DropdownMenuTrigger className={`flex items-center gap-1.5 h-10 px-4 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
+                  filterType !== 'all'
+                    ? 'bg-primary/15 text-primary border-primary/30'
+                    : 'bg-secondary/40 hover:bg-secondary/70 text-foreground border-border/50'
+                }`}>
+                  <Filter size={14} className={filterType !== 'all' ? 'text-primary' : 'text-muted-foreground'} />
+                  <span>
+                    {filterType === 'all' ? `Filter: All (${counts.all})` :
+                     filterType === 'favorites' ? `Filter: Fav (${counts.favorites})` :
+                     filterType === 'smart' ? `Filter: Smart (${counts.smart})` :
+                     filterType === 'with-books' ? `Filter: Books (${counts.withBooks})` :
+                     `Filter: Empty (${counts.empty})`}
+                  </span>
+                  <ChevronRight size={13} className="text-muted-foreground shrink-0 rotate-90" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border shadow-2xl z-[150]">
-                  <DropdownMenuItem onClick={() => setSortType('name-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
-                    Name (A–Z)
+                <DropdownMenuContent align="end" className="w-56 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+                  <DropdownMenuItem onClick={() => setFilterType('all')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${filterType === 'all' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>All Shelves ({counts.all})</span>
+                    {filterType === 'all' && <Check size={14} className="text-primary" />}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('name-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
-                    Name (Z–A)
+                  {counts.favorites > 0 && (
+                    <DropdownMenuItem onClick={() => setFilterType('favorites')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${filterType === 'favorites' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                      <span className="flex items-center gap-1.5">
+                        <Heart className="w-3.5 h-3.5 fill-current text-destructive" />
+                        Favorites ({counts.favorites})
+                      </span>
+                      {filterType === 'favorites' && <Check size={14} className="text-primary" />}
+                    </DropdownMenuItem>
+                  )}
+                  {counts.smart > 0 && (
+                    <DropdownMenuItem onClick={() => setFilterType('smart')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${filterType === 'smart' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                      <span className="flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-amber-500" />
+                        Smart Shelves ({counts.smart})
+                      </span>
+                      {filterType === 'smart' && <Check size={14} className="text-primary" />}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setFilterType('with-books')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${filterType === 'with-books' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>With Books ({counts.withBooks})</span>
+                    {filterType === 'with-books' && <Check size={14} className="text-primary" />}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('books-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
-                    Most Books
+                  {counts.empty > 0 && (
+                    <DropdownMenuItem onClick={() => setFilterType('empty')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${filterType === 'empty' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                      <span>Empty ({counts.empty})</span>
+                      {filterType === 'empty' && <Check size={14} className="text-primary" />}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Sort Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger className={`flex items-center gap-1.5 h-10 px-4 rounded-2xl border text-xs sm:text-sm font-extrabold transition-all outline-none cursor-pointer active:scale-95 shadow-2xs ${
+                  sortType !== 'name-asc'
+                    ? 'bg-primary/15 text-primary border-primary/30'
+                    : 'bg-secondary/40 hover:bg-secondary/70 text-foreground border-border/50'
+                }`}>
+                  <ArrowUpDown size={14} className="text-primary" />
+                  <span className="capitalize">
+                    {sortType === 'name-asc' ? 'Sort: A–Z' :
+                     sortType === 'name-desc' ? 'Sort: Z–A' :
+                     sortType === 'books-desc' ? 'Sort: Most Books' :
+                     sortType === 'books-asc' ? 'Sort: Fewest Books' : 'Sort: Newest'}
+                  </span>
+                  <ChevronRight size={13} className="text-muted-foreground shrink-0 rotate-90" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52 bg-popover border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+                  <DropdownMenuItem onClick={() => setSortType('name-asc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'name-asc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>Name (A–Z)</span>
+                    {sortType === 'name-asc' && <Check size={14} className="text-primary" />}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('books-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
-                    Fewest Books
+                  <DropdownMenuItem onClick={() => setSortType('name-desc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'name-desc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>Name (Z–A)</span>
+                    {sortType === 'name-desc' && <Check size={14} className="text-primary" />}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortType('newest')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
-                    Recently Created
+                  <DropdownMenuItem onClick={() => setSortType('books-desc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'books-desc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>Most Books</span>
+                    {sortType === 'books-desc' && <Check size={14} className="text-primary" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortType('books-asc')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'books-asc' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>Fewest Books</span>
+                    {sortType === 'books-asc' && <Check size={14} className="text-primary" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortType('newest')} className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer ${sortType === 'newest' ? 'bg-primary/15 text-primary font-bold' : 'text-popover-foreground hover:bg-accent'}`}>
+                    <span>Recently Created</span>
+                    {sortType === 'newest' && <Check size={14} className="text-primary" />}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {onCreateShelf && (
+                <button
+                  type="button"
+                  onClick={onCreateShelf}
+                  className="flex items-center gap-1.5 h-10 px-4 rounded-2xl bg-primary hover:bg-primary/90 text-xs sm:text-sm font-extrabold text-primary-foreground transition-all shrink-0 cursor-pointer shadow-sm shadow-primary/20 active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Shelf</span>
+                </button>
+              )}
             </div>
           </div>
         )}

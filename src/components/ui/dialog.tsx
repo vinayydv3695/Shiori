@@ -76,32 +76,77 @@ const DialogFooter = ({
 )
 DialogFooter.displayName = "DialogFooter"
 
+class SafeDialogTitle extends React.Component<
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title> & { innerRef?: any },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {}
+  render() {
+    const { innerRef, className, ...props } = this.props;
+    if (this.state.hasError) {
+      return (
+        <h2
+          ref={innerRef}
+          className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+          {...props}
+        />
+      );
+    }
+    return (
+      <DialogPrimitive.Title
+        ref={innerRef}
+        className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+        {...props}
+      />
+    );
+  }
+}
+
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  />
-))
-DialogTitle.displayName = DialogPrimitive.Title.displayName
+>((props, ref) => <SafeDialogTitle innerRef={ref} {...props} />);
+DialogTitle.displayName = DialogPrimitive.Title.displayName;
+
+class SafeDialogDescription extends React.Component<
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description> & { innerRef?: any },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch() {}
+  render() {
+    const { innerRef, className, ...props } = this.props;
+    if (this.state.hasError) {
+      return (
+        <p
+          ref={innerRef}
+          className={cn("text-sm text-muted-foreground", className)}
+          {...props}
+        />
+      );
+    }
+    return (
+      <DialogPrimitive.Description
+        ref={innerRef}
+        className={cn("text-sm text-muted-foreground", className)}
+        {...props}
+      />
+    );
+  }
+}
 
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
-DialogDescription.displayName = DialogPrimitive.Description.displayName
+>((props, ref) => <SafeDialogDescription innerRef={ref} {...props} />);
+DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,

@@ -168,7 +168,6 @@ export function useAnnotationsData() {
     { id: 'highlight', label: 'Highlights' },
     { id: 'note', label: 'Notes' },
     { id: 'vocabulary', label: 'Vocab' },
-    { id: 'bookmark', label: 'Bookmarks' }
   ];
 
   return {

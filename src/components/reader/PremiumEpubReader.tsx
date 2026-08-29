@@ -1537,7 +1537,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [isHorizontalPaging, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
-  // Click zone handling in simple mode: left 25% prev, right 25% next, center 50% toggle top bar
+  // Click zone handling in simple mode: left 25% prev chapter, right 25% next chapter, center 50% toggle top bar
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (Date.now() - lastTouchNavigationRef.current < 500) return;
@@ -1546,7 +1546,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
     const target = e.target as HTMLElement;
-    if (target.closest('button, a, input, [role="button"], .premium-nav-arrow')) {
+    if (target.closest('button, a, input, [role="button"], .premium-nav-arrow, mark.epub-highlight, mark.pdf-highlight, [data-note-content], [data-annotation-id], .reader-annotation-tooltip')) {
       return;
     }
 
@@ -1555,11 +1555,23 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const clickRatio = width > 0 ? clickX / width : 0.5;
 
     if (clickRatio < 0.25) {
-      prevPage();
+      lastTouchNavigationRef.current = Date.now();
+      triggerHaptic(10);
+      if (isHorizontalPaging) {
+        prevPage();
+      } else {
+        prevChapter(true);
+      }
       return;
     }
     if (clickRatio > 0.75) {
-      nextPage();
+      lastTouchNavigationRef.current = Date.now();
+      triggerHaptic(10);
+      if (isHorizontalPaging) {
+        nextPage();
+      } else {
+        nextChapter();
+      }
       return;
     }
 
@@ -1567,7 +1579,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
     }
-  }, [prevPage, nextPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [prevPage, nextPage, prevChapter, nextChapter, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1691,7 +1703,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> In simple mode: left/right edge taps turn page/chapter, center tap toggles UI
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> In simple mode: left/right edge taps turn chapter directly, center tap toggles UI
     if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
       const windowWidth = window.innerWidth;
       const tapX = touchEnd.clientX;
@@ -1700,11 +1712,19 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       if (tapRatio < 0.25) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
-        prevPage();
+        if (isHorizontalPaging) {
+          prevPage();
+        } else {
+          prevChapter(true);
+        }
       } else if (tapRatio > 0.75) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
-        nextPage();
+        if (isHorizontalPaging) {
+          nextPage();
+        } else {
+          nextChapter();
+        }
       } else {
         // Center area (25% - 75%) toggles top bar
         triggerHaptic(8);
@@ -1716,7 +1736,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isDoodleMode, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isDoodleMode, nextPage, prevPage, prevChapter, nextChapter, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

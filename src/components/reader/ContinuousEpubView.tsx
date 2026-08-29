@@ -19,6 +19,7 @@ interface ContinuousEpubViewProps {
   scrollRef?: React.RefObject<HTMLDivElement | null>;
   contentRef?: React.RefObject<HTMLDivElement | null>;
   onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  onToggleUI?: () => void;
 }
 
 interface LoadedChapter {
@@ -45,6 +46,7 @@ export function ContinuousEpubView({
   scrollRef,
   contentRef,
   onScroll,
+  onToggleUI,
 }: ContinuousEpubViewProps) {
   const [chapters, setChapters] = useState<LoadedChapter[]>([]);
   const [loadingTop, setLoadingTop] = useState(false);
@@ -441,7 +443,11 @@ export function ContinuousEpubView({
         if (newCh) {
           setChapters(prev => {
             if (prev.some(c => c.index === newCh.index)) return prev;
-            return [...prev, newCh];
+            const updated = [...prev, newCh];
+            if (updated.length > 8) {
+              return updated.slice(updated.length - 8);
+            }
+            return updated;
           });
         }
       } else {
@@ -464,7 +470,11 @@ export function ContinuousEpubView({
           
           setChapters(prev => {
             if (prev.some(c => c.index === newCh.index)) return prev;
-            return [newCh, ...prev];
+            const updated = [newCh, ...prev];
+            if (updated.length > 8) {
+              return updated.slice(0, 8);
+            }
+            return updated;
           });
         }
       }
@@ -670,9 +680,28 @@ export function ContinuousEpubView({
       <div 
         ref={contentRef}
         onClick={(e) => {
-          // External links → system browser; internal links stay untouched so
-          // hash/relative navigation keeps working inside the reader.
+          const target = e.target as Element;
+          if (target && typeof target.closest === 'function') {
+            if (
+              target.closest('a') ||
+              target.closest('button') ||
+              target.closest('input') ||
+              target.closest('textarea') ||
+              target.closest('.text-selection-toolbar') ||
+              target.closest('[role="dialog"]')
+            ) {
+              handleExternalLinkClick(e.nativeEvent, contentRef?.current ?? null);
+              return;
+            }
+          }
           handleExternalLinkClick(e.nativeEvent, contentRef?.current ?? null);
+
+          const selection = window.getSelection();
+          if (selection && selection.toString().trim().length > 0) return;
+
+          if (onToggleUI) {
+            onToggleUI();
+          }
         }}
         className={`premium-content-container premium-content-container--${widthClass}`}
       >

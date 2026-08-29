@@ -970,17 +970,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         setIsLoading(true);
         setError(null);
 
-        // Add small delay to ensure book is in database
-        await new Promise(resolve => setTimeout(resolve, 500));
-
         const bookMetadata = await api.openBookRenderer(bookId, bookPath, 'epub');
         setMetadata(bookMetadata);
 
         // Load the TOC so the top bar can show the real chapter the user is in
         api.getBookToc(bookId).then(setToc).catch(() => setToc([]));
-
-        // Add another small delay to ensure HashMap insert completes
-        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Restore chapter + scroll.
         // Priority:
@@ -2056,6 +2050,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           scrollRef={canvasRef}
           contentRef={contentContainerRef}
           onScroll={handleScroll as any}
+          onToggleUI={handleContainerClick as any}
         />
       ) : (
         <div

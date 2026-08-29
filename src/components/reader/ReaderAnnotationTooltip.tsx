@@ -24,6 +24,8 @@ export function ReaderAnnotationTooltip() {
   const colors = READER_THEME_COLORS[readerTheme] || READER_THEME_COLORS.paper;
   const accentColor = colors['--text-link'] || colors['--ui-focus'] || '#8B6914';
 
+  const isPinnedRef = useRef(false);
+
   const clearTimers = useCallback(() => {
     if (hoverTimeoutRef.current) {
       window.clearTimeout(hoverTimeoutRef.current);
@@ -35,15 +37,26 @@ export function ReaderAnnotationTooltip() {
     }
   }, []);
 
-  const handleOpen = useCallback((mark: HTMLElement) => {
+  const handleOpen = useCallback((mark: HTMLElement, pinned = false) => {
     clearTimers();
-    const noteRaw = mark.dataset.noteContent || mark.getAttribute('data-note-content');
-    if (!noteRaw) return;
-
+    const noteRaw = mark.dataset.noteContent || mark.getAttribute('data-note-content') || mark.textContent || '';
+    
     // Suppress native browser title to avoid double tooltips
     if (mark.title) {
       mark.dataset.originalTitle = mark.title;
       mark.removeAttribute('title');
+    }
+
+    if (pinned) {
+      isPinnedRef.current = true;
+      const rect = mark.getBoundingClientRect();
+      setTooltipData({
+        targetRect: rect,
+        noteRaw,
+        annotationId: mark.dataset.annotationId,
+        annotationType: mark.dataset.annotationType || (mark.dataset.hasNote === 'true' ? 'note' : 'highlight'),
+      });
+      return;
     }
 
     hoverTimeoutRef.current = window.setTimeout(() => {
@@ -52,16 +65,18 @@ export function ReaderAnnotationTooltip() {
         targetRect: rect,
         noteRaw,
         annotationId: mark.dataset.annotationId,
-        annotationType: mark.dataset.annotationType,
+        annotationType: mark.dataset.annotationType || (mark.dataset.hasNote === 'true' ? 'note' : 'highlight'),
       });
     }, 120);
   }, [clearTimers]);
 
-  const handleClose = useCallback((delay = 200) => {
+  const handleClose = useCallback((delay = 200, force = false) => {
     clearTimers();
+    if (isPinnedRef.current && !force) return;
     closeTimeoutRef.current = window.setTimeout(() => {
-      if (!isOverTooltipRef.current) {
+      if (!isOverTooltipRef.current || force) {
         setTooltipData(null);
+        isPinnedRef.current = false;
       }
     }, delay);
   }, [clearTimers]);
@@ -69,19 +84,18 @@ export function ReaderAnnotationTooltip() {
   useEffect(() => {
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      if (!target) return;
+      if (!target || isPinnedRef.current) return;
       const mark = target.closest('mark.epub-highlight, mark.pdf-highlight, [data-note-content]') as HTMLElement | null;
-      if (mark && mark.dataset.hasNote === 'true') {
-        handleOpen(mark);
+      if (mark && (mark.dataset.hasNote === 'true' || mark.dataset.noteContent)) {
+        handleOpen(mark, false);
       }
     };
 
     const handleMouseOut = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
-      if (!target) return;
+      if (!target || isPinnedRef.current) return;
       const mark = target.closest('mark.epub-highlight, mark.pdf-highlight, [data-note-content]') as HTMLElement | null;
       if (mark) {
-        // Restore title if needed
         if (mark.dataset.originalTitle && !mark.title) {
           mark.title = mark.dataset.originalTitle;
         }
@@ -89,12 +103,32 @@ export function ReaderAnnotationTooltip() {
       }
     };
 
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const mark = target.closest('mark.epub-highlight, mark.pdf-highlight, [data-note-content], [data-annotation-id]') as HTMLElement | null;
+      if (mark) {
+        e.stopPropagation();
+        handleOpen(mark, true);
+        return;
+      }
+
+      // If clicked outside the tooltip
+      if (tooltipRef.current && !tooltipRef.current.contains(target)) {
+        setTooltipData(null);
+        isPinnedRef.current = false;
+      }
+    };
+
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseOut);
+    document.addEventListener('click', handleClick, true);
 
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
+      document.removeEventListener('click', handleClick, true);
       clearTimers();
     };
   }, [handleOpen, handleClose, clearTimers]);
@@ -202,8 +236,11 @@ export function ReaderAnnotationTooltip() {
             </div>
 
             <button
-              onClick={() => setTooltipData(null)}
-              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
+              onClick={() => {
+                setTooltipData(null);
+                isPinnedRef.current = false;
+              }}
+              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-80 cursor-pointer"
               style={{
                 backgroundColor: colors['--bg-secondary'],
                 color: colors['--text-tertiary'],

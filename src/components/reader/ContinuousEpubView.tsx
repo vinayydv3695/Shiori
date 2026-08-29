@@ -28,11 +28,9 @@ interface LoadedChapter {
 }
 
 // Chapters outside [active-KEEP_ABOVE, active+KEEP_BELOW] are unloaded to bound
-// memory (long books previously kept every scrolled chapter, OOM-crashing Android).
-// Desktop keeps a wider window so pruning (and its scroll anchoring) happens far
-// less often during normal reading; Android stays tight for memory.
-const KEEP_ABOVE = isAndroid ? 1 : 5;
-const KEEP_BELOW = isAndroid ? 1 : 5;
+// memory while providing smooth continuous reading without layout thrashing.
+const KEEP_ABOVE = 3;
+const KEEP_BELOW = 3;
 
 export function ContinuousEpubView({
   bookId,
@@ -198,13 +196,13 @@ export function ContinuousEpubView({
   const initialScrollSettledRef = useRef(false);
   const previousRequestedChapterRef = useRef(initialChapterIndex);
 
-  // Parent-level chapter navigation can change initialChapterIndex while the
-  // target chapter is already in the loaded window. Reset the one-shot scroll
-  // gate before the layout effect so target navigation actually moves there.
+  // Parent-level chapter navigation: only reset initial scroll if requested
+  // chapter is far away (e.g. from TOC/sidebar) and not sequentially scrolled into.
   useLayoutEffect(() => {
     if (previousRequestedChapterRef.current === initialChapterIndex) return;
+    const prevReq = previousRequestedChapterRef.current;
     previousRequestedChapterRef.current = initialChapterIndex;
-    if (initialChapterIndex !== activeChapterIndexRef.current) {
+    if (initialChapterIndex !== activeChapterIndexRef.current && Math.abs(initialChapterIndex - prevReq) > 1) {
       activeChapterIndexRef.current = initialChapterIndex;
       hasAppliedInitialScroll.current = false;
     }
@@ -645,20 +643,27 @@ export function ContinuousEpubView({
     };
   }, [pendingAnnotationId, bookId, loadAnnotations, metadata.total_chapters]);
 
+  const lastScrollTopRef = useRef(0);
+
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     if (onScroll) onScroll(e);
 
     const container = e.currentTarget;
+    const currentScrollTop = container.scrollTop;
+    const isScrollingDown = currentScrollTop > lastScrollTopRef.current;
+    const isScrollingUp = currentScrollTop < lastScrollTopRef.current;
+    lastScrollTopRef.current = currentScrollTop;
     
-    // Fetch previous chapters when within 5000px of top
-    if (container.scrollTop < 5000 && !loadingTopRef.current && chapters.length > 0) {
+    // Only fetch previous chapters when actually scrolling UP and near the top (< 350px)
+    if (isScrollingUp && currentScrollTop < 350 && !loadingTopRef.current && chapters.length > 0) {
       if (chapters[0].index > 0) {
         loadMoreChapters('up');
       }
     }
     
-    // Fetch next chapters when within 5000px of bottom
-    if (container.scrollHeight - container.scrollTop - container.clientHeight < 5000 && !loadingBottomRef.current && chapters.length > 0) {
+    // Only fetch next chapters when actually scrolling DOWN and near bottom (< 1400px)
+    const distanceToBottom = container.scrollHeight - currentScrollTop - container.clientHeight;
+    if (isScrollingDown && distanceToBottom < 1400 && !loadingBottomRef.current && chapters.length > 0) {
       if (chapters[chapters.length - 1].index < metadata.total_chapters - 1) {
         loadMoreChapters('down');
       }
@@ -688,7 +693,12 @@ export function ContinuousEpubView({
               target.closest('input') ||
               target.closest('textarea') ||
               target.closest('.text-selection-toolbar') ||
-              target.closest('[role="dialog"]')
+              target.closest('[role="dialog"]') ||
+              target.closest('mark.epub-highlight') ||
+              target.closest('mark.pdf-highlight') ||
+              target.closest('[data-note-content]') ||
+              target.closest('[data-annotation-id]') ||
+              target.closest('.reader-annotation-tooltip')
             ) {
               handleExternalLinkClick(e.nativeEvent, contentRef?.current ?? null);
               return;

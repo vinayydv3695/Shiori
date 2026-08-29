@@ -5,7 +5,6 @@ import { BookshelfIcon } from '@/components/icons';
 import { api, type Shelf } from '@/lib/tauri';
 import { useToast } from '@/store/toastStore';
 import { cn } from '@/lib/utils';
-import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag';
 
 interface ShelfSelectDialogProps {
   bookId: number;
@@ -82,29 +81,14 @@ export function ShelfSelectDialog({ bookId, open, onOpenChange }: ShelfSelectDia
     return <BookshelfIcon className="w-4 h-4" />;
   };
 
-  const { isExpanded, handleProps, dragOffset } = useBottomSheetDrag({
-    onClose: () => onOpenChange(false),
-  });
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/65 backdrop-blur-md transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[200] bg-black/60 backdrop-blur-xl transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content
           aria-describedby={undefined}
-          className={`fixed inset-x-3 bottom-3 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-[calc(100vw-24px)] sm:w-[90vw] max-w-[420px] bg-popover dark:bg-card/98 backdrop-blur-2xl border border-border/80 rounded-3xl shadow-2xl z-[210] flex flex-col p-5 sm:p-6 overflow-hidden focus:outline-none transition-all duration-300 transform-gpu ${
-            isExpanded ? 'h-[95vh] sm:h-auto sm:max-h-[85vh]' : 'max-h-[85vh]'
-          }`}
-          style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
+          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-32px)] max-w-[420px] max-h-[85vh] bg-popover dark:bg-card/98 backdrop-blur-3xl border border-border/80 rounded-3xl shadow-2xl z-[210] flex flex-col p-5 sm:p-6 overflow-hidden focus:outline-none transition-all duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
         >
-          {/* Mobile Interactive Touch Drag Handle */}
-          <div 
-            className="w-full py-2 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing shrink-0 touch-none sm:hidden select-none"
-            {...handleProps}
-            title="Drag down to close, tap or drag up to expand full screen"
-          >
-            <div className="w-12 h-1.5 rounded-full bg-muted-foreground/40 hover:bg-muted-foreground/70 transition-colors" />
-          </div>
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border/40">
             <Dialog.Title className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2.5">

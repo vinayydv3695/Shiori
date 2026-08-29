@@ -110,6 +110,18 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
   const [showAndroidMore, setShowAndroidMore] = useState(false);
 
+  // Sync state refs to prevent race conditions during selection blur
+  const isVisibleRef = useRef(isVisible);
+  isVisibleRef.current = isVisible;
+  const showNoteInputRef = useRef(showNoteInput);
+  showNoteInputRef.current = showNoteInput;
+  const showTranslationRef = useRef(showTranslation);
+  showTranslationRef.current = showTranslation;
+  const showColorPickerRef = useRef(showColorPicker);
+  showColorPickerRef.current = showColorPicker;
+  const showAndroidMoreRef = useRef(showAndroidMore);
+  showAndroidMoreRef.current = showAndroidMore;
+
   const hideToolbar = useCallback(() => {
     if (hideTimerRef.current !== null) {
       window.clearTimeout(hideTimerRef.current);
@@ -132,14 +144,12 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   // Prevent native context menu from overriding custom toolbar, especially on Android WebViews
   useEffect(() => {
     const preventNativeContextMenu = (e: MouseEvent) => {
-      // Only prevent if we have a selection (so regular long-presses for other things might still work if needed, though typically we want it off while reading)
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) {
         e.preventDefault();
       }
     };
     
-    // Some Android devices need it on the document level, capturing phase helps ensure it runs first
     document.addEventListener('contextmenu', preventNativeContextMenu, { capture: true });
     return () => document.removeEventListener('contextmenu', preventNativeContextMenu, { capture: true });
   }, []);
@@ -155,9 +165,29 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       }
 
       if (!selection || selection.isCollapsed || !selection.toString().trim()) {
+        // If the user has opened a popup (Note, Translation, Color picker, or Android More),
+        // do NOT hide the toolbar just because the native selection collapsed on tap/focus!
+        if (
+          showNoteInputRef.current ||
+          showTranslationRef.current ||
+          showColorPickerRef.current ||
+          showAndroidMoreRef.current
+        ) {
+          return;
+        }
+
         // Delay hiding to allow clicking toolbar buttons
         if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
         hideTimerRef.current = window.setTimeout(() => {
+          if (
+            showNoteInputRef.current ||
+            showTranslationRef.current ||
+            showColorPickerRef.current ||
+            showAndroidMoreRef.current
+          ) {
+            return;
+          }
+
           const active = document.activeElement;
           if (toolbarRef.current && toolbarRef.current.contains(active)) return;
           
@@ -171,7 +201,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
             hideToolbar();
           }
           hideTimerRef.current = null;
-        }, 200);
+        }, 350);
         return;
       }
 
@@ -205,6 +235,27 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [hideToolbar]);
+
+  // Click outside to dismiss toolbar
+  useEffect(() => {
+    if (!isVisible) return;
+    const handleOutsidePointer = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (toolbarRef.current && toolbarRef.current.contains(target)) {
+        return;
+      }
+      if (target.closest('.text-selection-toolbar, [role="dialog"], .text-selection-category-menu')) {
+        return;
+      }
+      hideToolbar();
+    };
+
+    document.addEventListener('pointerdown', handleOutsidePointer);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointer);
+    };
+  }, [isVisible, hideToolbar]);
 
   // Ensure toolbar stays within bounds after it mounts and its true size is known
   useLayoutEffect(() => {
@@ -241,18 +292,47 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(selectedText);
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(selectedText);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = selectedText;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
       useToastStore.getState().addToast({
         title: 'Copied to clipboard',
         variant: 'success',
         duration: 2000,
       });
     } catch {
-      useToastStore.getState().addToast({
-        title: 'Failed to copy',
-        variant: 'error',
-        duration: 2000,
-      });
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = selectedText;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        useToastStore.getState().addToast({
+          title: 'Copied to clipboard',
+          variant: 'success',
+          duration: 2000,
+        });
+      } catch {
+        useToastStore.getState().addToast({
+          title: 'Failed to copy',
+          variant: 'error',
+          duration: 2000,
+        });
+      }
     }
     hideToolbar();
     window.getSelection()?.removeAllRanges();
@@ -526,6 +606,13 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
           onTouchEnd={(e) => e.stopPropagation()}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (hideTimerRef.current !== null) {
+              window.clearTimeout(hideTimerRef.current);
+              hideTimerRef.current = null;
+            }
+          }}
           onMouseDown={(e) => {
             e.stopPropagation();
             if (hideTimerRef.current !== null) {

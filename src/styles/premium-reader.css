@@ -2833,7 +2833,7 @@ select {
    Floating popup on text selection with highlight/note/copy/bookmark
    ═══════════════════════════════════════════════════════════ */
 
-.text-selection-toolbar--android.text-selection-toolbar--pill {
+.text-selection-toolbar--android {
   position: fixed !important;
   left: 50% !important;
   right: auto !important;
@@ -2847,6 +2847,18 @@ select {
   padding: 4px 8px !important;
   box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.38), 0 4px 16px -2px rgba(0, 0, 0, 0.2) !important;
   transition: top 0.25s cubic-bezier(0.16, 1, 0.3, 1), bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, transform 0.25s ease !important;
+}
+
+.text-selection-toolbar--android.text-selection-toolbar--pill {
+  border-radius: 28px !important;
+  padding: 4px 8px !important;
+}
+
+.text-selection-toolbar--android.text-selection-toolbar--card {
+  width: min(calc(100vw - 28px), 420px) !important;
+  max-width: 440px !important;
+  padding: 12px 14px !important;
+  border-radius: 24px !important;
 }
 
 .text-selection-toolbar--android.text-selection-toolbar--more-active {
@@ -3048,15 +3060,23 @@ select {
 }
 
 .text-selection-color-swatch {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 2px solid transparent;
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
 }
 
-.text-selection-color-swatch:hover {
+@media (max-width: 640px) {
+  .text-selection-color-swatch {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+.text-selection-color-swatch:hover,
+.text-selection-color-swatch:active {
   transform: scale(1.2);
   border-color: var(--text-primary, #1a1817);
 }

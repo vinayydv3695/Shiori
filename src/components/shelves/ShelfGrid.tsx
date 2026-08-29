@@ -568,11 +568,11 @@ export function ShelfGrid({
       <div className="absolute bottom-20 right-1/4 w-[400px] h-[400px] bg-purple-500/4 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-[1440px] mx-auto relative z-10">
-        {/* Compact Header Bar */}
-        <div className="flex items-center justify-between gap-3 mb-3 sm:mb-6">
+        {/* Desktop Header Bar (hidden on mobile) */}
+        <div className="hidden sm:flex items-center justify-between gap-3 mb-3 sm:mb-6">
           <div className="flex items-center gap-2.5 min-w-0">
             <div>
-              <p className="hidden sm:block text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-0.5">
+              <p className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-0.5">
                 Your Collection
               </p>
               <div className="flex items-center gap-2">
@@ -603,11 +603,45 @@ export function ShelfGrid({
           )}
         </div>
 
+        {/* Sleek Mobile Header Row (Mobile / Android) */}
+        <div className="flex items-center justify-between gap-2 mb-2.5 sm:hidden">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              placeholder={`Search ${allShelves.length} shelves...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 h-9.5 text-xs font-medium bg-secondary/40 border border-border/50 focus:bg-background focus:border-primary/50 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-2xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {onCreateShelf && (
+            <motion.button
+              onClick={onCreateShelf}
+              className="flex items-center gap-1 px-3 h-9.5 rounded-2xl text-xs font-bold text-primary-foreground bg-primary shadow-sm shadow-primary/20 cursor-pointer active:scale-95 shrink-0"
+              whileTap={{ scale: 0.95 }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Shelf</span>
+            </motion.button>
+          )}
+        </div>
+
         {/* Search, Filter & Sort Controls Toolbar */}
         {allShelves.length > 0 && (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-full sm:max-w-xs md:max-w-sm group">
+            {/* Search Input (Desktop) */}
+            <div className="hidden sm:block relative flex-1 max-w-full sm:max-w-xs md:max-w-sm group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
               <input
                 type="text"

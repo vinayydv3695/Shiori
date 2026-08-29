@@ -133,57 +133,47 @@ export function HistoryViewAndroid({
           paddingRight: 'calc(env(safe-area-inset-right, 0px) + 16px)'
         }}
       >
-        {/* Top App Bar Row */}
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
-              <History size={17} />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground truncate">History</h1>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
-              {filteredAndSortedBooks.length}
-            </span>
+        {/* Sleek Integrated Search & Action Bar (History) */}
+        <div className="flex items-center gap-2 mb-2 pt-1">
+          <div className="relative flex-1 group">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input 
+              type="text" 
+              placeholder={`Search ${filteredAndSortedBooks.length} history items...`} 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              className="w-full pl-9 pr-8 h-9.5 text-xs font-medium bg-muted/40 border border-border/40 focus:bg-background focus:border-primary/50 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground" 
+            />
+            {searchQuery && (
+              <button 
+                type="button" 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          
+
           <div className="flex items-center gap-1.5 shrink-0">
             {books.length > 0 && (
               <button 
                 onClick={() => setClearDialogOpen(true)} 
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-muted/60 hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border/40 transition-all active:scale-95 shadow-xs" 
+                className="w-9 h-9 flex items-center justify-center rounded-2xl bg-muted/60 hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border/40 transition-all active:scale-95 shadow-xs" 
                 title="Clear History"
               >
-                <Trash2 size={14} />
+                <Trash2 size={15} />
               </button>
             )}
-            <button 
-              onClick={onClose} 
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-muted/60 hover:bg-muted text-foreground border border-border/40 transition-all active:scale-95 shadow-xs" 
-              title="Close"
-            >
-              <X size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative w-full mb-2.5">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input 
-            type="text" 
-            placeholder="Search reading history..." 
-            value={searchQuery} 
-            onChange={(e) => setSearchQuery(e.target.value)} 
-            className="w-full h-9 pl-9 pr-8 bg-muted/40 hover:bg-muted/60 focus:bg-background border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 rounded-xl transition-all text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none" 
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30 hover:text-foreground flex items-center justify-center transition-colors"
-            >
-              <X size={11} />
-            </button>
-          )}
+            {onClose && (
+              <button 
+                onClick={onClose} 
+                className="w-9 h-9 flex items-center justify-center rounded-2xl bg-muted/60 hover:bg-muted text-foreground border border-border/40 transition-all active:scale-95 shadow-xs" 
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            )}
         </div>
 
         {/* Horizontal Filter Tabs Row */}

@@ -54,67 +54,47 @@ export function AnnotationsViewAndroid({ onClose, onOpenBook, data }: Annotation
           paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
           paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
         }}
-      >
-        {/* Row 1: App Bar (Title / Search / Actions) */}
-        <div className="flex items-center justify-between gap-2 h-9">
-          {isSearchOpen ? (
-            <div className="flex items-center gap-2 flex-1 animate-in fade-in-0 duration-150">
-              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <input 
-                type="text" 
-                placeholder="Search notes & vocab..." 
-                value={searchQuery} 
-                autoFocus
-                onChange={(e) => setSearchQuery(e.target.value)} 
-                className="w-full h-8 bg-muted/40 border border-border/40 focus:border-primary/50 rounded-xl px-2.5 text-xs text-foreground placeholder:text-muted-foreground outline-none" 
-              />
-              <button
-                type="button"
-                onClick={() => { setSearchQuery(''); setIsSearchOpen(false); }}
-                className="p-1 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+        {/* Row 1: Integrated Mobile Search & Quick Actions Bar */}
+        <div className="flex items-center justify-between gap-2 h-9.5 pt-0.5">
+          <div className="relative flex-1 group">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input 
+              type="text" 
+              placeholder={`Search ${displayedAnnotations.length} annotations...`} 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              className="w-full pl-9 pr-8 h-9 text-xs font-medium bg-muted/40 border border-border/40 focus:bg-background focus:border-primary/50 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground" 
+            />
+            {searchQuery && (
+              <button 
+                type="button" 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground p-1 rounded-md cursor-pointer"
               >
-                <X size={14} />
+                <X className="w-3.5 h-3.5" />
               </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-sm font-extrabold tracking-tight text-foreground truncate">Annotations</h1>
-                <span className="text-[10px] font-extrabold px-2 py-0.2 rounded-full bg-primary/12 text-primary border border-primary/20 shrink-0">
-                  {displayedAnnotations.length} {displayedAnnotations.length === 1 ? 'item' : 'items'}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-1 shrink-0">
-                <button 
-                  type="button"
-                  onClick={() => setIsSearchOpen(true)} 
-                  className={`w-7 h-7 flex items-center justify-center rounded-xl transition-all active:scale-95 cursor-pointer ${
-                    searchQuery ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-muted/40 text-muted-foreground hover:text-foreground border border-border/30'
-                  }`}
-                  title="Search Annotations"
-                >
-                  <Search size={13} />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setExportDialogOpen(true)} 
-                  className="w-7 h-7 flex items-center justify-center rounded-xl bg-muted/40 hover:bg-muted text-foreground border border-border/30 transition-all active:scale-95 cursor-pointer" 
-                  title="Export Annotations"
-                >
-                  <Share2 size={13} />
-                </button>
-                <button 
-                  type="button"
-                  onClick={onClose} 
-                  className="w-7 h-7 flex items-center justify-center rounded-xl bg-muted/40 hover:bg-muted text-foreground border border-border/30 transition-all active:scale-95 cursor-pointer" 
-                  title="Close"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            </>
-          )}
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button 
+              type="button"
+              onClick={() => setExportDialogOpen(true)} 
+              className="w-9 h-9 flex items-center justify-center rounded-2xl bg-muted/60 hover:bg-muted text-foreground border border-border/40 transition-all active:scale-95 cursor-pointer shadow-xs" 
+              title="Export Annotations"
+            >
+              <Share2 size={14} />
+            </button>
+            {onClose && (
+              <button 
+                type="button"
+                onClick={onClose} 
+                className="w-9 h-9 flex items-center justify-center rounded-2xl bg-muted/60 hover:bg-muted text-foreground border border-border/40 transition-all active:scale-95 cursor-pointer shadow-xs" 
+                title="Close"
+              >
+                <X size={15} />
+              </button>
+            )}
         </div>
 
         {/* Row 2: Scrollable Minimal Filter Bar */}

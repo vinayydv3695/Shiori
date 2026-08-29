@@ -1537,7 +1537,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [isHorizontalPaging, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
-  // Center tap toggles top bar UI; edge single-tap page turns are disabled (user navigates via scroll / swipe only)
+  // Click zone handling in simple mode: left 25% prev, right 25% next, center 50% toggle top bar
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (Date.now() - lastTouchNavigationRef.current < 500) return;
@@ -1554,13 +1554,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const width = window.innerWidth;
     const clickRatio = width > 0 ? clickX / width : 0.5;
 
-    // Only center area (25% - 75%) toggles top bar; edge single clicks do nothing
-    if (clickRatio >= 0.25 && clickRatio <= 0.75) {
-      if (!isFocusMode && !isTopBarShortcutOnly) {
-        setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
-      }
+    if (clickRatio < 0.25) {
+      prevPage();
+      return;
     }
-  }, [isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+    if (clickRatio > 0.75) {
+      nextPage();
+      return;
+    }
+
+    // Center area (25% - 75%) toggles top bar
+    if (!isFocusMode && !isTopBarShortcutOnly) {
+      setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
+    }
+  }, [prevPage, nextPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1684,14 +1691,22 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> Center tap toggles UI; left/right edge taps do nothing
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> In simple mode: left/right edge taps turn page/chapter, center tap toggles UI
     if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
       const windowWidth = window.innerWidth;
       const tapX = touchEnd.clientX;
       const tapRatio = windowWidth > 0 ? tapX / windowWidth : 0.5;
 
-      // Only center area (25% - 75%) toggles top bar; edge single taps are completely disabled
-      if (tapRatio >= 0.25 && tapRatio <= 0.75) {
+      if (tapRatio < 0.25) {
+        lastTouchNavigationRef.current = Date.now();
+        triggerHaptic(10);
+        prevPage();
+      } else if (tapRatio > 0.75) {
+        lastTouchNavigationRef.current = Date.now();
+        triggerHaptic(10);
+        nextPage();
+      } else {
+        // Center area (25% - 75%) toggles top bar
         triggerHaptic(8);
         const uiStore = useReaderUIStore.getState();
         if (uiStore.isSidebarOpen) {
@@ -1701,7 +1716,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isDoodleMode, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isDoodleMode, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

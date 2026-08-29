@@ -538,21 +538,25 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
         // Single Tap (< 350ms, |dx| < 20, |dy| < 20)
         if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
-            if (!isAndroid) {
-                const windowWidth = window.innerWidth;
-                const tapX = touchEnd.clientX;
-                const tapRatio = tapX / windowWidth;
-                const leftBoundary = 0.25;
-                const rightBoundary = 0.75;
+            const windowWidth = window.innerWidth;
+            const tapX = touchEnd.clientX;
+            const tapRatio = windowWidth > 0 ? tapX / windowWidth : 0.5;
 
-                if (tapRatio < leftBoundary && currentChapter > 0) {
-                    lastTouchNavigationRef.current = Date.now();
-                    triggerHaptic(10);
-                    setCurrentChapter(c => c - 1);
-                } else if (tapRatio > rightBoundary && currentChapter < totalChapters - 1) {
-                    lastTouchNavigationRef.current = Date.now();
-                    triggerHaptic(10);
-                    setCurrentChapter(c => c + 1);
+            if (tapRatio < 0.25 && currentChapter > 0) {
+                lastTouchNavigationRef.current = Date.now();
+                triggerHaptic(10);
+                setCurrentChapter(c => c - 1);
+            } else if (tapRatio > 0.75 && currentChapter < totalChapters - 1) {
+                lastTouchNavigationRef.current = Date.now();
+                triggerHaptic(10);
+                setCurrentChapter(c => c + 1);
+            } else {
+                triggerHaptic(8);
+                const uiStore = useReaderUIStore.getState();
+                if (uiStore.isSidebarOpen) {
+                    uiStore.closeSidebar();
+                } else {
+                    uiStore.setTopBarVisible(!uiStore.isTopBarVisible);
                 }
             }
         }

@@ -511,10 +511,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   useReadingSession(bookId);
 
   // Book state
+  const initialTargetIndex = (() => {
+    const target = useReaderStore.getState().explicitResumeTarget;
+    if (target && target.bookId === bookId && typeof target.chapterIndex === 'number') {
+      return target.chapterIndex;
+    }
+    return 0;
+  })();
+
   const [metadata, setMetadata] = useState<BookMetadata | null>(null);
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [currentChapter, setCurrentChapter] = useState<Chapter | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(initialTargetIndex);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<string | null>(null); // NEW: Store search term for highlighting
@@ -544,7 +552,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (blockIndex >= 0) blockPositionsRef.current.set(index, blockIndex);
     else blockPositionsRef.current.delete(index);
   };
-  const currentIndexRef = useRef(0);
+  const currentIndexRef = useRef(initialTargetIndex);
   const metadataRef = useRef<BookMetadata | null>(null);
   const loadChapterRef = useRef<(index: number, highlightTerm?: string | null, initialScrollRatio?: number) => Promise<void>>(async () => { });
   const chapterRequestRef = useRef(0);
@@ -1101,6 +1109,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         if (savedBlockIndex !== null) {
           blockPositionsRef.current.set(startIndex, savedBlockIndex);
         }
+
+        setCurrentIndex(startIndex);
+        currentIndexRef.current = startIndex;
 
         await loadChapterRef.current(startIndex, null, savedScrollRatio);
         setIsLoading(false);

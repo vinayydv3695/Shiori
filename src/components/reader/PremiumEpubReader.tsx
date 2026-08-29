@@ -1520,6 +1520,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       }
     }
 
+    // If a modal, translation, define, or selection popup is active, disable wheel page navigation
+    if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(e.target as Element)) {
+      return;
+    }
+
     if (!isHorizontalPaging) {
       return;
     }
@@ -1541,12 +1546,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (Date.now() - lastTouchNavigationRef.current < 500) return;
+    
+    // If a popup (Translate, Define, Note, Dialog) or text selection is active, disable page navigation!
+    if (isSelectionOrNoteActive()) {
+      return;
+    }
+
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) {
       return;
     }
     const target = e.target as HTMLElement;
-    if (target.closest('button, a, input, [role="button"], .premium-nav-arrow, mark.epub-highlight, mark.pdf-highlight, [data-note-content], [data-annotation-id], .reader-annotation-tooltip')) {
+    if (isTouchOnSelectionOrModal(target) || target.closest('button, a, input, select, textarea, [role="button"], .premium-nav-arrow, mark.epub-highlight, mark.pdf-highlight, [data-note-content], [data-annotation-id], .reader-annotation-tooltip, .translation-popup, .text-selection-toolbar')) {
       return;
     }
 

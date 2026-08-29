@@ -3,6 +3,7 @@ import { api, isAndroid, type Annotation, type BookMetadata } from '@/lib/tauri'
 import { ChapterHtml, processEpubHtml, applySearchHighlight } from './PremiumEpubReader';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
+import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import { useDoodleStore } from '@/store/doodleStore';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import DoodleCanvas from './DoodleCanvas';
@@ -686,13 +687,20 @@ export function ContinuousEpubView({
         ref={contentRef}
         onClick={(e) => {
           const target = e.target as Element;
+          if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target)) {
+            return;
+          }
+
           if (target && typeof target.closest === 'function') {
             if (
               target.closest('a') ||
               target.closest('button') ||
               target.closest('input') ||
+              target.closest('select') ||
               target.closest('textarea') ||
               target.closest('.text-selection-toolbar') ||
+              target.closest('.translation-popup') ||
+              target.closest('.text-selection-category-menu') ||
               target.closest('[role="dialog"]') ||
               target.closest('mark.epub-highlight') ||
               target.closest('mark.pdf-highlight') ||

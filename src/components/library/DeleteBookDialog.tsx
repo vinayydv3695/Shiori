@@ -64,10 +64,10 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/45 backdrop-blur-xl transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
+        <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/65 backdrop-blur-md transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content 
           aria-describedby={undefined} 
-          className={`fixed inset-x-0 bottom-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:w-[90vw] max-w-md bg-card/85 backdrop-blur-2xl border-t sm:border border-border/80 rounded-t-3xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col overflow-hidden focus:outline-none transition-all duration-300 transform-gpu ${
+          className={`fixed inset-x-3 bottom-3 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-[calc(100vw-24px)] sm:w-[90vw] max-w-md bg-popover dark:bg-card/98 backdrop-blur-2xl border border-border/80 rounded-3xl shadow-2xl z-[210] flex flex-col overflow-hidden focus:outline-none transition-all duration-300 transform-gpu ${
             isExpanded ? 'h-[95vh] sm:h-auto sm:max-h-[85vh]' : 'max-h-[85vh]'
           }`}
           style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}

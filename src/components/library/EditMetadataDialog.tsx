@@ -187,10 +187,10 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/45 backdrop-blur-xl z-[200] transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/65 backdrop-blur-md z-[200] transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content 
           aria-describedby={undefined} 
-          className={`fixed inset-x-0 bottom-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:w-[90vw] max-w-2xl bg-card/85 backdrop-blur-2xl border-t sm:border border-border/80 rounded-t-3xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col overflow-hidden focus:outline-none transition-all duration-300 transform-gpu ${
+          className={`fixed inset-x-3 bottom-3 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-[calc(100vw-24px)] sm:w-[90vw] max-w-2xl bg-popover dark:bg-card/98 backdrop-blur-2xl border border-border/80 rounded-3xl shadow-2xl z-[210] flex flex-col overflow-hidden focus:outline-none transition-all duration-300 transform-gpu ${
             isExpanded ? 'h-[95vh] sm:h-auto sm:max-h-[85vh]' : 'max-h-[84vh] sm:max-h-[85vh]'
           }`}
           style={dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
@@ -205,7 +205,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-5 border-b border-border/50 bg-card/80 shrink-0">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 sm:py-5 border-b border-border/60 bg-muted/30 shrink-0">
             <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-primary/15 ring-1 ring-primary/25 flex items-center justify-center text-primary shadow-xs shrink-0">
                 <Pencil className="w-4 h-4 sm:w-5 sm:h-5" />

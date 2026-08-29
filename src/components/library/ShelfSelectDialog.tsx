@@ -84,11 +84,13 @@ export function ShelfSelectDialog({ bookId, open, onOpenChange }: ShelfSelectDia
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/65 transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
+        <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/45 backdrop-blur-xl transition-all data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
         <Dialog.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[210] w-[90vw] max-w-[400px] bg-card p-6 shadow-2xl border border-border/80 rounded-3xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 transform-gpu"
+          className="fixed inset-x-0 bottom-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full sm:w-[90vw] max-w-[420px] bg-card/85 backdrop-blur-2xl border-t sm:border border-border/80 rounded-t-3xl sm:rounded-3xl shadow-2xl z-[210] flex flex-col p-5 sm:p-6 max-h-[85vh] overflow-hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-full data-[state=open]:slide-in-from-bottom-full sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 duration-300 transform-gpu"
         >
+          {/* Mobile Drag Handle */}
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mt-0 mb-2 sm:hidden shrink-0" />
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border/40">
             <Dialog.Title className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2.5">

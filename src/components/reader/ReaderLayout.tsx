@@ -58,38 +58,26 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         updateStage('fetching-path');
         setError(null);
 
-        logger.debug('[ReaderLayout] Step 1: Opening book natively for bookId:', bookId);
-        // Backend returns the ORIGINAL file path for every format — never converts.
-        const filePath = await api.openBookForReading(bookId);
-        logger.debug('[ReaderLayout] Step 1 ✓ Got file path:', filePath);
+        // Fetch file path and startup metadata concurrently in a single round-trip
+        const [filePath, startupData] = await Promise.all([
+          api.openBookForReading(bookId),
+          invoke<{
+            book: any;
+            progress: any;
+            annotations: any;
+            settings: any;
+          }>('get_reader_startup_data', { bookId }),
+        ]);
 
-        // Step 2: Detect format (determines which native reader renders the file)
-        updateStage('detecting-format');
-        let detectedFormat: string;
-        try {
-          detectedFormat = await api.detectBookFormat(filePath);
-        } catch {
-          detectedFormat = filePath.split('.').pop()?.toLowerCase() || 'epub';
+        const ext = filePath.split('.').pop()?.toLowerCase() || '';
+        let effectiveFormat = ext;
+        if (!['epub', 'pdf', 'cbz', 'cbr', 'zip', 'rar', 'mobi', 'azw3', 'fb2', 'txt', 'docx'].includes(effectiveFormat)) {
+          try {
+            effectiveFormat = (await api.detectBookFormat(filePath)).toLowerCase();
+          } catch {
+            effectiveFormat = 'epub';
+          }
         }
-        const effectiveFormat = detectedFormat.toLowerCase();
-        logger.debug('[ReaderLayout] Detected format:', effectiveFormat);
-
-        // Step 3: Validate file (non-fatal)
-        updateStage('validating-file');
-        try {
-          await api.validateBookFile(filePath, effectiveFormat);
-        } catch {
-          // Non-fatal — let the reader attempt to open it
-        }
-
-        // Step 4: Fetch book metadata + open in store
-        updateStage('loading-metadata');
-        const startupData = await invoke<{
-          book: any;
-          progress: any;
-          annotations: any;
-          settings: any;
-        }>('get_reader_startup_data', { bookId });
 
         const { book, progress, annotations, settings } = startupData;
 

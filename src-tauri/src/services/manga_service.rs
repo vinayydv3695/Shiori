@@ -284,7 +284,7 @@ impl MangaService {
                 let resized = img.resize(
                     max_dimension,
                     max_dimension,
-                    image::imageops::FilterType::Lanczos3,
+                    image::imageops::FilterType::Triangle,
                 );
 
                 let mut out_bytes = Vec::new();

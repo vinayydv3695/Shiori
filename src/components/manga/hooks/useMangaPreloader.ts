@@ -7,9 +7,13 @@ import { useMangaContentStore, useMangaSettingsStore, type ReadingMode } from '@
  * Manages background preloading and memory-bounded caching.
  */
 
-/** Derive the maxDimension used for IPC from the store's imageQuality setting (0.5–1.0 → 800–1600). */
+/** Derive the maxDimension used for IPC from the store's imageQuality setting (0 = native fast passthrough). */
 export function getEffectiveMaxDimension(mode?: ReadingMode): number {
     const { imageQuality, readingMode } = useMangaSettingsStore.getState();
+    // When quality is high/default (>= 0.95), pass 0 to stream raw archive bytes directly in <1ms without CPU re-encoding
+    if (imageQuality >= 0.95) {
+        return 0;
+    }
     const effectiveMode = mode ?? readingMode;
     // Scroll modes use lower res since images are scaled to viewport width anyway
     const baseMax = (effectiveMode === 'strip' || effectiveMode === 'webtoon' || effectiveMode === 'manhwa') ? 1200 : 1600;

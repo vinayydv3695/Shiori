@@ -63,12 +63,6 @@ export const MangaPageImage = memo(function MangaPageImage({
     const handleImageLoad = useCallback(() => {
         setImgLoaded(true);
         onLoad?.();
-
-        // Use decode() API for smoother paint
-        const img = imgRef.current;
-        if (img && 'decode' in img) {
-            img.decode?.().catch(() => { });
-        }
     }, [onLoad]);
 
     if (error) {

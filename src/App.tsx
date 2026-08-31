@@ -174,6 +174,7 @@ function App() {
 
 
   // ── Auto-Sync (Android to Desktop) ──
+  // Defer auto-sync until after initial library paint has settled so startup stays smooth (K3-027).
   useEffect(() => {
     if (isAndroid) {
       const ip = localStorage.getItem('sync_host_ip');
@@ -181,14 +182,17 @@ function App() {
       const token = localStorage.getItem('sync_host_token');
       
       if (ip && port && token) {
-        import('@/lib/sync').then(({ SyncClient }) => {
-          SyncClient.syncWithDesktop(ip, parseInt(port, 10), token)
-            .then(() => {
-              logger.info('Auto-sync with desktop completed');
-              loadInitialBooks(); // Refresh UI after sync
-            })
-            .catch(e => logger.error('Auto-sync failed: ' + e));
-        });
+        const timer = setTimeout(() => {
+          import('@/lib/sync').then(({ SyncClient }) => {
+            SyncClient.syncWithDesktop(ip, parseInt(port, 10), token)
+              .then(() => {
+                logger.info('Auto-sync with desktop completed');
+                loadInitialBooks(); // Refresh UI after sync
+              })
+              .catch(e => logger.error('Auto-sync failed: ' + e));
+          });
+        }, 2000);
+        return () => clearTimeout(timer);
       }
     }
   }, [loadInitialBooks]);

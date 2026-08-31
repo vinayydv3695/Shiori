@@ -368,11 +368,19 @@ pub async fn delete_books(
     for &id in &ids {
         validate::require_positive_id(id, "book id")?;
     }
-    log::info!(
-        "[command::delete_books] Received request to delete {} books: {:?}",
-        ids.len(),
-        ids
-    );
+    if ids.len() <= 10 {
+        log::info!(
+            "[command::delete_books] Received request to delete {} books: {:?}",
+            ids.len(),
+            ids
+        );
+    } else {
+        log::info!(
+            "[command::delete_books] Received request to delete {} books (sample: {:?}...)",
+            ids.len(),
+            &ids[..10]
+        );
+    }
     let db = state.db.clone();
     let ids_clone = ids.clone();
     let ids_for_event = ids.clone();

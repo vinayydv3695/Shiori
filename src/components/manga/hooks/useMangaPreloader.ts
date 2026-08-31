@@ -38,6 +38,9 @@ class MangaImageCache {
         const entry = this.cache.get(key);
         if (!entry) return null;
         entry.lastAccess = Date.now();
+        // Refresh recency in Map insertion order
+        this.cache.delete(key);
+        this.cache.set(key, entry);
         return entry.url;
     }
 
@@ -48,6 +51,7 @@ class MangaImageCache {
                 URL.revokeObjectURL(existing.url);
             }
             this.currentBytes -= existing.size;
+            this.cache.delete(key);
         }
 
         while (this.cache.size >= this.maxEntries || this.currentBytes + blob.size > this.maxBytes) {
@@ -74,6 +78,7 @@ class MangaImageCache {
                 URL.revokeObjectURL(existing.url);
             }
             this.currentBytes -= existing.size;
+            this.cache.delete(key);
         }
 
         const estimatedSize = 1024;
@@ -97,22 +102,16 @@ class MangaImageCache {
     }
 
     private evictOldest(): void {
-        let oldestKey: string | null = null;
-        let oldestTime = Infinity;
-
-        for (const [key, entry] of this.cache) {
-            if (entry.lastAccess < oldestTime) {
-                oldestTime = entry.lastAccess;
-                oldestKey = key;
-            }
-        }
-
+        // Map keys are ordered by insertion/access recency — first key is oldest O(1)
+        const oldestKey = this.cache.keys().next().value;
         if (oldestKey) {
-            const entry = this.cache.get(oldestKey)!;
-            if (entry.type === 'blob' && entry.blob) {
-                URL.revokeObjectURL(entry.url);
+            const entry = this.cache.get(oldestKey);
+            if (entry) {
+                if (entry.type === 'blob' && entry.blob) {
+                    URL.revokeObjectURL(entry.url);
+                }
+                this.currentBytes -= entry.size;
             }
-            this.currentBytes -= entry.size;
             this.cache.delete(oldestKey);
         }
     }
@@ -205,23 +204,35 @@ export function preloadPages(
     if (uncached.length === 0) return;
 
     // Step 1: Warm the backend cache in a single batch IPC call
-    import('@tauri-apps/api/core').then(({ invoke }) => {
-        invoke('preload_manga_pages', {
-            bookId,
-            pageIndices: uncached,
-            maxDimension: dim,
-        }).catch(() => {
+    import('@tauri-apps/api/core').then(async ({ invoke }) => {
+        try {
+            await invoke('preload_manga_pages', {
+                bookId,
+                pageIndices: uncached,
+                maxDimension: dim,
+            });
+        } catch {
             // Backend preload failed — individual fetches will still work (just slower)
-        });
-    });
+        }
 
-    // Step 2: Also fire individual fetches to populate the frontend blob cache.
-    // These will be fast once the backend cache is warm.
-    for (const idx of uncached) {
-        getMangaPageUrl(bookId, idx, dim).catch(() => {
-            // Silently ignore preload failures
-        });
-    }
+        // Step 2: Bounded queue (max 3 concurrent) to populate the frontend cache
+        // without flooding the IPC channel or competing with active page renders (K3-013).
+        const queue = [...uncached];
+        const CONCURRENCY = 3;
+        const runWorker = async () => {
+            while (queue.length > 0) {
+                const idx = queue.shift();
+                if (idx === undefined) break;
+                try {
+                    await getMangaPageUrl(bookId, idx, dim);
+                } catch {
+                    // Silently ignore background preload failures
+                }
+            }
+        };
+        const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () => runWorker());
+        await Promise.all(workers);
+    }).catch(() => {});
 }
 
 /**

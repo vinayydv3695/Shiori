@@ -278,12 +278,10 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
 }
 
 // ─── Processed-chapter LRU cache ─────────────────────────────────────────────
-// Back-navigation used to re-fetch + re-process + re-base64 every chapter
-// resource on every visit. Cache the fully processed Chapter (HTML with data
-// URIs inlined) keyed by book+index+highlight-term so revisiting a chapter is
-// a Map hit instead of N IPC round-trips. Module-level: survives reader
-// unmount/remount within the session. Mirrors ContinuousEpubView's eviction
-// approach (drop oldest beyond a small bound).
+// Cache the fully processed Chapter (HTML with shiori-epub protocol URIs and inlined
+// CSS styles) keyed by book+index+highlight-term so revisiting a chapter in simple or
+// continuous mode is a Map hit instead of repeated IPC + resource parsing round-trips.
+// Module-level: shared between PremiumEpubReader and ContinuousEpubView (K3-007, K3-020).
 const MAX_PROCESSED_CHAPTERS = isAndroid ? 3 : 5;
 const MAX_PROCESSED_CHAPTER_BYTES = (isAndroid ? 16 : 64) * 1024 * 1024;
 const processedChapterCache = new Map<string, Chapter>();

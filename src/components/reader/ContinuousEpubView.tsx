@@ -325,23 +325,30 @@ export function ContinuousEpubView({
       }
     };
 
-    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      let maxVisibleHeight = 0;
-      let mostVisibleIdx = activeChapterIndexRef.current;
+    const visibleHeightsMap = new Map<number, number>();
 
+    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
       entries.forEach(entry => {
         const idxStr = entry.target.getAttribute('data-chapter-index');
         if (!idxStr) return;
         const idx = parseInt(idxStr, 10);
 
-        if (entry.isIntersecting) {
-          const visibleHeight = entry.intersectionRect.height;
-          if (visibleHeight > maxVisibleHeight) {
-            maxVisibleHeight = visibleHeight;
-            mostVisibleIdx = idx;
-          }
+        if (entry.isIntersecting && entry.intersectionRect.height > 0) {
+          visibleHeightsMap.set(idx, entry.intersectionRect.height);
+        } else {
+          visibleHeightsMap.delete(idx);
         }
       });
+
+      let maxVisibleHeight = 0;
+      let mostVisibleIdx = activeChapterIndexRef.current;
+
+      for (const [idx, visibleHeight] of visibleHeightsMap) {
+        if (visibleHeight > maxVisibleHeight) {
+          maxVisibleHeight = visibleHeight;
+          mostVisibleIdx = idx;
+        }
+      }
 
       // Only fire onChapterChange once the initial scroll has fully settled.
       // Firing before settlement overwrites the saved DB position with ch N+1
@@ -398,6 +405,7 @@ export function ContinuousEpubView({
         commitTimerRef.current = null;
       }
       pendingActiveIdxRef.current = null;
+      visibleHeightsMap.clear();
       observerRef.current?.disconnect();
       resizeObserverRef.current?.disconnect();
       chapterSizes.clear();

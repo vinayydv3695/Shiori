@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { NATIVE_READER_FORMATS, getReaderKind, type ReaderKind } from '../readerRouting';
-import { getReaderCapabilities, type ReaderCapabilities } from '../readerCapabilities';
+import { NATIVE_READER_FORMATS, getReaderKind, type ReaderKind } from '@/components/reader/readerRouting';
+import { getReaderCapabilities, type ReaderCapabilities } from '@/components/reader/readerCapabilities';
 
 /** Every file format the app can hold in the library. */
 const ALL_FILE_FORMATS = [

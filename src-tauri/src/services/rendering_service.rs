@@ -569,6 +569,37 @@ impl RenderingService {
         )))
     }
 
+    /// Intrinsic `(path, width, height)` read from image headers to reserve layout space and prevent reflow.
+    pub fn get_epub_image_sizes(
+        &self,
+        book_id: i64,
+        paths: &[String],
+    ) -> Vec<(String, u32, u32)> {
+        let guard = match self.epub_renderers.lock() {
+            Ok(g) => g,
+            Err(_) => return Vec::new(),
+        };
+        let Some(adapter) = guard.get(&book_id) else {
+            return Vec::new();
+        };
+        let mut out = Vec::with_capacity(paths.len());
+        for p in paths {
+            let Ok(bytes) = adapter.get_resource(p) else {
+                continue;
+            };
+            if let Ok(reader) =
+                image::ImageReader::new(std::io::Cursor::new(&bytes)).with_guessed_format()
+            {
+                if let Ok((w, h)) = reader.into_dimensions() {
+                    if w > 0 && h > 0 {
+                        out.push((p.clone(), w, h));
+                    }
+                }
+            }
+        }
+        out
+    }
+
     /// Preload adjacent chapters for smoother navigation
     fn preload_adjacent_chapters(&self, book_id: i64, current_index: usize) {
         // Preload next 2 chapters

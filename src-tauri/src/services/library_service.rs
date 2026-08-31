@@ -2197,8 +2197,9 @@ pub fn get_books_by_reading_status(
     offset: u32,
 ) -> Result<Vec<Book>> {
     let conn = db.get_connection()?;
+    // Order by last-read time so "Continue Reading" surfaces the most recently read book, not the most recently metadata-edited one.
     let sql = format!(
-        "SELECT {} FROM books b WHERE b.reading_status = ?1 ORDER BY b.modified_date DESC LIMIT ?2 OFFSET ?3",
+        "SELECT {} FROM books b WHERE b.reading_status = ?1 ORDER BY b.last_opened DESC, b.modified_date DESC LIMIT ?2 OFFSET ?3",
         BOOK_COLUMNS
     );
     let mut stmt = conn.prepare(&sql)?;

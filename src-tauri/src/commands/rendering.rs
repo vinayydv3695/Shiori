@@ -182,6 +182,34 @@ pub async fn get_epub_resource(
     })
 }
 
+/// Intrinsic (path, width, height) for EPUB image resources, so the reader can
+/// reserve layout space and images don't reflow/jump the scroll when they decode.
+#[tauri::command]
+pub async fn get_epub_image_sizes(
+    book_id: i64,
+    paths: Vec<String>,
+    app_state: State<'_, AppState>,
+    state: State<'_, RenderingState>,
+) -> Result<Vec<(String, u32, u32)>> {
+    validate::require_positive_id(book_id, "book_id")?;
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let service = state.service.clone();
+    let db = app_state.inner().db.clone();
+    tokio::task::spawn_blocking(move || {
+        let _ = service.open_if_needed(&db, book_id);
+        Ok(service.get_epub_image_sizes(book_id, &paths))
+    })
+    .await
+    .unwrap_or_else(|e| {
+        Err(crate::error::ShioriError::Other(format!(
+            "Task panicked: {}",
+            e
+        )))
+    })
+}
+
 // ==================== Cache Management Commands ====================
 
 #[tauri::command]

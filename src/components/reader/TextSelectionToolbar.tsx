@@ -10,7 +10,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
 import { useTTS } from '@/hooks/useTTS';
-import { useReadingSettings, READER_THEME_COLORS } from '@/store/premiumReaderStore';
+import { useReadingSettings, READER_THEME_COLORS, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { hapticTick } from '@/lib/haptics';
 
 interface TextSelectionToolbarProps {
@@ -86,6 +86,18 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const hideTimerRef = useRef<number | null>(null);
   const selectionAnchorRef = useRef<string | undefined>(undefined);
+
+  // Apply the READER theme to the portaled toolbar (and its child translate /
+  // define / note / category popups) so they match the reading palette. Portals
+  // mount at document.body — outside the reader container — so without this they
+  // inherit the app theme's vars from <body> instead of the reader's.
+  const readerTheme = useReadingSettings((s) => s.theme);
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!isVisible || !el) return;
+    applyReaderThemeToElement(el, readerTheme || 'paper');
+    return () => removeReaderThemeFromElement(el);
+  }, [isVisible, readerTheme]);
   
   // useTTS hook with dummy ref just for speakText
   const dummyRef = useRef<HTMLDivElement>(null);

@@ -1667,12 +1667,29 @@ fn restore_full_snapshot(
             }
         }
         let total_books = book_indices.len() as u64;
+        // uuid → absolute extracted path, applied as a file_path relink after the loop.
+        let mut relink: Vec<(String, String)> = Vec::new();
 
         for (idx, i) in book_indices.iter().enumerate() {
             let mut file = archive.by_index(*i)?;
             let file_path = file.name().to_string();
-            if let Some(filename) = file_path.strip_prefix("books/") {
-                let Some(filename) = safe_archive_rel_path(filename) else {
+            if let Some(entry_rel) = file_path.strip_prefix("books/") {
+                // Entry names are "{uuid}.{ext}" (or "{uuid}_{counter}.{ext}" on
+                // collision) — recover the book's uuid from the stem (uuids carry
+                // no '_', so a trailing "_<digits>" is the collision counter).
+                let entry_uuid = std::path::Path::new(entry_rel)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|stem| match stem.rsplit_once('_') {
+                        Some((base, suffix))
+                            if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) =>
+                        {
+                            base.to_string()
+                        }
+                        _ => stem.to_string(),
+                    });
+
+                let Some(filename) = safe_archive_rel_path(entry_rel) else {
                     report.skipped += 1;
                     report.skipped_invalid_paths += 1;
                     report
@@ -1684,6 +1701,12 @@ fn restore_full_snapshot(
                 let mut target_file = File::create(&target_path)?;
                 std::io::copy(&mut file, &mut target_file)?;
                 *report.restored.entry("books".to_string()).or_insert(0) += 1;
+
+                if let Some(uuid) = entry_uuid {
+                    if !uuid.is_empty() {
+                        relink.push((uuid, target_path.to_string_lossy().to_string()));
+                    }
+                }
             }
 
             let pct = 65.0 + (30.0 * (idx + 1) as f32 / total_books.max(1) as f32);
@@ -1698,6 +1721,22 @@ fn restore_full_snapshot(
                 0,
                 0,
             );
+        }
+
+        // Relink restored book files: the DB snapshot carries the SOURCE machine's
+        // absolute file_path, which doesn't exist here. Point each book at the file
+        // we just extracted (matched by uuid from the entry name) so it opens.
+        let mut relinked = 0usize;
+        for (uuid, path) in &relink {
+            if let Ok(updated) = conn.execute(
+                "UPDATE books SET file_path = ?1 WHERE uuid = ?2",
+                rusqlite::params![path, uuid],
+            ) {
+                relinked += updated;
+            }
+        }
+        if relinked > 0 {
+            log::info!("[restore] relinked {} restored book file path(s)", relinked);
         }
     }
 
@@ -2019,6 +2058,13 @@ fn restore_book_files(
                         .push(format!("Failed to extract book file {entry}: {e}"));
                 } else {
                     *report.restored.entry("books".to_string()).or_insert(0) += 1;
+                    // Point the row at where the file actually landed — the DB's
+                    // file_path is the source machine's and may not resolve here
+                    // (e.g. a different managed root). No-op for referenced books.
+                    let _ = conn.execute(
+                        "UPDATE books SET file_path = ?1 WHERE uuid = ?2",
+                        rusqlite::params![target.to_string_lossy().to_string(), uuid],
+                    );
                 }
             }
             Err(_) => {

@@ -1987,6 +1987,7 @@ select {
   background: var(--ui-border);
   border-radius: 3px;
   outline: none;
+  touch-action: pan-y;
 }
 
 .premium-settings-slider::-webkit-slider-thumb {

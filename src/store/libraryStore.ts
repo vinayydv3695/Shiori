@@ -370,9 +370,10 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         for (const book of result.books) {
           if (book.id != null) freshById.set(book.id, book)
         }
-        const merged = state.books.map(
-          (b) => (b.id != null && freshById.get(b.id)) ?? b
-        )
+        const merged = state.books.map((b) => {
+          const fresh = b.id != null ? freshById.get(b.id) : undefined
+          return fresh ?? b
+        })
         const present = new Set<number>()
         for (const book of merged) if (book.id != null) present.add(book.id)
         for (const book of result.books) {

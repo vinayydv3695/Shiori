@@ -171,6 +171,32 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
     processedHtml = processedHtml.split(linkTag).join(replacement);
   }
 
+  try {
+    const imgPaths = new Set<string>();
+    for (const m of processedHtml.matchAll(/<img\b[^>]*?\bsrc="([^"']+)"/gi)) {
+      const src = m[1];
+      if (src.startsWith('http') || src.startsWith('data:') || src.startsWith('#')) continue;
+      imgPaths.add(cleanEpubPath(src));
+    }
+    if (imgPaths.size > 0) {
+      const sizes = await api.getEpubImageSizes(bookId, Array.from(imgPaths));
+      if (sizes.length > 0) {
+        const sizeMap = new Map<string, [number, number]>();
+        for (const [p, w, h] of sizes) sizeMap.set(p, [w, h]);
+        processedHtml = processedHtml.replace(/<img\b[^>]*>/gi, (tag) => {
+          if (/\b(width|height)\s*=/i.test(tag)) return tag; // already sized by the EPUB
+          const sm = tag.match(/\bsrc="([^"']+)"/i);
+          if (!sm) return tag;
+          const size = sizeMap.get(cleanEpubPath(sm[1]));
+          if (!size) return tag;
+          return tag.replace(/<img\b/i, `<img width="${size[0]}" height="${size[1]}"`);
+        });
+      }
+    }
+  } catch {
+    // Best-effort: if sizing fails, the reactive post-decode stamp still applies.
+  }
+
   // Step 2: Rewrite images/media/resources — no fetch + base64, just point
   // src/srcset/href at the custom protocol and let the WebView fetch and
   // decode lazily (custom protocols are async, so early injection is fine).
@@ -1586,32 +1612,25 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const width = window.innerWidth;
     const clickRatio = width > 0 ? clickX / width : 0.5;
 
-    if (clickRatio < 0.25) {
+    // Edge taps turn PAGES only in explicit horizontal-paging mode.
+    if (isHorizontalPaging && clickRatio < 0.25) {
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(10);
-      if (isHorizontalPaging) {
-        prevPage();
-      } else {
-        prevChapter(true);
-      }
+      prevPage();
       return;
     }
-    if (clickRatio > 0.75) {
+    if (isHorizontalPaging && clickRatio > 0.75) {
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(10);
-      if (isHorizontalPaging) {
-        nextPage();
-      } else {
-        nextChapter();
-      }
+      nextPage();
       return;
     }
 
-    // Center area (25% - 75%) toggles top bar
+    // Any non-paging tap toggles the top bar
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
     }
-  }, [prevPage, nextPage, prevChapter, nextChapter, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [prevPage, nextPage, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1735,30 +1754,24 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Single Tap (< 350ms, |dx| < 20, |dy| < 20) -> In simple mode: left/right edge taps turn chapter directly, center tap toggles UI
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20): edge taps turn PAGES only in
+    // explicit horizontal-paging mode — in scroll/simple mode they must never
+    // jump chapters, so any tap just toggles the top bar.
     if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
       const windowWidth = window.innerWidth;
       const tapX = touchEnd.clientX;
       const tapRatio = windowWidth > 0 ? tapX / windowWidth : 0.5;
 
-      if (tapRatio < 0.25) {
+      if (isHorizontalPaging && tapRatio < 0.25) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
-        if (isHorizontalPaging) {
-          prevPage();
-        } else {
-          prevChapter(true);
-        }
-      } else if (tapRatio > 0.75) {
+        prevPage();
+      } else if (isHorizontalPaging && tapRatio > 0.75) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
-        if (isHorizontalPaging) {
-          nextPage();
-        } else {
-          nextChapter();
-        }
+        nextPage();
       } else {
-        // Center area (25% - 75%) toggles top bar
+        // Toggle top bar
         triggerHaptic(8);
         const uiStore = useReaderUIStore.getState();
         if (uiStore.isSidebarOpen) {
@@ -1768,7 +1781,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isDoodleMode, nextPage, prevPage, prevChapter, nextChapter, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isDoodleMode, nextPage, prevPage, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -2089,7 +2102,17 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           scrollRef={canvasRef}
           contentRef={contentContainerRef}
           onScroll={handleScroll as any}
-          onToggleUI={handleContainerClick as any}
+          onToggleUI={() => {
+            // No-arg toggle: ContinuousEpubView calls onToggleUI() with no event,
+            // so it must NOT be handleContainerClick (which reads e.target and
+            // would throw on undefined, leaving the top bar stuck hidden).
+            const ui = useReaderUIStore.getState();
+            if (ui.isSidebarOpen) {
+              ui.closeSidebar();
+            } else {
+              setTopBarVisible(!ui.isTopBarVisible);
+            }
+          }}
         />
       ) : (
         <div

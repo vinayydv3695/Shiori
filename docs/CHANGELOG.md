@@ -1,3 +1,14 @@
+# Release Notes (v2.3.89)
+
+## Bug Fixes & Reader Hardening
+
+- **EPUB Silent Chapter Loss Fixed** — `get_chapter` now returns a typed `ChapterReadFailed` error instead of an empty page when a spine item fails to decode, and in-book `search` logs and skips undecodable chapters instead of dropping them invisibly (`epub_adapter.rs`).
+- **Table-of-Contents Resolution** — Unresolved nav targets no longer collapse to chapter 0; `parse_nav_points` resolves to `Option<usize>` and emits an empty, non-navigable location when a target can't be matched. All internal epubcfi locators were unified to a single `epubcfi(/{idx})` shape.
+- **Correct Resource Serving** — Added a shared `resolve_zip_path` resolver with true segment-stack path normalization (`chapters/../images/x.jpg` → `images/x.jpg`) and a unique-basename guard that refuses ambiguous filename-only matches. `get_resource` and `get_resource_mime` now resolve through the same path so bytes and MIME always agree on the underlying archive entry.
+- **Reading Progress Integrity** — Removed the fabricated `total_pages = 100` fallback; an unknown page count now relies on the 95% completion threshold and is never persisted as a bogus total. Manually-set `on_hold`/`dropped` statuses are preserved like `completed`, so opening a book at 0% no longer resets a user's shelving (`reader_service.rs`).
+- **Canonical Library Domain Classifier** — Introduced one shared `domain_where_clause` predicate (mirroring `search_service`) across `get_book_summaries_by_domain`, `get_books_by_domain`, and `get_total_books_by_domain`, with an explicit `manga_comics` arm and a safe non-empty fallback. Fixes trashed books reappearing under Manga and cross-domain leakage. The Home screens and `isMangaDomain` now share an exported `MANGA_FILE_FORMATS` constant and classify domain-first, eliminating the Books↔Manga "Recently Added" flicker.
+- **Reader Tap-to-Scroll** — Edge taps in the continuous EPUB view now scroll by ~90% of the viewport (left = up, right = down); center taps toggle the UI. Removed the dead, never-mounted `GestureZones.tsx`.
+
 # Release Notes (v2.3.59)
 
 ## Features & Improvements

@@ -5,20 +5,19 @@ import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
+import { isMangaDomain } from '@/lib/utils'
 
 interface MangaHomeProps {
     onOpenManga: (book: Book) => void
 }
 
-const MANGA_FORMATS = ['cbz', 'cbr', 'zip', 'online-manga']
-
 export function MangaHome({ onOpenManga }: MangaHomeProps) {
     const allBooks = useLibraryStore((s) => s.books)
     const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
 
-    // Filter manga only
+    // Filter manga only. Domain-first, matching the backend.
     const mangaList = useMemo(() => {
-        return allBooks.filter((b) => MANGA_FORMATS.includes(b.file_format?.toLowerCase() || ''))
+        return allBooks.filter((b) => isMangaDomain(b))
     }, [allBooks])
 
     // Load reading progress for manga (single batch query)

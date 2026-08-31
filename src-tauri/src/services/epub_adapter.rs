@@ -7,6 +7,102 @@ use async_trait::async_trait;
 use epub::doc::EpubDoc;
 use std::sync::RwLock;
 
+/// Normalize a zip/resource path: convert `\` to `/`, drop `.` segments and a leading `/`, and resolve interior `..` via a segment stack.
+fn normalize_zip_path(path: &str) -> String {
+    let path = path.replace('\\', "/");
+    let mut stack: Vec<&str> = Vec::new();
+    for seg in path.split('/') {
+        match seg {
+            "" | "." => continue,
+            ".." => {
+                stack.pop();
+            }
+            s => stack.push(s),
+        }
+    }
+    stack.join("/")
+}
+
+/// Resolves a resource path to its manifest ID (for aligned byte/MIME lookups), returning None if filename matches are ambiguous.
+fn resolve_zip_path<R: std::io::Read + std::io::Seek>(
+    doc: &EpubDoc<R>,
+    path: &str,
+) -> Option<String> {
+    // 0. Direct manifest-id hit.
+    if doc.resources.contains_key(path) {
+        return Some(path.to_string());
+    }
+
+    let clean = normalize_zip_path(path);
+    if clean.is_empty() {
+        return None;
+    }
+    if doc.resources.contains_key(&clean) {
+        return Some(clean);
+    }
+
+    // Snapshot resources with normalized forward-slash paths.
+    let resources: Vec<(String, String)> = doc
+        .resources
+        .iter()
+        .map(|(id, item)| {
+            (
+                id.clone(),
+                normalize_zip_path(&item.path.to_string_lossy()),
+            )
+        })
+        .collect();
+
+    let clean_lower = clean.to_lowercase();
+
+    // 1. Exact path match (case-insensitive), or common EPUB-root prefixed match.
+    let prefixed: Vec<String> = ["OEBPS/", "OPS/", "EPUB/", "content/"]
+        .iter()
+        .map(|p| format!("{}{}", p, clean_lower))
+        .collect();
+    for (id, zip_path) in &resources {
+        let zl = zip_path.to_lowercase();
+        if zl == clean_lower || prefixed.iter().any(|c| *c == zl) {
+            return Some(id.clone());
+        }
+    }
+
+    // 2. Suffix match (case-insensitive)
+    let slash_clean_lower = format!("/{}", clean_lower);
+    for (id, zip_path) in &resources {
+        if zip_path.to_lowercase().ends_with(&slash_clean_lower) {
+            return Some(id.clone());
+        }
+    }
+
+    // 3. Basename-only match, accept only when unambiguous.
+    let requested_filename = clean.rsplit('/').next().unwrap_or(&clean).to_lowercase();
+    let requested_dir = {
+        let mut parts: Vec<&str> = clean.split('/').collect();
+        parts.pop();
+        parts.join("/").to_lowercase()
+    };
+    let basename_matches: Vec<&(String, String)> = resources
+        .iter()
+        .filter(|(_, zip_path)| {
+            zip_path.rsplit('/').next().unwrap_or("").to_lowercase() == requested_filename
+        })
+        .collect();
+    match basename_matches.len() {
+        0 => None,
+        1 => Some(basename_matches[0].0.clone()),
+        // Ambiguous: only accept if a candidate's parent dir matches the request's dir; otherwise refuse rather than serve the wrong file.
+        _ => basename_matches
+            .iter()
+            .find(|(_, zip_path)| {
+                let mut parts: Vec<&str> = zip_path.split('/').collect();
+                parts.pop();
+                parts.join("/").to_lowercase() == requested_dir
+            })
+            .map(|(id, _)| id.clone()),
+    }
+}
+
 pub struct EpubAdapter {
     doc: Option<RwLock<EpubDoc<std::io::BufReader<std::fs::File>>>>,
     path: String,
@@ -41,14 +137,11 @@ impl EpubAdapter {
         }
 
         fn search_exact(entries: &[TocEntry], spine_idx: usize) -> Option<String> {
-            let pattern1 = format!("/{}/", spine_idx);
-            let pattern2 = format!("/{})", spine_idx);
-            let pattern3 = format!("(/{})", spine_idx);
+            // Locations are the canonical `epubcfi(/{idx})` shape emitted by load_toc.
+            let pattern1 = format!("/{})", spine_idx);
+            let pattern2 = format!("(/{})", spine_idx);
             for entry in entries {
-                if entry.location.contains(&pattern1)
-                    || entry.location.contains(&pattern2)
-                    || entry.location.contains(&pattern3)
-                {
+                if entry.location.contains(&pattern1) || entry.location.contains(&pattern2) {
                     let trimmed = entry.label.trim();
                     if !trimmed.is_empty() {
                         return Some(trimmed.to_string());
@@ -125,16 +218,17 @@ impl EpubAdapter {
                         }
                     }
 
-                    let mut spine_idx = 0;
-                    if let Some(id) = matched_id {
-                        if let Some(pos) = doc.spine.iter().position(|item| item.idref == id) {
-                            spine_idx = pos;
-                        }
-                    }
+                    // Resolve to a real spine index, or leave unresolved
+                    let spine_idx: Option<usize> = matched_id
+                        .and_then(|id| doc.spine.iter().position(|item| item.idref == id));
 
                     TocEntry {
                         label: nav_point.label.clone(),
-                        location: format!("epubcfi(/{}/)", spine_idx),
+                        // Empty location => non-navigable (frontend's parseTocLocationToIndex returns null and disables the click).
+                        location: match spine_idx {
+                            Some(idx) => format!("epubcfi(/{})", idx),
+                            None => String::new(),
+                        },
                         level,
                         children: parse_nav_points(&nav_point.children, doc, level + 1),
                     }
@@ -179,22 +273,16 @@ impl EpubAdapter {
 #[async_trait]
 impl BookReaderAdapter for EpubAdapter {
     async fn load(&mut self, path: &str) -> Result<()> {
-        println!("[EpubAdapter::open] Opening file: {}", path);
+        log::debug!("[EpubAdapter::load] Opening file: {}", path);
 
         // Check if file exists
         use std::fs;
         match fs::metadata(path) {
             Ok(metadata) => {
-                println!(
-                    "[EpubAdapter::open] File exists, size: {} bytes",
-                    metadata.len()
-                );
+                log::debug!("[EpubAdapter::load] File exists, size: {} bytes", metadata.len());
             }
             Err(e) => {
-                println!(
-                    "[EpubAdapter::open] ❌ File not found or inaccessible: {}",
-                    e
-                );
+                log::warn!("[EpubAdapter::load] File not found or inaccessible: {}", e);
                 return Err(ShioriError::EpubParseFailed {
                     path: path.to_string(),
                     cause: format!("File not accessible: {}", e),
@@ -203,26 +291,26 @@ impl BookReaderAdapter for EpubAdapter {
         }
 
         let doc = EpubDoc::new(path).map_err(|e| {
-            println!("[EpubAdapter::open] ❌ EpubDoc::new failed: {}", e);
+            log::warn!("[EpubAdapter::load] EpubDoc::new failed: {}", e);
             ShioriError::EpubParseFailed {
                 path: path.to_string(),
                 cause: format!("{}", e),
             }
         })?;
 
-        println!("[EpubAdapter::open] ✅ EpubDoc created successfully");
+        log::debug!("[EpubAdapter::load] EpubDoc created successfully");
         self.doc = Some(RwLock::new(doc));
         self.path = path.to_string();
 
         // Load metadata and TOC upfront (fast operations)
-        println!("[EpubAdapter::open] Loading metadata...");
+        log::trace!("[EpubAdapter::load] Loading metadata...");
         self.load_metadata()?;
-        println!("[EpubAdapter::open] Loading TOC...");
+        log::trace!("[EpubAdapter::load] Loading TOC...");
         self.load_toc()?;
 
         // DON'T load all chapters upfront - too slow!
         // Chapters will be loaded lazily in get_chapter()
-        println!("[EpubAdapter::open] ✅ Book opened successfully (chapters will load on demand)");
+        log::debug!("[EpubAdapter::load] Book opened successfully (chapters load on demand)");
         Ok(())
     }
 
@@ -258,7 +346,12 @@ impl BookReaderAdapter for EpubAdapter {
         }
 
         doc.set_current_chapter(index);
-        let (content, _mime) = doc.get_current_str().unwrap_or_default();
+        let (content, _mime) = doc.get_current_str().ok_or_else(|| {
+            ShioriError::ChapterReadFailed {
+                chapter_index: index,
+                cause: "Failed to decode chapter content".to_string(),
+            }
+        })?;
         let title = doc
             .get_current_id()
             .unwrap_or_else(|| format!("Chapter {}", index + 1));
@@ -307,7 +400,16 @@ impl BookReaderAdapter for EpubAdapter {
 
         for i in 0..spine_len {
             doc.set_current_chapter(i);
-            let (raw_content, _mime) = doc.get_current_str().unwrap_or_default();
+            let (raw_content, _mime) = match doc.get_current_str() {
+                Some(v) => v,
+                None => {
+                    log::warn!(
+                        "[EpubAdapter::search] Skipping chapter {}: failed to decode content",
+                        i
+                    );
+                    continue;
+                }
+            };
             let content = clean_html_for_search(&raw_content);
             if content.is_empty() {
                 continue;
@@ -375,7 +477,7 @@ impl BookReaderAdapter for EpubAdapter {
     }
 
     fn get_resource(&self, path: &str) -> Result<Vec<u8>> {
-        println!("[EpubAdapter::get_resource] Requesting resource: {}", path);
+        log::trace!("[EpubAdapter::get_resource] Requesting resource: {}", path);
 
         let doc_ref = self
             .doc
@@ -389,111 +491,23 @@ impl BookReaderAdapter for EpubAdapter {
             ))
         })?;
 
-        // ── Pass 1: Exact path ────────────────────────────────────────────
-        if let Some((bytes, _)) = doc.get_resource(path) {
+        // Fast path: exact archive entry at the raw path.
+        if let Some(bytes) = doc.get_resource_by_path(path) {
             return Ok(bytes);
         }
 
-        // ── Pass 2: Iteratively strip leading ../ and ./ ──────────────────
-        // '../images/foo.jpg' → 'images/foo.jpg'
-        let clean = {
-            let mut s = path.trim_start_matches('/').to_string();
-            loop {
-                if s.starts_with("../") {
-                    s = s[3..].to_string();
-                } else if s.starts_with("./") {
-                    s = s[2..].to_string();
-                } else {
-                    break;
-                }
-            }
-            s
-        };
-
-        if clean != path {
-            if let Some((bytes, _)) = doc.get_resource(&clean) {
+        // Shared resolution (same as get_resource_mime) → manifest id → bytes.
+        if let Some(id) = resolve_zip_path(&doc, path) {
+            if let Some((bytes, _mime)) = doc.get_resource(&id) {
                 return Ok(bytes);
             }
         }
 
-        // Find mapped zip paths from doc.resources
-        let all_resources: Vec<(String, String)> = doc
-            .resources
-            .iter()
-            .map(|(id, item)| {
-                (
-                    id.clone(),
-                    item.path.to_string_lossy().to_string().replace("\\", "/"),
-                )
-            })
-            .collect();
-
-        // ── Pass 3: Common EPUB root prefixes ─────────────────────────────
-        for prefix in &["OEBPS/", "OPS/", "EPUB/", "content/"] {
-            let candidate = format!("{}{}", prefix, clean);
-            if let Some((bytes, _)) = doc.get_resource(&candidate) {
-                println!(
-                    "[EpubAdapter] Found with prefix '{}': {}",
-                    prefix, candidate
-                );
-                return Ok(bytes);
-            }
-        }
-
-        // ── Pass 4: Case-insensitive suffix match ─────────────────────────
-        // Handles: zip_path="OEBPS/Images/foo.jpg", clean="images/foo.jpg"
-        let clean_lower = clean.to_lowercase();
-        let slash_clean_lower = format!("/{}", clean_lower);
-
-        let mut suffix_match_id: Option<String> = None;
-        for (id, zip_path) in &all_resources {
-            let path_lower = zip_path.to_lowercase();
-            if path_lower == clean_lower || path_lower.ends_with(&slash_clean_lower) {
-                suffix_match_id = Some(id.clone());
-                break;
-            }
-        }
-        if let Some(ref id) = suffix_match_id {
-            if let Some((bytes, _)) = doc.get_resource(id) {
-                println!(
-                    "[EpubAdapter] Case-insensitive suffix match: {} -> (id: {})",
-                    path, id
-                );
-                return Ok(bytes);
-            }
-        }
-
-        // ── Pass 5: Case-insensitive filename-only match ──────────────────
-        let requested_filename = std::path::Path::new(&clean)
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or(&clean)
-            .to_lowercase();
-
-        for (id, zip_path) in &all_resources {
-            let key_file = std::path::Path::new(zip_path)
-                .file_name()
-                .and_then(|f| f.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-            if key_file == requested_filename {
-                if let Some((bytes, _)) = doc.get_resource(id) {
-                    println!("[EpubAdapter] Filename match: {} -> (id: {})", path, id);
-                    return Ok(bytes);
-                }
-            }
-        }
-
-        // ── Not found: log available paths for debugging ───────────────────
-        println!(
-            "[EpubAdapter::get_resource] ❌ Resource not found: '{}'. Available paths ({}):",
+        log::warn!(
+            "[EpubAdapter::get_resource] Resource not found: '{}' ({} resources in manifest)",
             path,
-            all_resources.len()
+            doc.resources.len()
         );
-        for (_id, zip_path) in all_resources.iter().take(20) {
-            println!("  • {}", zip_path);
-        }
-
         Err(ShioriError::Other(format!("Resource not found: {}", path)))
     }
 
@@ -509,8 +523,17 @@ impl BookReaderAdapter for EpubAdapter {
                 e
             ))
         })?;
-        doc.get_resource_mime_by_path(path)
-            .ok_or_else(|| ShioriError::Other(format!("MIME type not found for: {}", path)))
+
+        // Exact path match first, then the same fallback resolution get_resource uses, so bytes and MIME always agree on the underlying entry.
+        if let Some(mime) = doc.get_resource_mime_by_path(path) {
+            return Ok(mime);
+        }
+        if let Some(id) = resolve_zip_path(&doc, path) {
+            if let Some(mime) = doc.get_resource_mime(&id) {
+                return Ok(mime);
+            }
+        }
+        Err(ShioriError::Other(format!("MIME type not found for: {}", path)))
     }
 }
 
@@ -522,5 +545,16 @@ mod tests {
     fn test_epub_adapter_creation() {
         let adapter = EpubAdapter::new();
         assert_eq!(adapter.chapter_count(), 0);
+    }
+
+    #[test]
+    fn test_normalize_zip_path() {
+        assert_eq!(normalize_zip_path("a/b/../c"), "a/c");
+        assert_eq!(normalize_zip_path("./a"), "a");
+        assert_eq!(normalize_zip_path("../a"), "a");
+        assert_eq!(normalize_zip_path("a/./b/../b"), "a/b");
+        assert_eq!(normalize_zip_path("/OEBPS/images/x.jpg"), "OEBPS/images/x.jpg");
+        assert_eq!(normalize_zip_path("chapters/../images/x.jpg"), "images/x.jpg");
+        assert_eq!(normalize_zip_path("a\\b\\c.jpg"), "a/b/c.jpg");
     }
 }

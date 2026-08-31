@@ -7,22 +7,25 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { isAndroid } from '@/lib/tauri';
-import { 
-  Download, 
-  RefreshCw, 
-  Sparkles,
-  Loader2,
+import {
+  Download,
+  RefreshCw,
   X
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+// Bundled at build time (Vite `?raw` inlines the file as a string) so the update window can show both the release notes and the full changelog offline.
+// "Release" = the granular per-version release notes; "Changelog" = the curated Keep-a-Changelog history.
+import releaseNotesMd from '../../docs/CHANGELOG.md?raw';
+import changelogMd from '../../CHANGELOG.md?raw';
 
 function stripEmojis(text: string): string {
   if (!text) return ''
   return text
     .replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}]/gu, '')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+$/gm, '')
     .trim();
 }
 
@@ -34,55 +37,7 @@ export function UpdateDialog() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<{ downloaded: number; total: number | null } | null>(null);
-  const [fetchedNotes, setFetchedNotes] = useState<string | null>(null);
-  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
-
-  // Fetch genuine release notes for this specific version from GitHub if missing or short
-  useEffect(() => {
-    if (!updateInfo) return;
-
-    // If updateInfo already has complete release notes (more than 40 chars and not generic fallback)
-    if (
-      updateInfo.notes &&
-      updateInfo.notes.trim().length > 40 &&
-      !updateInfo.notes.includes('No release notes provided') &&
-      !updateInfo.notes.includes('No release notes available')
-    ) {
-      setFetchedNotes(updateInfo.notes);
-      return;
-    }
-
-    let cancelled = false;
-    setIsLoadingNotes(true);
-
-    const fetchNotes = async () => {
-      try {
-        const rawVer = updateInfo.version?.replace(/^v/, '');
-        let res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori/releases/tags/v${rawVer}`);
-        if (!res.ok) {
-          res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori/releases/latest');
-        }
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          if (data.body && data.body.trim().length > 0) {
-            setFetchedNotes(data.body);
-          }
-        }
-      } catch (err) {
-        logger.warn('[UpdateDialog] Could not fetch release notes from GitHub:', err);
-      } finally {
-        if (!cancelled) {
-          setIsLoadingNotes(false);
-        }
-      }
-    };
-
-    fetchNotes();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [updateInfo?.version, updateInfo?.notes]);
+  const [activeTab, setActiveTab] = useState<'release' | 'changelog'>('release');
 
   // Expose a developer helper on window to test and preview the Update Dialog in local development
   useEffect(() => {
@@ -111,12 +66,10 @@ export function UpdateDialog() {
     };
   }, [setUpdateInfo, setIsUpdateDialogOpen]);
 
-  const cleanNotes = useMemo(() => {
-    const raw = fetchedNotes || updateInfo?.notes || '';
-    if (!raw) return '';
-    const parts = raw.split(/Download the appropriate installer for your platform:/i);
-    return stripEmojis(parts[0].trim());
-  }, [fetchedNotes, updateInfo?.notes]);
+  const tabContent = useMemo(
+    () => stripEmojis(activeTab === 'release' ? releaseNotesMd : changelogMd),
+    [activeTab]
+  );
 
   if (!updateInfo) return null;
 
@@ -263,20 +216,30 @@ export function UpdateDialog() {
                       ? "bg-[#F0E6CE]/80 border-[#E2D5B8] text-[#7D634B]" 
                       : "bg-white/[0.04] border-white/10 text-zinc-400"
                   )}>
-                    <span>What's New</span>
+                    <div className="flex items-center gap-1 normal-case tracking-normal">
+                      {(['release', 'changelog'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveTab(tab)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer",
+                            activeTab === tab
+                              ? (isLight ? "bg-[#A0522D] text-white" : "bg-amber-400 text-black")
+                              : (isLight ? "text-[#7D634B] hover:bg-[#EAE0CB]" : "text-zinc-400 hover:bg-white/10")
+                          )}
+                        >
+                          {tab === 'release' ? 'Release' : 'Changelog'}
+                        </button>
+                      ))}
+                    </div>
                     <span className={cn("text-[10px] font-normal lowercase tracking-normal", isLight ? "text-[#8A6A50]" : "text-zinc-500")}>
-                      release highlights
+                      {activeTab === 'release' ? 'release notes' : 'full changelog'}
                     </span>
                   </div>
 
                   {/* Scrollable Changelog Content */}
                   <div className="p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
-                    {isLoadingNotes ? (
-                      <div className="flex items-center justify-center py-8 gap-2 text-xs text-muted-foreground">
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        <span>Loading release notes...</span>
-                      </div>
-                    ) : cleanNotes ? (
+                    {tabContent ? (
                       <div className="prose prose-xs max-w-none">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
@@ -320,7 +283,7 @@ export function UpdateDialog() {
                             ),
                           }}
                         >
-                          {cleanNotes}
+                          {tabContent}
                         </ReactMarkdown>
                       </div>
                     ) : (

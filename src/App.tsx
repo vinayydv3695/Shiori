@@ -160,12 +160,13 @@ function App() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined
-    listen('library-updated', () => {
-      // Silent window-preserving refresh — keeps the current loaded window so
-      // the grid doesn't collapse to 50 rows mid-scroll. Wrapped in a
-      // transition so the heavy setBooks isn't a blocking store sync.
+    listen('library-updated', (event) => {
+      // Mutation-aware refresh: the new payload carries { kind, ids } so the
+      // store can patch/remove/slice in place; old unit payloads fall back to
+      // the window-preserving refresh. Wrapped in a transition so the heavy
+      // setBooks isn't a blocking store sync.
       startTransition(() => {
-        void useLibraryStore.getState().refreshLibrary()
+        void useLibraryStore.getState().applyLibraryUpdate(event.payload)
       })
     }).then(fn => { unlisten = fn })
     return () => { unlisten?.() }

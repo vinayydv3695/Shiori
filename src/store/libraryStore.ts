@@ -124,6 +124,12 @@ const initialFilters: FilterState = {
   identifiers: [],
 }
 
+/** Payload shape of the backend `library-updated` event (new contract). */
+export type LibraryMutation =
+  | { kind: 'book-updated'; ids: number[] }
+  | { kind: 'books-imported'; ids: number[] }
+  | { kind: 'bulk-delete'; ids: number[] }
+
 interface LibraryStore {
   books: Book[]
   selectedBook: Book | null
@@ -160,6 +166,10 @@ interface LibraryStore {
   loadMoreBooks: () => Promise<void>
   /** Silent refresh that keeps the currently-loaded window (no grid collapse). */
   refreshLibrary: () => Promise<void>
+  /** Wider-window refetch (limit = loaded + extraCount, offset 0) merged by id so existing rows keep their position. */
+  refreshWindow: (extraCount?: number) => Promise<void>
+  /** Apply a backend `library-updated` payload; falls back to refreshLibrary() for the old unit payload. */
+  applyLibraryUpdate: (payload: unknown) => Promise<void>
 }
 
 export const useLibraryStore = create<LibraryStore>((set, get) => ({
@@ -336,6 +346,119 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       })
     } catch {
       // Silent: keep current books on failure
+    }
+  },
+  refreshWindow: async (extraCount = 0) => {
+    const id = ++requestId
+    const state = get()
+    const limit = state.books.length + extraCount
+    if (limit <= state.books.length) return // nothing new to fetch
+    const query = {
+      ...(state.serverSearchQuery || {}),
+      sort_by: state.sortBy,
+      sort_order: state.sortOrder,
+      limit,
+      offset: 0,
+    }
+    try {
+      const result = await api.searchBooks(query)
+      if (id !== requestId) return // stale: keep current books, don't touch loading flags
+      set((state) => {
+        // Merge by id: existing rows keep their index (scroll anchor), newly
+        // discovered ids (fresh imports) are appended in server order.
+        const freshById = new Map<number, Book>()
+        for (const book of result.books) {
+          if (book.id != null) freshById.set(book.id, book)
+        }
+        const merged = state.books.map(
+          (b) => (b.id != null && freshById.get(b.id)) ?? b
+        )
+        const present = new Set<number>()
+        for (const book of merged) if (book.id != null) present.add(book.id)
+        for (const book of result.books) {
+          if (book.id != null && !present.has(book.id)) {
+            merged.push(book)
+            present.add(book.id)
+          }
+        }
+        return {
+          books: merged,
+          totalCount: result.total,
+          hasMore: result.books.length < result.total,
+        }
+      })
+    } catch {
+      // Silent: keep current books on failure
+    }
+  },
+  applyLibraryUpdate: async (payload: unknown) => {
+    const isMutation = (p: unknown): p is LibraryMutation =>
+      !!p &&
+      typeof p === 'object' &&
+      typeof (p as LibraryMutation).kind === 'string' &&
+      Array.isArray((p as LibraryMutation).ids)
+
+    if (!isMutation(payload)) {
+      // Old backend emitted `()` (unit payload): full window-preserving refresh.
+      await get().refreshLibrary()
+      return
+    }
+
+    switch (payload.kind) {
+      case 'book-updated': {
+        const ids = new Set(payload.ids)
+        const state = get()
+        const onScreen = state.books
+          .filter((b) => b.id != null && ids.has(b.id))
+          .map((b) => b.id as number)
+        if (onScreen.length === 0) return // nothing visible changed: skip
+        try {
+          const fresh = await Promise.all(onScreen.map((id) => api.getBook(id)))
+          set((state) => {
+            const freshById = new Map<number, Book>()
+            for (const book of fresh) {
+              if (book.id != null) freshById.set(book.id, book)
+            }
+            // Patch in place: same array length, order and scroll preserved.
+            return { books: state.books.map((b) => freshById.get(b.id as number) ?? b) }
+          })
+        } catch {
+          // Silent: keep current rows on failure
+        }
+        return
+      }
+      case 'bulk-delete': {
+        const state = get()
+        const loadedIds = state.books
+          .filter((b) => b.id != null)
+          .map((b) => b.id as number)
+        const deleted = new Set(payload.ids)
+        const deletedLoaded = loadedIds.filter((id) => deleted.has(id)).length
+        if (loadedIds.length > 0 && deletedLoaded / loadedIds.length > 0.8) {
+          // Window mostly wiped: fall back to a full window-preserving refresh.
+          await get().refreshLibrary()
+          return
+        }
+        set((state) => ({
+          books: state.books.filter((b) => b.id == null || !deleted.has(b.id)),
+          totalCount:
+            state.totalCount > 0
+              ? Math.max(0, state.totalCount - payload.ids.length)
+              : state.totalCount,
+        }))
+        return
+      }
+      case 'books-imported':
+        if (payload.ids.length === 0) {
+          await get().refreshLibrary()
+          return
+        }
+        // Window refetch around the current scroll position: fetch a wider
+        // window (loaded + imported), merge by id so existing rows stay put.
+        await get().refreshWindow(payload.ids.length)
+        return
+      default:
+        await get().refreshLibrary()
     }
   },
 }))

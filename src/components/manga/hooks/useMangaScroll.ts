@@ -74,43 +74,74 @@ export function useMangaScroll(
         return () => el.removeEventListener('scroll', onScroll);
     }, [containerRef, onScroll, isActive]);
 
-    // Auto-scrolling logic
+    // Auto-scrolling logic.
+    // The RAF loop runs ONLY while auto-scrolling is active: we subscribe to
+    // isAutoScrolling and start/cancel the loop on flips instead of polling
+    // the store every frame. Speed stays time-based (deltaTime), so refresh
+    // rate changes don't affect scroll speed.
     useEffect(() => {
         if (!isActive) return;
         const el = containerRef.current;
         if (!el) return;
 
         let autoScrollRafId: number | null = null;
-        let lastTime = performance.now();
+        let lastTime = 0;
 
         const step = (time: number) => {
-            const isAutoScrolling = useMangaUIStore.getState().isAutoScrolling;
+            // The subscription cancels the loop on store change; this guard
+            // catches a stop that raced with an in-flight frame.
+            if (!useMangaUIStore.getState().isAutoScrolling) return;
+
             const autoScrollSpeed = useMangaSettingsStore.getState().autoScrollSpeed;
 
-            if (isAutoScrolling && el.scrollHeight > el.clientHeight && el.scrollTop < el.scrollHeight - el.clientHeight) {
+            if (el.scrollHeight > el.clientHeight && el.scrollTop < el.scrollHeight - el.clientHeight) {
                 const deltaTime = time - lastTime;
                 // autoScrollSpeed of 1 is roughly 60px per second (1px per frame at 60fps)
                 const scrollAmount = (autoScrollSpeed * 60 * deltaTime) / 1000;
-                
+
                 if (scrollAmount > 0) {
                     el.scrollTop += scrollAmount;
                 }
-            } else if (isAutoScrolling && el.scrollTop >= el.scrollHeight - el.clientHeight) {
-                // We reached the bottom, stop auto scrolling
+            } else {
+                // We reached the bottom, stop auto scrolling.
+                // The subscription below cancels the loop synchronously.
                 useMangaUIStore.getState().setAutoScroll(false);
+                return;
             }
-            
+
             lastTime = time;
             autoScrollRafId = requestAnimationFrame(step);
         };
 
-        // Start the loop
-        autoScrollRafId = requestAnimationFrame(step);
+        const runLoop = () => {
+            if (autoScrollRafId !== null) return; // loop already running
+            lastTime = performance.now();
+            autoScrollRafId = requestAnimationFrame(step);
+        };
 
-        return () => {
+        const stopLoop = () => {
             if (autoScrollRafId !== null) {
                 cancelAnimationFrame(autoScrollRafId);
+                autoScrollRafId = null;
             }
+        };
+
+        const unsubscribe = useMangaUIStore.subscribe((state) => {
+            if (state.isAutoScrolling) {
+                runLoop();
+            } else {
+                stopLoop();
+            }
+        });
+
+        // Cover the case where auto-scroll was already active on mount.
+        if (useMangaUIStore.getState().isAutoScrolling) {
+            runLoop();
+        }
+
+        return () => {
+            unsubscribe();
+            stopLoop();
         };
     }, [containerRef, isActive]);
 }

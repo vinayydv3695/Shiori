@@ -5,6 +5,7 @@ import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
 import { preloadPages } from '../hooks/useMangaPreloader';
 import { preloadOnlinePages } from '../hooks/useUnifiedImageDecode';
+import { MANGA_OVERSCAN } from '../constants';
 import { EndOfChapterOverlay } from '../EndOfChapterOverlay';
 
 /**
@@ -64,7 +65,7 @@ export function WebtoonView() {
         count: totalPages,
         getScrollElement: () => containerRef.current,
         estimateSize,
-        overscan: 25,
+        overscan: MANGA_OVERSCAN,
         gap: 0,
     });
 

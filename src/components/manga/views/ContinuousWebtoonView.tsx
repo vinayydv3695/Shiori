@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { MangaPageImage } from '../MangaPageImage';
 import { useMangaScroll } from '../hooks/useMangaScroll';
+import { MANGA_OVERSCAN } from '../constants';
 import { EndOfChapterOverlay } from '../EndOfChapterOverlay';
 import { ChapterSeparatorCard } from '../ChapterSeparatorCard';
 import { pluginApi } from '@/lib/pluginSources';
@@ -115,7 +116,7 @@ export function ContinuousWebtoonView() {
         count: items.length,
         getScrollElement: () => containerRef.current,
         estimateSize,
-        overscan: 25,
+        overscan: MANGA_OVERSCAN,
         gap: isStrip ? stripMargin : 0,
     });
     

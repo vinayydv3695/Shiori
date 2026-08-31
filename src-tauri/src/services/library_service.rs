@@ -1877,6 +1877,27 @@ pub fn scan_folder_for_comics(
     import_comics(db, comics_paths, covers_dir)
 }
 
+/// Canonical domain predicate matching search_service; excludes trashed rows, guards invalid domains, and resolves zip fallback (col is optional alias prefix).
+fn domain_where_clause(domain: &str, col: &str) -> String {
+    let manga = format!(
+        "({c}in_trash = 0 AND ({c}domain IN ('manga','comics','manga_comics','online-manga') \
+         OR ({c}domain IS NULL AND LOWER(COALESCE({c}file_format,'')) IN \
+         ('cbz','cbr','zip','rar','7z','online-manga'))))",
+        c = col
+    );
+    let books = format!(
+        "({c}in_trash = 0 AND ({c}domain = 'books' \
+         OR ({c}domain IS NULL AND LOWER(COALESCE({c}file_format,'')) NOT IN \
+         ('cbz','cbr','zip','rar','7z','online-manga'))))",
+        c = col
+    );
+    match domain {
+        "books" => format!("WHERE {}", books),
+        "manga" | "comics" | "manga_comics" | "online-manga" => format!("WHERE {}", manga),
+        _ => format!("WHERE {c}in_trash = 0", c = col),
+    }
+}
+
 /// Get books filtered by domain
 pub fn get_books_by_domain(
     db: &Database,
@@ -1886,12 +1907,7 @@ pub fn get_books_by_domain(
 ) -> Result<Vec<Book>> {
     let conn = db.get_connection()?;
 
-    let where_clause = match domain {
-        "books" => "WHERE b.domain = 'books' AND b.in_trash = 0",
-        "manga" => "WHERE b.domain = 'manga' AND b.in_trash = 0",
-        "comics" => "WHERE b.domain = 'comics' AND b.in_trash = 0",
-        _ => "WHERE b.in_trash = 0",
-    };
+    let where_clause = domain_where_clause(domain, "b.");
 
     let sql = format!(
         "SELECT {} FROM books b {} ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
@@ -1911,13 +1927,11 @@ pub fn get_books_by_domain(
 
 pub fn get_total_books_by_domain(db: &Database, domain: &str) -> Result<i64> {
     let conn = db.get_connection()?;
-    let query = match domain {
-        "books" => "SELECT COUNT(*) FROM books WHERE domain = 'books' AND in_trash = 0",
-        "manga" => "SELECT COUNT(*) FROM books WHERE domain = 'manga' AND in_trash = 0",
-        "comics" => "SELECT COUNT(*) FROM books WHERE domain = 'comics' AND in_trash = 0",
-        _ => "SELECT COUNT(*) FROM books WHERE in_trash = 0",
-    };
-    let count: i64 = conn.query_row(query, [], |row| row.get(0))?;
+    let query = format!(
+        "SELECT COUNT(*) FROM books {}",
+        domain_where_clause(domain, "")
+    );
+    let count: i64 = conn.query_row(&query, [], |row| row.get(0))?;
     Ok(count)
 }
 
@@ -2133,12 +2147,7 @@ pub fn get_book_summaries_by_domain(
     offset: u32,
 ) -> Result<Vec<crate::models::BookSummary>> {
     let conn = db.get_connection()?;
-    let where_clause = match domain {
-        "books" => "WHERE b.domain = 'books'",
-        "manga" => "WHERE b.domain = 'manga'",
-        "comics" => "WHERE b.domain = 'comics'",
-        _ => "",
-    };
+    let where_clause = domain_where_clause(domain, "b.");
     let sql = format!(
         "SELECT {} FROM books b {} ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
         BOOK_SUMMARY_COLUMNS, where_clause

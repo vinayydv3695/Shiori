@@ -114,8 +114,7 @@ impl ReaderService {
 
         let total_pages = total_pages
             .or(book_page_count)
-            .or(existing.as_ref().and_then(|e| e.total_pages))
-            .or(Some(100));
+            .or(existing.as_ref().and_then(|e| e.total_pages));
 
         let current_page = current_page
             .or_else(|| existing.as_ref().and_then(|e| e.current_page))
@@ -171,14 +170,18 @@ impl ReaderService {
             )
             .ok();
 
+        // Preserve manually-set terminal/hold statuses
         let new_status = if is_finished {
             "completed"
-        } else if current_status.as_deref() == Some("completed") {
-            "completed"
+        } else if matches!(
+            current_status.as_deref(),
+            Some("completed" | "on_hold" | "dropped")
+        ) {
+            current_status.as_deref().unwrap()
         } else if progress_percent > 0.0 {
             "reading"
         } else {
-            "planning"
+            current_status.as_deref().unwrap_or("planning")
         };
 
         conn.execute(

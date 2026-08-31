@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.89] - 2026-08-31
+
+### Reader Reliability & Library Fixes
+- **EPUB chapters never silently blank** — a chapter that fails to decode now surfaces a real error instead of rendering an empty page, and in-book search logs and skips undecodable chapters instead of dropping them invisibly.
+- **Accurate table-of-contents navigation** — TOC entries whose target can't be resolved are no longer collapsed to the first chapter; unresolved entries are marked non-navigable. All internal chapter locators use one consistent shape.
+- **Correct images & fonts in EPUBs** — resource resolution now normalizes interior `../` path segments and refuses ambiguous filename-only matches, so the right asset is served every time; byte and MIME lookups always agree.
+- **Reliable reading status & completion** — books with an unknown page count are no longer falsely marked "finished," and no fabricated page total is written to the database; manually-set **On Hold** / **Dropped** statuses are preserved instead of being reset when a book is opened.
+- **Library domain consistency** — Books and Manga/Comics are now classified by one canonical rule across the whole app; trashed books no longer reappear under Manga, books no longer leak across domains, and Home "Recently Added" no longer flickers when switching tabs.
+- **Tap-to-scroll in the reader** — edge taps now scroll by ~90% of the screen (left edge up, right edge down) while center taps toggle the toolbar.
+
+---
+
 ## [2.3.10] - 2026-08-08
 
 ### Offline TTS & Voice Synthesis

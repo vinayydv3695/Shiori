@@ -249,8 +249,11 @@ export function HomePage({
       const stats = await api.getLibraryStats();
       setLibraryStats(stats);
 
-      // 1. Recently Added
-      const recent = await api.getBooksByDomain(domain, 24, 0);
+      // 1. Recently Added — re-filter with the same rule as every other list
+      // on this screen so one classifier governs and nothing flips between lists.
+      const recent = (await api.getBooksByDomain(domain, 24, 0) as unknown as Book[]).filter(b =>
+        domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
+      );
 
       // 2. Continue Reading (Reading Status)
       const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
@@ -293,7 +296,7 @@ export function HomePage({
       }
 
       // 6. Batch State Updates
-      setRecentlyAdded(recent as unknown as Book[]);
+      setRecentlyAdded(recent);
       setContinueReading(domainReading);
       setAllInProgress(readingBooks.length);
       setLastReadBooks(domainReading);

@@ -11,15 +11,25 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Check if a book belongs to the manga/comics domain
+ * Canonical manga/comics file-format list. Kept in sync with the backend domain
+ * predicate (`library_service::domain_where_clause`) so the frontend re-filter and
+ * the backend query always produce identical answers. Import this instead of
+ * redeclaring a local `MANGA_FORMATS` in each home screen.
+ */
+export const MANGA_FILE_FORMATS = ['cbz', 'cbr', 'zip', 'online-manga'] as const;
+
+/**
+ * Check if a book belongs to the manga/comics domain.
+ * A real `domain` column always wins; only when it's absent do we fall back to
+ * the file format (matching the backend's `domain IS NULL` branch).
  */
 export function isMangaDomain(book: any): boolean {
   if (book.domain) {
     return ['manga', 'comics', 'manga_comics', 'online-manga'].includes(book.domain);
   }
-  const fmt = book.file_format?.toLowerCase() || '';
-  // Support both "cbz" and ".cbz"
-  return ['cbz', 'cbr', 'zip', '.cbz', '.cbr', '.zip', 'online-manga'].includes(fmt);
+  // Normalize ".cbz" → "cbz" so both forms match.
+  const fmt = (book.file_format?.toLowerCase() || '').replace(/^\./, '');
+  return (MANGA_FILE_FORMATS as readonly string[]).includes(fmt);
 }
 
 /**

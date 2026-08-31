@@ -6,21 +6,20 @@ import { ContinueReadingCard, RecentlyAddedCard } from './ContinueReadingCard'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
+import { isMangaDomain } from '@/lib/utils'
 
 interface BooksHomeProps {
     onOpenBook: (book: Book) => void
     onViewRSS: () => void
 }
 
-const MANGA_FORMATS = ['cbz', 'cbr', 'zip', 'online-manga']
-
 export function BooksHome({ onOpenBook, onViewRSS }: BooksHomeProps) {
     const allBooks = useLibraryStore((s) => s.books)
     const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
 
-    // Filter to books only (exclude manga)
+    // Filter to books only (exclude manga). Domain-first, matching the backend.
     const books = useMemo(
-        () => allBooks.filter((b) => !MANGA_FORMATS.includes(b.file_format.toLowerCase())),
+        () => allBooks.filter((b) => !isMangaDomain(b)),
         [allBooks]
     )
 

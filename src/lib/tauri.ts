@@ -1516,6 +1516,12 @@ export const api = {
     return invoke("get_epub_resource", { bookId, resourcePath })
   },
 
+  // Intrinsic [path, width, height] for image resources, so the reader can
+  // reserve layout space and images don't reflow/jump the scroll on decode.
+  async getEpubImageSizes(bookId: number, paths: string[]): Promise<Array<[string, number, number]>> {
+    return invoke("get_epub_image_sizes", { bookId, paths })
+  },
+
   async renderPdfPage(bookId: number, pageIndex: number, scale: number = 1.0): Promise<number[]> {
     return invoke("render_pdf_page", { bookId, pageIndex, scale })
   },

@@ -726,17 +726,17 @@ export function ContinuousEpubView({
           const selection = window.getSelection();
           if (selection && selection.toString().trim().length > 0) return;
 
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const clickX = e.clientX || (e.nativeEvent as any)?.clientX || 0;
-          const width = window.innerWidth;
-          const clickRatio = width > 0 ? clickX / width : 0.5;
+          const clickRatio = rect.width > 0 ? (clickX - rect.left) / rect.width : 0.5;
 
           // Continuous/scroll mode: edge taps scroll by ~90% of the viewport,
           // center taps toggle the UI. (This view has no paginated page-flip.)
           const container = scrollRef?.current;
           const page = (container?.clientHeight ?? window.innerHeight) * 0.9;
-          if (clickRatio < 0.25) {
+          if (clickRatio < 0.2) {
             container?.scrollBy({ top: -page, behavior: 'smooth' });
-          } else if (clickRatio > 0.75) {
+          } else if (clickRatio > 0.8) {
             container?.scrollBy({ top: page, behavior: 'smooth' });
           } else if (onToggleUI) {
             onToggleUI();

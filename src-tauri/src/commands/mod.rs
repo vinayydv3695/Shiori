@@ -129,6 +129,7 @@ macro_rules! generate_shiori_handlers {
             commands::rendering::get_book_chapter_count,
             commands::rendering::search_in_book,
             commands::rendering::get_epub_resource,
+            commands::rendering::get_epub_image_sizes,
             commands::rendering::get_renderer_cache_stats,
             commands::rendering::clear_renderer_cache,
             commands::rendering::render_pdf_page,

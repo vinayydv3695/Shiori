@@ -6843,7 +6843,11 @@ dependencies = [
 
 [[package]]
 name = "shiori"
+<<<<<<< HEAD
 version = "2.3.89"
+=======
+version = "2.3.83"
+>>>>>>> 72dcc477 ( fixed)
 dependencies = [
  "ab_glyph",
  "ammonia",

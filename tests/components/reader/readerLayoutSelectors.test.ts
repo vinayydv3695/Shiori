@@ -22,7 +22,7 @@ vi.mock('pdfjs-dist/build/pdf.worker.min.mjs?worker', () => ({
   default: class MockPdfWorker {},
 }));
 
-import { ReaderLayout } from '../ReaderLayout';
+import { ReaderLayout } from '@/components/reader/ReaderLayout';
 
 /**
  * K3-008: ReaderLayout must subscribe to the reader store with fine-grained
@@ -115,7 +115,7 @@ describe('ReaderLayout store subscription granularity', () => {
     // jsdom's import.meta.url does NOT provide in a vitest/node environment.
     const __filename = fileURLToPath(import.meta.url);
     const __dirname  = dirname(__filename);
-    const source = readFileSync(resolve(__dirname, '../ReaderLayout.tsx'), 'utf-8');
+    const source = readFileSync(resolve(__dirname, '../../../src/components/reader/ReaderLayout.tsx'), 'utf-8');
     for (const line of source.split('\n')) {
       if (line.includes('useReaderStore(')) {
         // Every hook call must pass a selector argument; `.getState()` calls

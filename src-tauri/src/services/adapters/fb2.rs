@@ -205,7 +205,7 @@ impl BookFormatAdapter for Fb2FormatAdapter {
         result.word_count = Some(word_count);
 
         // Estimate page count
-        result.page_count = Some((word_count + 249) / 250);
+        result.page_count = Some(word_count.div_ceil(250));
 
         if word_count == 0 {
             result.warnings.push("Book appears to be empty".to_string());
@@ -271,7 +271,7 @@ impl BookFormatAdapter for Fb2FormatAdapter {
         let text = Self::extract_text(&content);
         let word_count = text.split_whitespace().count() as u32;
         book_meta.word_count = Some(word_count);
-        book_meta.page_count = Some((word_count + 249) / 250);
+        book_meta.page_count = Some(word_count.div_ceil(250));
 
         // Fallback: use filename as title
         if book_meta.title == "Unknown" {

@@ -237,6 +237,13 @@ impl Database {
             [],
         )?;
 
+        // K3-022: Composite index to optimise the ORDER BY book_id, author_order
+        // in the batch author-hydration query (attach_authors_and_tags).
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_authors_book_order ON books_authors(book_id, author_order)",
+            [],
+        )?;
+
         // Tags table
         conn.execute(
             "CREATE TABLE IF NOT EXISTS tags (
@@ -419,12 +426,10 @@ impl Database {
             .pool
             .get()
             .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-        // Keep per-connection perf pragmas in sync with the current mode even
-        // for connections that were created before the mode was set/changed
-        // (cache_size/temp_store are per-connection). Idempotent + cheap.
-        if let Ok(mode) = self.perf_mode.read() {
-            apply_perf_pragmas(&conn, &mode);
-        }
+        // Perf pragmas are applied once at connection-creation time via the
+        // `SqliteConnectionManager::with_init` closure, and again explicitly
+        // by `apply_performance_pragmas` whenever the user changes the mode.
+        // There is no need to re-apply them on every pool checkout.
         Ok(conn)
     }
 }

@@ -106,7 +106,7 @@ impl BookFormatAdapter for MobiFormatAdapter {
             result.word_count = Some(word_count);
 
             // Estimate page count (250 words per page)
-            result.page_count = Some((word_count + 249) / 250);
+            result.page_count = Some(word_count.div_ceil(250));
         }
 
         Ok(result)
@@ -153,7 +153,7 @@ impl BookFormatAdapter for MobiFormatAdapter {
         if let Ok(content) = m.content_as_string_lossy() {
             let word_count = content.split_whitespace().count() as u32;
             book_meta.word_count = Some(word_count);
-            book_meta.page_count = Some((word_count + 249) / 250);
+            book_meta.page_count = Some(word_count.div_ceil(250));
         }
 
         // Fallback: use filename as title if no title found

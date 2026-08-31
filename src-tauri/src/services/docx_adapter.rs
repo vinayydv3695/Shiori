@@ -331,7 +331,7 @@ impl BookReaderAdapter for DocxAdapter {
         // Basic metadata
         let title = fallback_title.unwrap_or_else(|| {
             path.split('/')
-                .last()
+                .next_back()
                 .unwrap_or("Unknown Document")
                 .to_string()
         });

@@ -152,7 +152,7 @@ impl BookReaderAdapter for HtmlReaderAdapter {
         self.path = path.to_string();
 
         let title = Self::extract_title(&content)
-            .unwrap_or_else(|| path.split('/').last().unwrap_or("Unknown").to_string());
+            .unwrap_or_else(|| path.split('/').next_back().unwrap_or("Unknown").to_string());
 
         let (chapters, toc) = Self::split_into_chapters(&content);
 

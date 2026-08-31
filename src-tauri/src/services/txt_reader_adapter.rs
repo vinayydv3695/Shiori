@@ -58,7 +58,7 @@ impl BookReaderAdapter for TxtReaderAdapter {
 
         let title = path
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("Unknown Document")
             .to_string();
 

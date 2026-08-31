@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { api, isAndroid, type Annotation, type BookMetadata } from '@/lib/tauri';
-import { ChapterHtml, processEpubHtml, applySearchHighlight } from './PremiumEpubReader';
+import { ChapterHtml, loadProcessedChapter } from './PremiumEpubReader';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
+import { logger } from '@/lib/logger';
 import { useDoodleStore } from '@/store/doodleStore';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import DoodleCanvas from './DoodleCanvas';
@@ -112,16 +113,16 @@ export function ContinuousEpubView({
   const prevSearchTermRef = useRef(searchTerm);
   const prevBookIdRef = useRef(bookId);
 
-  // Load a single chapter and process its HTML
+  // K3-007: Load a chapter through the shared LRU cache (module-level in
+  // PremiumEpubReader). Re-visiting a chapter after window eviction hits the
+  // cache instead of doing a fresh IPC + processEpubHtml round-trip.
   const fetchChapter = async (index: number): Promise<LoadedChapter | null> => {
     if (index < 0 || index >= metadata.total_chapters) return null;
     try {
-      const chapter = await api.getBookChapter(bookId, index);
-      const processed = await processEpubHtml(bookId, chapter.content);
-      const withTerm = searchTerm ? applySearchHighlight(processed, searchTerm) : processed;
-      return { index, content: withTerm };
+      const chapter = await loadProcessedChapter(bookId, index, searchTerm);
+      return { index, content: chapter.content };
     } catch (e) {
-      console.error('Failed to load chapter', index, e);
+      logger.error('[ContinuousEpubView] Failed to load chapter', index, e);
       return null;
     }
   };

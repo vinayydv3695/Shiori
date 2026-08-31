@@ -81,71 +81,76 @@ pub(crate) fn attach_authors_and_tags(conn: &rusqlite::Connection, books: &mut [
 
     let book_ids: Vec<i64> = books.iter().filter_map(|b| b.id).collect();
 
-    // Build a placeholder string like "?1, ?2, ?3"
-    let placeholders: String = book_ids
-        .iter()
-        .enumerate()
-        .map(|(i, _)| format!("?{}", i + 1))
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    // --- Batch fetch authors ---
-    let author_sql = format!(
-        "SELECT ba.book_id, a.id, a.name, a.sort_name, a.link
-         FROM books_authors ba
-         JOIN authors a ON a.id = ba.author_id
-         WHERE ba.book_id IN ({})
-         ORDER BY ba.book_id, ba.author_order",
-        placeholders
-    );
-    let mut author_stmt = conn.prepare(&author_sql)?;
-    let params_refs: Vec<&dyn rusqlite::ToSql> = book_ids
-        .iter()
-        .map(|id| id as &dyn rusqlite::ToSql)
-        .collect();
-    let author_rows = author_stmt.query_map(params_refs.as_slice(), |row| {
-        Ok((
-            row.get::<_, i64>(0)?, // book_id
-            Author {
-                id: Some(row.get(1)?),
-                name: row.get(2)?,
-                sort_name: row.get(3)?,
-                link: row.get(4)?,
-            },
-        ))
-    })?;
-
+    // SQLite limits bound parameters to 999 (SQLITE_MAX_VARIABLE_NUMBER).
+    // Chunk requests into batches of 500 to stay safely under the limit,
+    // mirroring the same strategy used in `get_books_by_ids`.
     let mut authors_map: HashMap<i64, Vec<Author>> = HashMap::new();
-    for row in author_rows {
-        let (book_id, author) = row?;
-        authors_map.entry(book_id).or_default().push(author);
-    }
-
-    // --- Batch fetch tags ---
-    let tag_sql = format!(
-        "SELECT bt.book_id, t.id, t.name, t.color
-         FROM books_tags bt
-         JOIN tags t ON t.id = bt.tag_id
-         WHERE bt.book_id IN ({})
-         ORDER BY bt.book_id",
-        placeholders
-    );
-    let mut tag_stmt = conn.prepare(&tag_sql)?;
-    let tag_rows = tag_stmt.query_map(params_refs.as_slice(), |row| {
-        Ok((
-            row.get::<_, i64>(0)?, // book_id
-            Tag {
-                id: Some(row.get(1)?),
-                name: row.get(2)?,
-                color: row.get(3)?,
-            },
-        ))
-    })?;
-
     let mut tags_map: HashMap<i64, Vec<Tag>> = HashMap::new();
-    for row in tag_rows {
-        let (book_id, tag) = row?;
-        tags_map.entry(book_id).or_default().push(tag);
+
+    for chunk in book_ids.chunks(500) {
+        // Build positional placeholders for this chunk: "?1, ?2, …"
+        let placeholders: String = chunk
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let params_refs: Vec<&dyn rusqlite::ToSql> = chunk
+            .iter()
+            .map(|id| id as &dyn rusqlite::ToSql)
+            .collect();
+
+        // --- Batch fetch authors for this chunk ---
+        let author_sql = format!(
+            "SELECT ba.book_id, a.id, a.name, a.sort_name, a.link
+             FROM books_authors ba
+             JOIN authors a ON a.id = ba.author_id
+             WHERE ba.book_id IN ({})
+             ORDER BY ba.book_id, ba.author_order",
+            placeholders
+        );
+        let mut author_stmt = conn.prepare(&author_sql)?;
+        let author_rows = author_stmt.query_map(params_refs.as_slice(), |row| {
+            Ok((
+                row.get::<_, i64>(0)?, // book_id
+                Author {
+                    id: Some(row.get(1)?),
+                    name: row.get(2)?,
+                    sort_name: row.get(3)?,
+                    link: row.get(4)?,
+                },
+            ))
+        })?;
+        for row in author_rows {
+            let (book_id, author) = row?;
+            authors_map.entry(book_id).or_default().push(author);
+        }
+
+        // --- Batch fetch tags for this chunk ---
+        let tag_sql = format!(
+            "SELECT bt.book_id, t.id, t.name, t.color
+             FROM books_tags bt
+             JOIN tags t ON t.id = bt.tag_id
+             WHERE bt.book_id IN ({})
+             ORDER BY bt.book_id",
+            placeholders
+        );
+        let mut tag_stmt = conn.prepare(&tag_sql)?;
+        let tag_rows = tag_stmt.query_map(params_refs.as_slice(), |row| {
+            Ok((
+                row.get::<_, i64>(0)?, // book_id
+                Tag {
+                    id: Some(row.get(1)?),
+                    name: row.get(2)?,
+                    color: row.get(3)?,
+                },
+            ))
+        })?;
+        for row in tag_rows {
+            let (book_id, tag) = row?;
+            tags_map.entry(book_id).or_default().push(tag);
+        }
     }
 
     // --- Attach to books ---
@@ -249,33 +254,104 @@ pub fn get_book_by_id(db: &Database, id: i64) -> Result<Book> {
 }
 
 pub fn get_books_by_paths(db: &Database, paths: Vec<String>) -> Result<Vec<Book>> {
+    if paths.is_empty() {
+        return Ok(vec![]);
+    }
     let conn = db.get_connection()?;
-    let mut books = Vec::new();
 
-    for path in paths {
+    // Collect all matching books in chunked IN (?) queries (≤500 paths per
+    // batch to stay inside SQLite's SQLITE_MAX_VARIABLE_NUMBER limit), then
+    // attach authors + tags in one further batched pass (K3-023).
+    let mut books: Vec<Book> = Vec::with_capacity(paths.len());
+    for chunk in paths.chunks(500) {
+        let placeholders = chunk
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
         let sql = format!(
-            "SELECT {} FROM books b WHERE b.file_path = ?1",
-            BOOK_COLUMNS
+            "SELECT {} FROM books b WHERE b.file_path IN ({}) AND b.in_trash = 0",
+            BOOK_COLUMNS, placeholders
         );
-        if let Ok(mut book) = conn.query_row(&sql, params![path], book_from_row) {
-            let book_id = book.id.unwrap_or(0);
-            book.authors = get_authors_for_book(&conn, book_id).unwrap_or_default();
-            book.tags = get_tags_for_book(&conn, book_id).unwrap_or_default();
+        let params_refs: Vec<&dyn rusqlite::ToSql> = chunk
+            .iter()
+            .map(|p| p as &dyn rusqlite::ToSql)
+            .collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let chunk_books: Vec<Book> = stmt
+            .query_map(params_refs.as_slice(), book_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        books.extend(chunk_books);
+    }
 
-            // If it's a manga and has no series string, try fetching it from manga_series
-            if book.domain.as_deref() == Some("manga_comics") && book.series.is_none() {
-                if let Ok(Some(series_title)) = conn.query_row(
-                    "SELECT ms.title FROM manga_series ms JOIN books b ON b.manga_series_id = ms.id WHERE b.id = ?1",
-                    params![book_id],
-                    |row| row.get::<_, Option<String>>(0)
-                ) {
-                    book.series = Some(series_title);
+    // Batch-hydrate authors + tags for all found books (reuses chunked logic).
+    attach_authors_and_tags(&conn, &mut books)?;
+
+    // Batch-fetch manga series titles for manga_comics books that lack a series
+    // string — one query for all affected IDs instead of one per book.
+    let manga_ids: Vec<i64> = books
+        .iter()
+        .filter(|b| {
+            b.domain.as_deref() == Some("manga_comics")
+                && b.series.is_none()
+                && b.id.is_some()
+        })
+        .filter_map(|b| b.id)
+        .collect();
+
+    if !manga_ids.is_empty() {
+        let mut series_map: std::collections::HashMap<i64, String> =
+            std::collections::HashMap::new();
+        for chunk in manga_ids.chunks(500) {
+            let placeholders = chunk
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", i + 1))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let series_sql = format!(
+                "SELECT b.id, ms.title \
+                 FROM books b \
+                 JOIN manga_series ms ON b.manga_series_id = ms.id \
+                 WHERE b.id IN ({})",
+                placeholders
+            );
+            let params_refs: Vec<&dyn rusqlite::ToSql> = chunk
+                .iter()
+                .map(|id| id as &dyn rusqlite::ToSql)
+                .collect();
+            let mut stmt = conn.prepare(&series_sql)?;
+            let rows = stmt.query_map(params_refs.as_slice(), |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })?;
+            for row in rows {
+                let (bid, title) = row?;
+                series_map.insert(bid, title);
+            }
+        }
+        for book in books.iter_mut() {
+            if let Some(bid) = book.id {
+                if let Some(title) = series_map.remove(&bid) {
+                    book.series = Some(title);
                 }
             }
-
-            books.push(book);
         }
     }
+
+    // Restore input path order so callers that zip paths ↔ books get correct
+    // results even when the DB returns rows in a different order.
+    let path_index: std::collections::HashMap<&str, usize> = paths
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (p.as_str(), i))
+        .collect();
+    books.sort_by_key(|b| {
+        path_index
+            .get(b.file_path.as_str())
+            .copied()
+            .unwrap_or(usize::MAX)
+    });
 
     Ok(books)
 }
@@ -1220,6 +1296,61 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
     }
 
     Ok(false) // Not a duplicate
+}
+
+/// One file's outcome from a background directory scan.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ScanFileOutcome {
+    /// A new book row was inserted (with its row id).
+    Inserted { book_id: i64 },
+    /// The file was already indexed (path or hash dedup) — skipped, no row.
+    AlreadyIndexed,
+    /// Ingest failed (corrupt file, tombstone, …) — the scan continues.
+    Failed { error: String },
+}
+
+/// Ingest every file from a background scan through the standard import
+/// pipeline (`import_single_book`), one at a time.
+///
+/// Serial by design: `import_single_book`'s dedup is check-then-insert, so
+/// concurrent ingests of identical files could race into duplicate rows — and
+/// a rescan must never duplicate. The path/hash dedup runs before hashing, so
+/// re-scanning an unchanged folder costs two EXISTS queries per known file.
+/// Failures are logged and recorded, never fatal.
+pub fn ingest_directory_scan(
+    db: &Database,
+    covers_dir: &std::path::Path,
+    supported_files: &[String],
+) -> Vec<ScanFileOutcome> {
+    supported_files
+        .iter()
+        .map(|path| match import_single_book(db, path, covers_dir) {
+            Ok(false) => {
+                // Imported fresh — fetch the row id it landed in (cheap,
+                // indexed by file_path) for the caller's event payload.
+                let book_id = db
+                    .get_connection()
+                    .ok()
+                    .and_then(|conn| {
+                        conn.query_row(
+                            "SELECT id FROM books WHERE file_path = ?1 AND in_trash = 0",
+                            rusqlite::params![path],
+                            |row| row.get(0),
+                        )
+                        .ok()
+                    })
+                    .unwrap_or(0);
+                ScanFileOutcome::Inserted { book_id }
+            }
+            Ok(true) => ScanFileOutcome::AlreadyIndexed,
+            Err(e) => {
+                log::warn!("[background_scan] failed to index {}: {}", path, e);
+                ScanFileOutcome::Failed {
+                    error: e.to_string(),
+                }
+            }
+        })
+        .collect()
 }
 
 /// Persist a book's cover path (used when a background online-cover lookup

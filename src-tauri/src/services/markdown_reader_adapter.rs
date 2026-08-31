@@ -180,7 +180,7 @@ impl BookReaderAdapter for MarkdownReaderAdapter {
         self.path = path.to_string();
 
         let title = Self::extract_first_heading(&markdown)
-            .unwrap_or_else(|| path.split('/').last().unwrap_or("Unknown").to_string());
+            .unwrap_or_else(|| path.split('/').next_back().unwrap_or("Unknown").to_string());
 
         let html_content = Self::md_to_html(&markdown);
         let (chapters, toc) = Self::split_html_by_headings(&html_content);

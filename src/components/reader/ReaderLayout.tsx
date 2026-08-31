@@ -30,16 +30,20 @@ type LoadingStage =
   | 'complete';
 
 export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
-  const {
-    currentBookPath,
-    currentBookFormat,
-    openBook,
-    setProgress,
-    setAnnotations,
-    setSettings,
-    closeBook,
-    currentContent,
-  } = useReaderStore();
+  // K3-008: Fine-grained selectors — each field subscribed independently so
+  // unrelated store changes (annotations, progress, settings, etc.) do NOT
+  // re-render the reader shell. Actions are stable references from getState().
+  const currentBookPath   = useReaderStore(state => state.currentBookPath);
+  const currentBookFormat = useReaderStore(state => state.currentBookFormat);
+  const currentContent    = useReaderStore(state => state.currentContent);
+
+  // Stable action references (zustand actions are stable; getState() avoids
+  // subscribing the component to the whole store).
+  const openBook      = useReaderStore(state => state.openBook);
+  const setProgress   = useReaderStore(state => state.setProgress);
+  const setAnnotations = useReaderStore(state => state.setAnnotations);
+  const setSettings   = useReaderStore(state => state.setSettings);
+  const closeBook     = useReaderStore(state => state.closeBook);
 
   const [loadingStage, setLoadingStage] = useState<LoadingStage>('idle');
   const [error, setError] = useState<ReturnType<typeof parseReaderError> | null>(null);

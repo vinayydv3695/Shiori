@@ -421,7 +421,7 @@ impl BookReaderAdapter for Fb2ReaderAdapter {
         self.path = path.to_string();
 
         let title = Self::extract_book_title(&content)
-            .unwrap_or_else(|| path.split('/').last().unwrap_or("Unknown").to_string());
+            .unwrap_or_else(|| path.split('/').next_back().unwrap_or("Unknown").to_string());
         let author = Self::extract_author(&content);
 
         let (chapters, toc) = Self::parse_body(&content);

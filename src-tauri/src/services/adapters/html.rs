@@ -144,7 +144,7 @@ impl BookFormatAdapter for HtmlFormatAdapter {
         result.word_count = Some(word_count);
 
         // Estimate page count
-        result.page_count = Some((word_count + 249) / 250);
+        result.page_count = Some(word_count.div_ceil(250));
 
         // Count headings for chapter estimation
         let heading_count = Self::count_headings(&dom.document);
@@ -232,7 +232,7 @@ impl BookFormatAdapter for HtmlFormatAdapter {
         let text = Self::extract_text(&dom.document);
         let word_count = text.split_whitespace().count() as u32;
         book_meta.word_count = Some(word_count);
-        book_meta.page_count = Some((word_count + 249) / 250);
+        book_meta.page_count = Some(word_count.div_ceil(250));
 
         // Fallback: use filename as title
         if book_meta.title == "Unknown" {

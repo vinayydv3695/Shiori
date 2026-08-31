@@ -1514,7 +1514,7 @@ fn extract_docx_metadata(file_path: &str) -> Result<Metadata> {
                         let full_name = String::from_utf8_lossy(e.name().as_ref()).to_string();
                         current_element = full_name
                             .split(':')
-                            .last()
+                            .next_back()
                             .unwrap_or(&full_name)
                             .to_string();
                     }

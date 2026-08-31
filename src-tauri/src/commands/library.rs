@@ -20,6 +20,18 @@ struct ScanProgressPayload {
 #[derive(Clone, Serialize)]
 struct ScanCompletePayload {
     total_indexed: usize,
+    /// Files that could not be indexed (corrupt, tombstoned, …) — the scan
+    /// continues past them and reports the count instead of aborting.
+    failed: usize,
+}
+
+/// Uniform payload for the `library-updated` mutation event. `kind` is one
+/// of `book-updated` | `books-imported` | `bulk-delete`; `ids` carries the
+/// affected book row ids (empty when not cheaply available).
+#[derive(Clone, Serialize)]
+struct LibraryUpdatedPayload {
+    kind: &'static str,
+    ids: Vec<i64>,
 }
 
 /// Failure payload for the `download_failed` event — emitted right before the
@@ -31,7 +43,9 @@ struct DownloadPayload {
     error: String,
 }
 
-fn allowed_extensions(content_type: &str) -> &'static [&'static str] {
+/// Extensions a background scan accepts for a given content type. Public so
+/// the scan tests can exercise the exact command-level filter.
+pub fn allowed_extensions(content_type: &str) -> &'static [&'static str] {
     match content_type.trim().to_lowercase().as_str() {
         "manga" => &["cbz", "cbr", "zip"],
         "book" | "books" => &[
@@ -51,16 +65,25 @@ fn allowed_extensions(content_type: &str) -> &'static [&'static str] {
 #[tauri::command]
 pub fn start_background_scan(
     app: tauri::AppHandle,
+    state: State<'_, AppState>,
     library_path: String,
     content_type: String,
 ) -> Result<()> {
     validate::require_safe_path(&library_path, "library_path")?;
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
     tauri::async_runtime::spawn_blocking(move || {
         use std::path::Path;
 
         let root = Path::new(&library_path);
         if !root.exists() || !root.is_dir() {
-            let _ = app.emit("scan_complete", ScanCompletePayload { total_indexed: 0 });
+            let _ = app.emit(
+                "scan_complete",
+                ScanCompletePayload {
+                    total_indexed: 0,
+                    failed: 0,
+                },
+            );
             return;
         }
 
@@ -80,7 +103,25 @@ pub fn start_background_scan(
             .collect();
 
         let total = matching_files.len();
-        for (idx, file) in matching_files.iter().enumerate() {
+        // Ingest through the same idempotent pipeline the import commands use
+        // (path/hash dedup before hashing — a rescan is cheap and never
+        // duplicates). Serial on purpose: import_single_book's dedup is
+        // check-then-insert, so concurrent ingests of identical files could
+        // race into duplicate rows.
+        let outcomes = library_service::ingest_directory_scan(&db, &covers_dir, &matching_files);
+
+        let mut total_indexed = 0usize;
+        let mut failed = 0usize;
+        let mut inserted_ids: Vec<i64> = Vec::new();
+        for (idx, (file, outcome)) in matching_files.iter().zip(&outcomes).enumerate() {
+            match outcome {
+                library_service::ScanFileOutcome::Inserted { book_id } => {
+                    total_indexed += 1;
+                    inserted_ids.push(*book_id);
+                }
+                library_service::ScanFileOutcome::AlreadyIndexed => total_indexed += 1,
+                library_service::ScanFileOutcome::Failed { .. } => failed += 1,
+            }
             let _ = app.emit(
                 "scan_progress",
                 ScanProgressPayload {
@@ -94,7 +135,17 @@ pub fn start_background_scan(
         let _ = app.emit(
             "scan_complete",
             ScanCompletePayload {
-                total_indexed: total,
+                total_indexed,
+                failed,
+            },
+        );
+        // A scan that ingested books is a library mutation — same event the
+        // import commands fire, so the frontend refreshes once.
+        let _ = app.emit(
+            "library-updated",
+            LibraryUpdatedPayload {
+                kind: "books-imported",
+                ids: inserted_ids,
             },
         );
     });
@@ -186,7 +237,13 @@ pub async fn ingest_opened_file(
     .await
     .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
 
-    let _ = app.emit("library-updated", ());
+    let _ = app.emit(
+        "library-updated",
+        LibraryUpdatedPayload {
+            kind: "books-imported",
+            ids: result.book_id.map(|id| vec![id]).unwrap_or_default(),
+        },
+    );
     Ok(result)
 }
 
@@ -272,7 +329,11 @@ pub async fn add_book(state: State<'_, AppState>, book: Book) -> Result<i64> {
 }
 
 #[tauri::command]
-pub async fn update_book(state: State<'_, AppState>, book: Book) -> Result<()> {
+pub async fn update_book(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    book: Book,
+) -> Result<()> {
     if let Some(id) = book.id {
         validate::require_positive_id(id, "book id")?;
     }
@@ -280,12 +341,29 @@ pub async fn update_book(state: State<'_, AppState>, book: Book) -> Result<()> {
     validate::require_max_length(&book.title, 1000, "title")?;
     validate::require_non_empty(&book.file_path, "file_path")?;
     validate::require_safe_path(&book.file_path, "file_path")?;
-    let db = &state.db;
-    library_service::update_book(db, book)
+    let db = state.db.clone();
+    let book_id = book.id;
+    tokio::task::spawn_blocking(move || library_service::update_book(&db, book))
+        .await
+        .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))??;
+    if let Some(id) = book_id {
+        let _ = app.emit(
+            "library-updated",
+            LibraryUpdatedPayload {
+                kind: "book-updated",
+                ids: vec![id],
+            },
+        );
+    }
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn delete_books(state: State<'_, AppState>, ids: Vec<i64>) -> Result<()> {
+pub async fn delete_books(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<i64>,
+) -> Result<()> {
     validate::require_non_empty_vec(&ids, "book ids")?;
     for &id in &ids {
         validate::require_positive_id(id, "book id")?;
@@ -295,16 +373,33 @@ pub async fn delete_books(state: State<'_, AppState>, ids: Vec<i64>) -> Result<(
         ids.len(),
         ids
     );
-    let db = &state.db;
+    let db = state.db.clone();
     let ids_clone = ids.clone();
-    let app_data_dir = state.covers_dir.parent().unwrap_or(&state.covers_dir);
-    let result = library_service::delete_books(db, ids, app_data_dir);
+    let ids_for_event = ids.clone();
+    let app_data_dir = state
+        .covers_dir
+        .parent()
+        .unwrap_or(&state.covers_dir)
+        .to_path_buf();
+    let result =
+        tokio::task::spawn_blocking(move || library_service::delete_books(&db, ids, &app_data_dir))
+            .await
+            .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
     match &result {
         Ok(_) => log::info!(
             "[command::delete_books] Successfully deleted {} books",
             ids_clone.len()
         ),
         Err(e) => log::error!("[command::delete_books] Failed to delete books: {:?}", e),
+    }
+    if result.is_ok() {
+        let _ = app.emit(
+            "library-updated",
+            LibraryUpdatedPayload {
+                kind: "bulk-delete",
+                ids: ids_for_event,
+            },
+        );
     }
     result
 }
@@ -341,14 +436,17 @@ pub async fn delete_book(state: State<'_, AppState>, id: i64) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn restore_book(state: State<AppState>, id: i64) -> Result<()> {
+pub async fn restore_book(state: State<'_, AppState>, id: i64) -> Result<()> {
     validate::require_positive_id(id, "book id")?;
     log::info!(
         "[command::restore_book] Received request to restore book id: {}",
         id
     );
-    let db = &state.db;
-    let result = library_service::restore_book(db, id);
+    let db = state.db.clone();
+    let result =
+        tokio::task::spawn_blocking(move || library_service::restore_book(&db, id))
+            .await
+            .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
     match &result {
         Ok(_) => log::info!(
             "[command::restore_book] Successfully restored book id: {}",
@@ -494,7 +592,16 @@ pub async fn import_books(
 
     enqueue_auto_metadata(&state.db, &metadata_state.sender, &result.success).await;
 
-    let _ = app_handle.emit("library-updated", ());
+    // One indexed SELECT per success path (same shape as the per-path query
+    // enqueue_auto_metadata already runs) — cheap enough to give the frontend
+    // real ids for the imported rows.
+    let _ = app_handle.emit(
+        "library-updated",
+        LibraryUpdatedPayload {
+            kind: "books-imported",
+            ids: imported_book_ids(&state.db, &result.success),
+        },
+    );
     Ok(result)
 }
 
@@ -537,6 +644,26 @@ pub async fn scan_folder_unified(
 use crate::services::manga_metadata_service::parse_manga_title;
 use crate::services::online::provider::{ItemType, MetadataQuery};
 use crate::services::online::worker::MetadataJob;
+
+/// Cheap id lookup for a freshly imported batch: one indexed SELECT per
+/// success path. Any lookup failure degrades to an empty id (the event still
+/// fires — ids are an optimization for the frontend, not a contract).
+fn imported_book_ids(db: &crate::db::Database, success_paths: &[String]) -> Vec<i64> {
+    let mut ids = Vec::with_capacity(success_paths.len());
+    let Ok(conn) = db.get_connection() else {
+        return ids;
+    };
+    let Ok(mut stmt) = conn.prepare("SELECT id FROM books WHERE file_path = ?1 AND in_trash = 0")
+    else {
+        return ids;
+    };
+    for path in success_paths {
+        if let Ok(id) = stmt.query_row(rusqlite::params![path], |row| row.get(0)) {
+            ids.push(id);
+        }
+    }
+    ids
+}
 
 async fn enqueue_auto_metadata(
     db: &crate::db::Database,
@@ -624,11 +751,19 @@ pub async fn import_manga(
         )
         .unwrap_or(true);
 
+    let imported_ids = imported_book_ids(&state.db, &result.success);
+
     if auto_group {
         let _ = crate::commands::manga::auto_group_manga_volumes(state).await;
     }
 
-    let _ = app_handle.emit("library-updated", ());
+    let _ = app_handle.emit(
+        "library-updated",
+        LibraryUpdatedPayload {
+            kind: "books-imported",
+            ids: imported_ids,
+        },
+    );
     Ok(result)
 }
 
@@ -1081,43 +1216,27 @@ pub async fn download_libgen_epub(
                         if resp.status().is_success() {
                             if let Ok(text) = resp.text().await {
                                 // 1. Try to get the very first link inside the <div id="download"> (usually the direct GET link)
-                                if let Ok(re) = regex::Regex::new(
-                                    r#"(?is)id=["']download["'][^>]*>.*?href=["']([^"']+)["']"#,
-                                ) {
-                                    if let Some(caps) = re.captures(&text) {
-                                        download_url = caps.get(1).unwrap().as_str().to_string();
-                                        break;
-                                    }
+                                if let Some(caps) = DOWNLOAD_DIV_RE.captures(&text) {
+                                    download_url = caps.get(1).unwrap().as_str().to_string();
+                                    break;
                                 }
 
                                 // 2. Try exact GET
-                                if let Ok(re) = regex::Regex::new(
-                                    r#"(?i)href=["']([^"']+)["'][^>]*>\s*GET\s*<"#,
-                                ) {
-                                    if let Some(caps) = re.captures(&text) {
-                                        download_url = caps.get(1).unwrap().as_str().to_string();
-                                        break;
-                                    }
+                                if let Some(caps) = GET_EXACT_RE.captures(&text) {
+                                    download_url = caps.get(1).unwrap().as_str().to_string();
+                                    break;
                                 }
 
                                 // 3. Try IPFS / Cloudflare / Pinata links
-                                if let Ok(re) = regex::Regex::new(
-                                    r#"(?i)href=["'](https?://[^"']*(?:ipfs|cloudflare|pinata)[^"']*)["']"#,
-                                ) {
-                                    if let Some(caps) = re.captures(&text) {
-                                        download_url = caps.get(1).unwrap().as_str().to_string();
-                                        break;
-                                    }
+                                if let Some(caps) = IPFS_LINK_RE.captures(&text) {
+                                    download_url = caps.get(1).unwrap().as_str().to_string();
+                                    break;
                                 }
 
                                 // 4. Try loose GET
-                                if let Ok(re) = regex::Regex::new(
-                                    r#"(?i)<a[^>]+href=["']([^"']+)["'][^>]*>.*?GET.*?</a>"#,
-                                ) {
-                                    if let Some(caps) = re.captures(&text) {
-                                        download_url = caps.get(1).unwrap().as_str().to_string();
-                                        break;
-                                    }
+                                if let Some(caps) = GET_LOOSE_RE.captures(&text) {
+                                    download_url = caps.get(1).unwrap().as_str().to_string();
+                                    break;
                                 }
                             }
                         }
@@ -1589,3 +1708,24 @@ mod download_format_tests {
         assert!(format_satisfies("rar", Some("txt")));
     }
 }
+
+
+// Gateway download-scraping regexes: compiled once, reused per fetch attempt
+// (libgen gateway proxies previously rebuilt all four per mirror URL).
+use std::sync::LazyLock;
+static DOWNLOAD_DIV_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?is)id=["']download["'][^>]*>.*?href=["']([^"']+)["']"#)
+        .expect("static libgen gateway regexes are valid")
+});
+static GET_EXACT_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?i)href=["']([^"']+)["'][^>]*>\s*GET\s*<"#)
+        .expect("static libgen gateway regexes are valid")
+});
+static IPFS_LINK_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?i)href=["'](https?://[^"']*(?:ipfs|cloudflare|pinata)[^"']*)["']"#)
+        .expect("static libgen gateway regexes are valid")
+});
+static GET_LOOSE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?i)<a[^>]+href=["']([^"']+)["'][^>]*>.*?GET.*?</a>"#)
+        .expect("static libgen gateway regexes are valid")
+});

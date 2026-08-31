@@ -231,8 +231,9 @@ async fn run_browser_script(
     // Find the last line that starts with `{` — that's our JSON payload.
     let json_line = stdout
         .lines()
-        .filter(|l| l.trim_start().starts_with('{'))
-        .last()
+        // `Lines` is double-ended: take the first `{`-opening line from the back
+        // without scanning every line to the end.
+        .rfind(|l| l.trim_start().starts_with('{'))
         .ok_or_else(|| {
             ShioriError::Other(format!(
                 "Browser script produced no JSON output.\nstdout: {}",

@@ -115,7 +115,7 @@ impl BookFormatAdapter for DocxFormatAdapter {
         result.word_count = Some(word_count);
 
         // Estimate page count (250 words per page)
-        result.page_count = Some((word_count + 249) / 250);
+        result.page_count = Some(word_count.div_ceil(250));
 
         // Count structure
         result.chapter_count = Some(heading_count);
@@ -166,7 +166,7 @@ impl BookFormatAdapter for DocxFormatAdapter {
         // Extract text for word count
         let word_count = text.split_whitespace().count() as u32;
         book_meta.word_count = Some(word_count);
-        book_meta.page_count = Some((word_count + 249) / 250);
+        book_meta.page_count = Some(word_count.div_ceil(250));
 
         // Fallback: use filename as title if no title found
         if book_meta.title == "Unknown" {

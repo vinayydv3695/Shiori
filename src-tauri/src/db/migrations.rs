@@ -168,6 +168,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 48 {
             self.run_in_savepoint("v48", |mgr| mgr.migrate_to_v48())?;
         }
+        if current_version < 49 {
+            self.run_in_savepoint("v49", |mgr| mgr.migrate_to_v49())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2854,6 +2857,24 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v48_search_composite_indexes");
         self.record_migration(48, "search_composite_indexes", &hash)?;
+        Ok(())
+    }
+
+    /// v49: composite index on books_authors(book_id, author_order) for the
+    /// per-book author attach query. `attach_authors_and_tags` sorts by
+    /// `book_id, author_order` — a single-column index cannot serve the sort,
+    /// so author-list attachment was sorting one book at a time.
+    fn migrate_to_v49(&self) -> Result<()> {
+        log::info!("[Migration] Applying v49: books_authors composite index");
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_authors_book_order
+             ON books_authors(book_id, author_order)",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v49_books_authors_book_order");
+        self.record_migration(49, "books_authors_book_order", &hash)?;
         Ok(())
     }
 }

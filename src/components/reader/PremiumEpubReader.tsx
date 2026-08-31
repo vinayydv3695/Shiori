@@ -124,63 +124,85 @@ function rewriteResourceValue(attr: string, value: string, bookId: number): stri
 }
 
 export async function processEpubHtml(bookId: number, html: string): Promise<string> {
-  let processedHtml = html;
-
   // Step 1: Process CSS stylesheets. <link rel=stylesheet> tags can't be kept
   // as-is: DOMPurify strips <link> tags entirely at injection time (and the
   // reader injects into the app document, not an iframe). So the CSS is still
   // inlined as <style> — but url() references inside it (fonts/images) are
   // rewritten to absolute shiori-epub:// URLs instead of base64 data URIs, and
   // the WebView fetches those lazily through the custom protocol.
+  //
+  // K3-006: collect all CSS link tags first, then fetch them with bounded
+  // concurrency (≤4 at a time) instead of sequential await-per-tag.
   const cssLinkRegex = /<link[^>]+rel=["']stylesheet["'][^>]*>/gi;
-  for (const match of Array.from(html.matchAll(cssLinkRegex))) {
-    const linkTag = match[0];
-    const hrefMatch = linkTag.match(/href=["']([^"']+)["']/i);
-    if (!hrefMatch) continue;
+  const cssMatches = Array.from(html.matchAll(cssLinkRegex));
 
-    const cssPath = hrefMatch[1];
+  // Build a map: linkTag → replacement (<style>…</style> or '')
+  const cssReplacements = new Map<string, string>();
 
-    // Skip absolute URLs
-    if (cssPath.startsWith('http') || cssPath.startsWith('data:')) {
-      continue;
+  if (cssMatches.length > 0) {
+    // Bounded concurrency: process up to 4 CSS files in parallel.
+    const BATCH = 4;
+    for (let i = 0; i < cssMatches.length; i += BATCH) {
+      const batch = cssMatches.slice(i, i + BATCH);
+      await Promise.all(batch.map(async (match) => {
+        const linkTag = match[0];
+        if (cssReplacements.has(linkTag)) return; // deduplicate
+        const hrefMatch = linkTag.match(/href=["']([^"']+)["']/i);
+        if (!hrefMatch) { cssReplacements.set(linkTag, ''); return; }
+        const cssPath = hrefMatch[1];
+        if (cssPath.startsWith('http') || cssPath.startsWith('data:')) return;
+        try {
+          const cleanPath = cleanEpubPath(cssPath);
+          const cssData = await api.getEpubResource(bookId, cleanPath);
+          const cssText = new TextDecoder().decode(new Uint8Array(cssData));
+          const cssWithProtoUrls = rewriteCssUrls(cssText, getEpubResourceUrl(bookId, cleanPath), bookId);
+          cssReplacements.set(linkTag, `<style type="text/css">\n${cssWithProtoUrls}\n</style>`);
+        } catch {
+          cssReplacements.set(linkTag, '');
+        }
+      }));
     }
+  }
 
-    try {
-      const cleanPath = cleanEpubPath(cssPath);
-      const cssData = await api.getEpubResource(bookId, cleanPath);
-      const cssText = new TextDecoder().decode(new Uint8Array(cssData));
-      const cssWithProtoUrls = rewriteCssUrls(cssText, getEpubResourceUrl(bookId, cleanPath), bookId);
-      const styleTag = `<style type="text/css">\n${cssWithProtoUrls}\n</style>`;
-      processedHtml = processedHtml.replace(linkTag, styleTag);
-    } catch {
-      processedHtml = processedHtml.replace(linkTag, '');
-    }
+  // Apply CSS replacements in a single pass over the HTML string.
+  let processedHtml = html;
+  for (const [linkTag, replacement] of cssReplacements) {
+    // Use a literal string replace (no regex) — linkTag is an exact match.
+    processedHtml = processedHtml.split(linkTag).join(replacement);
   }
 
   // Step 2: Rewrite images/media/resources — no fetch + base64, just point
   // src/srcset/href at the custom protocol and let the WebView fetch and
   // decode lazily (custom protocols are async, so early injection is fine).
+  //
+  // K3-006: single-pass replace with a replacer function instead of a
+  // per-resource loop that allocated the whole string on every iteration.
+  // The replacer is called for each match without rebuilding processedHtml.
   const srcRegex = /(src|srcset|href)="([^"']+)"/g;
-  for (const match of Array.from(processedHtml.matchAll(srcRegex))) {
-    const attr = match[1];
-    const originalPath = match[2];
-
+  processedHtml = processedHtml.replace(srcRegex, (whole, attr: string, originalPath: string) => {
     // Skip absolute URLs, data URIs, anchors, and CSS files (already processed)
-    if (originalPath.startsWith('http') ||
+    if (
+      originalPath.startsWith('http') ||
       originalPath.startsWith('data:') ||
       originalPath.startsWith('#') ||
-      originalPath.endsWith('.css')) {
-      continue;
+      originalPath.endsWith('.css')
+    ) {
+      return whole;
     }
 
-    // Skip HTML files (these are internal anchor links, not embedded resources)
+    // Skip HTML files (internal anchor links, not embedded resources)
     const originalPathLower = originalPath.toLowerCase();
-    if (originalPathLower.includes('.xhtml') || originalPathLower.includes('.html') || originalPathLower.includes('.htm') || originalPathLower.includes('.xml')) {
-      continue;
+    if (
+      originalPathLower.includes('.xhtml') ||
+      originalPathLower.includes('.html') ||
+      originalPathLower.includes('.htm') ||
+      originalPathLower.includes('.xml')
+    ) {
+      return whole;
     }
 
-    processedHtml = processedHtml.replace(match[0], `${attr}="${rewriteResourceValue(attr, originalPath, bookId)}"`);
-  }
+    return `${attr}="${rewriteResourceValue(attr, originalPath, bookId)}"`;
+  });
 
   return processedHtml;
 }
@@ -410,8 +432,9 @@ export function clearProcessedChapterCache(bookId?: number): void {
   if (processedChapterCache.size === 0) processedChapterCacheBytes = 0;
 }
 
-/** Fetch a chapter and process its HTML, reusing the module-level cache. */
-async function loadProcessedChapter(bookId: number, index: number, term?: string | null): Promise<Chapter> {
+/** Fetch a chapter and process its HTML, reusing the module-level LRU cache.
+ * Exported so ContinuousEpubView can share the same cache (K3-007). */
+export async function loadProcessedChapter(bookId: number, index: number, term?: string | null): Promise<Chapter> {
   // Book switch: drop the previous book's cached chapters before loading the
   // first chapter of the new book (per-chapter LRU caps stay intact).
   if (cachedBookId !== undefined && cachedBookId !== bookId) {

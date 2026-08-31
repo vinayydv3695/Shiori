@@ -219,7 +219,7 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
     // Count total matches (without page limit/offset)
     let count_sql = format!("SELECT COUNT(DISTINCT b.id){}{}", from_sql, where_sql);
 
-    let mut order_clause = String::from("ORDER BY b.added_date DESC");
+    let mut order_clause = String::from("ORDER BY b.added_date DESC, b.id DESC");
 
     if let Some(ref sort_by) = query.sort_by {
         let order_dir = match query
@@ -232,16 +232,17 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
             "asc" => "ASC",
             _ => "DESC",
         };
-
+        // Every sort has a deterministic `b.id` tie-breaker (K3-025) so
+        // pagination is stable across concurrent inserts/deletes.
         match sort_by.as_str() {
             "title" => {
-                order_clause = format!("ORDER BY b.title {}", order_dir);
+                order_clause = format!("ORDER BY b.title {0}, b.id {0}", order_dir);
             }
             "pubdate" => {
-                order_clause = format!("ORDER BY b.pubdate {} NULLS LAST", order_dir);
+                order_clause = format!("ORDER BY b.pubdate {0} NULLS LAST, b.id {0}", order_dir);
             }
             "rating" => {
-                order_clause = format!("ORDER BY b.rating {} NULLS LAST", order_dir);
+                order_clause = format!("ORDER BY b.rating {0} NULLS LAST, b.id {0}", order_dir);
             }
             "author" => {
                 // Batched author name: one grouped pass over books_authors/
@@ -252,10 +253,10 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
                      FROM books_authors ba JOIN authors a ON a.id = ba.author_id \
                      GROUP BY ba.book_id) am ON am.am_book_id = b.id",
                 );
-                order_clause = format!("ORDER BY am.author_name {} NULLS LAST", order_dir);
+                order_clause = format!("ORDER BY am.author_name {0} NULLS LAST, b.id {0}", order_dir);
             }
             "added_date" | _ => {
-                order_clause = format!("ORDER BY b.added_date {}", order_dir);
+                order_clause = format!("ORDER BY b.added_date {0}, b.id {0}", order_dir);
             }
         }
     }

@@ -64,6 +64,12 @@ impl SourceError {
 /// Line format: `{32-hex-addr} {ifindex} {prefixlen} {scope} {flags}` —
 /// scope `0x00` is global, `0x20` is link (fe80). Link-local `fe80::/10`
 /// addresses are skipped regardless of the scope field.
+///
+/// Linux-only at runtime: the sole non-test caller reads `/proc/net/if_inet6`
+/// under `#[cfg(target_os = "linux")]`, so gate the helper the same way to
+/// avoid a dead-code warning on every other target. `test` is included so the
+/// unit test below still compiles (and runs) on non-Linux hosts.
+#[cfg(any(target_os = "linux", test))]
 fn parse_if_inet6(lines: &str) -> bool {
     lines.lines().any(|line| {
         let mut fields = line.split_whitespace();

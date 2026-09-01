@@ -600,7 +600,10 @@ impl RenderingService {
         out
     }
 
-    /// Preload adjacent chapters for smoother navigation
+    /// Preload adjacent chapters for smoother navigation. Desktop-only — its
+    /// sole caller is `#[cfg(not(target_os = "android"))]`, so gate the method
+    /// the same way to avoid a dead-code warning on Android builds.
+    #[cfg(not(target_os = "android"))]
     fn preload_adjacent_chapters(&self, book_id: i64, current_index: usize) {
         // Preload next 2 chapters
         for i in 1..=2 {

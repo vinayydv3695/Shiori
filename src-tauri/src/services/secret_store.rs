@@ -10,11 +10,17 @@
 //! `Ok(None)` and [`set`] returns `Ok(false)`, and the callers fall back to
 //! their legacy plaintext storage — the frontend never notices.
 
-use crate::error::{Result, ShioriError};
+use crate::error::Result;
+// Desktop-only: on Android/iOS there is no keyring backend, so the keyring code
+// paths (and these symbols) are compiled out — gate them to avoid unused warnings.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use crate::error::ShioriError;
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use log::debug;
 
 /// Service name matches the app identifier in tauri.conf.json
 /// (`io.github.vinayydv3695.shiori`); each credential is a separate account.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 const SERVICE: &str = "io.github.vinayydv3695.shiori";
 
 /// Read a credential from the OS keyring.

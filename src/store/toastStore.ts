@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { recordAction } from './actionLogStore';
 
 export interface ToastMessage {
   id: string;
@@ -24,6 +25,17 @@ export const useToastStore = create<ToastStore>((set) => ({
   
   addToast: (toast) => {
     const toastDuration = toast.duration ?? 1200;
+
+    // Toasts are the app's visible response to an action — mirror them into the
+    // (opt-in) action log. No-op unless logging is enabled; never throws.
+    try {
+      recordAction(
+        'app',
+        `Toast (${toast.variant ?? 'default'}): ${toast.title}${toast.description ? ` — ${toast.description}` : ''}`
+      );
+    } catch {
+      // ignore
+    }
 
     // Intercept to Sonner
     if (toast.variant === 'success') {

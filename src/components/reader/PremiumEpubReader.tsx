@@ -909,7 +909,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   const flushProgressNow = useCallback(() => {
     const totalChapters = metadataRef.current?.total_chapters ?? 1;
-    const chapterIndex = currentIndexRef.current;
+    let chapterIndex = currentIndexRef.current;
     const canvas = canvasRef.current;
     let scrollRatio = scrollPositionsRef.current.get(chapterIndex) ?? 0;
     let blockIndex = -1;
@@ -922,13 +922,37 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
         rememberScrollPosition(chapterIndex, scrollRatio);
       } else {
-        const activeEl = canvas.querySelector(`[data-chapter-index="${chapterIndex}"]`) as HTMLElement;
+        // Continuous/vertical flow: save by the chapter at the VIEWPORT TOP,
+        // NOT the largest-visible-area chapter (currentIndexRef, driven by the
+        // IntersectionObserver). Just after crossing a boundary the top of the
+        // screen is already in chapter N while N-1 may still cover more pixels;
+        // trusting the area-based index would save `chapter_{N-1}` at ratio ~1.0
+        // and resume a chapter early. Find the loaded chapter element that
+        // straddles scrollTop and compute the ratio against it.
+        const scrollTop = canvas.scrollTop;
+        const chapterEls = Array.from(
+          canvas.querySelectorAll('[data-chapter-index]')
+        ) as HTMLElement[];
+        let activeEl: HTMLElement | null = null;
+        for (const el of chapterEls) {
+          if (el.offsetTop <= scrollTop && scrollTop < el.offsetTop + el.scrollHeight) {
+            activeEl = el;
+            break;
+          }
+        }
+        // Fall back to the area-based active chapter's element when nothing
+        // straddles the top (e.g. very short first chapter above scrollTop 0).
+        if (!activeEl) {
+          activeEl = canvas.querySelector(`[data-chapter-index="${chapterIndex}"]`) as HTMLElement;
+        }
         if (activeEl) {
-           const distance = canvas.scrollTop - activeEl.offsetTop;
+           const topIdx = parseInt(activeEl.getAttribute('data-chapter-index') || '', 10);
+           if (!Number.isNaN(topIdx)) chapterIndex = topIdx;
+           const distance = scrollTop - activeEl.offsetTop;
            scrollRatio = distance > 0 && activeEl.scrollHeight > 0 ? distance / activeEl.scrollHeight : 0;
            scrollRatio = Math.max(0, Math.min(1, scrollRatio));
         } else {
-           const { scrollTop, scrollHeight, clientHeight } = canvas;
+           const { scrollHeight, clientHeight } = canvas;
            scrollRatio = scrollHeight > clientHeight ? scrollTop / (scrollHeight - clientHeight) : 0;
         }
         // Vertical flow only: remember which block sits at the viewport top so

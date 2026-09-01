@@ -352,8 +352,13 @@ impl BookReaderAdapter for EpubAdapter {
                 cause: "Failed to decode chapter content".to_string(),
             }
         })?;
-        let title = doc
-            .get_current_id()
+        // Prefer a human-readable TOC label for this spine item; the spine
+        // `idref` (get_current_id) is an internal id like `id123`/`chapter1`,
+        // so only fall back to it (then to a generic label) when the TOC has
+        // no matching entry.
+        let title = self
+            .find_toc_title_for_spine(index)
+            .or_else(|| doc.get_current_id())
             .unwrap_or_else(|| format!("Chapter {}", index + 1));
 
         Ok(Chapter {

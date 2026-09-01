@@ -389,6 +389,7 @@ pub fn create_backup_with_progress(
             app_data_dir,
             backup_path,
             include_books,
+            selection.include_credentials,
             frontend_settings_json,
             progress,
         )
@@ -434,12 +435,17 @@ fn is_transient_lock(e: &rusqlite::Error) -> bool {
 }
 
 /// Legacy fast path: `VACUUM INTO` snapshot + covers + optional books +
-/// optional frontend settings. Manifest is stamped v2 with all categories.
+/// sources config + optional frontend settings. Manifest is stamped v2 with
+/// all categories. When `include_credentials` is false the snapshot's
+/// credential columns are nulled and source secrets are redacted, matching the
+/// subset path's privacy contract.
+#[allow(clippy::too_many_arguments)]
 fn create_full_backup(
     db: &Database,
     app_data_dir: &Path,
     backup_path: &Path,
     include_books: bool,
+    include_credentials: bool,
     frontend_settings_json: Option<&str>,
     progress: Option<&BackupProgressCallback>,
 ) -> Result<BackupInfo> {
@@ -478,6 +484,24 @@ fn create_full_backup(
                 thread::sleep(Duration::from_millis(200 * attempt));
             }
             Err(e) => return Err(e.into()),
+        }
+    }
+
+    // Honor `include_credentials`: the VACUUM snapshot carries the raw
+    // user_preferences row (AniList token, Prowlarr key). When credentials are
+    // excluded, null those columns in the temp snapshot so the archive — and
+    // any restore from it — never ships the secrets. Mirrors the subset path's
+    // redaction of the same columns.
+    if !include_credentials {
+        let temp_conn = rusqlite::Connection::open(&temp_db_path)?;
+        let cols = table_columns(&temp_conn, "main", "user_preferences").unwrap_or_default();
+        for col in ["anilist_token", "prowlarr_api_key"] {
+            if cols.iter().any(|c| c == col) {
+                temp_conn.execute(
+                    &format!("UPDATE user_preferences SET {} = NULL", quote_col(col)),
+                    [],
+                )?;
+            }
         }
     }
 
@@ -639,6 +663,30 @@ fn create_full_backup(
         total_size,
     );
 
+    // Sources config (sources.json store + Cloudflare sessions). The full path
+    // previously omitted this entirely while still stamping the manifest with
+    // the `sources` category — the config was silently lost. Export it here via
+    // the same helper the subset path uses, honoring `include_credentials`.
+    let mut sources_count: u64 = 0;
+    if let Some((sources_json, session_files)) = export_sources(app_data_dir, include_credentials)? {
+        let entry = "category_sources.json".to_string();
+        if seen_entries.insert(entry.clone()) {
+            let size = write_json_entry(&mut zip, &entry, &sources_json)?;
+            total_size += size;
+            sources_count += 1;
+        }
+        for (session_entry, src) in session_files {
+            let clean_entry = session_entry.replace('\\', "/");
+            if seen_entries.insert(clean_entry.clone()) {
+                if let Ok(mut file) = File::open(&src) {
+                    zip.start_file(&clean_entry, options)?;
+                    total_size += std::io::copy(&mut file, &mut zip)?;
+                    sources_count += 1;
+                }
+            }
+        }
+    }
+
     if let Some(settings_json) = frontend_settings_json {
         let entry = "settings/frontend_settings.json";
         if seen_entries.insert(entry.to_string()) {
@@ -653,7 +701,7 @@ fn create_full_backup(
     category_counts.insert("annotations".to_string(), annotation_count as u64);
     category_counts.insert("progress".to_string(), 0);
     category_counts.insert("preferences".to_string(), 1);
-    category_counts.insert("sources".to_string(), 0);
+    category_counts.insert("sources".to_string(), sources_count);
     category_counts.insert("rss".to_string(), 0);
     category_counts.insert("covers".to_string(), cover_count);
     category_counts.insert("books".to_string(), book_file_count);
@@ -1401,6 +1449,7 @@ pub fn restore_backup_with_progress(
             app_data_dir,
             &mut archive,
             &effective,
+            selection,
             &mut report,
             progress,
             start_time,
@@ -1452,11 +1501,13 @@ pub fn restore_backup(
 /// unfiltered — filtering by category would drop the orphan tables that no
 /// category maps to (reading_goals, shares, conversion_*, onboarding_state,
 /// ...). Subset selections keep the category filter.
+#[allow(clippy::too_many_arguments)]
 fn restore_full_snapshot(
     db: &Database,
     app_data_dir: &Path,
     archive: &mut ZipArchive<File>,
     effective: &[BackupCategory],
+    selection: &RestoreSelection,
     report: &mut RestoreReport,
     progress: Option<&RestoreProgressCallback>,
     start_time: Instant,
@@ -1525,10 +1576,19 @@ fn restore_full_snapshot(
         .flat_map(|c| category_tables(*c).iter().map(move |t| (*t, c.as_str())))
         .collect();
 
-    // ATTACH, then run ALL table DELETEs + INSERTs inside ONE transaction so a
-    // mid-restore failure (corrupt snapshot, constraint violation, crash) rolls
-    // back instead of leaving the library half-wiped. DETACH and the temp-dir
-    // cleanup run in a path that fires even on error.
+    // Conflict policy is honored even on the full-snapshot path so the UI's
+    // promise ("'Skip' leaves existing data untouched") holds. Only `Overwrite`
+    // wipes and replaces the live tables; `Skip`/`KeepBoth` merge additively
+    // (INSERT OR IGNORE) — existing rows are kept and only new rows are added.
+    // A full snapshot can't remap primary keys across FK tables, so KeepBoth
+    // degrades to the same non-destructive merge as Skip rather than wiping.
+    let policy = selection.conflict_policy;
+    let overwrite = policy == ConflictPolicy::Overwrite;
+
+    // ATTACH, then run ALL table changes inside ONE transaction so a mid-restore
+    // failure (corrupt snapshot, constraint violation, crash) rolls back instead
+    // of leaving the library half-wiped. DETACH and the temp-dir cleanup run in a
+    // path that fires even on error.
     let db_result: Result<()> = (|| {
         conn.execute_batch(&attach_sql)?;
         let tx = conn.unchecked_transaction()?;
@@ -1569,16 +1629,32 @@ fn restore_full_snapshot(
                 .collect::<Vec<_>>()
                 .join(", ");
 
-            tx.execute(&format!("DELETE FROM main.{table}"), [])?;
-            let inserted = tx.execute(
-                &format!(
-                    "INSERT INTO main.{table} ({cols}) SELECT {cols} FROM backup_db.{table}",
-                    table = table,
-                    cols = col_list
-                ),
-                [],
-            )?;
+            let inserted = if overwrite {
+                tx.execute(&format!("DELETE FROM main.{table}"), [])?;
+                tx.execute(
+                    &format!(
+                        "INSERT INTO main.{table} ({cols}) SELECT {cols} FROM backup_db.{table}",
+                        table = table,
+                        cols = col_list
+                    ),
+                    [],
+                )?
+            } else {
+                // Non-destructive merge: keep existing rows; add only rows that
+                // don't collide on a primary-key/unique constraint.
+                tx.execute(
+                    &format!(
+                        "INSERT OR IGNORE INTO main.{table} ({cols}) SELECT {cols} FROM backup_db.{table}",
+                        table = table,
+                        cols = col_list
+                    ),
+                    [],
+                )?
+            };
             if let Some(cat) = cat_of_table.get(table) {
+                // `inserted` is changes() — only rows actually written, so a
+                // Skip/KeepBoth merge doesn't inflate the restored count with
+                // rows that were ignored.
                 *report.restored.entry((*cat).to_string()).or_insert(0) += inserted as u64;
             }
         }
@@ -1590,6 +1666,22 @@ fn restore_full_snapshot(
     // Cleanup that must fire on success AND error.
     let _ = conn.execute_batch("DETACH DATABASE backup_db");
     db_result?;
+
+    // Belt-and-suspenders credential guard: an older "Everything" archive made
+    // before the full path honored include_credentials may still carry raw
+    // token columns in its snapshot. Null them unless the user opted in, so the
+    // full-snapshot restore matches the subset path's redaction contract.
+    if selected_tables.contains("user_preferences") && !selection.include_credentials {
+        let pref_cols = table_columns(&conn, "main", "user_preferences").unwrap_or_default();
+        for col in ["anilist_token", "prowlarr_api_key"] {
+            if pref_cols.iter().any(|c| c == col) {
+                let _ = conn.execute(
+                    &format!("UPDATE user_preferences SET {} = NULL", quote_col(col)),
+                    [],
+                );
+            }
+        }
+    }
 
     let archive_len = archive.len();
 
@@ -1738,6 +1830,16 @@ fn restore_full_snapshot(
         if relinked > 0 {
             log::info!("[restore] relinked {} restored book file path(s)", relinked);
         }
+    }
+
+    // Sources config: full backups now embed category_sources.json (+ Cloudflare
+    // sessions), so restore them through the same helper the subset path uses.
+    // Guard on the entry actually being present so legacy full snapshots (which
+    // predate sources export) don't record a spurious "not present" warning.
+    if effective.contains(&BackupCategory::Sources)
+        && archive.by_name("category_sources.json").is_ok()
+    {
+        restore_sources(app_data_dir, archive, selection, report)?;
     }
 
     if effective.contains(&BackupCategory::Preferences) {
@@ -2515,7 +2617,7 @@ fn restore_junction(
     conn: &rusqlite::Connection,
     table: &str,
     rows: &mut Vec<&Map<String, Value>>,
-    policy: ConflictPolicy,
+    _policy: ConflictPolicy,
     cat_name: &str,
     report: &mut RestoreReport,
 ) -> Result<()> {
@@ -2576,28 +2678,29 @@ fn restore_junction(
             .optional()?
             .unwrap_or(false);
 
-        if policy == ConflictPolicy::Skip && exists {
+        if exists {
+            // A junction row is identity-only: if the (book, author/tag) pair
+            // already exists there is nothing to overwrite, so every policy is a
+            // no-op here. Count it as skipped rather than inflating `restored`.
             report.skipped += 1;
             continue;
         }
-        if !exists {
-            if write_row_checked(report, cat_name, &what, || {
-                conn.execute(
-                    &format!(
-                        "INSERT INTO {table} (book_id, {}) VALUES (?1, ?2)",
-                        if table == "books_authors" {
-                            "author_id"
-                        } else {
-                            "tag_id"
-                        }
-                    ),
-                    rusqlite::params![book_id, ref_id],
-                )
-                .map(|_| ())
-                .map_err(ShioriError::Database)
-            })? {
-                continue;
-            }
+        if write_row_checked(report, cat_name, &what, || {
+            conn.execute(
+                &format!(
+                    "INSERT INTO {table} (book_id, {}) VALUES (?1, ?2)",
+                    if table == "books_authors" {
+                        "author_id"
+                    } else {
+                        "tag_id"
+                    }
+                ),
+                rusqlite::params![book_id, ref_id],
+            )
+            .map(|_| ())
+            .map_err(ShioriError::Database)
+        })? {
+            continue;
         }
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
     }
@@ -2796,7 +2899,7 @@ fn restore_shelves(
 fn restore_shelf_books(
     conn: &rusqlite::Connection,
     rows: &mut Vec<&Map<String, Value>>,
-    policy: ConflictPolicy,
+    _policy: ConflictPolicy,
     cat_name: &str,
     report: &mut RestoreReport,
 ) -> Result<()> {
@@ -2828,21 +2931,22 @@ fn restore_shelf_books(
             )
             .optional()?
             .unwrap_or(false);
-        if policy == ConflictPolicy::Skip && exists {
+        if exists {
+            // (shelf, book) membership is identity-only — an existing row has
+            // nothing to overwrite, so every policy is a no-op. Count it as
+            // skipped rather than inflating `restored`.
             report.skipped += 1;
             continue;
         }
-        if !exists {
-            conn.execute(
-                "INSERT INTO shelf_books (shelf_id, book_id, added_at, sort_order) VALUES (?1, ?2, ?3, ?4)",
-                rusqlite::params![
-                    shelf_id,
-                    book_id,
-                    row.get("added_at").and_then(|v| v.as_str()).unwrap_or(""),
-                    row.get("sort_order").and_then(|v| v.as_i64()).unwrap_or(0)
-                ],
-            )?;
-        }
+        conn.execute(
+            "INSERT INTO shelf_books (shelf_id, book_id, added_at, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                shelf_id,
+                book_id,
+                row.get("added_at").and_then(|v| v.as_str()).unwrap_or(""),
+                row.get("sort_order").and_then(|v| v.as_i64()).unwrap_or(0)
+            ],
+        )?;
         *report.restored.entry(cat_name.to_string()).or_insert(0) += 1;
     }
     Ok(())

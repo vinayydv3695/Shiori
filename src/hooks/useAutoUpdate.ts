@@ -47,7 +47,7 @@ export function useAutoUpdate() {
         if (isAndroid) {
           // Custom Android APK check via GitHub Releases API
           logger.info('[AutoUpdate] Checking Android updates via GitHub...');
-          const response = await fetch('https://api.github.com/repos/vinayydv3695/Shiori/releases/latest');
+          const response = await fetch('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
           if (!response.ok) throw new Error('Failed to fetch latest release');
           
           const data = await response.json();
@@ -98,7 +98,7 @@ export function useAutoUpdate() {
             if (!notes || notes.trim().length < 20) {
               try {
                 const rawVer = update.version.replace(/^v/, '');
-                const res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori/releases/tags/v${rawVer}`);
+                const res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/tags/v${rawVer}`);
                 if (res.ok) {
                   const data = await res.json();
                   if (data.body) notes = data.body;

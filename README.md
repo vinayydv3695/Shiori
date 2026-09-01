@@ -6,7 +6,7 @@
   <p>A modern offline-first library and reading platform for serious personal collections. Zero tracking, total control.</p>
 
   [![Discord](https://img.shields.io/badge/DISCORD-JOIN%20SERVER-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/nS7g56mab)
-  [![Downloads](https://img.shields.io/github/downloads/vinayydv3695/Shiori/total?style=for-the-badge&color=yellogreen&label=DOWNLOADS)](https://github.com/vinayydv3695/Shiori/releases)
+  [![Downloads](https://img.shields.io/github/downloads/vinayydv3695/Shiori-releases/total?style=for-the-badge&color=yellogreen&label=DOWNLOADS)](https://github.com/vinayydv3695/Shiori-releases/releases)
   
   <br />
 
@@ -120,7 +120,7 @@
 
 ## Quick Start
 
-1. Download the [latest release](https://github.com/vinayydv3695/Shiori/releases) for your platform.
+1. Download the [latest release](https://github.com/vinayydv3695/Shiori-releases/releases) for your platform.
 2. Install and launch Shiori.
 3. Import your first book, set up your library folder, or connect an online source!
 
@@ -131,7 +131,7 @@
 ### Install Prebuilt Binaries
 
 Download the latest release from:  
-**https://github.com/vinayydv3695/Shiori/releases**
+**https://github.com/vinayydv3695/Shiori-releases/releases**
 
 | Platform | Distribution | Notes |
 |---|---|---|
@@ -248,5 +248,5 @@ Shiori is released under the [GPL-3.0 License](LICENSE).
   <br/>
   <a href="https://github.com/vinayydv3695/Shiori/issues">Report Bug</a> ·
   <a href="https://github.com/vinayydv3695/Shiori/discussions">Discussions</a> ·
-  <a href="https://github.com/vinayydv3695/Shiori/releases">Releases</a>
+  <a href="https://github.com/vinayydv3695/Shiori-releases/releases">Releases</a>
 </div>

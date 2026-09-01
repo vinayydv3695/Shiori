@@ -45,7 +45,7 @@ export function UpdateDialog() {
       let notes = customNotes;
       if (!notes) {
         try {
-          const res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori/releases/latest');
+          const res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
           if (res.ok) {
             const data = await res.json();
             notes = data.body;

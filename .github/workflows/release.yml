@@ -146,11 +146,11 @@ jobs:
             if [ "$CURRENT_VERSION" != "$PREV_VERSION" ]; then
               echo "Version changed from $PREV_VERSION to $CURRENT_VERSION"
               echo "changed=true" >> "$GITHUB_OUTPUT"
-            elif git ls-remote --tags origin "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
-              echo "Version unchanged and release tag v${CURRENT_VERSION} already exists"
+            elif git ls-remote --tags "https://github.com/vinayydv3695/Shiori-releases.git" "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+              echo "Version unchanged and release tag v${CURRENT_VERSION} already exists on Shiori-releases"
               echo "changed=false" >> "$GITHUB_OUTPUT"
             else
-              echo "Version unchanged but release tag v${CURRENT_VERSION} is missing; release needed"
+              echo "Version unchanged but release tag v${CURRENT_VERSION} is missing on Shiori-releases; release needed"
               echo "changed=true" >> "$GITHUB_OUTPUT"
             fi
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -158,11 +158,11 @@ jobs:
             if [ "$FORCE_RELEASE" = "true" ]; then
               echo "force_release=true, marking version as changed"
               echo "changed=true" >> "$GITHUB_OUTPUT"
-            elif git ls-remote --tags origin "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
-              echo "Release tag v${CURRENT_VERSION} already exists on origin"
+            elif git ls-remote --tags "https://github.com/vinayydv3695/Shiori-releases.git" "refs/tags/v${CURRENT_VERSION}" | grep -q "refs/tags/v${CURRENT_VERSION}$"; then
+              echo "Release tag v${CURRENT_VERSION} already exists on Shiori-releases"
               echo "changed=false" >> "$GITHUB_OUTPUT"
             else
-              echo "Release tag v${CURRENT_VERSION} does not exist on origin"
+              echo "Release tag v${CURRENT_VERSION} does not exist on Shiori-releases"
               echo "changed=true" >> "$GITHUB_OUTPUT"
             fi
           else
@@ -306,7 +306,7 @@ jobs:
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
           TAURI_SIGNING_PRIVATE_KEY: ${{ env.CLEAN_TAURI_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_KEY_PASSWORD }}
@@ -315,6 +315,8 @@ jobs:
         with:
           tagName: v${{ needs.check-version.outputs.version }}
           releaseName: 'Shiori v${{ needs.check-version.outputs.version }}'
+          owner: vinayydv3695
+          repo: Shiori-releases
           includeUpdaterJson: ${{ matrix.include_updater_json }}
           tauriScript: npm run tauri
           releaseBody: |
@@ -346,7 +348,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         env:
           VERSION: ${{ needs.check-version.outputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -394,7 +396,7 @@ jobs:
           fi
 
           tar -C "${STAGE_DIR}" -czf "${TAR_PATH}" usr
-          gh release upload "v${VERSION}" "${TAR_PATH}" --repo "${GITHUB_REPOSITORY}" --clobber
+          gh release upload "v${VERSION}" "${TAR_PATH}" --repo "vinayydv3695/Shiori-releases" --clobber
 
   # ── Step 3: Update AUR packages after release ──────────────────────
   update-aur:
@@ -428,7 +430,7 @@ jobs:
       - name: Monitor release tarball asset with gh and capture checksum
         id: release-meta
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${{ needs.check-version.outputs.version }}"
@@ -437,7 +439,7 @@ jobs:
 
           for attempt in {1..30}; do
             RELEASE_JSON=""
-            RELEASE_JSON="$(gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json isDraft,assets 2>/dev/null || true)"
+            RELEASE_JSON="$(gh release view "v${VERSION}" --repo "vinayydv3695/Shiori-releases" --json isDraft,assets 2>/dev/null || true)"
             if [ -z "$RELEASE_JSON" ]; then
               echo "Waiting for release v${VERSION} to exist (${attempt}/30)..."
               sleep 20
@@ -457,13 +459,13 @@ jobs:
               continue
             fi
 
-            DIGEST="$(gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .digest" 2>/dev/null || true)"
+            DIGEST="$(gh release view "v${VERSION}" --repo "vinayydv3695/Shiori-releases" --json assets --jq ".assets[] | select(.name == \"${ASSET_NAME}\") | .digest" 2>/dev/null || true)"
             if [ -n "$DIGEST" ]; then
               SHA256="${DIGEST#sha256:}"
               break
             fi
 
-            gh release download "v${VERSION}" --repo "${GITHUB_REPOSITORY}" --pattern "${ASSET_NAME}" --dir /tmp --clobber
+            gh release download "v${VERSION}" --repo "vinayydv3695/Shiori-releases" --pattern "${ASSET_NAME}" --dir /tmp --clobber
             SHA256="$(sha256sum "/tmp/${ASSET_NAME}" | cut -d' ' -f1)"
             if [ -n "$SHA256" ]; then
               break
@@ -687,13 +689,13 @@ jobs:
 
       - name: Upload Android APK to Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           VERSION="v${{ needs.check-version.outputs.version }}"
           APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
           for apk in $(find "$APK_DIR" -name '*.apk' ! -name '*-unsigned.apk' -type f 2>/dev/null); do
             echo "Uploading: $apk"
-            gh release upload "$VERSION" "$apk" --clobber || true
+            gh release upload "$VERSION" "$apk" --repo "vinayydv3695/Shiori-releases" --clobber || true
           done
 
   # ── Step 5: Build for iOS ──────────────────────────────────────────
@@ -747,12 +749,12 @@ jobs:
 
       - name: Upload iOS App to Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           ZIP_FILE=$(find src-tauri/gen/apple/build -name '*.zip' -type f | head -1)
           if [ -n "$ZIP_FILE" ]; then
-            gh release upload "v${VERSION}" "$ZIP_FILE" --clobber || true
+            gh release upload "v${VERSION}" "$ZIP_FILE" --repo "vinayydv3695/Shiori-releases" --clobber || true
           else
             echo "No iOS app zip found - skipping upload"
           fi

@@ -2457,13 +2457,13 @@ const AboutSettings = () => {
       
       // In development mode or browser, open the rich update preview dialog with real GitHub release info
       if (import.meta.env.DEV || !isTauri) {
-        let latestVersion = '2.3.33';
+        let latestVersion = '1.0.0';
         let latestNotes = '';
         try {
-          const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
+          const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest");
           if (res.ok) {
             const data = await res.json();
-            latestVersion = data.tag_name?.replace(/^v/, '') || '2.3.33';
+            latestVersion = data.tag_name?.replace(/^v/, '') || '1.0.0';
             latestNotes = data.body || '';
           }
         } catch {
@@ -2480,7 +2480,7 @@ const AboutSettings = () => {
       }
 
       if (isAndroid) {
-        const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
+        const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest");
         if (!res.ok) throw new Error("Failed to fetch releases");
         const data = await res.json();
         const latestVersion = data.tag_name.replace(/^v/, '');
@@ -2529,7 +2529,7 @@ const AboutSettings = () => {
           // Tauri updater failed — fall back to GitHub API
           console.warn('[Update] Tauri updater failed, falling back to GitHub API:', pluginErr)
           try {
-            const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori/releases/latest");
+            const res = await fetch("https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest");
             if (!res.ok) throw new Error("GitHub API request failed");
             const data = await res.json();
             const latestVersion = data.tag_name.replace(/^v/, '');

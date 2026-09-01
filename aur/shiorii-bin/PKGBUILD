@@ -4,7 +4,7 @@ pkgver=1.1.2
 pkgrel=1
 pkgdesc="Modern offline-first eBook library manager built with Tauri, React, and Rust"
 arch=('x86_64')
-url="https://github.com/vinayydv3695/Shiori"
+url="https://github.com/vinayydv3695/Shiori-releases"
 license=('MIT')
 depends=(
     'webkit2gtk-4.1'
@@ -34,7 +34,7 @@ conflicts=(
     'shiori-ebook'
     'shiori-ebook-bin'
 )
-source=("Shiori_${pkgver}_linux_amd64.tar.gz::https://github.com/vinayydv3695/Shiori/releases/download/v${pkgver}/Shiori_${pkgver}_linux_amd64.tar.gz")
+source=("Shiori_${pkgver}_linux_amd64.tar.gz::https://github.com/vinayydv3695/Shiori-releases/releases/download/v${pkgver}/Shiori_${pkgver}_linux_amd64.tar.gz")
 sha256sums=('f8bb89faac44bcd08e531c8cb72c6452c1ea216a9a50d55c1c07d6ec3ad0109c')
 
 package() {

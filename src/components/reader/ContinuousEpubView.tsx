@@ -449,6 +449,21 @@ export function ContinuousEpubView({
         
         const newCh = await fetchChapter(lastIdx + 1);
         if (newCh) {
+          // Appending can push the window past 8 and slice chapters off the TOP
+          // (above the viewport). That shifts everything below the removed
+          // chapters and yanks the reading position unless we re-anchor — the
+          // same compensation the 'up'/'prepend' branch does. Capture the anchor
+          // BEFORE the DOM shrinks so the layout effect can restore scrollTop.
+          if (chapters.length + 1 > 8) {
+            const activeEl = chapterRefs.current.get(activeChapterIndexRef.current);
+            prevScrollStateRef.current = {
+              height: containerRef.current.scrollHeight,
+              top: containerRef.current.scrollTop,
+              activeIdx: activeChapterIndexRef.current,
+              activeOffsetTop: activeEl ? activeEl.offsetTop : undefined
+            };
+            pendingScrollAnchorRef.current = 'slice-top';
+          }
           setChapters(prev => {
             if (prev.some(c => c.index === newCh.index)) return prev;
             const updated = [...prev, newCh];

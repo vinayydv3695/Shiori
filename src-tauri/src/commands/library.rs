@@ -1513,13 +1513,18 @@ pub fn get_next_book_in_series(
 
     if let Some(row) = rows.next()? {
         let series: String = row.get(0)?;
-        let current_index: f64 = row.get(1)?;
+        // series_index may be NULL for books that belong to a series but have no
+        // assigned position; treat that as 0.0 rather than erroring the whole call.
+        let current_index: f64 = row.get::<_, Option<f64>>(1)?.unwrap_or(0.0);
 
-        // Find the next book in the series (lowest index greater than current)
+        // Find the next book in the series (lowest index greater than current).
+        // Skip rows with a NULL series_index — they can never qualify as "next"
+        // and would otherwise fail to compare. Tie-break on title/id for stable
+        // ordering when two books share the same index.
         let mut next_stmt = conn.prepare(
             "SELECT id FROM books
-             WHERE series = ? AND series_index > ?
-             ORDER BY series_index ASC
+             WHERE series = ? AND series_index IS NOT NULL AND series_index > ?
+             ORDER BY series_index ASC, title ASC, id ASC
              LIMIT 1",
         )?;
 

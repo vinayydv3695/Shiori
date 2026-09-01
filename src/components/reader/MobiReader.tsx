@@ -106,7 +106,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             rememberScrollPosition(chapterIndex, scrollRatio);
         }
 
-        const progressPercent = ((chapterIndex + scrollRatio / totalChapters) / totalChapters) * 100;
+        const progressPercent = ((chapterIndex + scrollRatio) / totalChapters) * 100;
         const location = scrollRatio > 0
             ? `mobi-chapter-${chapterIndex}:scroll_${scrollRatio.toFixed(6)}`
             : `mobi-chapter-${chapterIndex}`;
@@ -170,8 +170,8 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
             // Save progress
             const totalChapters = metadata?.total_chapters ?? 1;
-            const progressPercent = ((index + 1) / totalChapters) * 100;
-            const scrollRatio = scrollPositionsRef.current.get(index) || 0;
+            const scrollRatio = targetRatio > 0 ? targetRatio : (scrollPositionsRef.current.get(index) || 0);
+            const progressPercent = ((index + scrollRatio) / totalChapters) * 100;
             const location = scrollRatio > 0
                 ? `mobi-chapter-${index}:scroll_${scrollRatio.toFixed(6)}`
                 : `mobi-chapter-${index}`;
@@ -310,7 +310,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
         // Update global scroll progress for UI
         const totalChapters = metadata?.total_chapters ?? 1;
-        const chapterFraction = (percent / 100) / totalChapters;
+        const chapterFraction = percent / 100;
         const globalProgress = ((currentIndex + chapterFraction) / totalChapters) * 100;
         setScrollProgress(Math.min(100, Math.max(0, globalProgress)));
 
@@ -318,7 +318,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         if (saveProgressTimerRef.current) clearTimeout(saveProgressTimerRef.current);
         saveProgressTimerRef.current = window.setTimeout(() => {
             const scrollRatio = maxScroll > 0 ? scrollTop / maxScroll : 0;
-            const progressPercent = ((currentIndex + scrollRatio / totalChapters) / totalChapters) * 100;
+            const progressPercent = ((currentIndex + scrollRatio) / totalChapters) * 100;
             const location = scrollRatio > 0
                 ? `mobi-chapter-${currentIndex}:scroll_${scrollRatio.toFixed(6)}`
                 : `mobi-chapter-${currentIndex}`;

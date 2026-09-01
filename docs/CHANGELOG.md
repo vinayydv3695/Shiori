@@ -1,4 +1,25 @@
-# Release Notes (v2.3.89)
+# Release Notes (v1.0.1)
+
+## New Features
+
+- **Action Log (Privacy & Data)** — An opt-in diagnostic trail you can turn on from **Settings → Advanced → Privacy & Data**. When enabled it records a rolling **10-minute** window of your actions (clicked control labels) and how the app responded (log lines and toast messages), then lets you **download it as a `.txt` file**. The download button unlocks only while the toggle is on and after at least **1 minute** of logging. The log is bounded, stored locally, cleared when you turn it off, and deliberately captures element labels and app messages only — never input values, credentials, or search text (`actionLogStore.ts`, `SettingsDialog.tsx`).
+
+## Bug Fixes — Reader, Library & Backup/Restore
+
+### Reader
+- **Resume no longer lands a chapter early (continuous flow)** — Reading progress in the scrolling EPUB view is now saved by the chapter at the **viewport top**, not the largest-visible-area chapter tracked by the IntersectionObserver. Just after crossing a boundary the previous chapter can still cover more pixels; the old heuristic saved `chapter_{N-1}` at ratio ~1.0, so reopening dropped the reader at the bottom of the previous chapter — pronounced on short chapters and late-loading images. `flushProgressNow` now finds the loaded chapter element straddling `scrollTop` and computes the ratio against it (`PremiumEpubReader.tsx`).
+- **MOBI/AZW3 progress math corrected** — The intra-chapter scroll term was divided by the chapter count an extra time, so the progress bar crawled (~0.25%/chapter on a 20-chapter book) and never reached 100%. All three write paths and the UI `globalProgress` now use `((chapterIndex + scrollRatio) / totalChapters) * 100`, and the on-load formula was aligned so scroll-based and chapter-based writes agree (`MobiReader.tsx`).
+- **EPUB chapter titles show real labels** — `get_chapter` now resolves the human-readable Table-of-Contents label for a spine item instead of returning the internal spine `idref` (e.g. `id123`, `chapter1`), falling back to the id and then `"Chapter N"` only when no TOC entry matches (`epub_adapter.rs`).
+- **Continuous view no longer jumps when trimming while scrolling down** — Appending a chapter that pushed the window past its cap sliced chapters off the top (above the viewport) without re-anchoring, yanking the reading position. The down-scroll path now captures the scroll anchor before the trim, matching the up-scroll compensation (`ContinuousEpubView.tsx`).
+
+### Backup & Restore
+- **"Everything" backup now includes Sources** — The full-snapshot path archived the database, covers, books and settings but silently omitted `sources.json` and Cloudflare sessions while still stamping the manifest with the `sources` category. It now exports source configuration through the same helper the selective path uses, so an Everything backup no longer loses (or misreports) online-source setup (`backup_service.rs`).
+- **"Everything" backup honors "include credentials" (privacy)** — The full path snapshotted the raw database, so AniList/Prowlarr tokens were archived and restored regardless of the credentials toggle. When credentials are excluded, the snapshot's credential columns are now nulled at backup time, source secrets are redacted, and restore applies the same credential guard — matching the selective path's contract.
+- **Full-snapshot restore honors the conflict policy** — A full-archive restore always wiped the live library even under `Skip`/`Keep both`, contradicting the UI's promise that "Skip leaves existing data untouched." Only `Overwrite` now replaces the library; `Skip`/`Keep both` merge additively (`INSERT OR IGNORE`), keeping existing rows and adding only new ones.
+- **Accurate restore counts** — Junction (`books_authors`/`books_tags`) and shelf-membership rows that already existed were counted as "restored" under `Overwrite`/`Keep both` even though nothing was written. Identity-only rows that already exist are now counted as skipped, and the full-snapshot merge counts only rows actually inserted.
+
+### Library
+- **`get_next_book_in_series` no longer errors on a missing index** — A book with a series name but a NULL `series_index` made the "next in series" lookup fail outright. The current index is read as optional (defaulting to `0.0`), the "next" query skips NULL indices, and ordering tie-breaks on title/id (`library.rs`).
 
 ## Bug Fixes & Reader Hardening
 

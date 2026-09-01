@@ -50,6 +50,7 @@ import { TTSEngine } from '@/lib/ttsEngine'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
+import { useActionLogStore, buildActionLogText, ACTION_LOG_MIN_DOWNLOAD_MS } from '@/store/actionLogStore'
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
@@ -204,6 +205,8 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Send Crash Reports', description: 'Automatic crash reporting', tab: 'advanced', section: 'Privacy' },
   { label: 'Reading History Retention', description: 'How long to keep reading history', tab: 'advanced', section: 'Privacy' },
   { label: 'Clear Reading History', description: 'Delete all reading history', tab: 'advanced', section: 'Privacy' },
+  { label: 'Action Log', description: 'Record a rolling 10-minute trail of actions and app responses', tab: 'advanced', section: 'Privacy' },
+  { label: 'Download Action Log', description: 'Download the recorded action log as a text file', tab: 'advanced', section: 'Privacy' },
   { label: 'AniList Token', description: 'API Token for AniList two-way sync', tab: 'general', section: 'Integrations' },
 ]
 
@@ -597,6 +600,93 @@ const SettingItem = ({
     </div>
   </motion.div>
   );
+}
+
+/**
+ * Action Log control (Privacy & Data): a toggle that starts/stops a rolling
+ * 10-minute action trail, plus a download button that unlocks only after the
+ * toggle has been on for at least 1 minute.
+ */
+const ActionLogSetting = () => {
+  const enabled = useActionLogStore((s) => s.enabled)
+  const enabledAt = useActionLogStore((s) => s.enabledAt)
+  const setEnabled = useActionLogStore((s) => s.setEnabled)
+  const toast = useToast()
+  const [now, setNow] = useState(() => Date.now())
+
+  // While enabled, tick every 5s so the download button unlocks (and the
+  // countdown updates) without needing a user interaction.
+  useEffect(() => {
+    if (!enabled) return
+    setNow(Date.now())
+    const id = setInterval(() => setNow(Date.now()), 5000)
+    return () => clearInterval(id)
+  }, [enabled])
+
+  const elapsed = enabled && enabledAt != null ? now - enabledAt : 0
+  const canDownload = enabled && enabledAt != null && elapsed >= ACTION_LOG_MIN_DOWNLOAD_MS
+  const waitSeconds =
+    enabled && enabledAt != null && !canDownload
+      ? Math.max(0, Math.ceil((ACTION_LOG_MIN_DOWNLOAD_MS - elapsed) / 1000))
+      : 0
+
+  const handleDownload = async () => {
+    if (!canDownload) return
+    const text = buildActionLogText()
+    const fileName = `shiori_action_log_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.txt`
+    try {
+      if (isTauri) {
+        const path = await api.saveFileDialog(fileName)
+        if (!path) return // user cancelled the save dialog
+        await api.writeTextToFile(path, text)
+        toast.success('Action log saved', `Saved to ${path}`)
+      } else {
+        // Browser (dev) fallback: trigger a client-side blob download.
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        toast.success('Action log downloaded')
+      }
+    } catch (e) {
+      toast.error('Failed to save action log', getErrorMessage(e))
+    }
+  }
+
+  return (
+    <>
+      <SettingItem
+        label="Action Log"
+        description="Record a rolling 10-minute trail of your actions and how the app responded. Captures element labels and app messages only — never input values, credentials, or search text."
+      >
+        <Switch checked={enabled} onChange={setEnabled} />
+      </SettingItem>
+      <div className="flex flex-col md:flex-row md:items-center gap-3 px-3 md:px-4 pb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!canDownload}
+          onClick={handleDownload}
+          className="gap-1.5 self-start"
+        >
+          <Download size={14} />
+          Download Log
+        </Button>
+        <span className="text-[13px] text-muted-foreground/80 leading-snug">
+          {!enabled
+            ? 'Turn on the action log to start recording.'
+            : canDownload
+              ? 'Log ready — saves the last 10 minutes of activity as a .txt file.'
+              : `Download unlocks in ${waitSeconds}s (needs 1 minute of logging).`}
+        </span>
+      </div>
+    </>
+  )
 }
 
 const GeneralSettings = ({
@@ -2370,7 +2460,7 @@ const AdvancedSettings = ({
         </SettingSection>
       )}
 
-      {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History']) && (
+      {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History', 'Action Log', 'Download Action Log']) && (
         <SettingSection title="Privacy & Data" description="Control your data and privacy">
           {isSettingVisible('Send Analytics', 'Anonymous usage statistics', 'Privacy') && (
             <SettingItem label="Send Anonymous Usage Statistics" description="Help improve Shiori by sending anonymous usage data">
@@ -2413,6 +2503,11 @@ const AdvancedSettings = ({
                 Clear Reading History
               </Button>
             </div>
+          )}
+
+          {(isSettingVisible('Action Log', 'Record a rolling 10-minute trail of actions and app responses', 'Privacy') ||
+            isSettingVisible('Download Action Log', 'Download the recorded action log as a text file', 'Privacy')) && (
+            <ActionLogSetting />
           )}
         </SettingSection>
       )}

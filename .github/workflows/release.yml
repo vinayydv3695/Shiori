@@ -302,47 +302,61 @@ jobs:
           echo "::add-mask::$CLEAN_KEY"
           echo "CLEAN_TAURI_KEY=$CLEAN_KEY" >> $GITHUB_ENV
 
-      # ── Build with Tauri Action ──
+      # ── Build with Tauri Action (build & bundle only) ──
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
           TAURI_SIGNING_PRIVATE_KEY: ${{ env.CLEAN_TAURI_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_KEY_PASSWORD }}
           VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
           VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
         with:
-          tagName: v${{ needs.check-version.outputs.version }}
-          releaseName: 'Shiori v${{ needs.check-version.outputs.version }}'
-          owner: vinayydv3695
-          repo: Shiori-releases
-          includeUpdaterJson: ${{ matrix.include_updater_json }}
           tauriScript: npm run tauri
-          releaseBody: |
-            ## What's New in v${{ needs.check-version.outputs.version }}
+          args: ${{ matrix.args }}
 
-            - **Smooth Advanced Filter Tab Transitions** — Switching tabs now fades and glides with spring-animated sidebar pill highlights.
-            - **Date Picker Fix** — Calendar date selection now works correctly inside Radix dialogs on all platforms.
-            - **Rating Section Layout** — Min/Max rating rows are stacked full-width, no more clipping at dialog edges.
-            - **Hidden Scrollbars** — Scrollbar sliders removed across main content, Home, and filter panels while keeping full scroll.
-            - **Collection Pills Fix** — Favorites, Reading, Completed, and On Hold pill borders are crisp and unclipped.
-            - **Theme Persistence Fix** — Fixed `isDarkTheme` ReferenceError blocking theme switching during onboarding.
-            - **Recommended Icon** — Recommended widget now shows a ThumbsUp icon.
+      - name: Upload release artifacts to Shiori-releases
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: vinayydv3695/Shiori-releases
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: 'Shiori v${{ needs.check-version.outputs.version }}'
+          draft: false
+          prerelease: false
+          body: |
+            ## Shiori v${{ needs.check-version.outputs.version }}
 
-            Download the appropriate installer for your platform:
+            A modern offline-first library and reading platform for serious personal collections.
+
+            ### Downloads & Installers
 
             | Platform | File |
-            |----------|------|
-            | **Windows** | `.exe` (NSIS installer) |
-            | **macOS (Apple Silicon)** | `.dmg` (aarch64) |
+            |---|---|
+            | **Windows** | `.exe` (NSIS installer) / `.msi` |
+            | **macOS (Apple Silicon / Intel)** | `.dmg` |
             | **Linux (Debian/Ubuntu)** | `.deb` |
             | **Linux (Fedora/RHEL)** | `.rpm` |
             | **Linux (Universal)** | `.AppImage` |
             | **Android** | `.apk` |
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
+            | **Arch Linux** | `yay -S shiorii-bin` (AUR) |
+          files: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/deb/*.deb.sig
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/rpm/*.rpm.sig
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/appimage/*.AppImage.sig
+            src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz*
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe.sig
+            src-tauri/target/release/bundle/nsis/*.nsis.zip*
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sig
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/dmg/*.dmg.sig
+            src-tauri/target/release/bundle/macos/*.app.tar.gz*
+          fail_on_unmatched_files: false
 
       - name: Create and upload Linux AUR tarball
         if: matrix.platform == 'ubuntu-22.04'
@@ -397,6 +411,82 @@ jobs:
 
           tar -C "${STAGE_DIR}" -czf "${TAR_PATH}" usr
           gh release upload "v${VERSION}" "${TAR_PATH}" --repo "vinayydv3695/Shiori-releases" --clobber
+
+  # ── Step 3: Publish updater manifest (latest.json) ──────────────────
+  publish-updater:
+    name: Publish updater latest.json
+    needs: [check-version, build]
+    if: |
+      needs.check-version.outputs.version_changed == 'true' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate and upload latest.json updater manifest
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          from datetime import datetime, timezone
+
+          version = os.environ["VERSION"]
+          repo = "vinayydv3695/Shiori-releases"
+          tag = f"v{version}"
+
+          os.makedirs("/tmp/release-assets", exist_ok=True)
+          subprocess.run(["gh", "release", "download", tag, "--repo", repo, "--dir", "/tmp/release-assets", "--clobber"], check=False)
+
+          files = os.listdir("/tmp/release-assets")
+          platforms = {}
+
+          # Linux AppImage
+          linux_gz = next((f for f in files if f.endswith(".AppImage.tar.gz")), None)
+          linux_sig = next((f for f in files if f.endswith(".AppImage.tar.gz.sig")), None)
+          if linux_gz and linux_sig:
+              sig_content = open(f"/tmp/release-assets/{linux_sig}", "r").read().strip()
+              platforms["linux-x86_64"] = {
+                  "signature": sig_content,
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{linux_gz}"
+              }
+
+          # Windows NSIS
+          win_zip = next((f for f in files if "nsis.zip" in f and not f.endswith(".sig")), None)
+          win_sig = next((f for f in files if "nsis.zip.sig" in f), None)
+          if win_zip and win_sig:
+              sig_content = open(f"/tmp/release-assets/{win_sig}", "r").read().strip()
+              platforms["windows-x86_64"] = {
+                  "signature": sig_content,
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{win_zip}"
+              }
+
+          # macOS DMG / App.tar.gz
+          mac_gz = next((f for f in files if f.endswith(".app.tar.gz")), None)
+          mac_sig = next((f for f in files if f.endswith(".app.tar.gz.sig")), None)
+          if mac_gz and mac_sig:
+              sig_content = open(f"/tmp/release-assets/{mac_sig}", "r").read().strip()
+              platforms["darwin-aarch64"] = {
+                  "signature": sig_content,
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{mac_gz}"
+              }
+              platforms["darwin-x86_64"] = {
+                  "signature": sig_content,
+                  "url": f"https://github.com/{repo}/releases/download/{tag}/{mac_gz}"
+              }
+
+          latest_json = {
+              "version": version,
+              "notes": f"Shiori v{version}",
+              "pub_date": datetime.now(timezone.utc).isoformat(),
+              "platforms": platforms
+          }
+
+          with open("/tmp/latest.json", "w") as f:
+              json.dump(latest_json, f, indent=2)
+
+          subprocess.run(["gh", "release", "upload", tag, "/tmp/latest.json", "--repo", repo, "--clobber"], check=True)
+          print("Successfully generated and uploaded latest.json for Tauri updater!")
+          PY
 
   # ── Step 3: Update AUR packages after release ──────────────────────
   update-aur:

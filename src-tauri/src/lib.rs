@@ -832,7 +832,13 @@ pub fn run() {
             let storage_path = app_dir.join("storage");
             std::fs::create_dir_all(&storage_path)?;
 
-            let mut conversion_engine = ConversionEngine::new(4, app.handle().clone());
+            // Conversion worker pool. Android shares RAM with the whole OS:
+            // 4 concurrent conversion parses (PDF/MOBI … whole files in
+            // memory) can OOM a phone, so devices serialize conversions with
+            // a single worker — memory stays flat and predictable. Desktop
+            // keeps the full parallel pool.
+            let conversion_workers = if cfg!(target_os = "android") { 1 } else { 4 };
+            let mut conversion_engine = ConversionEngine::new(conversion_workers, app.handle().clone());
             conversion_engine.set_database(database.clone());
             let conversion_engine = Arc::new(conversion_engine);
             if let Ok(conn) = database.get_connection() {

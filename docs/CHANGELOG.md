@@ -2,7 +2,15 @@
 
 ## New Features
 
-- **Action Log (Privacy & Data)** — An opt-in diagnostic trail you can turn on from **Settings → Advanced → Privacy & Data**. When enabled it records a rolling **10-minute** window of your actions (clicked control labels) and how the app responded (log lines and toast messages), then lets you **download it as a `.txt` file**. The download button unlocks only while the toggle is on and after at least **1 minute** of logging. The log is bounded, stored locally, cleared when you turn it off, and deliberately captures element labels and app messages only — never input values, credentials, or search text (`actionLogStore.ts`, `SettingsDialog.tsx`).
+### Android Conversion & PDF Reader
+- **"Convert to EPUB?" popup now shows on Android** — opening a PDF/MOBI/FB2/DOCX/TXT/HTML book on a device previously skipped the convert-or-open prompt entirely (an old Android bypass in `useBookOpen.ts` shadowed the purpose-built touch-friendly overlay in `ConvertOrOpenDialog`). The popup now appears on Android exactly as on desktop: Convert to EPUB (auto-import + recycle-bin, reader swaps to the EPUB) or Open as-is, remembered per book per session.
+- **PDF reader is usable on a phone** — on Android the top bar was unreachable (hidden by default with no keyboard to reveal it) and the floating page arrows are `display:none` on mobile CSS, so a PDF opened with zero controls. The reader now mirrors the EPUB touch scheme: horizontal swipe turns pages, left/right edge-taps turn pages in page view, a center tap / double-tap / swipe-down reveals the top bar (zoom, TOC, search, settings). Desktop behavior unchanged (`PdfReader.tsx`).
+- **Paragraph reflow for PDF → EPUB** — pdf-extract emits one physical line per line, so converted books had every wrapped line as its own `<p>` and page-line garbage. `split_pages_into_chapters` now unwraps lines with a median-width + lowercase-continuation heuristic (same family as the poppler path): full-width lines that end mid-sentence merge, short final lines of a paragraph merge, headings and title-page lines stay separate, and paragraphs never merge across pages (`conversion/formats/pdf.rs`).
+- **Bounded conversion memory on Android** — the conversion engine ran 4 worker threads on devices too; a phone doing four PDF parses at once (whole files in memory) could OOM. Android now serializes conversions with a single worker — measured flat ~230 MB PSS during a real PDF→EPUB conversion (`lib.rs`).
+
+## New Features
+
+### Action Log (Privacy & Data) — An opt-in diagnostic trail you can turn on from **Settings → Advanced → Privacy & Data**. When enabled it records a rolling **10-minute** window of your actions (clicked control labels) and how the app responded (log lines and toast messages), then lets you **download it as a `.txt` file**. The download button unlocks only while the toggle is on and after at least **1 minute** of logging. The log is bounded, stored locally, cleared when you turn it off, and deliberately captures element labels and app messages only — never input values, credentials, or search text (`actionLogStore.ts`, `SettingsDialog.tsx`).
 
 ## Bug Fixes — Reader, Library & Backup/Restore
 

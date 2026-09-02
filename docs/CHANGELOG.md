@@ -1,3 +1,14 @@
+# Release Notes (v1.0.3)
+
+## CI / Release Pipeline
+
+- **Android APK build no longer dies on the runner** — the Release workflow built both ABIs in one shot while the runner had ~14 GB free (NDK + Gradle + two cargo target trees); the runner killed the job mid-build twice (44 min / 1h51 in). The Android job now installs only the two ABIs actually built (drops x86/x86_64 toolchain targets), caches Rust dependencies, and builds one ABI at a time with the finished ABI's target dir freed before the next — bounded peak disk. Added a disk-headroom diagnostic step.
+
+## Bug Fixes & Performance (inherited from v1.0.2)
+
+- **Library Books No Longer Disappear in Large Libraries** — deterministic `b.id` sort tie-breakers in all paginated library list queries, an insert-stable keyset pagination cursor (`before_added_date`/`before_id`), and a content-aware cover-reveal observer in LibraryGrid.
+- **Android Animation Jank Reduced** — instant section switches, framer-motion transform snapping, and `.is-android` CSS neutralization of expensive animations.
+
 # Release Notes (v1.0.2)
 
 ## New Features

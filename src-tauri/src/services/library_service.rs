@@ -172,7 +172,7 @@ pub fn get_all_books(db: &Database, limit: u32, offset: u32) -> Result<Vec<Book>
     let conn = db.get_connection()?;
 
     let sql = format!(
-        "SELECT {} FROM books b WHERE b.in_trash = 0 ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        "SELECT {} FROM books b WHERE b.in_trash = 0 ORDER BY b.added_date DESC, b.id DESC LIMIT ?1 OFFSET ?2",
         BOOK_COLUMNS
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -2041,7 +2041,7 @@ pub fn get_books_by_domain(
     let where_clause = domain_where_clause(domain, "b.");
 
     let sql = format!(
-        "SELECT {} FROM books b {} ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        "SELECT {} FROM books b {} ORDER BY b.added_date DESC, b.id DESC LIMIT ?1 OFFSET ?2",
         BOOK_COLUMNS, where_clause
     );
 
@@ -2199,7 +2199,7 @@ pub fn get_books_by_reading_status(
     let conn = db.get_connection()?;
     // Order by last-read time so "Continue Reading" surfaces the most recently read book, not the most recently metadata-edited one.
     let sql = format!(
-        "SELECT {} FROM books b WHERE b.reading_status = ?1 ORDER BY b.last_opened DESC, b.modified_date DESC LIMIT ?2 OFFSET ?3",
+        "SELECT {} FROM books b WHERE b.reading_status = ?1 ORDER BY b.last_opened DESC, b.modified_date DESC, b.id DESC LIMIT ?2 OFFSET ?3",
         BOOK_COLUMNS
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -2215,7 +2215,7 @@ pub fn get_reading_history(db: &Database, limit: u32, offset: u32) -> Result<Vec
     let sql = format!(
         "SELECT {} FROM books b 
          JOIN reading_progress rp ON b.id = rp.book_id 
-         ORDER BY rp.last_read DESC 
+         ORDER BY rp.last_read DESC, b.id DESC 
          LIMIT ?1 OFFSET ?2",
         BOOK_COLUMNS
     );
@@ -2262,7 +2262,7 @@ pub fn get_book_summaries(
 ) -> Result<Vec<crate::models::BookSummary>> {
     let conn = db.get_connection()?;
     let sql = format!(
-        "SELECT {} FROM books b ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        "SELECT {} FROM books b ORDER BY b.added_date DESC, b.id DESC LIMIT ?1 OFFSET ?2",
         BOOK_SUMMARY_COLUMNS
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -2281,7 +2281,7 @@ pub fn get_book_summaries_by_domain(
     let conn = db.get_connection()?;
     let where_clause = domain_where_clause(domain, "b.");
     let sql = format!(
-        "SELECT {} FROM books b {} ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+        "SELECT {} FROM books b {} ORDER BY b.added_date DESC, b.id DESC LIMIT ?1 OFFSET ?2",
         BOOK_SUMMARY_COLUMNS, where_clause
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -2398,7 +2398,7 @@ pub fn get_recommended_books(db: &Database, limit: u32) -> Result<Vec<crate::mod
     let sql = format!(
         "SELECT {} FROM books b
          WHERE b.in_trash = 0 AND b.is_wishlist = 0 AND b.reading_status != 'completed'
-         ORDER BY b.added_date DESC LIMIT ?1 OFFSET ?2",
+         ORDER BY b.added_date DESC, b.id DESC LIMIT ?1 OFFSET ?2",
         BOOK_SUMMARY_COLUMNS
     );
     let mut stmt = conn.prepare(&sql)?;

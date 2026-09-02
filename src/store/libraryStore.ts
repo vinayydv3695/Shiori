@@ -7,6 +7,17 @@ import { api, type Book, type SearchQuery } from "../lib/tauri"
 // and discards its result if a newer request has started.
 let requestId = 0;
 
+// Keyset pagination cursor: (added_date, id) of the last row of the most
+// recent page fetched in added_date order. loadMoreBooks() resumes strictly
+// before (desc) / strictly after (asc) that pair, so imports landing between
+// page fetches cannot shift the window (offset drift would leave holes that
+// id-dedupe cannot detect).
+const cursorFrom = (books: Book[]): { addedDate: string; id: number } | null => {
+  const last = books[books.length - 1];
+  if (!last || last.id == null) return null;
+  return { addedDate: last.added_date, id: last.id };
+};
+
 export interface FilterState {
   authors: string[]
   languages: string[]
@@ -160,6 +171,10 @@ interface LibraryStore {
   hasMore: boolean
   isLoading: boolean
   totalCount: number
+  /** Keyset cursor (added_date sort): (added_date, id) of the last row loaded. */
+  cursor: { addedDate: string; id: number } | null
+  /** Server-side offset of the next page (non-added_date sorts). */
+  offset: number
   serverSearchQuery: SearchQuery | null
   setServerSearchQuery: (query: SearchQuery | null) => void
   loadInitialBooks: () => Promise<void>
@@ -245,6 +260,8 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   hasMore: true,
   isLoading: false,
   totalCount: 0,
+  cursor: null,
+  offset: 0,
   serverSearchQuery: null,
   setServerSearchQuery: (serverSearchQuery) => {
     const prev = get().serverSearchQuery
@@ -254,7 +271,8 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   },
   loadInitialBooks: async () => {
     const id = ++requestId
-    set({ isLoading: true })
+    // Fresh offset-0 load: restart pagination state from scratch.
+    set({ isLoading: true, cursor: null, offset: 0 })
     try {
       const state = get()
       const pageSize = 50
@@ -273,6 +291,8 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         books: result.books,
         totalCount: result.total,
         hasMore: result.books.length < result.total,
+        offset: result.books.length,
+        cursor: cursorFrom(result.books),
         isLoading: false,
       })
     } catch {
@@ -289,13 +309,24 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     set({ isLoading: true });
     try {
       const pageSize = 50
+      const addedDateSort = state.sortBy.toLowerCase() === 'added_date'
+      const prevOffset = state.offset
 
-      const query = {
+      const query: SearchQuery = {
         ...(state.serverSearchQuery || {}),
         sort_by: state.sortBy,
         sort_order: state.sortOrder,
         limit: pageSize,
-        offset: state.books.length,
+      }
+      if (addedDateSort && state.cursor) {
+        // Keyset pagination (default added_date sort): resume strictly before
+        // (desc) / strictly after (asc) the (added_date, id) pair — immune to
+        // server-offset drift from imports landing between page fetches.
+        query.before_added_date = state.cursor.addedDate
+        query.before_id = state.cursor.id
+      } else {
+        // Other sorts: tracked server-side offset, NOT client books.length.
+        query.offset = state.offset
       }
 
       const result = await api.searchBooks(query)
@@ -311,9 +342,20 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       }
       const uniqueBooks = Array.from(uniqueBooksMap.values());
 
+      const addedUnique = uniqueBooks.length - currentBooks.length;
+      const hasMore = uniqueBooks.length < get().totalCount;
+
       set({
         books: uniqueBooks,
-        hasMore: uniqueBooks.length < get().totalCount,
+        hasMore,
+        // Raw page size consumed (before dedupe), so the offset stays in step
+        // with the server even when rows were dropped as duplicates.
+        offset: prevOffset + newBooks.length,
+        // Cursor = tail of the de-duped rows (server order preserved). If the
+        // page yielded 0 new rows while hasMore is still true (stale cursor
+        // edge), keep the previous cursor: the next scroll retries this page
+        // instead of skipping past the end.
+        cursor: addedUnique > 0 ? cursorFrom(uniqueBooks) : state.cursor,
         isLoading: false
       });
     } catch {
@@ -343,6 +385,9 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         books: result.books,
         totalCount: result.total,
         hasMore: result.books.length < result.total,
+        // Fresh offset-0 window: pagination resumes from this response.
+        offset: result.books.length,
+        cursor: cursorFrom(result.books),
       })
     } catch {
       // Silent: keep current books on failure
@@ -363,6 +408,11 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     try {
       const result = await api.searchBooks(query)
       if (id !== requestId) return // stale: keep current books, don't touch loading flags
+      // Fresh offset-0 window: resume pagination from the response's
+      // server-ordered tail (the merged list below intentionally keeps
+      // existing row positions, so it is NOT the pagination order).
+      const offset = result.books.length
+      const cursor = cursorFrom(result.books)
       set((state) => {
         // Merge by id: existing rows keep their index (scroll anchor), newly
         // discovered ids (fresh imports) are appended in server order.
@@ -386,6 +436,8 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
           books: merged,
           totalCount: result.total,
           hasMore: result.books.length < result.total,
+          offset,
+          cursor,
         }
       })
     } catch {

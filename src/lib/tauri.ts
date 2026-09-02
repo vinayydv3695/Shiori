@@ -217,6 +217,8 @@ export interface SearchQuery {
   limit?: number
   offset?: number
   in_trash?: boolean
+  before_added_date?: string | null
+  before_id?: number | null
 }
 
 export interface SearchResult {

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback, useMemo, memo } from 'react';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
+import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import type { BookMetadata, Annotation } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Minimize, FileText, Loader2, AlertCircle } from '@/components/icons';
@@ -735,6 +736,89 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
     }
   }, [pageNumber, scrollToPage, viewMode]);
 
+  // ── Android touch navigation ───────────────────────────────────────────
+  // On phones the top bar is hidden by default (isTopBarShortcutOnly, no
+  // keyboard to reveal it) and the floating nav arrows are display:none in
+  // the mobile CSS — a PDF opened on Android had zero controls. Mirror the
+  // PremiumEpubReader touch scheme so a PDF is actually usable on a device:
+  // horizontal swipe → prev/next page, edge-tap → prev/next page (page
+  // view only), center-tap / double-tap / swipe-down → reveal the top bar.
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastTapTimeRef = useRef(0);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY, time: Date.now() };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as Element | null;
+    // Never steal a touch from text selection, notes, links, buttons, modals,
+    // the toolbar, or doodle mode (same lock as PremiumEpubReader).
+    if (isSelectionOrNoteActive() || isTouchOnSelectionOrModal(target) || isDoodleMode) {
+      touchStartRef.current = null;
+      return;
+    }
+    if (!touchStartRef.current) return;
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+
+    if (e.changedTouches.length !== 1) return;
+    const end = e.changedTouches[0];
+    const dx = end.clientX - start.x;
+    const dy = end.clientY - start.y;
+    const dt = Date.now() - start.time;
+
+    // Vertical swipe (mostly-down) → show the top bar; mostly-up hides it.
+    if (dt < 500 && Math.abs(dy) > 30 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      if (dy > 25) {
+        setTopBarVisible(true);
+      } else if (dy < -35 && !isFocusMode && !isTopBarShortcutOnly) {
+        setTopBarVisible(false);
+      }
+    }
+
+    // Fast horizontal swipe (< 450ms, |dx| > 35) → prev/next page.
+    if (dt < 450 && Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      triggerHaptic(12);
+      if (dx < 0) nextPage();
+      else prevPage();
+      return;
+    }
+
+    // Double tap (< 300ms apart) → toggle top bar.
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapTimeRef.current;
+    lastTapTimeRef.current = now;
+    if (dt < 300 && Math.abs(dx) < 20 && Math.abs(dy) < 20 && timeSinceLastTap < 320 && timeSinceLastTap > 30) {
+      triggerHaptic(15);
+      const uiStore = useReaderUIStore.getState();
+      if (uiStore.isSidebarOpen) uiStore.closeSidebar();
+      else setTopBarVisible(!uiStore.isTopBarVisible);
+      return;
+    }
+
+    // Single tap (< 350ms, |dx| < 20, |dy| < 20): edge taps turn pages in
+    // page view; the center tap reveals the top bar (the only way to reach
+    // zoom / TOC / search / settings on a phone).
+    if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
+      const tapRatio = window.innerWidth > 0 ? end.clientX / window.innerWidth : 0.5;
+      if (viewMode === 'page' && tapRatio < 0.25) {
+        triggerHaptic(10);
+        prevPage();
+      } else if (viewMode === 'page' && tapRatio > 0.75) {
+        triggerHaptic(10);
+        nextPage();
+      } else {
+        triggerHaptic(8);
+        const uiStore = useReaderUIStore.getState();
+        if (uiStore.isSidebarOpen) uiStore.closeSidebar();
+        else setTopBarVisible(!uiStore.isTopBarVisible);
+      }
+    }
+  }, [isDoodleMode, viewMode, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+
   usePremiumReaderKeyboard({
     onPrevChapter: prevPage,
     onNextChapter: nextPage,
@@ -1022,7 +1106,11 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
 
       <div
         ref={containerRef}
+        {...(isAndroid ? { onTouchStart: handleTouchStart, onTouchEnd: handleTouchEnd } : {})}
         onDoubleClick={() => {
+          // Android handles double-tap in handleTouchEnd; skip the browser
+          // dblclick so the top bar isn't toggled twice (net no-op).
+          if (isAndroid) return;
           triggerHaptic(15);
           const uiStore = useReaderUIStore.getState();
           if (uiStore.isSidebarOpen) {

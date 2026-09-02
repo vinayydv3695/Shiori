@@ -285,14 +285,6 @@ export function useBookOpen() {
       // On Android the dialog renders a plain fixed overlay (no Radix portal)
       // so touch events stay reliable — see ConvertOrOpenDialog.
       if (CONVERTIBLE_FORMATS.has(format) && !nativeOpenedRef.current.has(bookId)) {
-        if (isAndroid) {
-          // On Android, bypass convert-choice modal (touch events don't work reliably with Radix portals in WebView)
-          nativeOpenedRef.current.add(bookId);
-          useReaderStore.getState().setStartFromBeginning(false);
-          setExplicitResumeTarget(null);
-          openBook(bookId, filePath, book.file_format);
-          return bookId;
-        }
         setConvertChoice({
           book: { id: bookId, title: book.title, format: book.file_format },
           openNative: () => {

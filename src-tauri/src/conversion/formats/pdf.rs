@@ -152,7 +152,54 @@ fn extract_book_metadata(path: &Path) -> (String, Vec<String>, Option<String>, S
 /// - Content before the first heading merges into the first chapter; pages
 ///   without headings merge into the previous chapter. If no heading exists
 ///   at all, falls back to ~5-page chunks titled "Page N".
+/// Compute the median character length of the document's text lines
+/// (len > 10). Used by the reflow heuristic below to tell a full-width
+/// (wrapped) line from a short (paragraph-final / title) line.
+fn median_line_length(pages: &[String]) -> usize {
+    let mut lens: Vec<usize> = pages
+        .iter()
+        .flat_map(|p| p.lines().map(|l| l.trim().len()))
+        .filter(|l| *l > 10)
+        .collect();
+    lens.sort_unstable();
+    if lens.is_empty() {
+        80
+    } else {
+        lens[lens.len() / 2]
+    }
+}
+
+/// Reflow heuristic (inspired by the poppler/pdftohtml path's line-unwrap
+/// rule): should `line` be appended to the paragraph that `prev_len`-chars
+/// long line ended, rather than starting a new paragraph?
+///
+/// pdf-extract emits one physical PDF line per line with a blank line after
+/// each one, so blank lines cannot signal paragraph breaks. Instead:
+/// - a full-width line that does NOT end a sentence continues the paragraph,
+/// - a short line that starts lowercase continues it too (the final short
+///   line of a justified paragraph, e.g. "meaning from the coils of copper
+///   wire."), but only when the previous line was full-width (so title-page
+///   lines like "by Ada Lovelace" stay separate),
+/// - a line after a sentence-ending line always starts a new paragraph.
+fn should_merge_line(prev_len: usize, prev_ends_strong: bool, line: &str, median: usize) -> bool {
+    if prev_ends_strong {
+        return false;
+    }
+    let full_width = median > 0 && line.len() >= (median as f64 * 0.8) as usize;
+    let starts_lower = line
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_lowercase());
+    full_width || (starts_lower && prev_len >= (median as f64 * 0.8) as usize)
+}
+
+/// Does a line end with sentence-terminating punctuation (., !, ?)?
+fn ends_strong(line: &str) -> bool {
+    matches!(line.trim().chars().last(), Some('.') | Some('!') | Some('?'))
+}
+
 fn split_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
+    let median = median_line_length(pages);
     let mut chapters: Vec<(String, String)> = Vec::new();
     let mut current_title: Option<String> = None;
     let mut current_body: Vec<String> = Vec::new();
@@ -162,6 +209,24 @@ fn split_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
         let lines: Vec<&str> = page.lines().collect();
         let n = lines.len();
         let mut i = 0;
+        // Open paragraph: (text, length of its last line). Flushed on a
+        // heading, on a paragraph break, or at the end of the page.
+        let mut open_para: Option<(String, usize)> = None;
+
+        let mut flush_para = |para: &mut Option<(String, usize)>,
+                              body: &mut Vec<String>,
+                              front: &mut Vec<String>,
+                              has_title: bool| {
+            if let Some((text, _)) = para.take() {
+                let html = format!("  <p>{}</p>", escape_xml(text.trim()));
+                if has_title {
+                    body.push(html);
+                } else {
+                    front.push(html);
+                }
+            }
+        };
+
         while i < n {
             let t = lines[i].trim();
             if t.is_empty() {
@@ -173,6 +238,12 @@ fn split_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
 
             let next_nonempty = next_nonempty_line(&lines, i + 1);
             if is_heading_line(t, page_idx, blank_after, next_nonempty) {
+                flush_para(
+                    &mut open_para,
+                    &mut current_body,
+                    &mut front_matter,
+                    current_title.is_some(),
+                );
                 if let Some(title) = current_title.take() {
                     chapters.push((title, current_body.join("\n")));
                     current_body.clear();
@@ -186,30 +257,37 @@ fn split_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
                 continue;
             }
 
-            // Accumulate a paragraph: this line plus following non-empty
-            // lines. STOP at a heading line — PDF text extraction often has
-            // no blank line between heading and body, and a preceding line
-            // (drop cap, page furniture) would otherwise swallow the heading.
-            let mut para = String::from(t);
-            i += 1;
-            while i < n && !lines[i].trim().is_empty() {
-                let nt = lines[i].trim();
-                let n_blank_after = lines.get(i + 1).is_some_and(|l| l.trim().is_empty());
-                let n_next = next_nonempty_line(&lines, i + 1);
-                if is_heading_line(nt, page_idx, n_blank_after, n_next) {
-                    break;
+            // Body line: merge into the open paragraph when the reflow
+            // heuristic says it continues it, otherwise flush and start fresh.
+            match open_para.take() {
+                None => open_para = Some((t.to_string(), t.len())),
+                Some((mut text, prev_len)) => {
+                    let merge = should_merge_line(prev_len, ends_strong(&text), t, median);
+                    if merge {
+                        text.push(' ');
+                        text.push_str(t);
+                        open_para = Some((text, t.len()));
+                    } else {
+                        let html = format!("  <p>{}</p>", escape_xml(text.trim()));
+                        if current_title.is_some() {
+                            current_body.push(html);
+                        } else {
+                            front_matter.push(html);
+                        }
+                        open_para = Some((t.to_string(), t.len()));
+                    }
                 }
-                para.push(' ');
-                para.push_str(nt);
-                i += 1;
             }
-            let html = format!("  <p>{}</p>", escape_xml(&para));
-            if current_title.is_some() {
-                current_body.push(html);
-            } else {
-                front_matter.push(html);
-            }
+            i += 1;
         }
+
+        // Never merge a paragraph across a page boundary.
+        flush_para(
+            &mut open_para,
+            &mut current_body,
+            &mut front_matter,
+            current_title.is_some(),
+        );
     }
 
     if let Some(title) = current_title.take() {
@@ -339,6 +417,7 @@ fn normalize_heading_title(t: &str) -> String {
 /// ~5-page chunk, titled "Page N".
 fn chunk_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
     const CHUNK_SIZE: usize = 5;
+    let median = median_line_length(pages);
     let mut chapters: Vec<(String, String)> = Vec::new();
 
     for (chunk_idx, chunk) in pages.chunks(CHUNK_SIZE).enumerate() {
@@ -347,19 +426,31 @@ fn chunk_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
             let lines: Vec<&str> = page.lines().collect();
             let n = lines.len();
             let mut i = 0;
+            let mut open_para: Option<(String, usize)> = None;
             while i < n {
-                if lines[i].trim().is_empty() {
+                let t = lines[i].trim();
+                if t.is_empty() {
                     i += 1;
                     continue;
                 }
-                let mut para = String::from(lines[i].trim());
-                i += 1;
-                while i < n && !lines[i].trim().is_empty() {
-                    para.push(' ');
-                    para.push_str(lines[i].trim());
-                    i += 1;
+                match open_para.take() {
+                    None => open_para = Some((t.to_string(), t.len())),
+                    Some((mut text, prev_len)) => {
+                        let merge = should_merge_line(prev_len, ends_strong(&text), t, median);
+                        if merge {
+                            text.push(' ');
+                            text.push_str(t);
+                            open_para = Some((text, t.len()));
+                        } else {
+                            body.push(format!("  <p>{}</p>", escape_xml(text.trim())));
+                            open_para = Some((t.to_string(), t.len()));
+                        }
+                    }
                 }
-                body.push(format!("  <p>{}</p>", escape_xml(&para)));
+                i += 1;
+            }
+            if let Some((text, _)) = open_para.take() {
+                body.push(format!("  <p>{}</p>", escape_xml(text.trim())));
             }
         }
         if body.is_empty() {
@@ -463,6 +554,69 @@ mod tests {
 
     fn pages_of(lines: &[&str]) -> Vec<String> {
         vec![lines.join("\n")]
+    }
+
+    /// pdf-extract emits one physical PDF line per line with a blank line
+    /// after each — wrapped lines of a paragraph must be rejoined into a
+    /// single <p> (the Calibre-style reflow), while headings and title-page
+    /// lines stay separate.
+    #[test]
+    fn reflows_wrapped_lines_into_paragraphs() {
+        let pages = vec![
+            [
+                "",
+                "",
+                "The Silent Engine",
+                "",
+                "by Ada Lovelace",
+                "",
+                "Chapter One",
+                "",
+                "It was a dark and stormy night when the generator finally wrote its first sentence. The machine hummed quietly in",
+                "",
+                "the corner of the study, its brass gears turning with a patient rhythm that had become as familiar as breathing.",
+                "",
+                "Nobody had expected the words to arrive so quickly, least of all the engineer who had spent three years coaxing",
+                "",
+                "meaning from the coils of copper wire.",
+                "",
+                "Outside, the rain lashed against the tall windows. Inside, the only light came from a single oil lamp and the soft",
+                "",
+                "glow of the vacuum tubes. The engineer reached out and touched the paper as it emerged, half expecting the ink to",
+                "",
+                "vanish at the first sign of contact.",
+                "",
+            ]
+            .join("\n"),
+        ];
+        let chapters = split_pages_into_chapters(&pages);
+        assert_eq!(chapters.len(), 1, "expected 1 chapter");
+        assert_eq!(chapters[0].0, "Chapter One");
+        let body = &chapters[0].1;
+
+        // Wrapped lines rejoin: the two halves of the first paragraph are one <p>.
+        assert!(
+            body.contains(
+                "<p>It was a dark and stormy night when the generator finally wrote its first sentence. \
+                 The machine hummed quietly in the corner of the study, its brass gears turning with a \
+                 patient rhythm that had become as familiar as breathing.</p>"
+            ),
+            "wrapped lines must merge into one paragraph, got: {body}"
+        );
+        // Short final line of a paragraph also merges.
+        assert!(
+            body.contains("coaxing meaning from the coils of copper wire.</p>"),
+            "short lowercase final line must merge, got: {body}"
+        );
+        assert!(body.contains("contact.</p>"), "paragraph 2 final line must merge");
+        // Title-page lines stay separate paragraphs (not merged, not headings).
+        assert!(body.contains("<p>The Silent Engine</p>"), "title line separate");
+        assert!(body.contains("<p>by Ada Lovelace</p>"), "author line separate");
+        assert!(!body.contains("<h2>The Silent Engine</h2>"), "title page not a heading");
+        // Paragraphs themselves are separated: title + author + 3 body
+        // paragraphs = 5 <p>, plus the single heading.
+        assert_eq!(body.matches("<p>").count(), 5, "got: {body}");
+        assert_eq!(body.matches("<h2>").count(), 1, "got: {body}");
     }
 
     #[test]

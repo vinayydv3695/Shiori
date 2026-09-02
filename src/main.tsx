@@ -5,13 +5,17 @@ import App from './App.tsx'
 import { ThemeProvider } from './providers/ThemeProvider'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
+import { MotionConfig } from 'framer-motion'
+import { isAndroid } from './lib/tauri'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <ThemeProvider>
         <TooltipProvider delayDuration={0}>
-          <App />
+          <MotionConfig reducedMotion={isAndroid ? 'always' : 'never'}>
+            <App />
+          </MotionConfig>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

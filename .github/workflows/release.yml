@@ -717,7 +717,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+          cache-bin: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -742,13 +748,37 @@ jobs:
       - name: Initialize Tauri Android project
         run: npm run tauri android init
 
-      - name: Build Android App (APK)
+      - name: Android build disk headroom
+        run: |
+          df -h / | tail -1
+          echo "NDK size: $(du -sh "$ANDROID_HOME/ndk/27.0.12077973" 2>/dev/null | cut -f1)"
+
+      - name: Build Android App (APK) — arm64-v8a
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
           VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
           VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
         # Split per-ABI APKs, arm64-v8a + armeabi-v7a only (x86/x86_64 are emulator-only).
-        run: npm run tauri android build -- --apk --split-per-abi --target aarch64 --target armv7
+        # The runner has ~14GB free and two concurrent ABI target trees + NDK + Gradle
+        # exceeded it (runner killed mid-build twice). One ABI at a time, deleting the
+        # finished ABI's cargo target dir before the next, keeps peak disk bounded.
+        run: |
+          npm run tauri android build -- --apk --split-per-abi --target aarch64
+          df -h / | tail -1
+
+      - name: Free arm64-v8a build artifacts
+        run: |
+          rm -rf src-tauri/target/aarch64-linux-android
+          df -h / | tail -1
+
+      - name: Build Android App (APK) — armeabi-v7a
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.12077973
+          VITE_ANILIST_ANDROID_CLIENT_ID: ${{ secrets.VITE_ANILIST_ANDROID_CLIENT_ID }}
+          VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
+        run: |
+          npm run tauri android build -- --apk --split-per-abi --target armv7
+          df -h / | tail -1
 
       - name: Sign Android APKs
         env:

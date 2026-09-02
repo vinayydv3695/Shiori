@@ -56,7 +56,21 @@ export function useHistoryData() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [sortOption, setSortOption] = useState<SortOption>('recent');
-  const [viewMode, setViewMode] = useState<ViewMode>('timeline');
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    try {
+      const saved = localStorage.getItem('shiori-history-view-mode');
+      if (saved === 'timeline' || saved === 'grid') return saved;
+    } catch {}
+    return 'grid';
+  });
+
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem('shiori-history-view-mode', mode);
+    } catch {}
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);

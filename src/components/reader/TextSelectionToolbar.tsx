@@ -228,25 +228,103 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       selectionAnchorRef.current = buildTextRangeAnchor(selection);
       setSelectedText(text);
 
-      // Calculate position above the selection
+      // Snapshot selection rect for intelligent dynamic positioning
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
+      selectionRectRef.current = rect;
 
-      // Position the toolbar centered above the selection
-      const toolbarWidth = toolbarRef.current?.offsetWidth || 550;
+      // Position toolbar relative to selection with safe bounds
+      const isCard = showNoteInput || showTranslation || showColorPicker;
+      const toolbarWidth = toolbarRef.current?.offsetWidth || (isCard ? 380 : 320);
+      const toolbarHeight = toolbarRef.current?.offsetHeight || (isCard ? 300 : 45);
+
+      const vpWidth = window.innerWidth;
+      const vpHeight = window.innerHeight;
+      const safeMargin = 12;
+
       let x = rect.left + rect.width / 2 - toolbarWidth / 2;
-      const y = rect.top - 50;
+      let y = 0;
 
-      // Keep within viewport
-      x = Math.max(8, Math.min(x, window.innerWidth - toolbarWidth - 8));
+      if (isCard) {
+        if (rect.top - toolbarHeight - safeMargin >= safeMargin) {
+          y = rect.top - toolbarHeight - 8;
+        } else if (rect.bottom + toolbarHeight + safeMargin <= vpHeight - safeMargin) {
+          y = rect.bottom + 8;
+        } else {
+          y = Math.max(safeMargin, vpHeight - toolbarHeight - safeMargin);
+        }
+      } else {
+        if (rect.top - toolbarHeight - safeMargin >= safeMargin) {
+          y = rect.top - toolbarHeight - 8;
+        } else {
+          y = rect.bottom + 8;
+        }
+      }
 
-      setPosition({ x, y: Math.max(8, y) });
+      x = Math.max(safeMargin, Math.min(x, vpWidth - toolbarWidth - safeMargin));
+      y = Math.max(safeMargin, Math.min(y, vpHeight - toolbarHeight - safeMargin));
+
+      setPosition({ x, y });
       setIsVisible(true);
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [hideToolbar]);
+  }, [hideToolbar, showNoteInput, showTranslation, showColorPicker]);
+
+  const selectionRectRef = useRef<DOMRect | null>(null);
+
+  // Dynamic repositioning whenever toolbar size or content changes
+  const repositionToolbar = useCallback(() => {
+    if (!toolbarRef.current) return;
+    const isCard = showNoteInput || showTranslation || showColorPicker;
+    const actualWidth = toolbarRef.current.offsetWidth || (isCard ? 380 : 320);
+    const actualHeight = toolbarRef.current.offsetHeight || (isCard ? 300 : 45);
+    const rect = selectionRectRef.current;
+
+    const vpWidth = window.innerWidth;
+    const vpHeight = window.innerHeight;
+    const safeMargin = 12;
+
+    let x = 0;
+    let y = 0;
+
+    if (rect) {
+      x = rect.left + rect.width / 2 - actualWidth / 2;
+
+      if (isCard) {
+        const fitsAbove = rect.top - actualHeight - safeMargin >= safeMargin;
+        const fitsBelow = rect.bottom + actualHeight + safeMargin <= vpHeight - safeMargin;
+
+        if (fitsAbove) {
+          y = rect.top - actualHeight - 8;
+        } else if (fitsBelow) {
+          y = rect.bottom + 8;
+        } else {
+          y = Math.max(safeMargin, vpHeight - actualHeight - safeMargin);
+        }
+      } else {
+        if (rect.top - actualHeight - safeMargin >= safeMargin) {
+          y = rect.top - actualHeight - 8;
+        } else {
+          y = rect.bottom + 8;
+        }
+      }
+    } else {
+      x = vpWidth / 2 - actualWidth / 2;
+      y = vpHeight / 2 - actualHeight / 2;
+    }
+
+    const clampedX = Math.max(safeMargin, Math.min(x, vpWidth - actualWidth - safeMargin));
+    const clampedY = Math.max(safeMargin, Math.min(y, vpHeight - actualHeight - safeMargin));
+
+    setPosition(prev => {
+      if (Math.abs(prev.x - clampedX) < 1 && Math.abs(prev.y - clampedY) < 1) {
+        return prev;
+      }
+      return { x: clampedX, y: clampedY };
+    });
+  }, [showNoteInput, showTranslation, showColorPicker]);
 
   // Click outside to dismiss toolbar
   useEffect(() => {
@@ -269,28 +347,34 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     };
   }, [isVisible, hideToolbar]);
 
-  // Ensure toolbar stays within bounds after it mounts and its true size is known
+  // Ensure toolbar stays within bounds on resize, tab switch, or when definition/translation content arrives
   useLayoutEffect(() => {
-    if (isVisible && toolbarRef.current) {
-      const actualWidth = toolbarRef.current.offsetWidth;
-      const actualHeight = toolbarRef.current.offsetHeight;
-      
-      let newX = position.x;
-      let newY = position.y;
+    if (!isVisible || !toolbarRef.current) return;
+    repositionToolbar();
 
-      if (position.x + actualWidth + 8 > window.innerWidth) {
-        newX = Math.max(8, window.innerWidth - actualWidth - 8);
-      }
-      
-      if (position.y + actualHeight + 8 > window.innerHeight) {
-        newY = Math.max(8, window.innerHeight - actualHeight - 8);
-      }
-
-      if (newX !== position.x || newY !== position.y) {
-        setPosition({ x: newX, y: newY });
-      }
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => {
+        repositionToolbar();
+      });
+      ro.observe(toolbarRef.current);
+      return () => ro.disconnect();
     }
-  }, [isVisible, position.x, position.y, showNoteInput, showTranslation]);
+  }, [
+    isVisible,
+    showNoteInput,
+    showTranslation,
+    showColorPicker,
+    dictionaryResult,
+    translationResult,
+    translationLoading,
+    translationError,
+    repositionToolbar,
+  ]);
+
+  useEffect(() => {
+    window.addEventListener('resize', repositionToolbar);
+    return () => window.removeEventListener('resize', repositionToolbar);
+  }, [repositionToolbar]);
 
   // Focus note input when shown
   useEffect(() => {
@@ -489,16 +573,30 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     window.getSelection()?.removeAllRanges();
   }, [selectedText, hideToolbar]);
 
+// Client-side in-memory caches for instant 0ms response on repeated lookups
+const translationClientCache = new Map<string, TranslationResponse>();
+const dictionaryClientCache = new Map<string, DictionaryResponse>();
+
   const handleTranslate = useCallback(async () => {
     setShowTranslation(true);
     setTranslationMode('translate');
-    setTranslationLoading(true);
     setTranslationError(null);
     setDictionaryResult(null);
+
+    const targetLang = usePreferencesStore.getState().preferences?.translationTargetLanguage ?? 'en';
+    const cacheKey = `${targetLang}:${selectedText.trim()}`;
+
+    if (translationClientCache.has(cacheKey)) {
+      setTranslationResult(translationClientCache.get(cacheKey)!);
+      setTranslationLoading(false);
+      return;
+    }
+
+    setTranslationLoading(true);
     setTranslationResult(null);
     try {
-      const targetLang = usePreferencesStore.getState().preferences?.translationTargetLanguage ?? 'en';
       const result = await api.translateText(selectedText, targetLang);
+      translationClientCache.set(cacheKey, result);
       setTranslationResult(result);
     } catch (err: any) {
       setTranslationError(
@@ -514,10 +612,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const handleDefine = useCallback(async () => {
     setShowTranslation(true);
     setTranslationMode('define');
-    setTranslationLoading(true);
     setTranslationError(null);
     setDictionaryResult(null);
     setTranslationResult(null);
+
     try {
       const cleanText = selectedText.replace(/[[\](){}0-9]/g, '').trim();
       const word = cleanText.split(/\s+/).find(w => /^[a-zA-Z\u00C0-\u024F]+$/.test(w)) || cleanText.split(/\s+/)[0] || '';
@@ -526,7 +624,17 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           setTranslationLoading(false);
           return;
       }
+
+      const wordKey = word.toLowerCase();
+      if (dictionaryClientCache.has(wordKey)) {
+        setDictionaryResult(dictionaryClientCache.get(wordKey)!);
+        setTranslationLoading(false);
+        return;
+      }
+
+      setTranslationLoading(true);
       const result = await api.dictionaryLookup(word);
+      dictionaryClientCache.set(wordKey, result);
       setDictionaryResult(result);
     } catch (err: any) {
       setTranslationError(

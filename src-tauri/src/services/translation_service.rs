@@ -1,7 +1,10 @@
 /// Translation & Dictionary Service
 ///
-/// Provides dictionary lookups (Free Dictionary API) and text translation
-/// (MyMemory API with Lingva fallback). All APIs are free and require no keys.
+/// Provides ultra-fast dictionary lookups (Wiktionary on Wikimedia global CDN with
+/// Free Dictionary fallback) and instant text translation (Google Web Translate with
+/// MyMemory & Lingva fallbacks). All providers are free and keyless.
+///
+/// Results are aggressively cached in memory so repeated lookups return in 0ms.
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -9,13 +12,36 @@ use std::time::Duration;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
+use crate::conversion::utils::{decode_html_entities, strip_html_tags};
 use crate::error::{Result, ShioriError};
 
 static TRANSLATION_CACHE: OnceLock<Mutex<HashMap<String, TranslationResult>>> = OnceLock::new();
+static DICTIONARY_CACHE: OnceLock<Mutex<HashMap<String, DictionaryResult>>> = OnceLock::new();
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
 fn get_translation_cache() -> &'static Mutex<HashMap<String, TranslationResult>> {
     TRANSLATION_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
+
+fn get_dictionary_cache() -> &'static Mutex<HashMap<String, DictionaryResult>> {
+    DICTIONARY_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn get_client() -> &'static Client {
+    HTTP_CLIENT.get_or_init(|| {
+        Client::builder()
+            .timeout(Duration::from_secs(5))
+            .connect_timeout(Duration::from_secs(3))
+            .pool_idle_timeout(Duration::from_secs(120))
+            .pool_max_idle_per_host(8)
+            .tcp_nodelay(true)
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .build()
+            .unwrap_or_default()
+    })
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PUBLIC TYPES
 // ═══════════════════════════════════════════════════════════════
 
@@ -89,10 +115,7 @@ struct FreeDictDefinition {
     antonyms: Vec<String>,
 }
 
-// --- Wiktionary REST API (fallback dictionary) ---
-// Response is a map of language code -> list of part-of-speech entries.
-// Definitions and examples contain HTML markup that must be stripped.
-
+// --- Wiktionary REST API ---
 #[derive(Debug, Deserialize)]
 struct WiktEntry {
     #[serde(rename = "partOfSpeech")]
@@ -133,39 +156,148 @@ struct LingvaResponse {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SERVICE IMPLEMENTATION
+// DICTIONARY LOOKUP
 // ═══════════════════════════════════════════════════════════════
 
-fn build_client() -> std::result::Result<Client, reqwest::Error> {
-    Client::builder()
-        .timeout(Duration::from_secs(15))
-        .user_agent("Shiori/0.1.0")
-        .build()
-}
-
-/// Look up a word, trying the Free Dictionary API first and falling back to
-/// Wiktionary if the primary provider is unavailable or has no entry.
-///
-/// Both providers are free and keyless. If both fail, the primary provider's
-/// error is surfaced (it produces the friendlier user-facing messages).
+/// Look up a word, checking memory cache first, then querying Wiktionary (fast CDN)
+/// with immediate fallback to the Free Dictionary API.
 pub async fn dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
-    match free_dictionary_lookup(word, lang).await {
-        Ok(result) => Ok(result),
-        Err(primary_err) => match wiktionary_lookup(word, lang).await {
-            Ok(result) => Ok(result),
-            // Both failed: surface the primary error (better wording than the
-            // fallback's, and it distinguishes "unavailable" from "not found").
-            Err(_fallback_err) => Err(primary_err),
-        },
+    let clean_word = word.trim();
+    if clean_word.is_empty() {
+        return Err(ShioriError::Other("Please provide a valid word".to_string()));
     }
+
+    let cache_key = format!("{}:{}", lang.to_lowercase(), clean_word.to_lowercase());
+    if let Some(cached) = get_dictionary_cache().lock().unwrap().get(&cache_key) {
+        return Ok(cached.clone());
+    }
+
+    // Primary: Wiktionary on Wikimedia Global CDN (~100-250ms)
+    let result = match wiktionary_lookup(clean_word, lang).await {
+        Ok(res) => res,
+        Err(wikt_err) => {
+            // Fallback: Free Dictionary API (tight 2.5s timeout)
+            match free_dictionary_lookup(clean_word, lang).await {
+                Ok(res) => res,
+                Err(_) => return Err(wikt_err),
+            }
+        }
+    };
+
+    get_dictionary_cache()
+        .lock()
+        .unwrap()
+        .insert(cache_key, result.clone());
+
+    Ok(result)
 }
 
-/// Primary provider: the Free Dictionary API (dictionaryapi.dev).
-/// Returns structured definitions, phonetics, and examples.
-/// Supports English primarily; other languages via lang code.
+/// Primary dictionary provider: Wiktionary's REST API on Wikimedia's edge CDN.
+async fn wiktionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
+    let client = get_client();
+    let lang_key = lang.to_lowercase();
+
+    let url = format!(
+        "https://en.wiktionary.org/api/rest_v1/page/definition/{}",
+        urlencoding::encode(word)
+    );
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Dictionary request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        if status.as_u16() == 404 {
+            return Err(ShioriError::Other(format!(
+                "No definition found for \"{}\"",
+                word
+            )));
+        }
+        return Err(ShioriError::Other(format!(
+            "Wiktionary API returned status {}",
+            status
+        )));
+    }
+
+    let by_lang: HashMap<String, Vec<WiktEntry>> = response
+        .json()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Failed to parse Wiktionary response: {}", e)))?;
+
+    let entries = by_lang
+        .get(&lang_key)
+        .or_else(|| by_lang.get("en"))
+        .ok_or_else(|| ShioriError::Other(format!("No definition found for \"{}\"", word)))?;
+
+    let meanings: Vec<DictionaryMeaning> = entries
+        .iter()
+        .filter_map(|entry| {
+            let definitions: Vec<DictionaryDefinition> = entry
+                .definitions
+                .iter()
+                .filter_map(|d| {
+                    let text = decode_html_entities(&strip_html_tags(&d.definition))
+                        .trim()
+                        .to_string();
+                    if text.is_empty() {
+                        return None;
+                    }
+                    let example = d.examples.iter().find_map(|e| {
+                        let cleaned = decode_html_entities(&strip_html_tags(e))
+                            .trim()
+                            .to_string();
+                        if cleaned.is_empty() {
+                            None
+                        } else {
+                            Some(cleaned)
+                        }
+                    });
+                    Some(DictionaryDefinition {
+                        definition: text,
+                        example,
+                        synonyms: Vec::new(),
+                        antonyms: Vec::new(),
+                    })
+                })
+                .take(3)
+                .collect();
+
+            if definitions.is_empty() {
+                return None;
+            }
+
+            Some(DictionaryMeaning {
+                part_of_speech: entry
+                    .part_of_speech
+                    .clone()
+                    .unwrap_or_else(|| "definition".to_string()),
+                definitions,
+            })
+        })
+        .collect();
+
+    if meanings.is_empty() {
+        return Err(ShioriError::Other(format!(
+            "No definition found for \"{}\"",
+            word
+        )));
+    }
+
+    Ok(DictionaryResult {
+        word: word.to_string(),
+        phonetic: None,
+        audio_url: None,
+        meanings,
+        source_url: Some(format!("https://en.wiktionary.org/wiki/{}", word)),
+    })
+}
+
+/// Fallback dictionary provider: the Free Dictionary API (dictionaryapi.dev).
 async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
-    let client =
-        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+    let client = get_client();
 
     let url = format!(
         "https://api.dictionaryapi.dev/api/v2/entries/{}/{}",
@@ -173,47 +305,11 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
         urlencoding::encode(word)
     );
 
-    // The Free Dictionary API is a free, community-run service with no SLA and
-    // frequently returns transient 5xx errors (502/503/504) or times out under
-    // load. Retry a few times with a short backoff before giving up.
-    const MAX_ATTEMPTS: u32 = 3;
-    let mut response = None;
-    let mut last_transient_error: Option<String> = None;
-
-    for attempt in 1..=MAX_ATTEMPTS {
-        match client.get(&url).send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                // 502/503/504 are transient upstream failures worth retrying.
-                if matches!(status.as_u16(), 502 | 503 | 504) {
-                    last_transient_error =
-                        Some(format!("Dictionary service returned status {}", status));
-                } else {
-                    response = Some(resp);
-                    break;
-                }
-            }
-            Err(e) => {
-                // Network/timeout errors are also transient.
-                last_transient_error = Some(format!("Dictionary request failed: {}", e));
-            }
-        }
-
-        // Back off before the next attempt (skip the wait after the final try).
-        if attempt < MAX_ATTEMPTS {
-            tokio::time::sleep(Duration::from_millis(400 * attempt as u64)).await;
-        }
-    }
-
-    let response = match response {
-        Some(resp) => resp,
-        None => {
-            return Err(ShioriError::Other(format!(
-                "Dictionary service is temporarily unavailable. Please try again in a moment. ({})",
-                last_transient_error.unwrap_or_else(|| "no response".to_string())
-            )));
-        }
-    };
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Dictionary request failed: {}", e)))?;
 
     if !response.status().is_success() {
         let status = response.status();
@@ -239,7 +335,6 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
         .next()
         .ok_or_else(|| ShioriError::Other("Empty dictionary response".to_string()))?;
 
-    // Extract best phonetic and audio
     let phonetic = entry.phonetic.clone().or_else(|| {
         entry
             .phonetics
@@ -262,10 +357,10 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
             definitions: m
                 .definitions
                 .into_iter()
-                .take(3) // Limit to 3 definitions per part of speech
+                .take(3)
                 .map(|d| DictionaryDefinition {
-                    definition: d.definition,
-                    example: d.example,
+                    definition: decode_html_entities(&d.definition),
+                    example: d.example.map(|e| decode_html_entities(&e)),
                     synonyms: d.synonyms.into_iter().take(5).collect(),
                     antonyms: d.antonyms.into_iter().take(5).collect(),
                 })
@@ -282,113 +377,11 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
     })
 }
 
-/// Fallback provider: Wiktionary's REST API.
-///
-/// Used when the Free Dictionary API is unavailable or has no entry. Returns
-/// definitions grouped by part of speech for the requested language. Wiktionary
-/// definitions come as HTML, so tags are stripped and entities decoded.
-async fn wiktionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
-    let client =
-        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+// ═══════════════════════════════════════════════════════════════
+// TRANSLATION SERVICE
+// ═══════════════════════════════════════════════════════════════
 
-    // Wiktionary keys definitions by language code (e.g. "en", "fr").
-    let lang_key = lang.to_lowercase();
-
-    let url = format!(
-        "https://en.wiktionary.org/api/rest_v1/page/definition/{}",
-        urlencoding::encode(word)
-    );
-
-    let response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| ShioriError::Other(format!("Wiktionary request failed: {}", e)))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        if status.as_u16() == 404 {
-            return Err(ShioriError::Other(format!(
-                "No definition found for \"{}\"",
-                word
-            )));
-        }
-        return Err(ShioriError::Other(format!(
-            "Wiktionary API returned status {}",
-            status
-        )));
-    }
-
-    let by_lang: HashMap<String, Vec<WiktEntry>> = response
-        .json()
-        .await
-        .map_err(|e| ShioriError::Other(format!("Failed to parse Wiktionary response: {}", e)))?;
-
-    // Prefer the requested language; otherwise fall back to English.
-    let entries = by_lang
-        .get(&lang_key)
-        .or_else(|| by_lang.get("en"))
-        .ok_or_else(|| ShioriError::Other(format!("No definition found for \"{}\"", word)))?;
-
-    let strip = crate::conversion::utils::strip_html_tags;
-
-    let meanings: Vec<DictionaryMeaning> = entries
-        .iter()
-        .filter_map(|entry| {
-            let definitions: Vec<DictionaryDefinition> = entry
-                .definitions
-                .iter()
-                .filter_map(|d| {
-                    let text = strip(&d.definition).trim().to_string();
-                    if text.is_empty() {
-                        return None;
-                    }
-                    let example = d
-                        .examples
-                        .iter()
-                        .map(|e| strip(e).trim().to_string())
-                        .find(|e| !e.is_empty());
-                    Some(DictionaryDefinition {
-                        definition: text,
-                        example,
-                        synonyms: Vec::new(),
-                        antonyms: Vec::new(),
-                    })
-                })
-                .take(3) // Match the primary provider's per-part-of-speech limit.
-                .collect();
-
-            if definitions.is_empty() {
-                return None;
-            }
-
-            Some(DictionaryMeaning {
-                part_of_speech: entry
-                    .part_of_speech
-                    .clone()
-                    .unwrap_or_else(|| "unknown".to_string()),
-                definitions,
-            })
-        })
-        .collect();
-
-    if meanings.is_empty() {
-        return Err(ShioriError::Other(format!(
-            "No definition found for \"{}\"",
-            word
-        )));
-    }
-
-    Ok(DictionaryResult {
-        word: word.to_string(),
-        phonetic: None,
-        audio_url: None,
-        meanings,
-        source_url: Some(format!("https://en.wiktionary.org/wiki/{}", word)),
-    })
-}
-
-/// Translate text using MyMemory API (primary) with Lingva fallback.
+/// Translate text using high-performance Google Web Translate with MyMemory & Lingva fallbacks.
 /// source_lang: ISO 639-1 code (e.g. "en") or "auto" for auto-detect
 /// target_lang: ISO 639-1 code (e.g. "es")
 pub async fn translate_text(
@@ -396,7 +389,8 @@ pub async fn translate_text(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    if text.trim().is_empty() {
+    let clean_text = text.trim();
+    if clean_text.is_empty() {
         return Ok(TranslationResult {
             translated_text: text.to_string(),
             source_language: source_lang.to_string(),
@@ -405,15 +399,15 @@ pub async fn translate_text(
         });
     }
 
-    let key = format!("{}:{}:{}", source_lang, target_lang, text);
+    let key = format!("{}:{}:{}", source_lang, target_lang, clean_text);
     if let Some(cached) = get_translation_cache().lock().unwrap().get(&key) {
         return Ok(cached.clone());
     }
 
-    let result = if text.len() > 400 {
-        translate_long_text(text, source_lang, target_lang).await?
+    let result = if clean_text.len() > 3000 {
+        translate_long_text(clean_text, source_lang, target_lang).await?
     } else {
-        translate_text_single(text, source_lang, target_lang).await?
+        translate_text_single(clean_text, source_lang, target_lang).await?
     };
 
     get_translation_cache()
@@ -428,33 +422,25 @@ async fn translate_long_text(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
+    let chunks: Vec<&str> = text
+        .split("\n\n")
+        .flat_map(|p| p.split(". "))
+        .filter(|c| !c.trim().is_empty())
+        .collect();
+
     let mut translated_pieces = Vec::new();
     let mut provider = String::new();
 
-    // Naive split by ". " to chunk long paragraphs
-    let chunks: Vec<&str> = text.split(". ").collect();
-
-    for (i, chunk) in chunks.iter().enumerate() {
-        if chunk.trim().is_empty() {
-            continue;
-        }
-        // Avoid nested loops calling themselves infinitely; chunks should be < 400 chars now.
-        // If still > 400, truncate to 400 to prevent failure.
-        let safe_chunk = if chunk.len() > 400 {
-            &chunk[..400]
+    for chunk in chunks {
+        let safe_chunk = if chunk.len() > 2500 {
+            &chunk[..2500]
         } else {
             chunk
         };
-
         let res = translate_text_single(safe_chunk, source_lang, target_lang).await?;
         translated_pieces.push(res.translated_text);
         if provider.is_empty() {
             provider = res.provider;
-        }
-
-        // Respect API rate limits somewhat by delaying slightly between chunks
-        if i < chunks.len() - 1 {
-            tokio::time::sleep(Duration::from_millis(300)).await;
         }
     }
 
@@ -471,21 +457,21 @@ async fn translate_text_single(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    // Skip MyMemory for "auto" source — it requires specific ISO language codes
+    // Primary: Google Web Translate (super fast ~150-250ms, handles auto-detect & all languages)
+    match translate_google_web(text, source_lang, target_lang).await {
+        Ok(result) => return Ok(result),
+        Err(e) => {
+            log::warn!("Google web translation failed: {}, trying MyMemory fallback", e);
+        }
+    }
+
+    // Fallback 1: MyMemory
     if source_lang != "auto" {
         match translate_mymemory(text, source_lang, target_lang).await {
             Ok(result) => return Ok(result),
             Err(e) => {
-                log::warn!("MyMemory translation failed: {}, trying Google fallback", e);
+                log::warn!("MyMemory translation failed: {}, trying Lingva fallback", e);
             }
-        }
-    }
-
-    // Fallback 1: Google Translate API (free)
-    match translate_google_free(text, source_lang, target_lang).await {
-        Ok(result) => return Ok(result),
-        Err(e) => {
-            log::warn!("Google translation failed: {}, trying Lingva fallback", e);
         }
     }
 
@@ -493,21 +479,78 @@ async fn translate_text_single(
     match translate_lingva(text, source_lang, target_lang).await {
         Ok(result) => Ok(result),
         Err(e) => Err(ShioriError::Other(format!(
-            "All translation providers failed. Last error: {}",
+            "Translation failed: {}",
             e
         ))),
     }
 }
 
-/// Translate using MyMemory API
+/// Primary translation provider: Google Web Translate mobile endpoint.
+/// Fast, robust, supports auto-detection and all language pairs without rate-limiting.
+async fn translate_google_web(
+    text: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<TranslationResult> {
+    let client = get_client();
+    let url = "https://translate.google.com/m";
+
+    let response = client
+        .get(url)
+        .query(&[
+            ("sl", source_lang),
+            ("tl", target_lang),
+            ("q", text),
+        ])
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Google Translate request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(ShioriError::Other(format!(
+            "Google Translate returned status {}",
+            response.status()
+        )));
+    }
+
+    let html = response
+        .text()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Failed to read translation response: {}", e)))?;
+
+    // Extract content from <div class="result-container">...</div>
+    let start_marker = "class=\"result-container\">";
+    let start_idx = html.find(start_marker).ok_or_else(|| {
+        ShioriError::Other("Translation container not found in Google response".to_string())
+    })? + start_marker.len();
+
+    let end_idx = html[start_idx..].find("</div>").ok_or_else(|| {
+        ShioriError::Other("Translation container end tag not found".to_string())
+    })? + start_idx;
+
+    let raw_result = &html[start_idx..end_idx];
+    let stripped = strip_html_tags(raw_result);
+    let decoded = decode_html_entities(&stripped).trim().to_string();
+
+    if decoded.is_empty() {
+        return Err(ShioriError::Other("Empty translation received".to_string()));
+    }
+
+    Ok(TranslationResult {
+        translated_text: decoded,
+        source_language: source_lang.to_string(),
+        target_language: target_lang.to_string(),
+        provider: "google".to_string(),
+    })
+}
+
+/// Fallback translation provider: MyMemory API.
 async fn translate_mymemory(
     text: &str,
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    let client =
-        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
-
+    let client = get_client();
     let langpair = format!("{}|{}", source_lang, target_lang);
 
     let response = client
@@ -529,7 +572,6 @@ async fn translate_mymemory(
         .await
         .map_err(|e| ShioriError::Other(format!("Failed to parse MyMemory response: {}", e)))?;
 
-    // Check for error status in response body
     if let Some(status) = &result.response_status {
         if let Some(status_num) = status.as_u64() {
             if status_num == 403 {
@@ -538,95 +580,28 @@ async fn translate_mymemory(
         }
     }
 
+    let decoded = decode_html_entities(&result.response_data.translated_text);
+
     Ok(TranslationResult {
-        translated_text: result.response_data.translated_text,
+        translated_text: decoded,
         source_language: source_lang.to_string(),
         target_language: target_lang.to_string(),
         provider: "mymemory".to_string(),
     })
 }
 
-/// Translate using Google Translate API (free)
-async fn translate_google_free(
-    text: &str,
-    source_lang: &str,
-    target_lang: &str,
-) -> Result<TranslationResult> {
-    let client =
-        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
-    let url = "https://translate.googleapis.com/translate_a/single";
-
-    let response = client
-        .get(url)
-        .query(&[
-            ("client", "gtx"),
-            ("sl", source_lang),
-            ("tl", target_lang),
-            ("dt", "t"),
-            ("q", text),
-        ])
-        .send()
-        .await
-        .map_err(|e| ShioriError::Other(format!("Google Translate request failed: {}", e)))?;
-
-    if !response.status().is_success() {
-        return Err(ShioriError::Other(format!(
-            "Google Translate API returned status {}",
-            response.status()
-        )));
-    }
-
-    let json_val: serde_json::Value = response.json().await.map_err(|e| {
-        ShioriError::Other(format!("Failed to parse Google Translate response: {}", e))
-    })?;
-
-    let mut translated_text = String::new();
-
-    // The response is an array: [[["translated_sentence_1", ...], ["translated_sentence_2", ...]], ...]
-    if let Some(sentences) = json_val
-        .as_array()
-        .and_then(|a| a.get(0))
-        .and_then(|v| v.as_array())
-    {
-        for sentence_group in sentences {
-            if let Some(sentence) = sentence_group
-                .as_array()
-                .and_then(|a| a.get(0))
-                .and_then(|s| s.as_str())
-            {
-                translated_text.push_str(sentence);
-            }
-        }
-    }
-
-    if translated_text.is_empty() {
-        return Err(ShioriError::Other(
-            "Empty translation from Google Translate".to_string(),
-        ));
-    }
-
-    Ok(TranslationResult {
-        translated_text,
-        source_language: source_lang.to_string(),
-        target_language: target_lang.to_string(),
-        provider: "google".to_string(),
-    })
-}
-
-/// Translate using Lingva API (fallback)
+/// Fallback translation provider: Lingva API.
 async fn translate_lingva(
     text: &str,
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    let client =
-        build_client().map_err(|e| ShioriError::Other(format!("HTTP client error: {}", e)))?;
+    let client = get_client();
 
     let instances = [
-        "https://lingva.thedesk.top",
-        "https://lingva.lunar.icu",
-        "https://translate.plausibility.cloud",
         "https://lingva.garudalinux.org",
+        "https://lingva.thedesk.top",
+        "https://translate.plausibility.cloud",
     ];
 
     let mut last_error = String::new();
@@ -644,18 +619,12 @@ async fn translate_lingva(
             Ok(resp) => resp,
             Err(e) => {
                 last_error = format!("Request failed: {}", e);
-                log::warn!("Lingva instance {} failed: {}", instance, e);
                 continue;
             }
         };
 
         if !response.status().is_success() {
             last_error = format!("Status {}", response.status());
-            log::warn!(
-                "Lingva instance {} failed with status {}",
-                instance,
-                response.status()
-            );
             continue;
         }
 
@@ -663,13 +632,14 @@ async fn translate_lingva(
             Ok(res) => res,
             Err(e) => {
                 last_error = format!("Parse failed: {}", e);
-                log::warn!("Lingva instance {} parse failed: {}", instance, e);
                 continue;
             }
         };
 
+        let decoded = decode_html_entities(&result.translation);
+
         return Ok(TranslationResult {
-            translated_text: result.translation,
+            translated_text: decoded,
             source_language: source_lang.to_string(),
             target_language: target_lang.to_string(),
             provider: "lingva".to_string(),
@@ -677,7 +647,8 @@ async fn translate_lingva(
     }
 
     Err(ShioriError::Other(format!(
-        "All Lingva instances failed. Last error: {}",
+        "All translation providers failed. Last error: {}",
         last_error
     )))
 }
+

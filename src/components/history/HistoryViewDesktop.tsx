@@ -18,6 +18,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
 import { 
   useHistoryData, 
@@ -121,13 +127,13 @@ export function HistoryViewDesktop({
       {/* ── Top Header Bar ── */}
       <div className="h-16 px-4 md:px-8 border-b border-border/50 bg-background/85 backdrop-blur-2xl flex items-center justify-between shrink-0 z-20">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-xs">
+          <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-xs">
             <History size={20} />
           </div>
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-foreground">Reading History</h1>
-              <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+              <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
                 {stats.total} {stats.total === 1 ? 'Title' : 'Titles'}
               </span>
             </div>
@@ -157,7 +163,7 @@ export function HistoryViewDesktop({
             size="icon"
             onClick={onClose}
             title="Close history"
-            className="text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full cursor-pointer h-9 w-9"
+            className="text-muted-foreground hover:text-foreground hover:bg-card/80 border border-transparent hover:border-border/60 rounded-full cursor-pointer h-9 w-9 transition-all shadow-xs"
           >
             <X size={18} />
           </Button>
@@ -165,19 +171,19 @@ export function HistoryViewDesktop({
       </div>
 
       {/* ── Action Toolbar: Search, Filter Tabs, Sort, View Modes ── */}
-      <div className="px-4 md:px-8 py-3 border-b border-border/40 bg-card/30 backdrop-blur-xl shrink-0 z-10">
+      <div className="px-4 md:px-8 py-3 border-b border-border/40 bg-card/40 backdrop-blur-xl shrink-0 z-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
           {/* Left: Search & Filter Tabs */}
           <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
-            <div className="relative w-full sm:w-64 md:w-72">
+            <div className="relative w-full sm:w-72 md:w-80 lg:max-w-xs">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search history by title or author..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-7 h-9 text-xs sm:text-sm bg-card/80 hover:bg-card border-border/50 rounded-xl focus-visible:ring-1 focus-visible:ring-primary shadow-xs"
+                className="w-full pl-8 pr-7 h-9 text-xs sm:text-sm bg-card/90 hover:bg-card border-border/60 rounded-2xl focus-visible:ring-2 focus-visible:ring-primary/30 shadow-xs transition-all"
               />
               {searchQuery && (
                 <button
@@ -191,7 +197,7 @@ export function HistoryViewDesktop({
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-xl border border-border/40 overflow-x-auto no-scrollbar shrink-0">
+            <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-2xl border border-border/40 overflow-x-auto no-scrollbar shrink-0 shadow-inner">
               {[
                 { id: 'all', label: 'All' },
                 { id: 'books', label: 'Books' },
@@ -206,10 +212,10 @@ export function HistoryViewDesktop({
                     type="button"
                     onClick={() => setActiveTab(tab.id as FilterTab)}
                     className={cn(
-                      "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap select-none",
+                      "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer whitespace-nowrap select-none",
                       isActive 
-                        ? "bg-card text-foreground shadow-xs font-bold border border-border/50" 
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-card text-foreground shadow-xs font-bold border border-border/60 scale-[1.02]" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-card/40"
                     )}
                   >
                     {tab.label}
@@ -222,7 +228,7 @@ export function HistoryViewDesktop({
           {/* Right: Sort & View Mode Toggle */}
           <div className="flex items-center gap-2 shrink-0 justify-end">
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1.5 px-3 py-1.5 h-9 rounded-xl bg-card/80 hover:bg-card border border-border/60 hover:border-primary/40 text-xs font-bold text-foreground transition-all shadow-xs outline-none cursor-pointer">
+              <DropdownMenuTrigger className="flex items-center gap-1.5 px-3 py-1.5 h-9 rounded-2xl bg-card/90 hover:bg-card border border-border/60 hover:border-primary/40 text-xs font-bold text-foreground transition-all shadow-xs outline-none cursor-pointer">
                 <Clock size={13} className="text-muted-foreground" />
                 <span>
                   {sortOption === 'recent' ? 'Most Recent' : sortOption === 'oldest' ? 'Oldest Activity' : sortOption === 'progress' ? 'Highest Progress' : 'Title (A-Z)'}
@@ -285,30 +291,47 @@ export function HistoryViewDesktop({
             </DropdownMenu>
 
             {/* View Mode Toggle */}
-            <div className="flex items-center bg-muted/60 rounded-xl p-0.5 border border-border/50">
-              <button
-                type="button"
-                onClick={() => setViewMode('timeline')}
-                title="Detailed Timeline List"
-                className={cn(
-                  "p-1.5 rounded-lg transition-all cursor-pointer",
-                  viewMode === 'timeline' ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <List size={14} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                title="Visual Grid Cards"
-                className={cn(
-                  "p-1.5 rounded-lg transition-all cursor-pointer",
-                  viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <LayoutGrid size={14} />
-              </button>
-            </div>
+            <TooltipProvider delayDuration={150}>
+              <div className="flex items-center bg-muted/50 rounded-2xl p-0.5 border border-border/50 shadow-inner">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('timeline')}
+                      aria-label="Detailed Timeline List"
+                      className={cn(
+                        "p-1.5 rounded-xl transition-all cursor-pointer",
+                        viewMode === 'timeline' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <List size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6} className="text-xs font-medium">
+                    Detailed Timeline List
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      aria-label="Visual Grid Cards"
+                      className={cn(
+                        "p-1.5 rounded-xl transition-all cursor-pointer",
+                        viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <LayoutGrid size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6} className="text-xs font-medium">
+                    Visual Grid Cards
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </TooltipProvider>
           </div>
         </div>
       </div>
@@ -318,12 +341,12 @@ export function HistoryViewDesktop({
         <div className="max-w-7xl mx-auto space-y-6 pb-24">
           
           {/* ── Top Live Reading Insights & 30-Day Activity Heatmap ── */}
-          <div className="rounded-3xl border border-border/60 bg-card/60 backdrop-blur-xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="rounded-3xl border border-border/50 bg-gradient-to-r from-card/90 via-card/70 to-card/85 backdrop-blur-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
             {/* Left: Summary Metrics */}
-            <div className="flex flex-wrap items-center gap-4 sm:gap-6 min-w-0">
+            <div className="flex flex-wrap items-center gap-5 sm:gap-7 min-w-0">
               {/* Reading Streak */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-xs border border-amber-500/20">
+                <div className="w-11 h-11 rounded-2xl bg-muted/60 text-foreground border border-border/60 flex items-center justify-center shadow-xs">
                   <TrendingUp size={18} />
                 </div>
                 <div>
@@ -338,7 +361,7 @@ export function HistoryViewDesktop({
 
               {/* Total Logged Reading Time */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-secondary/80 flex items-center justify-center text-foreground shadow-xs border border-border/40">
+                <div className="w-11 h-11 rounded-2xl bg-muted/60 text-foreground border border-border/60 flex items-center justify-center shadow-xs">
                   <Clock size={18} />
                 </div>
                 <div>
@@ -351,7 +374,7 @@ export function HistoryViewDesktop({
 
               {/* Pages Completed (Last 30 Days) */}
               <div className="hidden sm:flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-secondary/80 flex items-center justify-center text-foreground shadow-xs border border-border/40">
+                <div className="w-11 h-11 rounded-2xl bg-muted/60 text-foreground border border-border/60 flex items-center justify-center shadow-xs">
                   <BookOpen size={18} />
                 </div>
                 <div>
@@ -364,44 +387,47 @@ export function HistoryViewDesktop({
             </div>
 
             {/* Right: 30-Day Mini Activity Heatmap & Quick Action */}
-            <div className="flex items-center gap-4 self-stretch md:self-auto justify-between md:justify-end border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
+            <div className="flex items-center gap-5 self-stretch md:self-auto justify-between md:justify-end border-t md:border-t-0 border-border/40 pt-3 md:pt-0">
               {/* 30-Day Mini Heatmap Bar */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1" title="Last 30 days activity">
-                  {miniHeatmapDays.map(day => (
-                    <div
-                      key={day.date}
-                      className={cn(
-                        "w-1.5 sm:w-2 h-6 rounded-full transition-all duration-200 group relative cursor-pointer",
-                        day.hasActivity 
-                          ? "bg-primary hover:opacity-80 scale-y-100" 
-                          : "bg-muted/70 scale-y-60 opacity-40 hover:opacity-75"
-                      )}
-                    >
-                      {/* Tooltip */}
-                      <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-[10px] font-bold py-1 px-2 rounded-lg border border-border shadow-lg pointer-events-none z-30 whitespace-nowrap">
-                        <div>{day.label}</div>
-                        <div className="text-primary">{day.pages} pages • {formatMinutes(day.seconds)}</div>
-                      </div>
-                    </div>
-                  ))}
+              <TooltipProvider delayDuration={100}>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1">
+                    {miniHeatmapDays.map(day => (
+                      <Tooltip key={day.date}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              "w-1.5 sm:w-2 h-6 rounded-full transition-all duration-200 cursor-pointer",
+                              day.hasActivity 
+                                ? "bg-gradient-to-t from-primary/80 to-primary hover:scale-y-110 shadow-xs" 
+                                : "bg-muted/50 scale-y-60 opacity-40 hover:opacity-80 hover:scale-y-80"
+                            )}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" sideOffset={6} className="text-xs font-semibold py-1 px-2.5">
+                          <div className="font-bold">{day.label}</div>
+                          <div className="text-primary font-normal">{day.pages} pages • {formatMinutes(day.seconds)}</div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground/80 uppercase tracking-wider">
+                    <span>30d ago</span>
+                    <span>Today</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground/80 uppercase tracking-wider">
-                  <span>30d ago</span>
-                  <span>Today</span>
-                </div>
-              </div>
+              </TooltipProvider>
 
               {/* View Full Analytics CTA */}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleGoToStatistics}
-                className="h-9 px-3 rounded-xl border-border/60 bg-card/80 hover:bg-card text-xs font-bold text-foreground gap-1.5 shadow-xs cursor-pointer active:scale-95 shrink-0"
+                className="h-10 px-4 rounded-2xl bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold text-xs gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-xs"
               >
-                <BarChart3 size={13} className="text-primary" />
+                <BarChart3 size={14} className="text-primary" />
                 <span className="hidden sm:inline">Full Analytics</span>
-                <ArrowRight size={12} className="text-muted-foreground" />
+                <ArrowRight size={13} className="text-primary/70" />
               </Button>
             </div>
           </div>
@@ -414,31 +440,41 @@ export function HistoryViewDesktop({
           ) : error ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4">
               <p className="text-sm font-semibold text-destructive">{error}</p>
-              <Button onClick={() => loadHistory()} variant="outline" size="sm">Retry</Button>
+              <Button onClick={() => loadHistory()} variant="outline" size="sm" className="rounded-xl">Retry</Button>
             </div>
           ) : filteredAndSortedBooks.length === 0 ? (
             /* Empty State */
-            <div className="flex flex-col items-center justify-center h-72 text-muted-foreground gap-4">
-              <div className="p-4 bg-muted/30 rounded-2xl border border-border/40">
-                <History size={36} className="opacity-25" />
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-center max-w-md mx-auto space-y-4">
+              <div className="w-16 h-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xs ring-8 ring-primary/5">
+                <History size={32} />
               </div>
-              <div className="text-center space-y-1">
-                <p className="text-base font-semibold text-foreground">No reading history found</p>
-                <p className="text-xs text-muted-foreground">
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-bold text-foreground">
+                  {hasActiveFilters ? "No matching history found" : "Your reading history begins here"}
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   {hasActiveFilters 
                     ? `No entries match "${searchQuery}" under ${activeTab}.`
-                    : "Books and manga you open will automatically appear here."}
+                    : "Books and manga you read will automatically appear here with reading progress, streaks, and time logged."}
                 </p>
               </div>
-              {hasActiveFilters && (
+              {hasActiveFilters ? (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => { setSearchQuery(''); setActiveTab('all'); }}
-                  className="mt-2 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+                  className="mt-2 rounded-2xl text-xs font-bold gap-2 cursor-pointer border-border/60 hover:bg-card shadow-xs"
                 >
                   <RotateCcw size={13} />
                   <span>Reset filters</span>
+                </Button>
+              ) : (
+                <Button
+                  onClick={onClose}
+                  className="mt-2 rounded-2xl text-xs font-bold px-5 py-2.5 bg-primary text-primary-foreground gap-2 cursor-pointer shadow-sm hover:bg-primary/90 transition-all active:scale-95"
+                >
+                  <BookOpen size={14} />
+                  <span>Explore Library</span>
                 </Button>
               )}
             </div>
@@ -619,27 +655,37 @@ export function HistoryViewDesktop({
                 return (
                   <div
                     key={book.id}
-                    className="group relative flex flex-col rounded-2xl bg-card border border-border/60 hover:border-primary/40 overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 select-none"
+                    className="group relative flex flex-col rounded-3xl bg-card/80 hover:bg-card border border-border/60 hover:border-primary/40 overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 select-none"
                   >
                     {/* Cover Box */}
                     <div 
-                      onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
                       className="relative aspect-[2/3] w-full overflow-hidden bg-gradient-to-br from-primary/10 via-muted/40 to-muted cursor-pointer"
                     >
                       <HistoryCoverImage book={book} imageClassName="group-hover:scale-105 transition-transform duration-500" />
 
                       {/* Format Badge */}
-                      <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase bg-black/80 text-white backdrop-blur-xs shadow-xs border border-white/10">
+                      <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-lg text-[9px] font-extrabold uppercase bg-black/80 text-white backdrop-blur-md shadow-xs border border-white/10 z-20">
                         {formatBadge}
                       </span>
 
                       {/* Progress Badge */}
-                      <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-extrabold shadow-xs backdrop-blur-md bg-primary/90 text-primary-foreground">
+                      <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold shadow-xs backdrop-blur-md bg-card/90 text-foreground border border-border/50 z-20">
                         {isComplete ? '100%' : `${progressPct}%`}
                       </span>
 
+                      {/* Hover Continue Overlay */}
+                      <div 
+                        onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
+                        className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center p-3 backdrop-blur-[2px] z-10"
+                      >
+                        <span className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-lg flex items-center gap-1.5 transform translate-y-2 group-hover:translate-y-0 transition-all duration-200 hover:scale-105 active:scale-95">
+                          <BookOpen size={13} />
+                          <span>{isComplete ? 'Read Again' : 'Continue'}</span>
+                        </span>
+                      </div>
+
                       {/* Bottom Progress Bar Line */}
-                      <div className="absolute inset-x-0 bottom-0 h-1.5 bg-black/40">
+                      <div className="absolute inset-x-0 bottom-0 h-1.5 bg-black/40 z-20">
                         <div 
                           className="h-full transition-all duration-300 bg-primary"
                           style={{ width: `${Math.min(Math.max(progressPct, 5), 100)}%` }}
@@ -649,17 +695,56 @@ export function HistoryViewDesktop({
 
                     {/* Meta Footer */}
                     <div className="p-3.5 flex flex-col justify-between flex-1 gap-2">
-                      <div>
-                        <h3 
-                          onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
-                          className="font-bold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer"
-                          title={book.title}
-                        >
-                          {book.title}
-                        </h3>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {authorName}
-                        </p>
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="min-w-0 flex-1">
+                          <h3 
+                            onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
+                            className="font-bold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer"
+                            title={book.title}
+                          >
+                            {book.title}
+                          </h3>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">
+                            {authorName}
+                          </p>
+                        </div>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="h-7 w-7 -mr-1 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer opacity-70 hover:opacity-100">
+                            <MoreVertical size={14} />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 bg-popover !bg-popover !opacity-100 border border-border/80 shadow-2xl rounded-2xl p-1.5 z-[200]">
+                            <DropdownMenuItem
+                              onClick={() => book.id && onViewDetails(book.id)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                            >
+                              <Info size={14} />
+                              <span>Book Details</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => book.id && onEditBook(book.id)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                            >
+                              <Edit2 size={14} />
+                              <span>Edit Metadata</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => book.id && dialogs.openShelfSelectDialog(book.id)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                            >
+                              <FolderPlus size={14} />
+                              <span>Add to Shelf</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1 border-border/40" />
+                            <DropdownMenuItem
+                              onClick={() => book.id && handleRemoveFromHistory(book.id)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-destructive hover:bg-destructive/10 cursor-pointer"
+                            >
+                              <Trash2 size={14} />
+                              <span>Remove from History</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
                       <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px] text-muted-foreground">

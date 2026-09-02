@@ -26,6 +26,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn, pageCountLabel } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCoverImage } from '../common/hooks/useCoverImage';
@@ -442,33 +448,33 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
         {/* Sticky Top Header Bar */}
         {isAndroidOrMobile ? (
           <div 
-            className="mb-3 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-2 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2"
-            style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 8px)' }}
+            className="mb-4 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-3 -mx-4 px-4 border-b border-border/50 shadow-xs space-y-2.5"
+            style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 10px)' }}
           >
             {/* Row 1: Back | Shelf Title + Count | Select & Add */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2.5">
               <button 
                 onClick={onBack}
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
                 title="Back to Shelves"
               >
-                <div className="w-8 h-8 rounded-full bg-secondary/80 flex items-center justify-center group-hover:bg-secondary transition-colors shadow-xs">
-                  <ArrowLeft size={15} />
+                <div className="w-9 h-9 rounded-2xl bg-card/90 border border-border/60 flex items-center justify-center group-hover:bg-secondary transition-colors shadow-xs">
+                  <ArrowLeft size={16} />
                 </div>
-                <span className="text-xs font-semibold hidden xs:inline">Back</span>
+                <span className="text-xs font-bold hidden xs:inline">Back</span>
               </button>
 
-              <div className="flex items-center justify-center gap-1.5 min-w-0 flex-1 text-center truncate px-1">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: shelfColor }} />
-                <h1 className="text-sm sm:text-base font-bold tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-serif)' }}>
+              <div className="flex items-center justify-center gap-2 min-w-0 flex-1 text-center truncate px-1">
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: shelfColor }} />
+                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground truncate" style={{ fontFamily: 'var(--font-serif)' }}>
                   {shelf.name}
                 </h1>
-                <span className="text-[10px] font-extrabold text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full shrink-0">
+                <span className="text-xs font-extrabold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full border border-border/40 shrink-0">
                   {books.length}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 {!shelf.isSmart && (
                   <button
                     type="button"
@@ -477,10 +483,10 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                       setSelectedBookIds(new Set());
                     }}
                     className={cn(
-                      "h-8 px-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border shadow-xs active:scale-95 flex items-center justify-center",
+                      "h-9 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs active:scale-95 flex items-center justify-center",
                       isSelectionMode
                         ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary/70 hover:bg-secondary text-foreground border-border/50"
+                        : "bg-card/90 hover:bg-card text-foreground border-border/60"
                     )}
                   >
                     {isSelectionMode ? 'Cancel' : 'Select'}
@@ -491,7 +497,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                   <button
                     type="button"
                     onClick={() => setAddBooksDialogOpen(true)}
-                    className="h-8 px-2.5 rounded-xl text-xs font-semibold transition-all border border-primary/35 bg-primary/15 hover:bg-primary/25 text-primary shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer"
+                    className="h-9 px-3.5 rounded-xl text-xs font-bold transition-all border border-primary/30 bg-primary text-primary-foreground shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer hover:bg-primary/90"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add</span>
@@ -502,15 +508,15 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
 
             {/* Row 2: Search | Sort | Layout */}
             {books.length > 0 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <div className="relative flex-1 group">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search in shelf..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-7 pr-2.5 py-1 text-xs font-bold bg-secondary/50 border border-border/50 focus:bg-background focus:border-primary/50 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                    className="w-full pl-8 pr-3 h-9 text-xs font-medium bg-card/90 border border-border/60 focus:bg-card focus:border-primary/50 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-xs"
                   />
                 </div>
 
@@ -519,10 +525,10 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="flex items-center gap-1 px-2 py-1 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 text-xs font-bold text-foreground transition-all cursor-pointer shadow-xs shrink-0"
+                      className="flex items-center gap-1.5 px-3 h-9 rounded-xl bg-card/90 hover:bg-card border border-border/60 text-xs font-bold text-foreground transition-all cursor-pointer shadow-xs shrink-0"
                     >
-                      <ArrowUpDown className="w-3 h-3 text-primary" />
-                      <span className="capitalize text-[11px]">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
+                      <span className="capitalize text-xs">
                         {sortType === 'title-asc' ? 'A–Z' :
                          sortType === 'title-desc' ? 'Z–A' :
                          sortType === 'author' ? 'Author' :
@@ -530,33 +536,33 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                       </span>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border shadow-2xl z-[150]">
-                    <DropdownMenuItem onClick={() => setSortType('title-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                  <DropdownMenuContent align="end" className="w-44 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border/80 shadow-2xl z-[150]">
+                    <DropdownMenuItem onClick={() => setSortType('title-asc')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
                       Title (A–Z)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortType('title-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                    <DropdownMenuItem onClick={() => setSortType('title-desc')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
                       Title (Z–A)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortType('author')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                    <DropdownMenuItem onClick={() => setSortType('author')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
                       Author
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortType('progress')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                    <DropdownMenuItem onClick={() => setSortType('progress')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
                       Reading Progress
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortType('recent')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                    <DropdownMenuItem onClick={() => setSortType('recent')} className="text-xs font-semibold py-2 rounded-xl cursor-pointer">
                       Date Added
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
                 {/* View Switcher */}
-                <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl border border-border/50 shrink-0">
+                <div className="flex items-center bg-muted/50 p-0.5 rounded-xl border border-border/50 shrink-0 shadow-inner">
                   <button
                     type="button"
                     onClick={() => setViewMode('grid')}
                     className={cn(
-                      "p-1 rounded-lg transition-all cursor-pointer",
-                      viewMode === 'grid' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                      "p-1.5 rounded-lg transition-all cursor-pointer",
+                      viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
                     )}
                     title="Grid View"
                   >
@@ -566,8 +572,8 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                     type="button"
                     onClick={() => setViewMode('list')}
                     className={cn(
-                      "p-1 rounded-lg transition-all cursor-pointer",
-                      viewMode === 'list' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                      "p-1.5 rounded-lg transition-all cursor-pointer",
+                      viewMode === 'list' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
                     )}
                     title="List View"
                   >
@@ -578,20 +584,20 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
             )}
           </div>
         ) : (
-          /* Desktop Sticky Top Header Bar — Untouched */
-          <div className="mb-6 relative sticky top-0 z-40 bg-background/95 backdrop-blur-xl pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-border/50 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          /* Desktop Sticky Top Header Bar — Enhanced Scale & Vibes */
+          <div className="mb-8 relative sticky top-0 z-40 bg-background/95 backdrop-blur-2xl pb-5 -mx-4 px-4 sm:-mx-6 sm:px-6 border-b border-border/50 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
               <button 
                 onClick={onBack}
-                className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer self-start"
+                className="h-10 px-4 rounded-2xl bg-card/80 hover:bg-card border border-border/60 hover:border-primary/40 text-sm font-bold flex items-center gap-2.5 transition-all shadow-xs cursor-pointer group"
               >
-                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors shadow-xs">
-                  <ArrowLeft size={16} />
+                <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center group-hover:bg-secondary/80 transition-colors shadow-xs">
+                  <ArrowLeft size={14} />
                 </div>
-                <span className="text-xs sm:text-sm font-semibold">Back to Shelves</span>
+                <span>Back to Shelves</span>
               </button>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex items-center gap-2.5 self-end sm:self-auto">
                 {!shelf.isSmart && (
                   <button
                     type="button"
@@ -600,38 +606,38 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                       setSelectedBookIds(new Set());
                     }}
                     className={cn(
-                      "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs",
+                      "h-10 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-xs active:scale-95",
                       isSelectionMode
                         ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary/70 hover:bg-secondary text-foreground border-border/50"
+                        : "bg-card/80 hover:bg-card text-foreground border-border/60 hover:border-border"
                     )}
                   >
-                    {isSelectionMode ? 'Cancel' : 'Select'}
+                    {isSelectionMode ? 'Cancel Selection' : 'Select'}
                   </button>
                 )}
 
                 {!shelf.isSmart && (
                   <Button
                     onClick={() => setAddBooksDialogOpen(true)}
-                    className="gap-1.5 rounded-xl h-9 px-3.5 text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 cursor-pointer"
+                    className="gap-2 rounded-2xl h-10 px-5 text-xs sm:text-sm font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 cursor-pointer active:scale-95 transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Add Books
+                    <Plus className="w-4 h-4" /> Add Books
                   </Button>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
               <div>
-                <div className="text-[10px] sm:text-[11px] font-extrabold tracking-[0.2em] text-muted-foreground uppercase mb-1 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: shelfColor }} />
+                <div className="text-xs font-extrabold tracking-widest text-muted-foreground uppercase mb-1.5 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full shadow-xs" style={{ backgroundColor: shelfColor }} />
                   <span>SHELF · {books.length} {books.length === 1 ? 'BOOK' : 'BOOKS'}</span>
                 </div>
-                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground" style={{ fontFamily: 'var(--font-serif)' }}>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground" style={{ fontFamily: 'var(--font-serif)' }}>
                   {shelf.name}
                 </h1>
                 {shelf.description && (
-                  <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+                  <p className="text-muted-foreground text-sm sm:text-base mt-2 max-w-2xl leading-relaxed">
                     {shelf.description}
                   </p>
                 )}
@@ -639,16 +645,16 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
 
               {/* Controls Toolbar: Search, Sort, Grid/List */}
               {books.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                   {/* Search */}
-                  <div className="relative w-36 sm:w-48 group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <div className="relative w-full sm:w-64 md:w-72 group">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <input
                       type="text"
                       placeholder="Search in shelf..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-8 pr-3 py-1.5 text-xs font-bold bg-secondary/50 border border-border/50 focus:bg-background focus:border-primary/50 rounded-xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
+                      className="w-full pl-10 pr-3.5 h-10 text-xs sm:text-sm font-medium bg-card/90 hover:bg-card border border-border/60 focus:bg-card focus:border-primary/60 focus:ring-2 focus:ring-primary/20 rounded-2xl outline-none transition-all placeholder:text-muted-foreground/60 text-foreground shadow-xs"
                     />
                   </div>
 
@@ -657,9 +663,9 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 text-xs font-bold text-foreground transition-all cursor-pointer shadow-xs"
+                        className="flex items-center gap-2 px-3.5 h-10 rounded-2xl bg-card/90 hover:bg-card border border-border/60 text-xs sm:text-sm font-bold text-foreground transition-all cursor-pointer shadow-xs"
                       >
-                        <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
+                        <ArrowUpDown className="w-4 h-4 text-primary" />
                         <span className="capitalize">
                           {sortType === 'title-asc' ? 'A–Z' :
                            sortType === 'title-desc' ? 'Z–A' :
@@ -668,50 +674,67 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                         </span>
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border shadow-2xl z-[150]">
-                      <DropdownMenuItem onClick={() => setSortType('title-asc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                    <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-2xl bg-popover text-popover-foreground border border-border/80 shadow-2xl z-[150]">
+                      <DropdownMenuItem onClick={() => setSortType('title-asc')} className="text-xs sm:text-sm font-medium py-2 rounded-xl cursor-pointer">
                         Title (A–Z)
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortType('title-desc')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                      <DropdownMenuItem onClick={() => setSortType('title-desc')} className="text-xs sm:text-sm font-medium py-2 rounded-xl cursor-pointer">
                         Title (Z–A)
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortType('author')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                      <DropdownMenuItem onClick={() => setSortType('author')} className="text-xs sm:text-sm font-medium py-2 rounded-xl cursor-pointer">
                         Author
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortType('progress')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                      <DropdownMenuItem onClick={() => setSortType('progress')} className="text-xs sm:text-sm font-medium py-2 rounded-xl cursor-pointer">
                         Reading Progress
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setSortType('recent')} className="text-xs font-semibold py-1.5 rounded-xl cursor-pointer">
+                      <DropdownMenuItem onClick={() => setSortType('recent')} className="text-xs sm:text-sm font-medium py-2 rounded-xl cursor-pointer">
                         Date Added
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Grid / List Switcher */}
-                  <div className="flex items-center bg-secondary/50 p-0.5 rounded-xl border border-border/50">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('grid')}
-                      className={cn(
-                        "p-1.5 rounded-lg transition-all cursor-pointer",
-                        viewMode === 'grid' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                      )}
-                      title="Grid View"
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('list')}
-                      className={cn(
-                        "p-1.5 rounded-lg transition-all cursor-pointer",
-                        viewMode === 'list' ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                      )}
-                      title="List View"
-                    >
-                      <List className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {/* Grid / List Switcher with Tooltips */}
+                  <TooltipProvider delayDuration={150}>
+                    <div className="flex items-center bg-muted/50 p-0.5 rounded-2xl border border-border/50 shadow-inner h-10">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setViewMode('grid')}
+                            aria-label="Grid View"
+                            className={cn(
+                              "p-2 rounded-xl transition-all cursor-pointer flex items-center justify-center",
+                              viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <LayoutGrid className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={6} className="text-xs font-medium">
+                          Grid View
+                        </TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setViewMode('list')}
+                            aria-label="List View"
+                            className={cn(
+                              "p-2 rounded-xl transition-all cursor-pointer flex items-center justify-center",
+                              viewMode === 'list' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <List className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={6} className="text-xs font-medium">
+                          List View
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
                 </div>
               )}
             </div>
@@ -923,37 +946,49 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
       {/* Floating Multi-Select Action Bar */}
       <AnimatePresence>
         {isSelectionMode && selectedBookIds.size > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 30 }}
-            className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)] md:bottom-8 left-1/2 -translate-x-1/2 z-[65] flex items-center gap-2 sm:gap-3 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-full bg-card/95 backdrop-blur-2xl border border-border/80 shadow-2xl max-w-[calc(100vw-1.25rem)]"
-          >
-            <span className="text-xs font-extrabold text-foreground pr-2 border-r border-border/50 whitespace-nowrap shrink-0">
-              {selectedBookIds.size} <span className="max-xs:hidden">Selected</span>
-            </span>
-
-            <button
-              type="button"
-              onClick={handleSelectAll}
-              className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shrink-0 px-1"
+          <div className="sticky bottom-6 md:bottom-8 inset-x-0 mx-auto w-fit z-[75] pointer-events-none px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.95 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="pointer-events-auto flex items-center gap-3 sm:gap-4 h-13 sm:h-14 px-4 sm:px-6 rounded-full bg-card/95 backdrop-blur-2xl border border-border shadow-2xl max-w-[calc(100vw-2rem)] select-none"
             >
-              {selectedBookIds.size === filteredAndSortedBooks.length ? 'Deselect' : 'Select All'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleBatchRemove}
-              disabled={isRemovingBatch}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all cursor-pointer shadow-md whitespace-nowrap shrink-0 active:scale-95"
-            >
-              <Trash2 className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                <span className="xs:hidden">Remove</span>
-                <span className="max-xs:hidden">Remove from Shelf</span>
+              <span className="text-xs sm:text-sm font-extrabold text-foreground pr-3 border-r border-border/60 whitespace-nowrap shrink-0">
+                {selectedBookIds.size} Selected
               </span>
-            </button>
-          </motion.div>
+
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="text-xs sm:text-sm font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer whitespace-nowrap shrink-0 px-2 py-1 rounded-xl hover:bg-muted/50"
+              >
+                {selectedBookIds.size === filteredAndSortedBooks.length ? 'Deselect All' : 'Select All'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleBatchRemove}
+                disabled={isRemovingBatch}
+                className="flex items-center gap-2 h-9 sm:h-10 px-4 sm:px-5 rounded-full text-xs sm:text-sm font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all cursor-pointer shadow-md whitespace-nowrap shrink-0 active:scale-95 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span>Remove from Shelf</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSelectionMode(false);
+                  setSelectedBookIds(new Set());
+                }}
+                className="text-muted-foreground hover:text-foreground hover:bg-muted/60 p-1.5 rounded-full cursor-pointer transition-colors shrink-0 ml-1"
+                title="Cancel Selection"
+              >
+                <X size={16} />
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

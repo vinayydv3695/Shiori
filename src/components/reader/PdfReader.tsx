@@ -287,13 +287,13 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   const widthFactor = useMemo(() => {
     switch (width) {
       case 'narrow':
-        return 0.58;
+        return 0.65;
       case 'medium':
-        return 0.68;
+        return 0.80;
       case 'wide':
-        return 0.78;
-      default:
         return 0.92;
+      default:
+        return 0.99;
     }
   }, [width]);
 

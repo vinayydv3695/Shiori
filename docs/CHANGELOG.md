@@ -1,3 +1,13 @@
+# Release Notes (v1.0.4)
+
+## UI & Animation Polish
+
+- **Smooth Library Entrance & Line-by-Line Cascading Book Reveals** — Staggered line-by-line card entrance animations with smooth cubic-bezier easing (`0.4s cubic-bezier(0.16, 1, 0.3, 1)`), cover image cross-fade transitions, and single-layer view transitions to eliminate duplicate transition delays.
+- **Shelf View UI Scaling & Alignment** — Scaled controls, comfortable touch targets, responsive search/sort/view toggles with tooltips, centered floating multi-select action bar, and fixed duplicated button labels.
+- **EPUB Full Reading Mode & Width Recalibration** — True edge-to-edge full reading mode with 4–8px edge spacing, recalibrated reading widths (narrow 720px, medium 960px, wide 1280px, full 100%), and adaptive positioning for translation, definition, and note popups near screen bounds.
+- **History & Reading Insights Overhaul** — Default visual grid cards view mode with tooltip integration, clean monochrome metric capsules, 30-day activity heatmap tooltips, and "Continue Reading" hover overlay.
+- **Translation & Dictionary Instant Loading** — Fixed mutable state warning and streamlined dictionary and translation lookup handling.
+
 # Release Notes (v1.0.3)
 
 ## CI / Release Pipeline

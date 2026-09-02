@@ -17,6 +17,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
 import { 
   useHistoryData, 
@@ -255,30 +261,47 @@ export function HistoryViewAndroid({
           </DropdownMenu>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-muted/50 rounded-full p-0.5 border border-border/60 shadow-xs shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode('timeline')}
-              title="Timeline List"
-              className={cn(
-                "p-1.5 rounded-full transition-all flex items-center justify-center",
-                viewMode === 'timeline' ? "bg-background text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <List size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('grid')}
-              title="Cards Grid"
-              className={cn(
-                "p-1.5 rounded-full transition-all flex items-center justify-center",
-                viewMode === 'grid' ? "bg-background text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <LayoutGrid size={14} />
-            </button>
-          </div>
+          <TooltipProvider delayDuration={150}>
+            <div className="flex items-center bg-muted/50 rounded-full p-0.5 border border-border/60 shadow-xs shrink-0">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('timeline')}
+                    aria-label="Timeline List"
+                    className={cn(
+                      "p-1.5 rounded-full transition-all flex items-center justify-center",
+                      viewMode === 'timeline' ? "bg-background text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <List size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6} className="text-xs font-medium">
+                  Timeline List
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('grid')}
+                    aria-label="Visual Grid Cards"
+                    className={cn(
+                      "p-1.5 rounded-full transition-all flex items-center justify-center",
+                      viewMode === 'grid' ? "bg-background text-foreground shadow-xs font-bold" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6} className="text-xs font-medium">
+                  Visual Grid Cards
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -293,7 +316,7 @@ export function HistoryViewAndroid({
           {/* Compact Mobile Reading Stats Card */}
           <div className="rounded-2xl border border-border/50 bg-card/70 backdrop-blur-md p-3 shadow-xs flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-500 shrink-0 border border-amber-500/25">
+              <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center text-foreground shrink-0 border border-border/60">
                 <TrendingUp size={16} />
               </div>
               <div className="min-w-0">

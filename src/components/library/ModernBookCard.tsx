@@ -330,7 +330,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         'bg-card border border-border/40',
         'cursor-pointer select-none',
         'transition-transform duration-300 ease-out',
-        !visible && 'opacity-0 scale-95',
+        !visible && 'opacity-0 scale-[0.96] translate-y-2',
         visible && 'animate-card-in',
         isSelected
           ? 'ring-2 ring-primary border-primary shadow-[0_8px_30px_rgba(var(--primary),0.4)]'
@@ -355,7 +355,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
               className={cn(
                 'absolute inset-0 w-full h-full object-cover bg-muted',
                 'transition-all duration-500 ease-out group-hover:scale-105',
-                imgLoaded ? 'opacity-100' : 'opacity-0',
+                imgLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-[1.02]',
               )}
             />
             {/* Premium Inner Sheen / Glare */}

@@ -524,7 +524,10 @@ export function LibraryGrid({
   }, [virtualItems, groupedItems, columns]);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       className={cn("flex flex-col h-full w-full relative overflow-y-auto", isMobile ? "pb-28" : "pb-4")}
       ref={setParentEl}
     >
@@ -598,7 +601,10 @@ export function LibraryGrid({
                 role="row"
               >
                 {rowItems.map((item, idx) => {
-                  const absoluteIndex = startIndex + idx;
+                  const rowDelay = Math.min(virtualRow.index * 60, 300);
+                  const colDelay = idx * 15;
+                  const itemDelay = rowDelay + colDelay;
+
                   return (
                     <div
                       key={
@@ -623,7 +629,7 @@ export function LibraryGrid({
                           onManageTags={onManageTags}
 
                           onFavorite={handleFavorite}
-                          animationDelay={Math.min(absoluteIndex * 10, 150)}
+                          animationDelay={itemDelay}
                           scrollRoot={parentEl}
                         />
                       ) : (
@@ -635,7 +641,7 @@ export function LibraryGrid({
                             if (isFirstSeries) setIsFirstSeries(false);
                             onViewSeries?.(series);
                           }}
-                          animationDelay={Math.min(absoluteIndex * 10, 150)}
+                          animationDelay={itemDelay}
                           scrollRoot={parentEl}
                         />
                       )}
@@ -652,6 +658,6 @@ export function LibraryGrid({
           })}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -186,23 +186,9 @@ export function ViewRouter({
     </>
   );
 
-  return isAndroid ? (
+  return (
     <div key={currentView} className="w-full h-full flex flex-col flex-1">
       {viewContent}
     </div>
-  ) : (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={currentView}
-        initial="initial"
-        animate="in"
-        exit="out"
-        variants={pageVariants}
-        transition={pageTransition}
-        className="w-full h-full flex flex-col flex-1"
-      >
-        {viewContent}
-      </motion.div>
-    </AnimatePresence>
   );
 }

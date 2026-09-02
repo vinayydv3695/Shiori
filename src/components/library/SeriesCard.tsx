@@ -200,7 +200,7 @@ export const SeriesCard = memo(function SeriesCard({
             style={{ animationDelay: `${animationDelay}ms` }}
             className={cn(
               "group relative flex flex-col cursor-pointer select-none",
-              !visible && "opacity-0",
+              !visible && "opacity-0 scale-[0.96] translate-y-2",
               visible && "animate-card-in",
             )}
           >

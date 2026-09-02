@@ -141,9 +141,9 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
   ];
 
   const widthOptions: Array<{ id: 'narrow' | 'medium' | 'wide' | 'full'; label: string; chars: string }> = [
-    { id: 'narrow', label: 'Narrow', chars: '45ch' },
-    { id: 'medium', label: 'Medium', chars: '60ch' },
-    { id: 'wide', label: 'Wide', chars: '75ch' },
+    { id: 'narrow', label: 'Narrow', chars: '720px' },
+    { id: 'medium', label: 'Medium', chars: '960px' },
+    { id: 'wide', label: 'Wide', chars: '1280px' },
     { id: 'full', label: 'Full', chars: '100%' },
   ];
 

@@ -37,9 +37,9 @@
   --reading-brightness: 1;
 
   /* Layout */
-  --readable-width-narrow: 60ch;
-  --readable-width-medium: 75ch;
-  --readable-width-wide: 90ch;
+  --readable-width-narrow: min(720px, 92vw);
+  --readable-width-medium: min(960px, 94vw);
+  --readable-width-wide: min(1280px, 96vw);
   --readable-width-full: 100%;
 
   /* Spacing */
@@ -499,8 +499,8 @@ select {
 /* Focus mode adjustments */
 .premium-reading-canvas--focus-mode {
   padding-top: 68px;
-  padding-left: 10vw;
-  padding-right: 10vw;
+  padding-left: 0;
+  padding-right: 0;
   transition: padding var(--transition-slower);
 }
 
@@ -535,9 +535,9 @@ select {
 .premium-content-container {
   position: relative;
   margin: 0 auto;
-  /* SHIORI-FIX: content padding 2rem 3rem (desktop) per spec */
-  padding: 2rem 3rem;
+  padding: 2rem 1.5rem;
   transition: max-width var(--transition-normal), padding var(--transition-normal);
+  box-sizing: border-box;
   
   /* Prevent native Android/iOS context menu popup while allowing text selection */
   -webkit-touch-callout: none;
@@ -556,8 +556,10 @@ select {
 }
 
 .premium-content-container--full {
-  max-width: var(--readable-width-full);
-  padding: var(--spacing-xxl) 10vw;
+  max-width: 100%;
+  width: 100%;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 /* SHIORI-FIX: Mobile padding per spec (≤640px) */
@@ -585,8 +587,8 @@ select {
   }
 
   .premium-content-container--full {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 6px;
+    padding-right: 6px;
   }
 }
 
@@ -2784,8 +2786,13 @@ select {
     display: none;
   }
 
-  .premium-content-container {
+  .premium-content-container:not(.premium-content-container--full) {
     padding: 0 var(--spacing-unit);
+  }
+
+  .premium-content-container--full {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
   }
 
   .doodle-toolbar {
@@ -2819,7 +2826,7 @@ select {
 
 /* Tablet: 640px – 1024px */
 @container reader (min-width: 641px) and (max-width: 1024px) {
-  .premium-content-container {
+  .premium-content-container:not(.premium-content-container--full) {
     padding: 0 calc(var(--spacing-unit) * 2);
   }
 
@@ -3221,10 +3228,17 @@ select {
    TRANSLATION & DICTIONARY POPUP
    ═══════════════════════════════════════════════════════════ */
 
+.text-selection-toolbar--card {
+  max-height: min(520px, calc(100vh - 32px));
+  max-width: min(440px, calc(100vw - 24px));
+  box-sizing: border-box;
+}
+
 .translation-popup {
   padding: 14px;
-  min-width: 300px;
-  max-width: 360px;
+  min-width: 280px;
+  max-width: 380px;
+  box-sizing: border-box;
 }
 
 .translation-popup-header {
@@ -3272,7 +3286,7 @@ select {
 }
 
 .translation-popup-body {
-  max-height: 250px;
+  max-height: min(280px, calc(100vh - 180px));
   overflow-y: auto;
   padding-right: 4px;
 }

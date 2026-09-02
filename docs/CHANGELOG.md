@@ -20,6 +20,10 @@
 
 ### Library
 - **`get_next_book_in_series` no longer errors on a missing index** — A book with a series name but a NULL `series_index` made the "next in series" lookup fail outright. The current index is read as optional (defaulting to `0.0`), the "next" query skips NULL indices, and ordering tie-breaks on title/id (`library.rs`).
+### Library Pagination & Android Performance
+- **Library Books No Longer Disappear in Large Libraries** — Fixed the "some books don't show up until reload/section switch" bug (Android + desktop). Three compounding causes were fixed: (1) library list queries lacked the deterministic `b.id` sort tie-breaker (bulk-imported books share second-resolution `added_date` timestamps, so offset pages skipped/duplicated rows); (2) `loadMoreBooks` paginated by client book-count offset, so imports mid-scroll left permanent holes — replaced with an insert-stable keyset cursor (`before_added_date`/`before_id`) for the added_date sort plus server-side offset tracking for other sorts; (3) LibraryGrid's cover-reveal IntersectionObserver only re-synced on row-index changes, so remounted cards stayed invisible (opacity 0) until the window shifted — the sync is now content-aware with an immediate on-screen reveal safety net.
+- **Android Animation Jank Reduced** — Section switches are instant on Android (no full-viewport motion crossfade), framer-motion transform springs snap via global `reducedMotion="always"`, and `.is-android` CSS neutralizes blur/shadow/shimmer keyframe animations. Desktop behavior unchanged.
+
 
 ## Bug Fixes & Reader Hardening
 

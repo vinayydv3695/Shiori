@@ -213,7 +213,7 @@ fn split_pages_into_chapters(pages: &[String]) -> Vec<(String, String)> {
         // heading, on a paragraph break, or at the end of the page.
         let mut open_para: Option<(String, usize)> = None;
 
-        let mut flush_para = |para: &mut Option<(String, usize)>,
+        let flush_para = |para: &mut Option<(String, usize)>,
                               body: &mut Vec<String>,
                               front: &mut Vec<String>,
                               has_title: bool| {

@@ -404,32 +404,82 @@ export function LibraryGrid({
     };
   }, [parentEl]);
 
-  // Keep the observer's target set in sync with mounted card wrappers.
-  // observe() is idempotent, so re-running only when the mounted row window
-  // changes is cheap; detached wrappers are unobserved so the observer never
-  // leaks DOM nodes.
-  const mountedWrapperKey = virtualItems.map((v) => v.index).join(",");
+  // Content signature of the currently mounted window: the cell ids actually
+  // rendered inside the virtual rows. When list content changes (imports,
+  // refetch, domain refilter) cards REMOUNT under the same row-index window —
+  // row indexes alone never change, so the sync must also key on content or
+  // remounted wrappers are never .observe()d and stay invisible at
+  // opacity: 0. The joined string is stable across plain re-renders; it only
+  // changes when the mounted content actually changes, and re-running the
+  // sync is O(mounted rows) since observe() is idempotent.
+  const mountedContentKey = useMemo(() => {
+    return virtualItems
+      .map((v) => {
+        const start = v.index * columns;
+        return groupedItems
+          .slice(start, start + columns)
+          .map((item) => `${item.type}:${item.data.id}`)
+          .join("+");
+      })
+      .join(",");
+  }, [virtualItems, groupedItems, columns]);
 
   useEffect(() => {
     const observer = revealObserverRef.current;
     if (!observer || !parentEl) return;
     const observed = observedWrappersRef.current;
-    const live = new Set<string>();
+
+    // Snapshot the currently mounted wrappers (key → element).
+    const live = new Map<string, HTMLElement>();
     parentEl.querySelectorAll<HTMLElement>("[data-book-id]").forEach((el) => {
       const key = el.getAttribute("data-book-id")!;
-      live.add(key);
-      if (!observed.has(key)) {
-        observed.set(key, el);
-        observer.observe(el);
-      }
+      live.set(key, el);
     });
+
+    // Unobserve detached/stale wrappers FIRST: a remounted wrapper (same id
+    // re-rendered at a new row after an import/refilter) still sits in the
+    // observed map under its old element, so it must be evicted before the
+    // observe pass below, or the fresh wrapper is skipped and never revealed.
     for (const [key, el] of observed) {
       if (!live.has(key) || !el.isConnected) {
         observer.unobserve(el);
         observed.delete(key);
       }
     }
-  }, [parentEl, mountedWrapperKey, columns]);
+
+    // Observe every live wrapper that isn't tracked yet (idempotent).
+    const newlyObserved: { key: string; el: HTMLElement }[] = [];
+    for (const [key, el] of live) {
+      if (!observed.has(key)) {
+        observed.set(key, el);
+        observer.observe(el);
+        newlyObserved.push({ key, el });
+      }
+    }
+
+    // Safety net: a freshly observed wrapper that is already fully inside the
+    // parent's visible viewport must not wait for the observer's async
+    // initial report (missed for wrappers mounted mid-scroll or replaced by
+    // a refetch) — reveal it right away. Only NEW keys, batched into the same
+    // event shape the observer callback dispatches.
+    if (newlyObserved.length === 0) return;
+    const parentRect = parentEl.getBoundingClientRect();
+    const ids: string[] = [];
+    for (const { key, el } of newlyObserved) {
+      const rect = el.getBoundingClientRect();
+      const fullyInside =
+        rect.top >= parentRect.top &&
+        rect.bottom <= parentRect.bottom &&
+        rect.left >= parentRect.left &&
+        rect.right <= parentRect.right;
+      if (fullyInside) ids.push(key);
+    }
+    if (ids.length > 0) {
+      window.dispatchEvent(
+        new CustomEvent("shiori:reveal-cover", { detail: { ids } }),
+      );
+    }
+  }, [parentEl, mountedContentKey, columns]);
 
   useEffect(() => {
     if (!lastItem) return;

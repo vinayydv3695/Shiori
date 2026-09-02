@@ -210,6 +210,43 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
         }
     }
 
+    // Keyset pagination cursor (added_date sort only, K3-025 keyset). The
+    // frontend resumes from the previous page's last row (its added_date +
+    // id): DESC continues strictly-before the cursor, ASC strictly-after.
+    // Honored only when the effective sort is added_date — sort_by unset,
+    // "added_date", or any unknown value (all fall through to the added_date
+    // arm in the ORDER BY match below). The cursor narrows ONLY the paged
+    // ids query: it is kept out of `where_sql`/`base_params`, so count_sql
+    // (bound to base_params) stays a stable total across pages.
+    let mut cursor_cond: Option<String> = None;
+    let mut cursor_params: Vec<Value> = Vec::new();
+    if let (Some(ref before_added_date), Some(before_id)) =
+        (&query.before_added_date, query.before_id)
+    {
+        let sort_is_added_date = match query.sort_by.as_deref() {
+            Some("title") | Some("pubdate") | Some("rating") | Some("author") => false,
+            _ => true,
+        };
+        if sort_is_added_date {
+            // sort_by unset uses the hardcoded DESC default below; only an
+            // explicit added_date honors sort_order (default "desc").
+            let asc = query.sort_by.is_some()
+                && query.sort_order.as_deref().unwrap_or("desc").to_lowercase() == "asc";
+            if asc {
+                cursor_cond = Some(
+                    "(b.added_date > ? OR (b.added_date = ? AND b.id > ?))".to_string(),
+                );
+            } else {
+                cursor_cond = Some(
+                    "(b.added_date < ? OR (b.added_date = ? AND b.id < ?))".to_string(),
+                );
+            }
+            cursor_params.push(Value::Text(before_added_date.clone()));
+            cursor_params.push(Value::Text(before_added_date.clone()));
+            cursor_params.push(Value::Integer(before_id));
+        }
+    }
+
     let where_sql = if where_clauses.is_empty() {
         String::new()
     } else {
@@ -218,6 +255,19 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
 
     // Count total matches (without page limit/offset)
     let count_sql = format!("SELECT COUNT(DISTINCT b.id){}{}", from_sql, where_sql);
+
+    // Paged-ids WHERE: the base filters plus the keyset cursor (only when a
+    // cursor was sent). count_sql above is already snapshotted from
+    // `where_sql` alone, so totals ignore the cursor.
+    let mut page_where_sql = where_sql;
+    if let Some(ref cond) = cursor_cond {
+        if page_where_sql.is_empty() {
+            page_where_sql = format!(" WHERE {}", cond);
+        } else {
+            page_where_sql.push_str(" AND ");
+            page_where_sql.push_str(cond);
+        }
+    }
 
     let mut order_clause = String::from("ORDER BY b.added_date DESC, b.id DESC");
 
@@ -264,9 +314,13 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
     // Build paged IDs query
     let mut ids_sql = format!(
         "SELECT DISTINCT b.id{}{} {}",
-        from_sql, where_sql, order_clause
+        from_sql, page_where_sql, order_clause
     );
     let mut page_params = base_params.clone();
+    // Cursor placeholders live in page_where_sql, i.e. before LIMIT/OFFSET in
+    // the SQL text, so they slot in here: after base filter params, before
+    // the LIMIT/OFFSET params pushed below.
+    page_params.extend(cursor_params);
 
     if let Some(limit) = query.limit {
         ids_sql.push_str(" LIMIT ?");
@@ -672,5 +726,59 @@ mod tests {
         assert_eq!(page_params.len(), 4); // author, tag, limit, offset
         assert_eq!(page_params[2], Value::Integer(10));
         assert_eq!(page_params[3], Value::Integer(20));
+    }
+
+    #[test]
+    fn test_build_search_query_keyset_cursor() {
+        // DESC (default sort): page resumes strictly-before the cursor row.
+        let mut query = SearchQuery::default();
+        query.before_added_date = Some("2024-05-01T10:00:00Z".to_string());
+        query.before_id = Some(42);
+        query.limit = Some(10);
+
+        let (count_sql, base_params, ids_sql, page_params) = build_search_query(&query);
+
+        // Count stays cursor-free (bound to base_params, which must not
+        // receive the cursor values).
+        assert!(!count_sql.contains("b.added_date"));
+        assert!(base_params.is_empty());
+        // ids query resumes strictly-before the cursor…
+        assert!(ids_sql.contains(
+            "AND (b.added_date < ? OR (b.added_date = ? AND b.id < ?))"
+        ));
+        // …and keeps the added_date DESC + id tie-breaker order (K3-025).
+        assert!(ids_sql.contains("ORDER BY b.added_date DESC, b.id DESC"));
+        // Cursor params precede LIMIT's param, matching placeholder order.
+        assert_eq!(page_params.len(), 4);
+        assert_eq!(page_params[0], Value::Text("2024-05-01T10:00:00Z".to_string()));
+        assert_eq!(page_params[1], Value::Text("2024-05-01T10:00:00Z".to_string()));
+        assert_eq!(page_params[2], Value::Integer(42));
+        assert_eq!(page_params[3], Value::Integer(10));
+
+        // ASC + explicit added_date sort: resume strictly-after the cursor.
+        let mut query = SearchQuery::default();
+        query.sort_by = Some("added_date".to_string());
+        query.sort_order = Some("asc".to_string());
+        query.before_added_date = Some("2024-05-01T10:00:00Z".to_string());
+        query.before_id = Some(42);
+
+        let (_, _, ids_sql, page_params) = build_search_query(&query);
+        assert!(ids_sql.contains(
+            "AND (b.added_date > ? OR (b.added_date = ? AND b.id > ?))"
+        ));
+        assert!(ids_sql.contains("ORDER BY b.added_date ASC, b.id ASC"));
+        assert_eq!(page_params.len(), 3);
+
+        // Cursor is ignored for non-added_date sorts.
+        let mut query = SearchQuery::default();
+        query.sort_by = Some("title".to_string());
+        query.before_added_date = Some("2024-05-01T10:00:00Z".to_string());
+        query.before_id = Some(42);
+
+        let (_, base_params, ids_sql, page_params) = build_search_query(&query);
+        assert!(!ids_sql.contains("b.added_date < ?"));
+        assert!(!ids_sql.contains("b.added_date > ?"));
+        assert!(base_params.is_empty());
+        assert!(page_params.is_empty());
     }
 }

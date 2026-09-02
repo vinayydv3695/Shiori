@@ -160,6 +160,13 @@ pub struct SearchQuery {
     pub reading_status: Option<Vec<String>>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
+    /// Keyset pagination cursor (added_date sort only): resume strictly
+    /// before (DESC) / after (ASC) the row with this `added_date` + `id`.
+    /// Honored only when both fields are present and the effective sort is
+    /// added_date (sort_by unset or "added_date"). Insert-stable: new books
+    /// imported mid-scroll never shift the cursor.
+    pub before_added_date: Option<String>,
+    pub before_id: Option<i64>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }

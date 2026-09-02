@@ -636,6 +636,44 @@ input:-webkit-autofill:active{
   opacity: 0 !important;
 }
 
+/* ── is-android: strip paint-costly animations ───────────────────── */
+/* Splash logo reveal combines blur() + drop-shadow pulse → freeze at final state */
+.is-android .animate-splash-logo {
+  animation: none;
+  opacity: 1;
+  transform: none;
+  filter: none;
+  -webkit-filter: none;
+}
+
+/* Glass shimmer is a decorative sweep over the real skeleton base (bg-muted/20) */
+.is-android .animate-glass-shimmer {
+  animation: none;
+  background: none;
+}
+
+/* Real skeleton placeholder — keep the static gradient background, drop the background-position shimmer */
+.is-android .shimmer {
+  animation: none;
+}
+
+/* Infinite ambient orbs (blur-[120px]+ layers) — freeze at rest opacity */
+.is-android .animate-ambient {
+  animation: none;
+  opacity: 0.4;
+}
+
+.is-android .animate-ambient-slow {
+  animation: none;
+  opacity: 0.3;
+}
+
+/* Welcome logo box-shadow pulse rings — freeze at steady glow */
+.is-android [class*="shiori-logo-pulse"] {
+  animation: none;
+  opacity: 0.5;
+}
+
 
 
 

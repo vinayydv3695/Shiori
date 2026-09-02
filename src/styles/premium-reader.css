@@ -3450,3 +3450,13 @@ select {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* ── is-android: freeze jump-focus box-shadow glow pulses ── */
+/* Both pulses are one-shot box-shadow glows; base styles equal the final steady state, so just drop the animation */
+.is-android .annotation-jump-focus {
+  animation: none !important;
+}
+
+.is-android .search-highlight--active {
+  animation: none !important;
+}

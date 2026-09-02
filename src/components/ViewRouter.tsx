@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { LibraryGrid } from "./library/LibraryGrid"
 import { SectionErrorBoundary } from "./ErrorBoundary"
-import { Book } from "@/lib/tauri"
+import { Book, isAndroid } from "@/lib/tauri"
 import { DomainView } from "@/store/uiStore"
 
 const HomePage = lazy(() => import("./home/HomePage").then(m => ({ default: m.HomePage })))
@@ -71,18 +71,9 @@ export function ViewRouter({
     ease: [0.16, 1, 0.3, 1] // Apple-style cubic-bezier ease
   } as const;
 
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={currentView}
-        initial="initial"
-        animate="in"
-        exit="out"
-        variants={pageVariants}
-        transition={pageTransition}
-        className="w-full h-full flex flex-col flex-1"
-      >
-        {currentView === 'home' && (
+  const viewContent = (
+    <>
+      {currentView === 'home' && (
           <Suspense fallback={<SectionSkeletonLoader variant="grid" />}>
             <HomePage 
               onOpenBook={handleOpenBook} 
@@ -192,7 +183,26 @@ export function ViewRouter({
             <AniListDashboard onOpenSettings={() => dialogs.setSettingsDialogOpen(true)} />
           </Suspense>
         )}
+    </>
+  );
+
+  return isAndroid ? (
+    <div key={currentView} className="w-full h-full flex flex-col flex-1">
+      {viewContent}
+    </div>
+  ) : (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={currentView}
+        initial="initial"
+        animate="in"
+        exit="out"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="w-full h-full flex flex-col flex-1"
+      >
+        {viewContent}
       </motion.div>
     </AnimatePresence>
-  )
+  );
 }

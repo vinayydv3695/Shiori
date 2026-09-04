@@ -132,6 +132,25 @@ In accordance with Prompt A instructions, all bugs residing strictly in **DESKTO
   Removed `space-y-4 md:space-y-6` from both `columns-*` containers. Cards already feature `break-inside-avoid mb-4 md:mb-6`, which properly handles natural column spacing.
 - **Commit**: `078dac30` — *fix(annotations): align multi-column card tops in AnnotationsViewDesktop*
 
+### Bug D-06: Arrow Left and Right Keys Scroll Page Instead of Navigating Pages in Simple & Page-Flip Modes
+- **Severity**: Major / Desktop Navigation & UX
+- **Files**:
+  - `src/components/reader/PremiumEpubReader.tsx` (Lines 1510–1578, 1648–1700, 1785–1820)
+  - `src/hooks/usePremiumReaderKeyboard.ts` (Lines 4–12, 23–33, 126–165)
+  - `src/components/reader/MobiReader.tsx` (Lines 469–475)
+- **Classification**: `DESKTOP-ONLY` / Reader Navigation
+- **Root Cause**:
+  1. In `PremiumEpubReader.tsx`, `nextPage()` and `prevPage()` implemented non-horizontal paging by executing `canvasRef.current.scrollBy({ top: clientHeight * 0.85 })`. When `pageFlipEnabled` was active in simple/single-chapter mode, `pageFlipRef.current` was completely ignored, causing floating navigation buttons and keyboard shortcuts to scroll the canvas holding the 3D page flip engine vertically instead of flipping pages.
+  2. In `usePremiumReaderKeyboard.ts`, `ArrowLeft` and `ArrowRight` were hard-routed to `onPrevChapter` and `onNextChapter` regardless of whether paginated or page-flip mode was enabled. In paginated mode, pressing `ArrowRight` jumped the entire chapter rather than turning to the next column spread.
+  3. In `MobiReader.tsx`, `onPrevChapter` and `onNextChapter` were incorrectly bound to `prevPage` and `nextPage` (which execute `scrollBy({ top: clientHeight * 0.85 })`), causing Arrow Left and Right keys to scroll vertically.
+- **Applied Fix**:
+  1. Updated `nextPage` and `prevPage` in `PremiumEpubReader.tsx` to check `pageFlipEnabled && pageFlipRef.current` and call `flipForward()` and `flipBackward()`, falling back to chapter transitions if not flip-animating.
+  2. Updated `handleCanvasClick` and touch handlers to enable edge-tap page turns when `pageFlipEnabled` is active in simple mode.
+  3. Added `pageFlipEnabled` to `PremiumReaderKeyboardHandlers` in `usePremiumReaderKeyboard.ts`. Routed `ArrowRight` and `ArrowLeft` to `onNextPage` / `onPrevPage` when in paginated or page-flip mode, routed `Cmd/Ctrl + ArrowRight/Left` to chapter jumps, and ensured simple mode navigates chapters directly without vertical scrolling.
+  4. Fixed `MobiReader.tsx` to bind `onPrevChapter: prevChapter` and `onNextChapter: nextChapter`.
+  5. Added comprehensive test suite in `src/hooks/__tests__/usePremiumReaderKeyboard.test.ts` (13 tests passing).
+- **Commit**: `e1eea7ea` — *fix(reader): navigate to next page instead of scrolling on ArrowRight/Left in simple mode*
+
 ---
 
 ## 3. Shared/Cross-Platform Issues — Needs Manual Review

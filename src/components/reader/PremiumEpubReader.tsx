@@ -1522,6 +1522,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
           });
         }
+      } else if (pageFlipEnabled && pageFlipRef.current) {
+        const flipped = pageFlipRef.current.flipForward();
+        if (!flipped) {
+          nextChapter();
+        }
       } else {
         const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
         const maxScroll = scrollHeight - clientHeight;
@@ -1537,7 +1542,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       nextChapter();
     }
-  }, [nextChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+  }, [nextChapter, isHorizontalPaging, pageFlipEnabled, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
   const prevPage = useCallback(() => {
     const now = Date.now();
@@ -1561,6 +1566,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
           });
         }
+      } else if (pageFlipEnabled && pageFlipRef.current) {
+        const flipped = pageFlipRef.current.flipBackward();
+        if (!flipped) {
+          prevChapter(true);
+        }
       } else {
         const { scrollTop, clientHeight } = canvasRef.current;
         if (scrollTop <= 50) {
@@ -1575,7 +1585,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       prevChapter(true);
     }
-  }, [prevChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+  }, [prevChapter, isHorizontalPaging, pageFlipEnabled, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
   // Mouse wheel navigation & Scroll Up/Down topbar visibility
   const lastWheelTimeRef = useRef(0);
@@ -1636,14 +1646,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const width = window.innerWidth;
     const clickRatio = width > 0 ? clickX / width : 0.5;
 
-    // Edge taps turn PAGES only in explicit horizontal-paging mode.
-    if (isHorizontalPaging && clickRatio < 0.25) {
+    // Edge taps turn PAGES in explicit horizontal-paging mode or page-flip mode
+    const canPageTurn = isHorizontalPaging || pageFlipEnabled;
+    if (canPageTurn && clickRatio < 0.25) {
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(10);
       prevPage();
       return;
     }
-    if (isHorizontalPaging && clickRatio > 0.75) {
+    if (canPageTurn && clickRatio > 0.75) {
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(10);
       nextPage();
@@ -1654,7 +1665,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
     }
-  }, [prevPage, nextPage, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [prevPage, nextPage, isHorizontalPaging, pageFlipEnabled, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1685,6 +1696,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     onScrollUp: scrollLineUp,
     onScrollDown: scrollLineDown,
     isPaginatedOrTwoPage: isHorizontalPaging,
+    pageFlipEnabled: pageFlipEnabled && !isHorizontalPaging,
   });
 
   // Handle page flip completion — navigate to next/prev chapter
@@ -1778,19 +1790,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Single Tap (< 350ms, |dx| < 20, |dy| < 20): edge taps turn PAGES only in
-    // explicit horizontal-paging mode — in scroll/simple mode they must never
-    // jump chapters, so any tap just toggles the top bar.
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20): edge taps turn PAGES in
+    // explicit horizontal-paging mode or page-flip mode — in vertical scroll mode
+    // they don't jump, so any tap toggles the top bar.
     if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
       const windowWidth = window.innerWidth;
       const tapX = touchEnd.clientX;
       const tapRatio = windowWidth > 0 ? tapX / windowWidth : 0.5;
 
-      if (isHorizontalPaging && tapRatio < 0.25) {
+      const canPageTurn = isHorizontalPaging || pageFlipEnabled;
+      if (canPageTurn && tapRatio < 0.25) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
         prevPage();
-      } else if (isHorizontalPaging && tapRatio > 0.75) {
+      } else if (canPageTurn && tapRatio > 0.75) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
         nextPage();
@@ -1805,7 +1818,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isDoodleMode, nextPage, prevPage, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isDoodleMode, nextPage, prevPage, isHorizontalPaging, pageFlipEnabled, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER

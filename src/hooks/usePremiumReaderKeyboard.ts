@@ -9,6 +9,7 @@ export interface PremiumReaderKeyboardHandlers {
   onScrollUp?: () => void;
   onScrollDown?: () => void;
   isPaginatedOrTwoPage?: boolean;
+  pageFlipEnabled?: boolean;
 }
 
 /**
@@ -24,8 +25,8 @@ export interface PremiumReaderKeyboardHandlers {
  * - s: Toggle sidebar
  * - t: Open TOC sidebar
  * - Escape: Close sidebar or exit focus mode
- * - ArrowLeft / Left: Previous Page (in paginated/2-page) or Previous Chapter (in vertical mode)
- * - ArrowRight / Right: Next Page (in paginated/2-page) or Next Chapter (in vertical mode)
+ * - ArrowLeft / Left: Previous Page (in paginated/page-flip/simple mode) or Previous Chapter (Cmd/Ctrl + ArrowLeft)
+ * - ArrowRight / Right: Next Page (in paginated/page-flip/simple mode) or Next Chapter (Cmd/Ctrl + ArrowRight)
  * - ArrowUp / Up: Line scroll up (in vertical) or Previous Page (in paginated/2-page)
  * - ArrowDown / Down: Line scroll down (in vertical) or Next Page (in paginated/2-page)
  * - Space / PageDown: Next page / scroll down by screen
@@ -123,18 +124,39 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
-      // ArrowLeft / Left: Previous Chapter on every layout (matches the
-      // edge-tap behavior — page turns stay on swipes / Up-Down keys).
+      // ArrowLeft / Left: Previous Page in paginated/2-page or page-flip mode, or Previous Chapter (Cmd/Ctrl + ArrowLeft)
       if (key === 'ArrowLeft' || key === 'Left') {
         e.preventDefault();
-        handlersRef.current.onPrevChapter?.();
+        if (isMod) {
+          handlersRef.current.onPrevChapter?.();
+        } else if (handlersRef.current.isPaginatedOrTwoPage || handlersRef.current.pageFlipEnabled) {
+          handlersRef.current.onPrevPage?.();
+        } else {
+          // Simple/scroll mode: navigate chapter directly if available, or fall back to prev page
+          if (handlersRef.current.onPrevChapter) {
+            handlersRef.current.onPrevChapter();
+          } else {
+            handlersRef.current.onPrevPage?.();
+          }
+        }
         return;
       }
 
-      // ArrowRight / Right: Next Chapter on every layout.
+      // ArrowRight / Right: Next Page in paginated/2-page or page-flip mode, or Next Chapter (Cmd/Ctrl + ArrowRight)
       if (key === 'ArrowRight' || key === 'Right') {
         e.preventDefault();
-        handlersRef.current.onNextChapter?.();
+        if (isMod) {
+          handlersRef.current.onNextChapter?.();
+        } else if (handlersRef.current.isPaginatedOrTwoPage || handlersRef.current.pageFlipEnabled) {
+          handlersRef.current.onNextPage?.();
+        } else {
+          // Simple/scroll mode: navigate chapter directly if available, or fall back to next page
+          if (handlersRef.current.onNextChapter) {
+            handlersRef.current.onNextChapter();
+          } else {
+            handlersRef.current.onNextPage?.();
+          }
+        }
         return;
       }
 

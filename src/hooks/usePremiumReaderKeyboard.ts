@@ -8,6 +8,10 @@ export interface PremiumReaderKeyboardHandlers {
   onNextPage?: () => void;
   onScrollUp?: () => void;
   onScrollDown?: () => void;
+  onScrollTop?: () => void;
+  onScrollBottom?: () => void;
+  onToggleFullscreen?: () => void;
+  onToggleBookmark?: () => void;
   isPaginatedOrTwoPage?: boolean;
   pageFlipEnabled?: boolean;
 }
@@ -20,10 +24,15 @@ export interface PremiumReaderKeyboardHandlers {
  * - Cmd/Ctrl + +: Increase font size
  * - Cmd/Ctrl + -: Decrease font size
  * - Cmd/Ctrl + \: Cycle width (narrow → medium → wide → full)
- * - f: Toggle focus mode
+ * - Cmd/Ctrl + F: Open In-Book Search
+ * - f: Toggle focus mode (without Mod key)
  * - h: Toggle top bar visibility
  * - s: Toggle sidebar
  * - t: Open TOC sidebar
+ * - b: Toggle bookmark at current position
+ * - [ / ]: Previous / Next chapter
+ * - Home / End: Scroll to top / bottom of chapter
+ * - F11: Toggle OS fullscreen
  * - Escape: Close sidebar or exit focus mode
  * - ArrowLeft / Left: Previous Page (in paginated/page-flip/simple mode) or Previous Chapter (Cmd/Ctrl + ArrowLeft)
  * - ArrowRight / Right: Next Page (in paginated/page-flip/simple mode) or Next Chapter (Cmd/Ctrl + ArrowRight)
@@ -83,10 +92,59 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
-      // f: Toggle focus mode
-      if (key === 'f' || key === 'F') {
+      // Cmd/Ctrl + F: In-Book Search
+      if (isMod && (key === 'f' || key === 'F')) {
+        e.preventDefault();
+        useReaderUIStore.getState().setSidebarTab('search');
+        return;
+      }
+
+      // f: Toggle focus mode (without Mod key)
+      if (!isMod && (key === 'f' || key === 'F')) {
         e.preventDefault();
         useReaderUIStore.getState().toggleFocusMode();
+        return;
+      }
+
+      // b / B: Toggle bookmark (without Mod key)
+      if (!isMod && (key === 'b' || key === 'B')) {
+        e.preventDefault();
+        handlersRef.current.onToggleBookmark?.();
+        return;
+      }
+
+      // [ : Previous Chapter
+      if (key === '[') {
+        e.preventDefault();
+        handlersRef.current.onPrevChapter?.();
+        return;
+      }
+
+      // ] : Next Chapter
+      if (key === ']') {
+        e.preventDefault();
+        handlersRef.current.onNextChapter?.();
+        return;
+      }
+
+      // Home: Scroll to top of chapter
+      if (key === 'Home') {
+        e.preventDefault();
+        handlersRef.current.onScrollTop?.();
+        return;
+      }
+
+      // End: Scroll to bottom of chapter
+      if (key === 'End') {
+        e.preventDefault();
+        handlersRef.current.onScrollBottom?.();
+        return;
+      }
+
+      // F11: Toggle Fullscreen
+      if (key === 'F11') {
+        e.preventDefault();
+        handlersRef.current.onToggleFullscreen?.();
         return;
       }
 

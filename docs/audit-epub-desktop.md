@@ -280,3 +280,48 @@ Execute the following manual test procedures on Linux, macOS, or Windows to veri
 - [ ] Read a book in continuous vertical scroll mode past several chapters.
 - [ ] Verify that chapter transitions show smooth dividers without layout jumping.
 - [ ] Close the app and relaunch. Confirm that reading resume lands on the exact chapter and scroll offset previously reached.
+
+---
+
+## 4. Desktop Reading Flow Enhancements (Implemented)
+
+In response to desktop user feedback, a comprehensive suite of desktop reading enhancements was designed, tested, and implemented:
+
+### 4.1 Shortcut Disambiguation: Cmd/Ctrl+F vs Focus Mode
+- **Issue**: Previously, `Ctrl+F` / `Cmd+F` triggered `toggleFocusMode()` because the handler checked `key === 'f'` without isolating the modifier key, blocking standard find-in-book workflows.
+- **Fix**: Disambiguated in `src/hooks/usePremiumReaderKeyboard.ts`:
+  - `Cmd+F` / `Ctrl+F`: Opens the In-Book Search drawer immediately (`useReaderUIStore.getState().setSidebarTab('search')`).
+  - Bare `f` / `F`: Toggles Focus Mode cleanly.
+
+### 4.2 Desktop Power-User Keybindings
+Added intuitive desktop navigation shortcuts matching classic desktop ereaders (Calibre, Foliate, Kindle):
+- `[` / `]`: Instant chapter jump (previous / next chapter).
+- `Home` / `End`: Scroll directly to the top or bottom of the active chapter (both horizontal paging and vertical canvas).
+- `F11`: Toggles native OS fullscreen window mode via `useFullscreen`.
+- `b`: Toggles a bookmark at the current reading position with an instant toast notification.
+
+### 4.3 Ctrl + Mouse Wheel Dynamic Font Scaling
+- Holding `Ctrl` (or `Cmd` on macOS) while scrolling the mouse wheel dynamically zooms font size up or down (`increaseFontSize` / `decreaseFontSize`) with an 80ms throttle to ensure responsive and smooth typography scaling.
+
+### 4.4 Trackpad Two-Finger Swipe Page Turning
+- In Page-Flip mode (`pageFlipEnabled`), horizontal trackpad two-finger gestures (`Math.abs(deltaX) > Math.abs(deltaY)`) trigger page turns with a 250ms debounce, mirroring physical page navigation on modern Mac and PC touchpads.
+
+### 4.5 Mouse Cursor Auto-Hide
+- When immersed in **Focus Mode** or **Fullscreen**, the mouse cursor automatically fades away after 2.5 seconds of user inactivity. Any mouse movement, click, or keystroke instantly restores the cursor. Implemented via `.premium-reader--cursor-hidden` CSS and passive window event listeners.
+
+### 4.6 Footnote & Endnote Floating Popover Previews
+- In-text citations and footnote links (`role="doc-noteref"`, `epub:type="noteref"`, or hash links matching `#fn...` / `#note...`) now display a rich floating popover preview (`<FootnotePopover />`) anchored directly to the citation.
+- Users can read annotations inline without losing reading position, or optionally click **"Jump to note"** to navigate directly to the citation's target element in the chapter. Dismisses with `Escape` or outside clicks.
+
+### 4.7 Testing Checklist for Enhancements
+- [ ] Press `Ctrl+F` (or `Cmd+F` on macOS) — verify in-book search sidebar opens.
+- [ ] Press `f` — verify focus mode toggles without opening search sidebar.
+- [ ] Press `[` and `]` — verify previous and next chapters load cleanly.
+- [ ] Press `Home` and `End` — verify canvas scrolls to top and bottom of chapter.
+- [ ] Press `F11` — verify window enters / exits OS fullscreen.
+- [ ] Press `b` — verify bookmark is added/removed with notification.
+- [ ] Hold `Ctrl` and scroll mouse wheel — verify font size increases/decreases smoothly.
+- [ ] In Page-Flip mode, swipe horizontally with two fingers on trackpad — verify pages turn.
+- [ ] Enter Focus Mode or Fullscreen and stay idle for 2.5s — verify mouse cursor disappears. Move mouse — verify cursor reappears immediately.
+- [ ] Click an EPUB footnote link — verify popover opens with footnote content and does not toggle the top bar or lose scroll position.
+

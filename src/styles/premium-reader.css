@@ -3474,3 +3474,103 @@ select {
 .is-android .search-highlight--active {
   animation: none !important;
 }
+
+/* ────────────────────────────────────────────────────────────
+   DESKTOP MOUSE CURSOR AUTO-HIDE
+   ──────────────────────────────────────────────────────────── */
+.premium-reader--cursor-hidden,
+.premium-reader--cursor-hidden * {
+  cursor: none !important;
+}
+
+/* ────────────────────────────────────────────────────────────
+   FOOTNOTE & ENDNOTE POPOVER PREVIEW
+   ──────────────────────────────────────────────────────────── */
+.premium-footnote-popover {
+  position: fixed;
+  z-index: 120;
+  max-width: min(440px, calc(100vw - 32px));
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-elevated, #1e1e24);
+  color: var(--text-primary, #f3f3f6);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.16);
+  padding: 14px 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: footnote-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes footnote-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.premium-footnote-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.premium-footnote-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.premium-footnote-content {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.premium-footnote-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.premium-footnote-btn {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+  color: var(--text-primary, #fff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.premium-footnote-btn:hover {
+  background: var(--bg-active, rgba(255, 255, 255, 0.16));
+}
+
+.premium-footnote-btn--primary {
+  background: var(--accent-color, #6366f1);
+  border-color: var(--accent-color, #6366f1);
+  color: #fff;
+}
+
+.premium-footnote-btn--primary:hover {
+  filter: brightness(1.15);
+}
+

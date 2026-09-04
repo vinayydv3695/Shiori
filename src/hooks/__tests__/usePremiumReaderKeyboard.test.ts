@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { usePremiumReaderKeyboard } from '../usePremiumReaderKeyboard';
+import { useReaderUIStore } from '@/store/premiumReaderStore';
 
 describe('usePremiumReaderKeyboard', () => {
   let handlers: {
@@ -10,6 +11,10 @@ describe('usePremiumReaderKeyboard', () => {
     onNextPage: ReturnType<typeof vi.fn>;
     onScrollUp: ReturnType<typeof vi.fn>;
     onScrollDown: ReturnType<typeof vi.fn>;
+    onScrollTop: ReturnType<typeof vi.fn>;
+    onScrollBottom: ReturnType<typeof vi.fn>;
+    onToggleFullscreen: ReturnType<typeof vi.fn>;
+    onToggleBookmark: ReturnType<typeof vi.fn>;
     isPaginatedOrTwoPage?: boolean;
     pageFlipEnabled?: boolean;
   };
@@ -22,7 +27,16 @@ describe('usePremiumReaderKeyboard', () => {
       onNextPage: vi.fn(),
       onScrollUp: vi.fn(),
       onScrollDown: vi.fn(),
+      onScrollTop: vi.fn(),
+      onScrollBottom: vi.fn(),
+      onToggleFullscreen: vi.fn(),
+      onToggleBookmark: vi.fn(),
     };
+    useReaderUIStore.setState({
+      isSidebarOpen: false,
+      sidebarTab: 'toc',
+      isFocusMode: false,
+    });
   });
 
   afterEach(() => {
@@ -216,6 +230,84 @@ describe('usePremiumReaderKeyboard', () => {
       renderHook(() => usePremiumReaderKeyboard(handlers));
       fireKey(' ', { shiftKey: true });
       expect(handlers.onPrevPage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('In-book search vs Focus mode (Cmd/Ctrl+F vs bare f)', () => {
+    it('Cmd+F opens the sidebar and switches tab to search without toggling focus mode', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('f', { metaKey: true });
+      expect(evt.defaultPrevented).toBe(true);
+
+      const uiState = useReaderUIStore.getState();
+      expect(uiState.isSidebarOpen).toBe(true);
+      expect(uiState.sidebarTab).toBe('search');
+      expect(uiState.isFocusMode).toBe(false);
+    });
+
+    it('Ctrl+F opens the sidebar search tab without toggling focus mode', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('f', { ctrlKey: true });
+      expect(evt.defaultPrevented).toBe(true);
+
+      const uiState = useReaderUIStore.getState();
+      expect(uiState.isSidebarOpen).toBe(true);
+      expect(uiState.sidebarTab).toBe('search');
+      expect(uiState.isFocusMode).toBe(false);
+    });
+
+    it('bare f key toggles focus mode without opening sidebar', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('f');
+      expect(evt.defaultPrevented).toBe(true);
+
+      const uiState = useReaderUIStore.getState();
+      expect(uiState.isFocusMode).toBe(true);
+      expect(uiState.isSidebarOpen).toBe(false);
+    });
+  });
+
+  describe('Desktop power-user keybindings', () => {
+    it('[ triggers onPrevChapter', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('[');
+      expect(evt.defaultPrevented).toBe(true);
+      expect(handlers.onPrevChapter).toHaveBeenCalledTimes(1);
+    });
+
+    it('] triggers onNextChapter', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey(']');
+      expect(evt.defaultPrevented).toBe(true);
+      expect(handlers.onNextChapter).toHaveBeenCalledTimes(1);
+    });
+
+    it('Home triggers onScrollTop', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('Home');
+      expect(evt.defaultPrevented).toBe(true);
+      expect(handlers.onScrollTop).toHaveBeenCalledTimes(1);
+    });
+
+    it('End triggers onScrollBottom', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('End');
+      expect(evt.defaultPrevented).toBe(true);
+      expect(handlers.onScrollBottom).toHaveBeenCalledTimes(1);
+    });
+
+    it('F11 triggers onToggleFullscreen', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('F11');
+      expect(evt.defaultPrevented).toBe(true);
+      expect(handlers.onToggleFullscreen).toHaveBeenCalledTimes(1);
+    });
+
+    it('b triggers onToggleBookmark', () => {
+      renderHook(() => usePremiumReaderKeyboard(handlers));
+      const evt = fireKey('b');
+      expect(evt.defaultPrevented).toBe(true);
+      expect(handlers.onToggleBookmark).toHaveBeenCalledTimes(1);
     });
   });
 });

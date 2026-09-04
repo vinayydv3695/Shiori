@@ -520,7 +520,7 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
                     </div>
                     
                     {viewMode === 'grid' ? (
-                      <div className="columns-1 md:columns-2 xl:columns-3 gap-4 md:gap-6 space-y-4 md:space-y-6">
+                      <div className="columns-1 md:columns-2 xl:columns-3 gap-4 md:gap-6">
                         {group.items.map((result) => (
                           <AnnotationCard
                             key={result.annotation.id}
@@ -550,7 +550,7 @@ export function AnnotationsViewDesktop({ onClose, onOpenBook, data }: Annotation
             ) : (
               /* Single Book / Flat List View */
               viewMode === 'grid' ? (
-                <div className="columns-1 md:columns-2 xl:columns-3 gap-4 md:gap-6 space-y-4 md:space-y-6">
+                <div className="columns-1 md:columns-2 xl:columns-3 gap-4 md:gap-6">
                   {displayedAnnotations.map((result) => (
                     <AnnotationCard
                       key={result.annotation.id}

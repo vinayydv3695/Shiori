@@ -121,14 +121,24 @@ export function ReaderAnnotationTooltip() {
       }
     };
 
+    const handleScrollOrResize = () => {
+      clearTimers();
+      setTooltipData(null);
+      isPinnedRef.current = false;
+    };
+
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseOut);
     document.addEventListener('click', handleClick, true);
+    window.addEventListener('scroll', handleScrollOrResize, { capture: true, passive: true });
+    window.addEventListener('resize', handleScrollOrResize, { passive: true });
 
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
       document.removeEventListener('click', handleClick, true);
+      window.removeEventListener('scroll', handleScrollOrResize, { capture: true } as EventListenerOptions);
+      window.removeEventListener('resize', handleScrollOrResize);
       clearTimers();
     };
   }, [handleOpen, handleClose, clearTimers]);

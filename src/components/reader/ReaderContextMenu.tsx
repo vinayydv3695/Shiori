@@ -19,6 +19,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useReadingSettings, READER_THEME_COLORS } from '@/store/premiumReaderStore';
+import { isAndroid } from '@/lib/tauri';
 
 export interface ReaderContextMenuProps {
   x: number;
@@ -69,6 +70,8 @@ export function ReaderContextMenu({
   onTranslate,
   onOpenSettings,
 }: ReaderContextMenuProps) {
+  if (isAndroid) return null;
+
   const menuRef = useRef<HTMLDivElement>(null);
   const readerTheme = useReadingSettings((state) => state.theme) || 'paper';
   const colors = READER_THEME_COLORS[readerTheme] || READER_THEME_COLORS.paper;

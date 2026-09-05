@@ -1,4 +1,4 @@
-# Release Notes (v1.0.6)
+# Release Notes (v1.0.7)
 
 ## Reader & UI Improvements
 

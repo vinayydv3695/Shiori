@@ -2218,7 +2218,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number; selectedText?: string } | null>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    if (isDoodleMode) return;
+    // Desktop only — Android uses the mobile TextSelectionToolbar
+    if (isAndroid || isDoodleMode) return;
     const target = e.target as HTMLElement | null;
     if (target?.closest('input, textarea, .premium-sidebar, .annotation-tooltip, .text-selection-toolbar, .doodle-toolbar')) {
       return;
@@ -2527,8 +2528,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       {/* Rich Hover Annotation / Definition Tooltip */}
       <ReaderAnnotationTooltip />
 
-      {/* Right-click Context Menu */}
-      {contextMenuPos && (
+      {/* Right-click Context Menu (Desktop only) */}
+      {!isAndroid && contextMenuPos && (
         <ReaderContextMenu
           x={contextMenuPos.x}
           y={contextMenuPos.y}

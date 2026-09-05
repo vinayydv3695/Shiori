@@ -1,3 +1,13 @@
+# Release Notes (v1.0.6)
+
+## Reader & UI Improvements
+
+- **First-Class Chapter Bookmarks** — Added a 1-click Bookmark toggle button to the reader top bar (turning filled rose when bookmarked), a visual corner bookmark ribbon on bookmarked chapters, and a dedicated Bookmarks tab in the reader sidebar with direct chapter jumping and 1-click deletion. Exporting annotations to Markdown now includes a structured Bookmarks section.
+- **Minimal Desktop Context Menu** — Right-clicking anywhere in the desktop reader opens an opaque, minimal context menu with actions for Bookmarks, Table of Contents, Highlights & Notes, Search in Book, Focus Mode, and Fullscreen. Kept strictly on desktop so Android long-press gestures continue using the native mobile selection toolbar.
+- **Sidebar Tabs Single-Line Layout** — Refactored the reader sidebar tabs into a 5-column grid layout so Search, TOC, Bookmarks, Notes, and Highlights always render cleanly on one line. Expanded desktop sidebar width to 420px for optimal spacing.
+- **AniList Desktop Grid Expansion** — Expanded the AniList browse and shelf grid containers on desktop to render 6 to 7 title cards per row.
+- **Content Security Policy & Pronunciation Audio** — Enhanced CSP directives to permit `shiori-epub://` protocols and audio pronunciation endpoints for instant dictionary lookups.
+
 # Release Notes (v1.0.4)
 
 ## UI & Animation Polish

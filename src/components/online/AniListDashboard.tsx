@@ -309,8 +309,8 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
             <Skeleton className="h-4 w-32" />
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-          {[...Array(12)].map((_, i) => (
+        <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
+          {[...Array(14)].map((_, i) => (
             <div key={i} className="flex flex-col gap-2">
               <Skeleton className="w-full aspect-[2/3] rounded-xl" />
               <Skeleton className="h-4 w-3/4" />
@@ -395,7 +395,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
         </div>
 
         {/* Profile Info Bar */}
-        <div className="max-w-[1400px] mx-auto w-full px-4 md:px-8 relative z-20 pb-28 md:pb-12">
+        <div className="max-w-[1800px] mx-auto w-full px-4 md:px-8 relative z-20 pb-28 md:pb-12">
           <div className="flex flex-col md:flex-row items-center md:items-end justify-between gap-4 -mt-16 md:-mt-20 mb-6">
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -545,7 +545,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
             className="pb-24"
           >
             {activeTab === 'Search Results' ? (
-              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4 md:gap-6">
+              <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
                 {searchResults.map((media) => {
                   const title = media.title.userPreferred || media.title.english || media.title.romaji;
                   return (
@@ -563,7 +563,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
                 })}
               </div>
             ) : activeTab === 'Top Manga' ? (
-              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4 md:gap-6">
+              <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
                 {topManga.map((media) => {
                   const title = media.title.userPreferred || media.title.english || media.title.romaji;
                   return (
@@ -600,7 +600,7 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
                 )}
               </motion.div>
             ) : (
-              <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4 md:gap-6">
+              <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
                 {sortedEntries.map((entry) => {
                   const manga = entry.media;
                   const title = manga.title.userPreferred || manga.title.english || manga.title.romaji;

@@ -4,7 +4,7 @@ import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { api } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
-import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download } from '@/components/icons';
+import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download, Bookmark } from '@/components/icons';
 import { StickyNote, ListTree, SearchX } from 'lucide-react';
 import { parseTocLocationToIndex, findCurrentTocEntry } from '@/lib/toc';
 import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
@@ -102,6 +102,8 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   const closeSidebar = useReaderUIStore(state => state.closeSidebar);
   const setSidebarTab = useReaderUIStore(state => state.setSidebarTab);
   const setPendingAnnotationId = useReaderUIStore(state => state.setPendingAnnotationId);
+  const pendingSearchQuery = useReaderUIStore(state => state.pendingSearchQuery);
+  const setPendingSearchQuery = useReaderUIStore(state => state.setPendingSearchQuery);
   const isMobile = useIsMobile();
   const dragControls = useDragControls();
   
@@ -238,6 +240,15 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
           markdown += `*Location: ${formatLocation(n.location)}*\n\n---\n\n`;
         });
       }
+
+      const exportsBookmarks = annotations.filter(a => a.annotationType === 'bookmark');
+      if (exportsBookmarks.length > 0) {
+        markdown += `## Bookmarks\n\n`;
+        exportsBookmarks.forEach(b => {
+          markdown += `- **${b.noteContent || formatLocation(b.location)}** (*Location: ${formatLocation(b.location)}*)\n`;
+        });
+        markdown += `\n---\n\n`;
+      }
       
       await writeTextFile(filePath, markdown);
       
@@ -295,6 +306,15 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
       searchInputRef.current.focus();
     }
   }, []);
+
+  // Automatically execute search when a pending search query is dispatched from context menu or shortcut
+  useEffect(() => {
+    if (pendingSearchQuery && isSidebarOpen) {
+      setSearchQuery(pendingSearchQuery);
+      handleSearch(pendingSearchQuery);
+      setPendingSearchQuery(null);
+    }
+  }, [pendingSearchQuery, isSidebarOpen, handleSearch, setPendingSearchQuery]);
 
   /** Map a search result to a human-friendly Chapter title */
   const getChapterDisplayTitle = useCallback((result: BookSearchResult): string => {
@@ -542,6 +562,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   // Filter annotations by type
   const highlights = annotations.filter(a => a.annotationType === 'highlight');
   const notes = annotations.filter(a => a.annotationType === 'note');
+  const bookmarks = annotations.filter(a => a.annotationType === 'bookmark');
 
   // The TOC entry the reader is currently inside.
   const currentTocEntry = findCurrentTocEntry(toc, currentIndex);
@@ -609,6 +630,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             {[
               { id: 'search', label: 'Search', icon: Search },
               { id: 'toc', label: 'TOC', icon: BookOpen },
+              { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
               { id: 'notes', label: 'Notes', icon: FileText },
               { id: 'highlights', label: 'Highlights', icon: Highlighter }
             ].map(tab => (
@@ -925,6 +947,70 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             </div>
           )}
           
+
+          {/* Bookmarks Tab */}
+          {sidebarTab === 'bookmarks' && (
+            <div className="premium-sidebar-panel">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="premium-sidebar-title !mb-0">Bookmarks</h3>
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  {bookmarks.length} {bookmarks.length === 1 ? 'bookmark' : 'bookmarks'}
+                </span>
+              </div>
+
+              {bookmarks.length === 0 ? (
+                <SidebarEmptyState
+                  icon={Bookmark}
+                  title="No bookmarks yet"
+                  description="Bookmark any chapter to quickly jump back to it later."
+                />
+              ) : (
+                <motion.div
+                  className="premium-annotations-list"
+                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {bookmarks.map((bm) => (
+                    <motion.div
+                      key={bm.id}
+                      variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+                      className="premium-annotation-item premium-annotation-item--clickable"
+                      onClick={() => handleAnnotationClick(bm)}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                    >
+                      <div className="premium-annotation-content">
+                        <div className="premium-annotation-header">
+                          <div className="premium-badge flex items-center gap-1 text-[11px] font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">
+                            <Bookmark size={10} fill="currentColor" />
+                            Bookmark
+                          </div>
+                          <span className="premium-annotation-location">
+                            {formatLocation(bm.location)}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium leading-snug mt-1" style={{ color: 'var(--text-primary)' }}>
+                          {bm.noteContent || formatLocation(bm.location)}
+                        </p>
+                      </div>
+                      <div className="premium-annotation-actions">
+                        <motion.button
+                          className="premium-annotation-delete"
+                          onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, bm)}
+                          title="Delete bookmark"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <Trash2 size={14} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </div>
+          )}
 
           {/* Search Tab */}
           {sidebarTab === 'search' && (

@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api, isAndroid, getEpubResourceUrl } from '@/lib/tauri';
 import type { Annotation, BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
 import { findCurrentTocEntry } from '@/lib/toc';
@@ -17,11 +18,13 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
+import { ReaderContextMenu } from './ReaderContextMenu';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter, Bookmark } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
 import { escapeHtml } from '@/lib/sanitize';
 import DOMPurify from 'dompurify';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
+import { notifyAnnotationsChanged, onAnnotationsChanged } from '@/lib/annotationEvents';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
@@ -502,6 +505,9 @@ export async function loadProcessedChapter(bookId: number, index: number, term?:
 export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: PremiumEpubReaderProps) {
   // State management
   const isFocusMode = useReaderUIStore(state => state.isFocusMode);
+  const toggleFocusMode = useReaderUIStore(state => state.toggleFocusMode);
+  const setSidebarTab = useReaderUIStore(state => state.setSidebarTab);
+  const setPendingSearchQuery = useReaderUIStore(state => state.setPendingSearchQuery);
   const isTopBarShortcutOnly = useReaderUIStore(state => state.isTopBarShortcutOnly);
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
@@ -660,6 +666,31 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // Preloaded chapter content for page flip
   const [nextChapterContent, setNextChapterContent] = useState<string | null>(null);
   const [prevChapterContent, setPrevChapterContent] = useState<string | null>(null);
+
+  // Active chapter bookmark state
+  const [isCurrentChapterBookmarked, setIsCurrentChapterBookmarked] = useState(false);
+
+  const checkBookmark = useCallback(async () => {
+    if (!bookId) return;
+    try {
+      const annotations = await api.getAnnotations(bookId);
+      const chapterLoc = `chapter_${currentIndexRef.current}`;
+      const isBookmarked = annotations.some(
+        (a) => a.annotationType === 'bookmark' && a.location === chapterLoc
+      );
+      setIsCurrentChapterBookmarked(isBookmarked);
+    } catch {
+      // Ignore
+    }
+  }, [bookId]);
+
+  useEffect(() => {
+    checkBookmark();
+  }, [currentIndex, checkBookmark]);
+
+  useEffect(() => {
+    return onAnnotationsChanged(checkBookmark);
+  }, [checkBookmark]);
 
   // ────────────────────────────────────────────────────────────
   // READER THEME — scoped to this container, not global <html>
@@ -1789,6 +1820,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       );
       if (existing?.id) {
         await api.deleteAnnotation(existing.id);
+        setIsCurrentChapterBookmarked(false);
+        notifyAnnotationsChanged();
         useToastStore.getState().addToast({
           title: 'Bookmark removed',
           variant: 'info',
@@ -1804,10 +1837,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           undefined,
           undefined,
           undefined,
-          '#3b82f6',
+          '#e11d48',
           undefined,
           currentChapterTitle
         );
+        setIsCurrentChapterBookmarked(true);
+        notifyAnnotationsChanged();
         useToastStore.getState().addToast({
           title: 'Bookmark added',
           variant: 'success',
@@ -2179,6 +2214,43 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [isDoodleMode, setTopBarVisible]);
 
+  // Context menu state & handlers for right-click in reader
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number; selectedText?: string } | null>(null);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (isDoodleMode) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input, textarea, .premium-sidebar, .annotation-tooltip, .text-selection-toolbar, .doodle-toolbar')) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    const selection = window.getSelection()?.toString().trim();
+    setContextMenuPos({
+      x: e.clientX,
+      y: e.clientY,
+      selectedText: selection || undefined,
+    });
+  }, [isDoodleMode]);
+
+  const handleCopySelection = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      useToastStore.getState().addToast({
+        title: 'Copied to clipboard',
+        variant: 'success',
+        duration: 2000,
+      });
+    } catch {
+      useToastStore.getState().addToast({
+        title: 'Failed to copy',
+        variant: 'error',
+        duration: 2000,
+      });
+    }
+  }, []);
+
   // ────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────
@@ -2221,11 +2293,36 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''} ${cursorHidden ? 'premium-reader--cursor-hidden' : ''}`} 
       onClick={handleContainerClick} 
       onDoubleClick={handleContainerDoubleClick}
+      onContextMenu={handleContextMenu}
       onTouchStart={(e) => { handleTouchStart(e); handleHoldTouchStart(e); }}
       onTouchEnd={(e) => { handleTouchEnd(e); handleHoldTouchEnd(e); }}
       onTouchMove={handleHoldTouchMove}
       onTouchCancel={handleHoldTouchCancel}
     >
+      {/* Corner Bookmark Ribbon */}
+      <AnimatePresence>
+        {isCurrentChapterBookmarked && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-0 right-10 sm:right-14 z-20 pointer-events-none drop-shadow-md select-none"
+            aria-hidden="true"
+          >
+            <div
+              className="w-6 h-9 sm:w-7 sm:h-10 flex items-center justify-center pt-1"
+              style={{
+                backgroundColor: '#e11d48',
+                clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%)',
+              }}
+            >
+              <Bookmark size={13} className="text-white" fill="white" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Auto-hide Top Bar — hover keeps it pinned, leaving re-arms the 2s timer */}
       <div
         onPointerEnter={() => setIsPointerOverTopBar(true)}
@@ -2259,6 +2356,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 aria-label="Table of Contents"
               >
                 <BookOpen className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content={isCurrentChapterBookmarked ? "Remove bookmark" : "Bookmark this chapter"}>
+              <button
+                type="button"
+                onClick={handleToggleBookmark}
+                className={`premium-control-button ${isCurrentChapterBookmarked ? 'premium-control-button--active !text-rose-500' : ''}`}
+                aria-label={isCurrentChapterBookmarked ? "Remove bookmark" : "Bookmark chapter"}
+              >
+                <Bookmark
+                  className="premium-control-icon"
+                  fill={isCurrentChapterBookmarked ? "currentColor" : "none"}
+                />
               </button>
             </ReaderTooltip>
 
@@ -2415,6 +2526,35 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
       {/* Rich Hover Annotation / Definition Tooltip */}
       <ReaderAnnotationTooltip />
+
+      {/* Right-click Context Menu */}
+      {contextMenuPos && (
+        <ReaderContextMenu
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          selectedText={contextMenuPos.selectedText}
+          isFocusMode={isFocusMode}
+          isFullscreen={isFullscreen}
+          isBookmarked={isCurrentChapterBookmarked}
+          onClose={() => setContextMenuPos(null)}
+          onSearchInBook={(query) => {
+            if (query) {
+              setPendingSearchQuery(query);
+            }
+            setSidebarTab('search');
+          }}
+          onOpenToc={() => setSidebarTab('toc')}
+          onOpenBookmarks={() => setSidebarTab('bookmarks')}
+          onOpenHighlights={() => setSidebarTab('highlights')}
+          onToggleBookmark={handleToggleBookmark}
+          onToggleFocusMode={toggleFocusMode}
+          onToggleFullscreen={toggleFullscreen}
+          onNextPage={nextPage}
+          onPrevPage={prevPage}
+          onCopy={handleCopySelection}
+          onOpenSettings={() => setTopBarVisible(true)}
+        />
+      )}
 
 
 

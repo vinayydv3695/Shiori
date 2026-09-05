@@ -41,8 +41,8 @@ export function AniListUserFavouritesView({ userId }: { userId: number }) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 pb-12 animate-in fade-in duration-300">
-        {[...Array(10)].map((_, i) => (
+      <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5 pb-12 animate-in fade-in duration-300">
+        {[...Array(14)].map((_, i) => (
           <Skeleton key={i} className="aspect-[2/3] w-full rounded-xl" />
         ))}
       </div>
@@ -59,7 +59,7 @@ export function AniListUserFavouritesView({ userId }: { userId: number }) {
   }
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 pb-12">
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5 pb-12">
       {favourites.map(f => (
         <motion.div variants={itemVariants} key={f.id} className="group relative aspect-[2/3] rounded-2xl overflow-hidden cursor-pointer bg-secondary/30 shadow-xs border border-border/40 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
           <img src={f.coverImage.large} alt={f.title.romaji} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

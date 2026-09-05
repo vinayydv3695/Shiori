@@ -831,7 +831,8 @@ select {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 400px;
+  width: 420px;
+  max-width: 100vw;
   background: var(--bg-elevated);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -886,7 +887,7 @@ select {
 
 .premium-sidebar-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 2px;
   flex: 1;
   min-width: 0;
@@ -901,12 +902,12 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 5px 3px;
+  gap: 2.5px;
+  padding: 5px 2px;
   font-family: 'Outfit', system-ui, -apple-system, sans-serif;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   color: var(--text-secondary);
   background: transparent;
   border: none;
@@ -928,8 +929,8 @@ select {
 }
 
 .premium-sidebar-tab-icon {
-  width: 13.5px;
-  height: 13.5px;
+  width: 13px;
+  height: 13px;
   position: relative;
   z-index: 1;
   flex-shrink: 0;
@@ -941,7 +942,30 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 10.5px;
+}
+
+@media (max-width: 480px) {
+  .premium-sidebar-header {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .premium-sidebar-tabs {
+    padding: 2px;
+    gap: 1.5px;
+  }
+  .premium-sidebar-tab {
+    padding: 4px 1px;
+    font-size: 9.5px;
+    gap: 2px;
+  }
+  .premium-sidebar-tab-icon {
+    width: 12px;
+    height: 12px;
+  }
+  .premium-sidebar-tab span {
+    font-size: 9.5px;
+  }
 }
 
 .premium-sidebar-close {

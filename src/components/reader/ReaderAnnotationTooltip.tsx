@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookmarkPlus, Volume2, StickyNote, Languages, X } from 'lucide-react';
+import { BookmarkPlus, Volume2, StickyNote, Languages, X, Trash2, Loader2, Highlighter } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useReadingSettings, READER_THEME_COLORS } from '@/store/premiumReaderStore';
+import { api } from '@/lib/tauri';
+import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
+import { useToastStore } from '@/store/toastStore';
 
 interface TooltipData {
   targetRect: DOMRect;
@@ -14,6 +17,7 @@ interface TooltipData {
 export function ReaderAnnotationTooltip() {
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const hoverTimeoutRef = useRef<number | null>(null);
   const closeTimeoutRef = useRef<number | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -40,6 +44,11 @@ export function ReaderAnnotationTooltip() {
   const handleOpen = useCallback((mark: HTMLElement, pinned = false) => {
     clearTimers();
     const noteRaw = mark.dataset.noteContent || mark.getAttribute('data-note-content') || mark.textContent || '';
+    const annotationId =
+      mark.dataset.annotationId ||
+      mark.getAttribute('data-annotation-id') ||
+      mark.closest('[data-annotation-id]')?.getAttribute('data-annotation-id') ||
+      undefined;
     
     // Suppress native browser title to avoid double tooltips
     if (mark.title) {
@@ -53,7 +62,7 @@ export function ReaderAnnotationTooltip() {
       setTooltipData({
         targetRect: rect,
         noteRaw,
-        annotationId: mark.dataset.annotationId,
+        annotationId,
         annotationType: mark.dataset.annotationType || (mark.dataset.hasNote === 'true' ? 'note' : 'highlight'),
       });
       return;
@@ -64,11 +73,76 @@ export function ReaderAnnotationTooltip() {
       setTooltipData({
         targetRect: rect,
         noteRaw,
-        annotationId: mark.dataset.annotationId,
+        annotationId,
         annotationType: mark.dataset.annotationType || (mark.dataset.hasNote === 'true' ? 'note' : 'highlight'),
       });
     }, 120);
   }, [clearTimers]);
+
+  const handleDelete = useCallback(async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!tooltipData?.annotationId || isDeleting) return;
+
+    const annId = Number(tooltipData.annotationId);
+    if (!annId || isNaN(annId)) return;
+
+    setIsDeleting(true);
+    try {
+      await api.deleteAnnotation(annId);
+
+      // Instantly unwrap and remove matching highlight marks from the live DOM
+      try {
+        const selector = `mark[data-annotation-id="${CSS.escape(String(tooltipData.annotationId))}"]`;
+        const marks = document.querySelectorAll(selector);
+        marks.forEach((mark) => {
+          const parent = mark.parentNode;
+          if (parent) {
+            const textNode = document.createTextNode(mark.textContent || '');
+            parent.replaceChild(textNode, mark);
+            parent.normalize();
+          }
+        });
+      } catch {
+        // Selector escape or DOM replacement error ignored
+      }
+
+      // Broadcast event so sidebars and readers synchronize
+      notifyAnnotationsChanged();
+
+      let typeLabel = 'Annotation';
+      try {
+        const pj = JSON.parse(tooltipData.noteRaw);
+        if (pj?.type === 'define') typeLabel = 'Vocabulary';
+        else if (pj?.type === 'translate') typeLabel = 'Translation';
+        else if (tooltipData.annotationType === 'highlight') typeLabel = 'Highlight';
+        else typeLabel = 'Note';
+      } catch {
+        typeLabel = tooltipData.annotationType === 'highlight' ? 'Highlight' : 'Note';
+      }
+
+      useToastStore.getState().addToast({
+        title: `${typeLabel} deleted`,
+        variant: 'success',
+        duration: 2000,
+      });
+
+      setTooltipData(null);
+      isPinnedRef.current = false;
+    } catch (err) {
+      console.error('Failed to delete annotation:', err);
+      useToastStore.getState().addToast({
+        title: 'Failed to delete annotation',
+        description: err && typeof err === 'object' ? JSON.stringify(err) : String(err),
+        variant: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [tooltipData, isDeleting]);
 
   const handleClose = useCallback((delay = 200, force = false) => {
     clearTimers();
@@ -107,6 +181,11 @@ export function ReaderAnnotationTooltip() {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
+      // Never dismiss when clicking inside the tooltip itself or on elements disconnected during the click
+      if (tooltipRef.current && (tooltipRef.current === target || tooltipRef.current.contains(target) || !document.body.contains(target))) {
+        return;
+      }
+
       const mark = target.closest('mark.epub-highlight, mark.pdf-highlight, [data-note-content], [data-annotation-id]') as HTMLElement | null;
       if (mark) {
         e.stopPropagation();
@@ -114,11 +193,9 @@ export function ReaderAnnotationTooltip() {
         return;
       }
 
-      // If clicked outside the tooltip
-      if (tooltipRef.current && !tooltipRef.current.contains(target)) {
-        setTooltipData(null);
-        isPinnedRef.current = false;
-      }
+      // If clicked outside both the tooltip and any mark
+      setTooltipData(null);
+      isPinnedRef.current = false;
     };
 
     const handleScrollOrResize = () => {
@@ -174,8 +251,15 @@ export function ReaderAnnotationTooltip() {
       const audio = new Audio(url);
       audio.onended = () => setIsPlayingAudio(false);
       audio.onerror = () => setIsPlayingAudio(false);
-      audio.play();
-    } catch {
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Audio playback failed or unsupported:', err);
+          setIsPlayingAudio(false);
+        });
+      }
+    } catch (err) {
+      console.warn('Audio creation failed:', err);
       setIsPlayingAudio(false);
     }
   };
@@ -233,6 +317,8 @@ export function ReaderAnnotationTooltip() {
                   <BookmarkPlus size={13} />
                 ) : isTranslation ? (
                   <Languages size={13} />
+                ) : tooltipData.annotationType === 'highlight' ? (
+                  <Highlighter size={13} />
                 ) : (
                   <StickyNote size={13} />
                 )}
@@ -241,24 +327,52 @@ export function ReaderAnnotationTooltip() {
                 className="text-[11px] font-black uppercase tracking-[0.14em]"
                 style={{ color: accentColor }}
               >
-                {isDefinition ? 'Vocabulary' : isTranslation ? 'Translation' : 'Note'}
+                {isDefinition
+                  ? 'Vocabulary'
+                  : isTranslation
+                  ? 'Translation'
+                  : tooltipData.annotationType === 'highlight'
+                  ? 'Highlight'
+                  : 'Note'}
               </span>
             </div>
 
-            <button
-              onClick={() => {
-                setTooltipData(null);
-                isPinnedRef.current = false;
-              }}
-              className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-80 cursor-pointer"
-              style={{
-                backgroundColor: colors['--bg-secondary'],
-                color: colors['--text-tertiary'],
-              }}
-              title="Dismiss"
-            >
-              <X size={12} />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {tooltipData.annotationId && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="w-6 h-6 rounded-full flex items-center justify-center transition-all hover:bg-red-500/20 hover:text-red-500 cursor-pointer"
+                  style={{
+                    backgroundColor: colors['--bg-secondary'],
+                    color: colors['--text-tertiary'],
+                  }}
+                  title="Delete annotation"
+                  aria-label="Delete annotation"
+                >
+                  {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTooltipData(null);
+                  isPinnedRef.current = false;
+                }}
+                className="w-6 h-6 rounded-full flex items-center justify-center transition-colors hover:opacity-80 cursor-pointer"
+                style={{
+                  backgroundColor: colors['--bg-secondary'],
+                  color: colors['--text-tertiary'],
+                }}
+                title="Dismiss"
+                aria-label="Dismiss"
+              >
+                <X size={12} />
+              </button>
+            </div>
           </div>
 
           {/* Definition Content */}

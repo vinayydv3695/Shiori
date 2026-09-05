@@ -19,6 +19,7 @@ interface UIState {
   scrollProgress: number; // 0-100
   lastMouseMovement: number;
   pendingAnnotationId: number | null; // Set to scroll-to a specific annotation after DOM render
+  pendingSearchQuery: string | null;
 
   // Actions
   setTopBarVisible: (visible: boolean) => void;
@@ -30,6 +31,7 @@ interface UIState {
   setScrollProgress: (progress: number) => void;
   updateMouseMovement: () => void;
   setPendingAnnotationId: (id: number | null) => void;
+  setPendingSearchQuery: (query: string | null) => void;
 }
 
 export const useReaderUIStore = create<UIState>((set) => ({
@@ -41,6 +43,7 @@ export const useReaderUIStore = create<UIState>((set) => ({
   scrollProgress: 0,
   lastMouseMovement: Date.now(),
   pendingAnnotationId: null,
+  pendingSearchQuery: null,
 
   setTopBarVisible: (visible) => set({ isTopBarVisible: visible }),
   setTopBarShortcutOnly: (enabled) => set({ isTopBarShortcutOnly: enabled }),
@@ -66,6 +69,8 @@ export const useReaderUIStore = create<UIState>((set) => ({
   updateMouseMovement: () => set({ lastMouseMovement: Date.now() }),
 
   setPendingAnnotationId: (id) => set({ pendingAnnotationId: id }),
+
+  setPendingSearchQuery: (query) => set({ pendingSearchQuery: query }),
 }));
 
 // ────────────────────────────────────────────────────────────

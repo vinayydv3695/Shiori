@@ -68,8 +68,38 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     }, [bookId, pageId, loadStrokes]);
 
     // ────────────────────────────────────────────────────────────
-    // DEBOUNCED SAVE
+    // DEBOUNCED SAVE & UNMOUNT FLUSH
     // ────────────────────────────────────────────────────────────
+    const flushSave = useCallback(async (targetBookId: number, targetPageId: string) => {
+        if (!targetBookId || !targetPageId) return;
+        try {
+            const isPageDirty = useDoodleStore.getState().isDirtyMap[targetPageId];
+            if (!isPageDirty) return;
+
+            const currentStrokes = useDoodleStore.getState().strokesMap[targetPageId] || [];
+            const json = JSON.stringify(currentStrokes);
+
+            if (json.length > 5 * 1024 * 1024) {
+                logger.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
+                return;
+            }
+
+            if (currentStrokes.length === 0) {
+                await api.deleteDoodle(targetBookId, targetPageId);
+            } else {
+                await api.saveDoodle(targetBookId, targetPageId, json);
+            }
+            markClean(targetPageId);
+        } catch (err) {
+            logger.warn('[DoodleCanvas] Failed to save doodles:', err);
+        }
+    }, [markClean]);
+
+    const flushRef = useRef(flushSave);
+    useEffect(() => {
+        flushRef.current = flushSave;
+    }, [flushSave]);
+
     useEffect(() => {
         if (!isDirty) return;
 
@@ -77,33 +107,20 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             clearTimeout(saveTimeoutRef.current);
         }
 
-        saveTimeoutRef.current = window.setTimeout(async () => {
-            try {
-                const currentStrokes = useDoodleStore.getState().strokesMap[pageId] || [];
-                const json = JSON.stringify(currentStrokes);
-
-                if (json.length > 5 * 1024 * 1024) {
-                    logger.warn('[DoodleCanvas] Doodle data exceeds 5MB, skipping save');
-                    return;
-                }
-
-                if (currentStrokes.length === 0) {
-                    await api.deleteDoodle(bookId, pageId);
-                } else {
-                    await api.saveDoodle(bookId, pageId, json);
-                }
-                markClean(pageId);
-            } catch (err) {
-                logger.warn('[DoodleCanvas] Failed to save doodles:', err);
-            }
+        saveTimeoutRef.current = window.setTimeout(() => {
+            saveTimeoutRef.current = null;
+            void flushRef.current(bookId, pageId);
         }, 2000);
 
         return () => {
             if (saveTimeoutRef.current) {
                 clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+                // Flush pending strokes on page navigation/unmount so drawings are not lost
+                void flushRef.current(bookId, pageId);
             }
         };
-    }, [isDirty, bookId, pageId, markClean]);
+    }, [isDirty, bookId, pageId]);
 
     // ────────────────────────────────────────────────────────────
     // POINTER EVENT HANDLERS
@@ -186,7 +203,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                     points.push([points[0][0] + 0.05, points[0][1] + 0.05, points[0][2]]);
                 }
                 const stroke: DoodleStroke = {
-                    id: crypto.randomUUID(),
+                    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
                     tool,
                     color: penColor,
                     width: penWidth,

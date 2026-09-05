@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api, isAndroid, getEpubResourceUrl } from '@/lib/tauri';
 import type { Annotation, BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
 import { findCurrentTocEntry } from '@/lib/toc';
@@ -8,6 +9,8 @@ import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
 import { useReaderStore } from '@/store/readerStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
+import { useFullscreen } from '@/hooks/useFullscreen';
+import { FootnotePopover } from './FootnotePopover';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { PremiumSidebar } from './PremiumSidebar';
 import { DoodleCanvas } from './DoodleCanvas';
@@ -15,11 +18,13 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter } from '@/components/icons';
+import { ReaderContextMenu } from './ReaderContextMenu';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter, Bookmark } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
 import { escapeHtml } from '@/lib/sanitize';
 import DOMPurify from 'dompurify';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
+import { notifyAnnotationsChanged, onAnnotationsChanged } from '@/lib/annotationEvents';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
@@ -500,6 +505,9 @@ export async function loadProcessedChapter(bookId: number, index: number, term?:
 export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: PremiumEpubReaderProps) {
   // State management
   const isFocusMode = useReaderUIStore(state => state.isFocusMode);
+  const toggleFocusMode = useReaderUIStore(state => state.toggleFocusMode);
+  const setSidebarTab = useReaderUIStore(state => state.setSidebarTab);
+  const setPendingSearchQuery = useReaderUIStore(state => state.setPendingSearchQuery);
   const isTopBarShortcutOnly = useReaderUIStore(state => state.isTopBarShortcutOnly);
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
@@ -574,6 +582,54 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [error, setError] = useState<string | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<string | null>(null); // NEW: Store search term for highlighting
 
+  // Desktop power-user features: Fullscreen, cursor auto-hide, and footnote popover
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const [cursorHidden, setCursorHidden] = useState(false);
+  const cursorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [activeFootnote, setActiveFootnote] = useState<{
+    title: string;
+    content: string;
+    anchorRect: DOMRect;
+    targetId: string | null;
+  } | null>(null);
+
+  // Auto-hide mouse cursor after 2.5s of inactivity when in Focus Mode or Fullscreen
+  useEffect(() => {
+    if (!isFocusMode && !isFullscreen) {
+      setCursorHidden(false);
+      if (cursorTimerRef.current) {
+        clearTimeout(cursorTimerRef.current);
+        cursorTimerRef.current = null;
+      }
+      return;
+    }
+
+    const resetCursorTimer = () => {
+      setCursorHidden(false);
+      if (cursorTimerRef.current) {
+        clearTimeout(cursorTimerRef.current);
+      }
+      cursorTimerRef.current = setTimeout(() => {
+        setCursorHidden(true);
+      }, 2500);
+    };
+
+    resetCursorTimer();
+    window.addEventListener('mousemove', resetCursorTimer, { passive: true });
+    window.addEventListener('mousedown', resetCursorTimer, { passive: true });
+    window.addEventListener('keydown', resetCursorTimer, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', resetCursorTimer);
+      window.removeEventListener('mousedown', resetCursorTimer);
+      window.removeEventListener('keydown', resetCursorTimer);
+      if (cursorTimerRef.current) {
+        clearTimeout(cursorTimerRef.current);
+        cursorTimerRef.current = null;
+      }
+    };
+  }, [isFocusMode, isFullscreen]);
+
   // Refs
   const canvasRef = useRef<HTMLDivElement>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
@@ -610,6 +666,31 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // Preloaded chapter content for page flip
   const [nextChapterContent, setNextChapterContent] = useState<string | null>(null);
   const [prevChapterContent, setPrevChapterContent] = useState<string | null>(null);
+
+  // Active chapter bookmark state
+  const [isCurrentChapterBookmarked, setIsCurrentChapterBookmarked] = useState(false);
+
+  const checkBookmark = useCallback(async () => {
+    if (!bookId) return;
+    try {
+      const annotations = await api.getAnnotations(bookId);
+      const chapterLoc = `chapter_${currentIndexRef.current}`;
+      const isBookmarked = annotations.some(
+        (a) => a.annotationType === 'bookmark' && a.location === chapterLoc
+      );
+      setIsCurrentChapterBookmarked(isBookmarked);
+    } catch {
+      // Ignore
+    }
+  }, [bookId]);
+
+  useEffect(() => {
+    checkBookmark();
+  }, [currentIndex, checkBookmark]);
+
+  useEffect(() => {
+    return onAnnotationsChanged(checkBookmark);
+  }, [checkBookmark]);
 
   // ────────────────────────────────────────────────────────────
   // READER THEME — scoped to this container, not global <html>
@@ -1522,6 +1603,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
           });
         }
+      } else if (pageFlipEnabled && pageFlipRef.current) {
+        const flipped = pageFlipRef.current.flipForward();
+        if (!flipped) {
+          nextChapter();
+        }
       } else {
         const { scrollTop, scrollHeight, clientHeight } = canvasRef.current;
         const maxScroll = scrollHeight - clientHeight;
@@ -1537,7 +1623,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       nextChapter();
     }
-  }, [nextChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+  }, [nextChapter, isHorizontalPaging, pageFlipEnabled, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
   const prevPage = useCallback(() => {
     const now = Date.now();
@@ -1561,6 +1647,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             behavior: animationStyle !== 'none' ? 'smooth' : 'auto' 
           });
         }
+      } else if (pageFlipEnabled && pageFlipRef.current) {
+        const flipped = pageFlipRef.current.flipBackward();
+        if (!flipped) {
+          prevChapter(true);
+        }
       } else {
         const { scrollTop, clientHeight } = canvasRef.current;
         if (scrollTop <= 50) {
@@ -1575,11 +1666,26 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     } else {
       prevChapter(true);
     }
-  }, [prevChapter, isHorizontalPaging, animationStyle, isFocusMode, isTopBarShortcutOnly]);
+  }, [prevChapter, isHorizontalPaging, pageFlipEnabled, animationStyle, isFocusMode, isTopBarShortcutOnly]);
 
-  // Mouse wheel navigation & Scroll Up/Down topbar visibility
+  // Mouse wheel navigation, Ctrl+Wheel zoom, trackpad flip & Scroll Up/Down topbar visibility
   const lastWheelTimeRef = useRef(0);
   const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    // Ctrl/Cmd + Mouse Wheel: dynamic font scaling with 80ms throttle
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastWheelTimeRef.current > 80) {
+        lastWheelTimeRef.current = now;
+        if (e.deltaY < 0) {
+          useReadingSettings.getState().increaseFontSize();
+        } else if (e.deltaY > 0) {
+          useReadingSettings.getState().decreaseFontSize();
+        }
+      }
+      return;
+    }
+
     // Detect vertical scroll direction to show/hide top bar
     if (e.deltaY < -10) {
       // Scroll Up -> Show top bar!
@@ -1596,10 +1702,18 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    if (!isHorizontalPaging) {
+    // Page navigation via wheel / trackpad
+    // In horizontal paging: wheel deltaY or deltaX turns pages
+    // In page-flip mode: trackpad horizontal swipe (deltaX) turns pages
+    const canWheelPage = isHorizontalPaging || (pageFlipEnabled && Math.abs(e.deltaX) > Math.abs(e.deltaY));
+    if (!canWheelPage) {
       return;
     }
-    const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+
+    const delta = isHorizontalPaging
+      ? (Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX)
+      : e.deltaX;
+
     if (Math.abs(delta) > 20) {
       const now = Date.now();
       if (now - lastWheelTimeRef.current > 250) {
@@ -1611,7 +1725,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isHorizontalPaging, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isHorizontalPaging, pageFlipEnabled, nextPage, prevPage, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // Click zone handling in simple mode: left 25% prev chapter, right 25% next chapter, center 50% toggle top bar
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1636,14 +1750,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const width = window.innerWidth;
     const clickRatio = width > 0 ? clickX / width : 0.5;
 
-    // Edge taps turn PAGES only in explicit horizontal-paging mode.
-    if (isHorizontalPaging && clickRatio < 0.25) {
+    // Edge taps turn PAGES in explicit horizontal-paging mode or page-flip mode
+    const canPageTurn = isHorizontalPaging || pageFlipEnabled;
+    if (canPageTurn && clickRatio < 0.25) {
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(10);
       prevPage();
       return;
     }
-    if (isHorizontalPaging && clickRatio > 0.75) {
+    if (canPageTurn && clickRatio > 0.75) {
       lastTouchNavigationRef.current = Date.now();
       triggerHaptic(10);
       nextPage();
@@ -1654,7 +1769,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (!isFocusMode && !isTopBarShortcutOnly) {
       setTopBarVisible(!useReaderUIStore.getState().isTopBarVisible);
     }
-  }, [prevPage, nextPage, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [prevPage, nextPage, isHorizontalPaging, pageFlipEnabled, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   const scrollLineUp = useCallback(() => {
     if (canvasRef.current) {
@@ -1676,6 +1791,68 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     }
   }, [isHorizontalPaging, nextPage]);
 
+  const scrollToTop = useCallback(() => {
+    if (canvasRef.current) {
+      if (isHorizontalPaging) {
+        canvasRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        canvasRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [isHorizontalPaging]);
+
+  const scrollToBottom = useCallback(() => {
+    if (canvasRef.current) {
+      if (isHorizontalPaging) {
+        canvasRef.current.scrollTo({ left: canvasRef.current.scrollWidth, behavior: 'smooth' });
+      } else {
+        canvasRef.current.scrollTo({ top: canvasRef.current.scrollHeight, behavior: 'smooth' });
+      }
+    }
+  }, [isHorizontalPaging]);
+
+  const handleToggleBookmark = useCallback(async () => {
+    try {
+      const chapterLoc = `chapter_${currentIndexRef.current}`;
+      const annotations = await api.getAnnotations(bookId);
+      const existing = annotations.find(
+        (a) => a.annotationType === 'bookmark' && a.location === chapterLoc
+      );
+      if (existing?.id) {
+        await api.deleteAnnotation(existing.id);
+        setIsCurrentChapterBookmarked(false);
+        notifyAnnotationsChanged();
+        useToastStore.getState().addToast({
+          title: 'Bookmark removed',
+          variant: 'info',
+        });
+      } else {
+        const currentChapterTitle =
+          toc[currentIndexRef.current]?.label ||
+          (metadata ? `Chapter ${currentIndexRef.current + 1} of ${metadata.total_chapters}` : `Chapter ${currentIndexRef.current + 1}`);
+        await api.createAnnotation(
+          bookId,
+          'bookmark',
+          chapterLoc,
+          undefined,
+          undefined,
+          undefined,
+          '#e11d48',
+          undefined,
+          currentChapterTitle
+        );
+        setIsCurrentChapterBookmarked(true);
+        notifyAnnotationsChanged();
+        useToastStore.getState().addToast({
+          title: 'Bookmark added',
+          variant: 'success',
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to toggle bookmark:', err);
+    }
+  }, [bookId, metadata, toc]);
+
   // Keyboard shortcuts
   usePremiumReaderKeyboard({
     onPrevChapter: () => prevChapter(true),
@@ -1684,7 +1861,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     onNextPage: nextPage,
     onScrollUp: scrollLineUp,
     onScrollDown: scrollLineDown,
+    onScrollTop: scrollToTop,
+    onScrollBottom: scrollToBottom,
+    onToggleFullscreen: toggleFullscreen,
+    onToggleBookmark: handleToggleBookmark,
     isPaginatedOrTwoPage: isHorizontalPaging,
+    pageFlipEnabled: pageFlipEnabled && !isHorizontalPaging,
   });
 
   // Handle page flip completion — navigate to next/prev chapter
@@ -1778,19 +1960,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       return;
     }
 
-    // Single Tap (< 350ms, |dx| < 20, |dy| < 20): edge taps turn PAGES only in
-    // explicit horizontal-paging mode — in scroll/simple mode they must never
-    // jump chapters, so any tap just toggles the top bar.
+    // Single Tap (< 350ms, |dx| < 20, |dy| < 20): edge taps turn PAGES in
+    // explicit horizontal-paging mode or page-flip mode — in vertical scroll mode
+    // they don't jump, so any tap toggles the top bar.
     if (dt < 350 && Math.abs(dx) < 20 && Math.abs(dy) < 20) {
       const windowWidth = window.innerWidth;
       const tapX = touchEnd.clientX;
       const tapRatio = windowWidth > 0 ? tapX / windowWidth : 0.5;
 
-      if (isHorizontalPaging && tapRatio < 0.25) {
+      const canPageTurn = isHorizontalPaging || pageFlipEnabled;
+      if (canPageTurn && tapRatio < 0.25) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
         prevPage();
-      } else if (isHorizontalPaging && tapRatio > 0.75) {
+      } else if (canPageTurn && tapRatio > 0.75) {
         lastTouchNavigationRef.current = Date.now();
         triggerHaptic(10);
         nextPage();
@@ -1805,7 +1988,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
     }
-  }, [isDoodleMode, nextPage, prevPage, isHorizontalPaging, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
+  }, [isDoodleMode, nextPage, prevPage, isHorizontalPaging, pageFlipEnabled, isFocusMode, isTopBarShortcutOnly, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -1982,7 +2165,39 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     if (isDoodleMode || isSelectionOrNoteActive()) return;
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
-    if (isTouchOnSelectionOrModal(target) || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar') || target.closest('.doodle-toolbar')) {
+
+    // Check for footnote link clicks
+    const anchor = target.closest('a');
+    if (anchor) {
+      const href = anchor.getAttribute('href') || '';
+      const epubType = anchor.getAttribute('epub:type') || '';
+      const role = anchor.getAttribute('role') || '';
+      const isFootnote =
+        href.includes('#') ||
+        epubType.includes('noteref') ||
+        role.includes('doc-noteref');
+
+      if (isFootnote && href.includes('#')) {
+        const targetId = href.split('#')[1];
+        if (targetId) {
+          const targetEl = contentContainerRef.current?.querySelector(`#${CSS.escape(targetId)}`);
+          if (targetEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            setActiveFootnote({
+              title: anchor.textContent?.trim() || 'Footnote',
+              content: sanitizeChapterHtml(targetEl.innerHTML),
+              anchorRect: anchor.getBoundingClientRect(),
+              targetId,
+            });
+            return;
+          }
+        }
+      }
+      return;
+    }
+
+    if (isTouchOnSelectionOrModal(target) || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar') || target.closest('.doodle-toolbar')) {
       return;
     }
 
@@ -1998,6 +2213,43 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       setTopBarVisible(!uiStore.isTopBarVisible);
     }
   }, [isDoodleMode, setTopBarVisible]);
+
+  // Context menu state & handlers for right-click in reader
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number; selectedText?: string } | null>(null);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (isDoodleMode) return;
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('input, textarea, .premium-sidebar, .annotation-tooltip, .text-selection-toolbar, .doodle-toolbar')) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    const selection = window.getSelection()?.toString().trim();
+    setContextMenuPos({
+      x: e.clientX,
+      y: e.clientY,
+      selectedText: selection || undefined,
+    });
+  }, [isDoodleMode]);
+
+  const handleCopySelection = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      useToastStore.getState().addToast({
+        title: 'Copied to clipboard',
+        variant: 'success',
+        duration: 2000,
+      });
+    } catch {
+      useToastStore.getState().addToast({
+        title: 'Failed to copy',
+        variant: 'error',
+        duration: 2000,
+      });
+    }
+  }, []);
 
   // ────────────────────────────────────────────────────────────
   // RENDER
@@ -2038,14 +2290,39 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   return (
     <div 
       ref={readerContainerRef} 
-      className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''}`} 
+      className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''} ${cursorHidden ? 'premium-reader--cursor-hidden' : ''}`} 
       onClick={handleContainerClick} 
       onDoubleClick={handleContainerDoubleClick}
+      onContextMenu={handleContextMenu}
       onTouchStart={(e) => { handleTouchStart(e); handleHoldTouchStart(e); }}
       onTouchEnd={(e) => { handleTouchEnd(e); handleHoldTouchEnd(e); }}
       onTouchMove={handleHoldTouchMove}
       onTouchCancel={handleHoldTouchCancel}
     >
+      {/* Corner Bookmark Ribbon */}
+      <AnimatePresence>
+        {isCurrentChapterBookmarked && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-0 right-10 sm:right-14 z-20 pointer-events-none drop-shadow-md select-none"
+            aria-hidden="true"
+          >
+            <div
+              className="w-6 h-9 sm:w-7 sm:h-10 flex items-center justify-center pt-1"
+              style={{
+                backgroundColor: '#e11d48',
+                clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%)',
+              }}
+            >
+              <Bookmark size={13} className="text-white" fill="white" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Auto-hide Top Bar — hover keeps it pinned, leaving re-arms the 2s timer */}
       <div
         onPointerEnter={() => setIsPointerOverTopBar(true)}
@@ -2079,6 +2356,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 aria-label="Table of Contents"
               >
                 <BookOpen className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content={isCurrentChapterBookmarked ? "Remove bookmark" : "Bookmark this chapter"}>
+              <button
+                type="button"
+                onClick={handleToggleBookmark}
+                className={`premium-control-button ${isCurrentChapterBookmarked ? 'premium-control-button--active !text-rose-500' : ''}`}
+                aria-label={isCurrentChapterBookmarked ? "Remove bookmark" : "Bookmark chapter"}
+              >
+                <Bookmark
+                  className="premium-control-icon"
+                  fill={isCurrentChapterBookmarked ? "currentColor" : "none"}
+                />
               </button>
             </ReaderTooltip>
 
@@ -2151,7 +2442,40 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             onClick={(e) => {
               // External links (http/https/mailto) → system browser; internal
               // links (anchors, epubcfi, relative) bubble on untouched.
-              handleExternalLinkClick(e.nativeEvent, contentContainerRef.current);
+              if (handleExternalLinkClick(e.nativeEvent, contentContainerRef.current)) {
+                return;
+              }
+
+              // Footnote & endnote preview popover on internal note links
+              const target = e.target as Element | null;
+              const anchor = target?.closest('a');
+              if (anchor && contentContainerRef.current?.contains(anchor)) {
+                const href = anchor.getAttribute('href') || '';
+                const epubType = anchor.getAttribute('epub:type') || '';
+                const role = anchor.getAttribute('role') || '';
+                const isFootnote =
+                  href.includes('#') ||
+                  epubType.includes('noteref') ||
+                  role.includes('doc-noteref');
+
+                if (isFootnote && href.includes('#')) {
+                  const targetId = href.split('#')[1];
+                  if (targetId) {
+                    const targetEl = contentContainerRef.current?.querySelector(`#${CSS.escape(targetId)}`);
+                    if (targetEl) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setActiveFootnote({
+                        title: anchor.textContent?.trim() || 'Footnote',
+                        content: sanitizeChapterHtml(targetEl.innerHTML),
+                        anchorRect: anchor.getBoundingClientRect(),
+                        targetId,
+                      });
+                      return;
+                    }
+                  }
+                }
+              }
             }}
             className={`premium-content-container premium-content-container--${width} ${twoPageView ? 'premium-content-container--two-page' : ''} ${isPaginated ? 'premium-content-container--paginated' : ''}`}
           >
@@ -2203,6 +2527,35 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       {/* Rich Hover Annotation / Definition Tooltip */}
       <ReaderAnnotationTooltip />
 
+      {/* Right-click Context Menu */}
+      {contextMenuPos && (
+        <ReaderContextMenu
+          x={contextMenuPos.x}
+          y={contextMenuPos.y}
+          selectedText={contextMenuPos.selectedText}
+          isFocusMode={isFocusMode}
+          isFullscreen={isFullscreen}
+          isBookmarked={isCurrentChapterBookmarked}
+          onClose={() => setContextMenuPos(null)}
+          onSearchInBook={(query) => {
+            if (query) {
+              setPendingSearchQuery(query);
+            }
+            setSidebarTab('search');
+          }}
+          onOpenToc={() => setSidebarTab('toc')}
+          onOpenBookmarks={() => setSidebarTab('bookmarks')}
+          onOpenHighlights={() => setSidebarTab('highlights')}
+          onToggleBookmark={handleToggleBookmark}
+          onToggleFocusMode={toggleFocusMode}
+          onToggleFullscreen={toggleFullscreen}
+          onNextPage={nextPage}
+          onPrevPage={prevPage}
+          onCopy={handleCopySelection}
+          onOpenSettings={() => setTopBarVisible(true)}
+        />
+      )}
+
 
 
       {/* Floating Navigation Arrows */}
@@ -2248,6 +2601,22 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         onChapterEnd={() => loadChapter(currentIndex + 1)}
         contentKey={currentIndex}
       />
+
+      {/* Footnote & Endnote Floating Popover */}
+      {activeFootnote && (
+        <FootnotePopover
+          title={activeFootnote.title}
+          content={activeFootnote.content}
+          anchorRect={activeFootnote.anchorRect}
+          onClose={() => setActiveFootnote(null)}
+          onJump={activeFootnote.targetId ? () => {
+            const targetEl = contentContainerRef.current?.querySelector(`#${CSS.escape(activeFootnote.targetId!)}`);
+            if (targetEl) {
+              targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          } : undefined}
+        />
+      )}
     </div>
   );
 }

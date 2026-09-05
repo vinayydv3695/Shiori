@@ -48,8 +48,8 @@ export function AniListUserMangaView({ userId }: { userId: number }) {
               <Skeleton className="h-6 w-32" />
               <Skeleton className="h-4 w-8 rounded-full" />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {[...Array(5)].map((_, j) => (
+            <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
+              {[...Array(7)].map((_, j) => (
                 <Skeleton key={j} className="aspect-[2/3] w-full rounded-xl" />
               ))}
             </div>
@@ -79,8 +79,8 @@ export function AniListUserMangaView({ userId }: { userId: number }) {
             </span>
           </motion.div>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
-            {list.entries.slice(0, 10).map(entry => (
+          <div className="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
+            {list.entries.slice(0, 14).map(entry => (
               <motion.div variants={itemVariants} key={entry.id} className="group relative aspect-[2/3] rounded-2xl overflow-hidden cursor-pointer bg-secondary/30 shadow-xs border border-border/40 hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                 <img src={entry.media.coverImage.large} alt={entry.media.title.romaji} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-3 opacity-100">
@@ -93,8 +93,8 @@ export function AniListUserMangaView({ userId }: { userId: number }) {
               </motion.div>
             ))}
           </div>
-          {list.entries.length > 10 && (
-            <p className="text-xs text-muted-foreground font-medium italic">+ {list.entries.length - 10} more in your main dashboard</p>
+          {list.entries.length > 14 && (
+            <p className="text-xs text-muted-foreground font-medium italic">+ {list.entries.length - 14} more in your main dashboard</p>
           )}
         </div>
       ))}

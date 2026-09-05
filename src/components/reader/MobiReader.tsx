@@ -467,8 +467,8 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     }, [prevChapter]);
 
     usePremiumReaderKeyboard({
-        onPrevChapter: prevPage,
-        onNextChapter: nextPage,
+        onPrevChapter: prevChapter,
+        onNextChapter: nextChapter,
         onPrevPage: prevPage,
         onNextPage: nextPage,
     });

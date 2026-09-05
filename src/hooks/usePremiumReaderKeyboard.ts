@@ -8,7 +8,12 @@ export interface PremiumReaderKeyboardHandlers {
   onNextPage?: () => void;
   onScrollUp?: () => void;
   onScrollDown?: () => void;
+  onScrollTop?: () => void;
+  onScrollBottom?: () => void;
+  onToggleFullscreen?: () => void;
+  onToggleBookmark?: () => void;
   isPaginatedOrTwoPage?: boolean;
+  pageFlipEnabled?: boolean;
 }
 
 /**
@@ -19,13 +24,18 @@ export interface PremiumReaderKeyboardHandlers {
  * - Cmd/Ctrl + +: Increase font size
  * - Cmd/Ctrl + -: Decrease font size
  * - Cmd/Ctrl + \: Cycle width (narrow → medium → wide → full)
- * - f: Toggle focus mode
+ * - Cmd/Ctrl + F: Open In-Book Search
+ * - f: Toggle focus mode (without Mod key)
  * - h: Toggle top bar visibility
  * - s: Toggle sidebar
  * - t: Open TOC sidebar
+ * - b: Toggle bookmark at current position
+ * - [ / ]: Previous / Next chapter
+ * - Home / End: Scroll to top / bottom of chapter
+ * - F11: Toggle OS fullscreen
  * - Escape: Close sidebar or exit focus mode
- * - ArrowLeft / Left: Previous Page (in paginated/2-page) or Previous Chapter (in vertical mode)
- * - ArrowRight / Right: Next Page (in paginated/2-page) or Next Chapter (in vertical mode)
+ * - ArrowLeft / Left: Previous Page (in paginated/page-flip/simple mode) or Previous Chapter (Cmd/Ctrl + ArrowLeft)
+ * - ArrowRight / Right: Next Page (in paginated/page-flip/simple mode) or Next Chapter (Cmd/Ctrl + ArrowRight)
  * - ArrowUp / Up: Line scroll up (in vertical) or Previous Page (in paginated/2-page)
  * - ArrowDown / Down: Line scroll down (in vertical) or Next Page (in paginated/2-page)
  * - Space / PageDown: Next page / scroll down by screen
@@ -82,10 +92,59 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
-      // f: Toggle focus mode
-      if (key === 'f' || key === 'F') {
+      // Cmd/Ctrl + F: In-Book Search
+      if (isMod && (key === 'f' || key === 'F')) {
+        e.preventDefault();
+        useReaderUIStore.getState().setSidebarTab('search');
+        return;
+      }
+
+      // f: Toggle focus mode (without Mod key)
+      if (!isMod && (key === 'f' || key === 'F')) {
         e.preventDefault();
         useReaderUIStore.getState().toggleFocusMode();
+        return;
+      }
+
+      // b / B: Toggle bookmark (without Mod key)
+      if (!isMod && (key === 'b' || key === 'B')) {
+        e.preventDefault();
+        handlersRef.current.onToggleBookmark?.();
+        return;
+      }
+
+      // [ : Previous Chapter
+      if (key === '[') {
+        e.preventDefault();
+        handlersRef.current.onPrevChapter?.();
+        return;
+      }
+
+      // ] : Next Chapter
+      if (key === ']') {
+        e.preventDefault();
+        handlersRef.current.onNextChapter?.();
+        return;
+      }
+
+      // Home: Scroll to top of chapter
+      if (key === 'Home') {
+        e.preventDefault();
+        handlersRef.current.onScrollTop?.();
+        return;
+      }
+
+      // End: Scroll to bottom of chapter
+      if (key === 'End') {
+        e.preventDefault();
+        handlersRef.current.onScrollBottom?.();
+        return;
+      }
+
+      // F11: Toggle Fullscreen
+      if (key === 'F11') {
+        e.preventDefault();
+        handlersRef.current.onToggleFullscreen?.();
         return;
       }
 
@@ -123,18 +182,39 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
         return;
       }
 
-      // ArrowLeft / Left: Previous Chapter on every layout (matches the
-      // edge-tap behavior — page turns stay on swipes / Up-Down keys).
+      // ArrowLeft / Left: Previous Page in paginated/2-page or page-flip mode, or Previous Chapter (Cmd/Ctrl + ArrowLeft)
       if (key === 'ArrowLeft' || key === 'Left') {
         e.preventDefault();
-        handlersRef.current.onPrevChapter?.();
+        if (isMod) {
+          handlersRef.current.onPrevChapter?.();
+        } else if (handlersRef.current.isPaginatedOrTwoPage || handlersRef.current.pageFlipEnabled) {
+          handlersRef.current.onPrevPage?.();
+        } else {
+          // Simple/scroll mode: navigate chapter directly if available, or fall back to prev page
+          if (handlersRef.current.onPrevChapter) {
+            handlersRef.current.onPrevChapter();
+          } else {
+            handlersRef.current.onPrevPage?.();
+          }
+        }
         return;
       }
 
-      // ArrowRight / Right: Next Chapter on every layout.
+      // ArrowRight / Right: Next Page in paginated/2-page or page-flip mode, or Next Chapter (Cmd/Ctrl + ArrowRight)
       if (key === 'ArrowRight' || key === 'Right') {
         e.preventDefault();
-        handlersRef.current.onNextChapter?.();
+        if (isMod) {
+          handlersRef.current.onNextChapter?.();
+        } else if (handlersRef.current.isPaginatedOrTwoPage || handlersRef.current.pageFlipEnabled) {
+          handlersRef.current.onNextPage?.();
+        } else {
+          // Simple/scroll mode: navigate chapter directly if available, or fall back to next page
+          if (handlersRef.current.onNextChapter) {
+            handlersRef.current.onNextChapter();
+          } else {
+            handlersRef.current.onNextPage?.();
+          }
+        }
         return;
       }
 

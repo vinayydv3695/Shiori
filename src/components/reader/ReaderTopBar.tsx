@@ -55,10 +55,10 @@ export function ReaderTopBar({
       : rightExtra
   );
 
-  // Desktop primary toolbar buttons: Search (0) & Table of Contents (1)
-  const desktopPrimary = extraChildren.slice(0, 2);
-  // Desktop overflow dropdown items: Highlights, Two-Page, Doodle, etc. (2+)
-  const desktopSecondary = extraChildren.slice(2);
+  // Desktop primary toolbar buttons: Search (0), Table of Contents (1), Bookmark (2)
+  const desktopPrimary = extraChildren.slice(0, 3);
+  // Desktop overflow dropdown items: Highlights, Doodle, etc. (3+)
+  const desktopSecondary = extraChildren.slice(3);
 
   return (
     <div

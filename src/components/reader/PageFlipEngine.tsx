@@ -1,7 +1,6 @@
 import { useCallback, forwardRef, useImperativeHandle, memo, useRef, useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import DOMPurify from 'dompurify';
-import { sanitizeBookContent } from '@/lib/sanitize';
 import '@/styles/page-flip.css';
 
 interface PageFlipEngineProps {
@@ -23,6 +22,20 @@ export interface PageFlipHandle {
     isFlipping: () => boolean;
 }
 
+const EPUB_SAFE_URI_REGEXP =
+    /^(?:(?:https?|mailto|tel|callto|sms|cid|xmpp):|(?:shiori-epub|tauri):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
+
+function sanitizePageFlipContent(content: string): string {
+    if (!content) return '';
+    return DOMPurify.sanitize(content, {
+        ADD_ATTR: ['style'],
+        ALLOW_DATA_ATTR: false,
+        FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button'],
+        FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+        ALLOWED_URI_REGEXP: EPUB_SAFE_URI_REGEXP,
+    });
+}
+
 /**
  * Framer Motion Page Transition Engine for Shiori EPUB Reader.
  *
@@ -40,6 +53,20 @@ export const PageFlipEngine = memo(
         const isFlippingRef = useRef(false);
         const [direction, setDirection] = useState<1 | -1>(1); // 1 = forward, -1 = backward
         const prevIndexRef = useRef<number>(chapterIndex);
+        const flipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+        const clearFlipTimer = useCallback(() => {
+            if (flipTimerRef.current !== null) {
+                clearTimeout(flipTimerRef.current);
+                flipTimerRef.current = null;
+            }
+        }, []);
+
+        useEffect(() => {
+            return () => {
+                clearFlipTimer();
+            };
+        }, [clearFlipTimer]);
 
         // Detect index/content changes from external navigation (TOC, next chapter, buttons)
         useEffect(() => {
@@ -156,30 +183,38 @@ export const PageFlipEngine = memo(
             () => ({
                 flipForward: () => {
                     if (!enabled || isFlippingRef.current) return false;
+                    clearFlipTimer();
                     isFlippingRef.current = true;
                     setDirection(1);
-                    setTimeout(() => handleAnimationComplete('forward'), flipSpeed + 30);
+                    flipTimerRef.current = setTimeout(() => {
+                        flipTimerRef.current = null;
+                        handleAnimationComplete('forward');
+                    }, flipSpeed + 30);
                     return true;
                 },
 
                 flipBackward: () => {
                     if (!enabled || isFlippingRef.current) return false;
+                    clearFlipTimer();
                     isFlippingRef.current = true;
                     setDirection(-1);
-                    setTimeout(() => handleAnimationComplete('backward'), flipSpeed + 30);
+                    flipTimerRef.current = setTimeout(() => {
+                        flipTimerRef.current = null;
+                        handleAnimationComplete('backward');
+                    }, flipSpeed + 30);
                     return true;
                 },
 
                 isFlipping: () => isFlippingRef.current,
             }),
-            [enabled, flipSpeed, handleAnimationComplete]
+            [enabled, flipSpeed, handleAnimationComplete, clearFlipTimer]
         );
 
         // ────────────────────────────────────────────────────────────
         // MEMOIZE SANITIZATION
         // ────────────────────────────────────────────────────────────
         const safeCurrentContent = useMemo(() => {
-            return sanitizeBookContent(currentContent);
+            return sanitizePageFlipContent(currentContent);
         }, [currentContent]);
 
         // ────────────────────────────────────────────────────────────
@@ -190,7 +225,7 @@ export const PageFlipEngine = memo(
                 <div className={className}>
                     <div
                         className="premium-chapter-content"
-                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(safeCurrentContent) }}
+                        dangerouslySetInnerHTML={{ __html: safeCurrentContent }}
                     />
                 </div>
             );
@@ -218,7 +253,7 @@ export const PageFlipEngine = memo(
                     >
                         <div
                             className="premium-chapter-content"
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(safeCurrentContent) }}
+                            dangerouslySetInnerHTML={{ __html: safeCurrentContent }}
                         />
                     </motion.div>
                 </AnimatePresence>
@@ -231,5 +266,7 @@ export const PageFlipEngine = memo(
         prev.enabled === next.enabled &&
         prev.flipSpeed === next.flipSpeed &&
         prev.animationStyle === next.animationStyle &&
-        prev.onRendered === next.onRendered
+        prev.onRendered === next.onRendered &&
+        prev.onFlipComplete === next.onFlipComplete &&
+        prev.className === next.className
 );

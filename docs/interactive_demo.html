@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shiori — The Modern Local-First Reader</title>
+  <title>Shiori — Interactive SaaS Product Tour</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -18,1049 +18,741 @@
       font-family: var(--font-sans);
     }
 
-    .font-reader-serif { font-family: var(--font-serif); }
-    .font-reader-sans { font-family: var(--font-sans); }
-    .font-reader-mono { font-family: var(--font-mono); }
-
-    /* Custom Reader Themes */
-    .reader-theme-paper {
-      background-color: #f7f4ec;
-      color: #2b2823;
-      border-color: #e5dec9;
-    }
-    .reader-theme-sepia {
-      background-color: #f4ecd8;
-      color: #433422;
-      border-color: #dfd0b5;
-    }
-    .reader-theme-charcoal {
-      background-color: #1e2022;
-      color: #d1d5db;
-      border-color: #2e3236;
-    }
-    .reader-theme-oled {
-      background-color: #000000;
-      color: #e5e7eb;
-      border-color: #1f2937;
-    }
-    .reader-theme-nord {
-      background-color: #2e3440;
-      color: #eceff4;
-      border-color: #434c5e;
-    }
-
-    /* Bookmark ribbon polygon */
-    .bookmark-ribbon {
-      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
-    }
-
-    /* Glow & Blur effects */
+    /* Ambient Mesh Gradient */
     .bg-mesh {
-      background-image: radial-gradient(at 0% 0%, rgba(244, 63, 94, 0.12) 0px, transparent 50%),
-                        radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.12) 0px, transparent 50%),
-                        radial-gradient(at 50% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(217, 119, 6, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(180, 83, 9, 0.12) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(245, 158, 11, 0.08) 0px, transparent 50%);
     }
 
-    /* Custom scrollbar */
+    /* Subtle Ken Burns Slow Motion Zoom */
+    .ken-burns {
+      animation: kenburns 12s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+
+    @keyframes kenburns {
+      0% {
+        transform: scale(1) translate(0, 0);
+      }
+      50% {
+        transform: scale(1.04) translate(-0.8%, -0.5%);
+      }
+      100% {
+        transform: scale(1.02) translate(0.6%, 0.4%);
+      }
+    }
+
+    /* Pulsing Hotspot */
+    .hotspot-pulse {
+      box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 14px rgba(245, 158, 11, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+      }
+    }
+
+    /* Scrubber Progress Fill */
+    .scrubber-fill {
+      transition: width 0.1s linear;
+    }
+
+    /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.3); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(180, 83, 9, 0.3); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(180, 83, 9, 0.5); }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-rose-500/20 selection:text-rose-400">
+<body class="bg-[#0c0d0e] text-slate-100 min-h-screen antialiased selection:bg-amber-500/20 selection:text-amber-300">
 
-  <!-- Background Ambient Glow -->
+  <!-- Ambient Glow -->
   <div class="fixed inset-0 bg-mesh pointer-events-none z-0"></div>
 
-  <!-- Main Container -->
-  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-12">
+  <!-- App Wrapper -->
+  <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col min-h-screen">
 
-    <!-- Top Global Header -->
-    <header class="flex items-center justify-between py-4 border-b border-slate-800/80">
+    <!-- Top Brand Header -->
+    <header class="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-amber-900/30">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center shadow-lg shadow-rose-500/20">
-          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-600 via-amber-700 to-amber-900 flex items-center justify-center shadow-lg shadow-amber-900/30 border border-amber-500/30">
+          <svg class="w-6 h-6 text-amber-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
             <path d="M6 2v20"></path>
           </svg>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-bold text-xl tracking-tight text-white">Shiori</span>
-            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">v1.0.7</span>
+            <span class="font-bold text-2xl tracking-tight text-white font-serif">Shiori</span>
+            <span class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Interactive Tour</span>
+            <span class="text-xs text-slate-500 font-mono">v1.0.7</span>
           </div>
-          <p class="text-xs text-slate-400">Local-First Reader for Desktop & Android</p>
+          <p class="text-xs text-slate-400">The Modern Local-First Manga & Book Reader</p>
         </div>
       </div>
 
-      <!-- Header Navigation -->
-      <nav class="hidden md:flex items-center gap-1 bg-slate-900/60 backdrop-blur-md p-1 rounded-full border border-slate-800">
-        <button onclick="switchTab('reader')" id="nav-reader" class="px-4 py-1.5 rounded-full text-xs font-medium transition-all bg-rose-500 text-white shadow-sm">
-          Reader Studio
+      <!-- Quick Control Hub -->
+      <div class="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 shadow-xl">
+        <!-- Sound Toggle -->
+        <button id="sound-btn" onclick="toggleSound()" class="p-2 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors" title="Toggle Sound FX">
+          <svg id="sound-icon-on" class="w-4 h-4 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+          <svg id="sound-icon-off" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
         </button>
-        <button onclick="switchTab('library')" id="nav-library" class="px-4 py-1.5 rounded-full text-xs font-medium text-slate-300 hover:text-white transition-all">
-          Library & Shelves
-        </button>
-        <button onclick="switchTab('converter')" id="nav-converter" class="px-4 py-1.5 rounded-full text-xs font-medium text-slate-300 hover:text-white transition-all">
-          Format Converter
-        </button>
-        <button onclick="switchTab('analytics')" id="nav-analytics" class="px-4 py-1.5 rounded-full text-xs font-medium text-slate-300 hover:text-white transition-all">
-          Reading Insights
-        </button>
-        <button onclick="switchTab('anilist')" id="nav-anilist" class="px-4 py-1.5 rounded-full text-xs font-medium text-slate-300 hover:text-white transition-all">
-          AniList Sync
-        </button>
-      </nav>
 
-      <!-- Action Buttons -->
-      <div class="flex items-center gap-2">
-        <a href="https://github.com/vinayydv3695/Shiori" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 transition-colors flex items-center gap-1.5">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
+        <!-- Hotspots Toggle -->
+        <button id="hotspots-btn" onclick="toggleHotspots()" class="px-3 py-1.5 rounded-xl text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-all flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span>Hotspots On</span>
+        </button>
+
+        <!-- Cinematic Motion Toggle -->
+        <button id="motion-btn" onclick="toggleMotion()" class="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
-          GitHub
-        </a>
-        <a href="https://github.com/vinayydv3695/Shiori/releases/latest" target="_blank" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-all shadow-md shadow-rose-600/20 flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
+          <span>Cinematic Zoom</span>
+        </button>
+
+        <!-- Fullscreen Toggle -->
+        <button onclick="toggleFullscreen()" class="p-2 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-slate-800 transition-colors" title="Toggle Fullscreen">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
           </svg>
-          Download v1.0.7
-        </a>
+        </button>
       </div>
     </header>
 
-    <!-- Hero Title & Value Proposition -->
-    <div class="text-center space-y-4 max-w-3xl mx-auto pt-4">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-semibold">
-        <span class="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
-        Interactive Product Tour
-      </div>
-      <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
-        The Modern E-Reader <br class="hidden sm:inline" />
-        <span class="bg-gradient-to-r from-rose-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">
-          Crafted for Perfectionists.
-        </span>
-      </h1>
-      <p class="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-        Fast as native Rust, beautiful as printed parchment. Fully local, zero telemetry, supporting EPUB, PDF, MOBI, and Manga with first-class bookmarks and paragraph reflow.
-      </p>
-
-      <!-- Quick Interactive Pills -->
-      <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
-        <button onclick="switchTab('reader')" class="px-3 py-1 text-xs rounded-full bg-slate-900 border border-slate-700 hover:border-rose-500 text-slate-300 transition-colors flex items-center gap-1.5">
-          <span>📖</span> Test Live Reader
-        </button>
-        <button onclick="switchTab('converter')" class="px-3 py-1 text-xs rounded-full bg-slate-900 border border-slate-700 hover:border-rose-500 text-slate-300 transition-colors flex items-center gap-1.5">
-          <span>⚡</span> PDF → EPUB Engine
-        </button>
-        <button onclick="switchTab('library')" class="px-3 py-1 text-xs rounded-full bg-slate-900 border border-slate-700 hover:border-rose-500 text-slate-300 transition-colors flex items-center gap-1.5">
-          <span>📚</span> Browse Shelves
-        </button>
-        <button onclick="switchTab('analytics')" class="px-3 py-1 text-xs rounded-full bg-slate-900 border border-slate-700 hover:border-rose-500 text-slate-300 transition-colors flex items-center gap-1.5">
-          <span>🔥</span> 30-Day Streak
-        </button>
+    <!-- Chapter Navigation Pills -->
+    <div class="py-4 overflow-x-auto no-scrollbar">
+      <div class="flex items-center justify-start sm:justify-center gap-2 min-w-max" id="chapter-nav-list">
+        <!-- Injected via JS -->
       </div>
     </div>
 
-    <!-- MAIN INTERACTIVE APP STAGE -->
-    <div class="bg-slate-900/90 rounded-2xl border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-xl transition-all">
-      
-      <!-- Mock Window Frame Chrome (MacOS Style) -->
-      <div class="px-4 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
-          <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
-          <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-          <span class="ml-2 text-xs font-medium text-slate-400 flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/></svg>
-            Shiori v1.0.7 — Desktop Reader Simulation
-          </span>
-        </div>
-
-        <!-- Mode Indicator in Window Title -->
-        <div class="flex items-center gap-2">
-          <span id="window-mode-pill" class="px-2.5 py-0.5 text-[11px] font-semibold rounded-md bg-slate-800 text-slate-300 border border-slate-700">
-            Reader Studio
-          </span>
-          <button onclick="toggleDemoFullscreen()" class="text-slate-400 hover:text-white p-1" title="Toggle Fullscreen Simulation">
-            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- ======================================================== -->
-      <!-- TAB 1: THE READER STUDIO                                -->
-      <!-- ======================================================== -->
-      <div id="tab-reader-content" class="relative">
+    <!-- Main Showcase Stage: MacBook Pro Frame -->
+    <main class="flex-1 flex flex-col justify-center py-2">
+      <div id="mockup-container" class="relative mx-auto w-full max-w-5xl rounded-3xl p-3 sm:p-4 bg-gradient-to-b from-slate-800/80 via-slate-900/60 to-[#0c0d0e] border border-slate-700/60 shadow-[0_25px_70px_rgba(0,0,0,0.8)] backdrop-blur-2xl transition-all duration-700">
         
-        <!-- Reader Simulated Top Bar -->
-        <div class="px-4 py-2.5 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs">
-          <div class="flex items-center gap-3 min-w-0">
-            <button onclick="switchTab('library')" class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors" title="Back to Library">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
-            </button>
-            <div class="truncate">
-              <div class="font-semibold text-slate-200 truncate">The Count of Monte Cristo</div>
-              <div class="text-[10px] text-slate-400 truncate">Chapter 4: The Catalans • 42% Read</div>
-            </div>
+        <!-- MacBook Top Bezel / Header -->
+        <div class="flex items-center justify-between px-3 py-2.5 bg-slate-900/90 rounded-t-2xl border-b border-slate-800">
+          <!-- Window Controls (Traffic Lights) -->
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full bg-rose-500/80 hover:bg-rose-500 transition-colors cursor-pointer shadow-sm"></div>
+            <div class="w-3 h-3 rounded-full bg-amber-500/80 hover:bg-amber-500 transition-colors cursor-pointer shadow-sm"></div>
+            <div class="w-3 h-3 rounded-full bg-emerald-500/80 hover:bg-emerald-500 transition-colors cursor-pointer shadow-sm"></div>
           </div>
 
-          <!-- Reader Top Bar Action Icons -->
-          <div class="flex items-center gap-1.5">
-            <!-- Search -->
-            <button onclick="toggleReaderSidebar('search')" class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-white" title="Search in book">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            </button>
-            <!-- TOC -->
-            <button onclick="toggleReaderSidebar('toc')" class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-white" title="Table of Contents">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/></svg>
-            </button>
-            <!-- 1-Click Bookmark Toggle (Feature highlight!) -->
-            <button id="reader-bookmark-btn" onclick="toggleBookmark()" class="p-1.5 rounded transition-all text-rose-500 hover:bg-rose-500/10 relative" title="Toggle Bookmark">
-              <svg id="bookmark-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">
-                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
-              </svg>
-            </button>
-            <!-- Aa Typography Settings -->
-            <button onclick="toggleTypographyPopover()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-serif font-bold text-xs flex items-center gap-1">
-              Aa
-            </button>
-            <!-- Right-Click Context Menu Demo -->
-            <button onclick="showContextMenuDemo()" class="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-medium hover:bg-rose-500/30 transition-all">
-              🖱️ Desktop Menu
-            </button>
+          <!-- Window Title Bar -->
+          <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[11px] font-mono text-slate-400">
+            <svg class="w-3 h-3 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <span id="window-title-text">Shiori — Home Hub</span>
+          </div>
+
+          <!-- Active Chapter Indicator -->
+          <div class="flex items-center gap-1.5 text-xs font-mono text-amber-400">
+            <span id="chapter-pill-num" class="font-bold">01</span>
+            <span class="text-slate-600">/</span>
+            <span class="text-slate-500">05</span>
           </div>
         </div>
 
-        <!-- Typography Settings Drawer/Popover -->
-        <div id="typography-popover" class="hidden absolute right-4 top-14 z-30 w-80 bg-slate-900 border border-slate-700 rounded-xl p-4 shadow-2xl space-y-4">
-          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-            <span class="text-xs font-semibold text-white">Reader Settings</span>
-            <button onclick="toggleTypographyPopover()" class="text-slate-400 hover:text-white text-xs">✕</button>
-          </div>
+        <!-- Viewport Display Container -->
+        <div id="viewport-stage" class="relative w-full aspect-[16/10] sm:aspect-[16/9.8] overflow-hidden rounded-b-2xl bg-slate-950 flex items-center justify-center select-none group">
           
-          <!-- Themes -->
-          <div class="space-y-1.5">
-            <label class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Themes</label>
-            <div class="grid grid-cols-5 gap-1.5">
-              <button onclick="setTheme('paper')" class="h-8 rounded-lg border border-amber-300/40 bg-[#f7f4ec] text-[#2b2823] font-serif text-xs font-bold shadow-sm" title="Paper">A</button>
-              <button onclick="setTheme('sepia')" class="h-8 rounded-lg border border-amber-800/30 bg-[#f4ecd8] text-[#433422] font-serif text-xs font-bold shadow-sm" title="Sepia">A</button>
-              <button onclick="setTheme('charcoal')" class="h-8 rounded-lg border border-slate-700 bg-[#1e2022] text-[#d1d5db] font-serif text-xs font-bold shadow-sm" title="Charcoal">A</button>
-              <button onclick="setTheme('oled')" class="h-8 rounded-lg border border-slate-800 bg-[#000000] text-white font-serif text-xs font-bold shadow-sm" title="OLED">A</button>
-              <button onclick="setTheme('nord')" class="h-8 rounded-lg border border-slate-600 bg-[#2e3440] text-[#eceff4] font-serif text-xs font-bold shadow-sm" title="Nord">A</button>
+          <!-- Screenshot Image -->
+          <img 
+            id="demo-screenshot"
+            src="./demo_assets/home.webp"
+            alt="Shiori Screen"
+            class="w-full h-full object-cover transition-transform duration-700 ease-out ken-burns cursor-pointer"
+            onclick="togglePlayPause()"
+          />
+
+          <!-- Hotspot Overlay Container -->
+          <div id="hotspots-layer" class="absolute inset-0 pointer-events-none">
+            <!-- Dynamic Hotspots Injected via JS -->
+          </div>
+
+          <!-- Floating Info Capsule (Storylane Style) -->
+          <div id="story-capsule" class="absolute bottom-4 left-4 right-4 sm:right-auto sm:max-w-md p-4 rounded-2xl bg-slate-950/85 backdrop-blur-xl border border-amber-900/40 shadow-2xl transition-all duration-500 z-30 pointer-events-auto">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div>
+                <span id="capsule-tag" class="text-[10px] font-mono uppercase tracking-widest text-amber-400 font-bold">Chapter 01</span>
+                <h3 id="capsule-title" class="text-base sm:text-lg font-serif font-bold text-white leading-snug">Home Hub</h3>
+              </div>
+              <span id="capsule-time" class="text-xs font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-800">8s</span>
+            </div>
+            <p id="capsule-desc" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Your personal literary sanctuary. Instant overview of current reads, statistics, and 30-day activity heatmap.
+            </p>
+            <div id="capsule-badges" class="flex flex-wrap gap-1.5 mt-3">
+              <!-- Injected badges -->
             </div>
           </div>
 
-          <!-- Font Family -->
-          <div class="space-y-1.5">
-            <label class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Font Family</label>
-            <div class="grid grid-cols-3 gap-1">
-              <button onclick="setFontFamily('serif')" class="px-2 py-1 text-xs rounded bg-slate-800 text-white font-serif hover:bg-slate-700">Serif</button>
-              <button onclick="setFontFamily('sans')" class="px-2 py-1 text-xs rounded bg-slate-800 text-white font-sans hover:bg-slate-700">Sans</button>
-              <button onclick="setFontFamily('mono')" class="px-2 py-1 text-xs rounded bg-slate-800 text-white font-mono hover:bg-slate-700">Mono</button>
-            </div>
-          </div>
-
-          <!-- Font Size Slider -->
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs text-slate-300">
-              <span>Font Size</span>
-              <span id="font-size-label">19px</span>
-            </div>
-            <input type="range" min="14" max="28" value="19" oninput="setFontSize(this.value)" class="w-full accent-rose-500 cursor-pointer">
-          </div>
-
-          <!-- Margins Slider -->
-          <div class="space-y-1">
-            <div class="flex justify-between text-xs text-slate-300">
-              <span>Margins</span>
-              <span id="margin-size-label">Medium</span>
-            </div>
-            <input type="range" min="1" max="3" value="2" oninput="setMargins(this.value)" class="w-full accent-rose-500 cursor-pointer">
-          </div>
-        </div>
-
-        <!-- Simulated Right-Click Context Menu -->
-        <div id="simulated-context-menu" class="hidden absolute z-40 w-52 rounded-xl bg-[#1e2022] border border-slate-700 p-1.5 shadow-2xl text-xs space-y-0.5" style="top: 140px; left: 240px;">
-          <div class="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reader Menu</div>
-          <button onclick="highlightSelection(); hideContextMenuDemo();" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center gap-2">
-            <span class="text-amber-400">🖍️</span> Highlight Text
-          </button>
-          <button onclick="toggleBookmark(); hideContextMenuDemo();" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center gap-2">
-            <span class="text-rose-400">🔖</span> Toggle Bookmark
-          </button>
-          <button onclick="toggleReaderSidebar('bookmarks'); hideContextMenuDemo();" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center gap-2">
-            <span>📑</span> View All Bookmarks
-          </button>
-          <button onclick="toggleReaderSidebar('toc'); hideContextMenuDemo();" class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-800 text-slate-200 flex items-center gap-2">
-            <span>📖</span> Table of Contents
-          </button>
-          <div class="h-px bg-slate-800 my-1"></div>
-          <button onclick="hideContextMenuDemo();" class="w-full text-left px-2.5 py-1 rounded hover:bg-slate-800 text-slate-400 text-[11px]">
-            Close Menu
-          </button>
-        </div>
-
-        <!-- The Book Reading Canvas -->
-        <div class="relative min-h-[520px] flex overflow-hidden">
-          
-          <!-- Visual Corner Bookmark Ribbon (Animated) -->
-          <div id="visual-corner-ribbon" class="absolute top-0 right-10 z-20 transition-all duration-300 transform translate-y-0 drop-shadow-md">
-            <div class="w-7 h-11 bg-rose-600 bookmark-ribbon flex items-center justify-center pt-1">
-              <svg class="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
-            </div>
-          </div>
-
-          <!-- Book Content Area -->
-          <main id="reader-canvas" class="reader-theme-paper flex-1 p-8 sm:p-12 overflow-y-auto max-h-[560px] transition-colors duration-200">
-            <div id="reader-prose-container" class="max-w-2xl mx-auto space-y-5 font-reader-serif text-[19px] leading-relaxed transition-all">
-              
-              <div class="border-b border-black/10 pb-4 mb-6">
-                <span class="text-xs uppercase tracking-widest text-slate-500 font-sans block mb-1">Alexandre Dumas • Volume I</span>
-                <h2 class="text-2xl sm:text-3xl font-bold font-serif">Chapter IV. The Catalans</h2>
-              </div>
-
-              <p>
-                A hundred paces from the spot where the two friends sat, drinking their wine under the trellis-work, was the village of the Catalans.
-              </p>
-
-              <p>
-                For centuries this enigmatic colony had preserved its unadulterated customs, speech, and isolation from the people of Marseilles. They had landed on the shores of Provence and established a fortress of fishermen, maintaining their traditions unaltered.
-              </p>
-
-              <!-- Interactive Highlight Demonstration -->
-              <p>
-                Inside one of the whitewashed cottages, bathed in the violet dusk of the Mediterranean, sat <mark id="sample-highlight" class="bg-amber-300/60 text-slate-900 px-1 py-0.5 rounded cursor-pointer hover:bg-amber-300 transition-colors" onclick="showWordLookup()">Mercédès</mark>. Her eyes, deep and mournful, gazed intently at the horizon where the sun sank like an incandescent galleon into the sea.
-              </p>
-
-              <p>
-                "Edmond," she murmured softly, her fingers tightening upon her breast, "the vessel has entered the roadstead, and yet you have not come."
-              </p>
-
-              <p>
-                Fernand stood before her, watchful, consuming her grief with a jealousy that burned colder than treason. He saw that every heartbeat of this girl belonged irrevocably to Dantès.
-              </p>
-            </div>
-          </main>
-
-          <!-- Interactive Sidebar (Search, TOC, Bookmarks, Notes, Highlights) -->
-          <div id="reader-sidebar" class="hidden w-72 bg-slate-900 border-l border-slate-800 p-4 flex flex-col justify-between transition-all">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span id="sidebar-title" class="font-bold text-xs text-white uppercase tracking-wider">Bookmarks (3)</span>
-                <button onclick="closeReaderSidebar()" class="text-slate-400 hover:text-white text-xs">✕</button>
-              </div>
-
-              <!-- Sidebar Single-Line Tabs (Matches the 5-column fix!) -->
-              <div class="grid grid-cols-5 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[10px] font-medium text-center">
-                <button onclick="setSidebarTab('search')" class="py-1 rounded text-slate-400 hover:text-white">Search</button>
-                <button onclick="setSidebarTab('toc')" class="py-1 rounded text-slate-400 hover:text-white">TOC</button>
-                <button onclick="setSidebarTab('bookmarks')" class="py-1 rounded bg-rose-500 text-white">Marks</button>
-                <button onclick="setSidebarTab('notes')" class="py-1 rounded text-slate-400 hover:text-white">Notes</button>
-                <button onclick="setSidebarTab('highlights')" class="py-1 rounded text-slate-400 hover:text-white">Highs</button>
-              </div>
-
-              <!-- Sidebar List Items -->
-              <div id="sidebar-items" class="space-y-2 pt-2 text-xs overflow-y-auto max-h-[380px]">
-                <div class="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700 hover:border-rose-500/50 cursor-pointer">
-                  <div class="flex items-center justify-between text-rose-400 font-semibold mb-1">
-                    <span>🔖 Chapter IV: The Catalans</span>
-                    <span class="text-[10px] text-slate-400">Active</span>
-                  </div>
-                  <p class="text-slate-300 text-[11px]">"Inside one of the whitewashed cottages..."</p>
-                </div>
-
-                <div class="p-2.5 rounded-lg bg-slate-800/50 border border-slate-700/60 hover:border-rose-500/50 cursor-pointer">
-                  <div class="flex items-center justify-between text-slate-300 font-medium mb-1">
-                    <span>🔖 Chapter II: Father and Son</span>
-                    <span class="text-[10px] text-slate-500">Page 18</span>
-                  </div>
-                  <p class="text-slate-400 text-[11px]">"Old Dantès embraced his son with tears..."</p>
-                </div>
-
-                <div class="p-2.5 rounded-lg bg-slate-800/50 border border-slate-700/60 hover:border-rose-500/50 cursor-pointer">
-                  <div class="flex items-center justify-between text-slate-300 font-medium mb-1">
-                    <span>🔖 Chapter I: Arrival at Marseilles</span>
-                    <span class="text-[10px] text-slate-500">Page 3</span>
-                  </div>
-                  <p class="text-slate-400 text-[11px]">"The Pharaon sailed gracefully into port..."</p>
-                </div>
-              </div>
-            </div>
-
-            <button onclick="showToast('Exported bookmarks to Markdown!')" class="w-full py-1.5 mt-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-slate-700 transition-colors">
-              📥 Export Annotations (.md)
-            </button>
-          </div>
-
-        </div>
-
-        <!-- Interactive Toast Notification -->
-        <div id="reader-toast" class="hidden absolute bottom-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900 border border-slate-700 text-white text-xs font-medium shadow-2xl flex items-center gap-2">
-          <span id="toast-icon">✅</span>
-          <span id="toast-text">Bookmark saved for Chapter IV</span>
-        </div>
-      </div>
-
-      <!-- ======================================================== -->
-      <!-- TAB 2: LIBRARY & SHELVES                                -->
-      <!-- ======================================================== -->
-      <div id="tab-library-content" class="hidden p-6 space-y-6">
-        
-        <!-- Search & Filter Controls -->
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="relative w-full sm:w-80">
-            <input type="text" id="library-search" oninput="filterBooks(this.value)" placeholder="Search 142 books, authors, tags..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-9 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 transition-colors">
-            <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          </div>
-
-          <!-- Shelf Pills -->
-          <div class="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1">
-            <button onclick="filterShelf('all')" class="shelf-pill px-3 py-1 rounded-full text-xs font-semibold bg-rose-500 text-white">All</button>
-            <button onclick="filterShelf('reading')" class="shelf-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 hover:text-white">Reading (4)</button>
-            <button onclick="filterShelf('manga')" class="shelf-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 hover:text-white">Manga (42)</button>
-            <button onclick="filterShelf('finished')" class="shelf-pill px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 hover:text-white">Finished (28)</button>
-          </div>
-        </div>
-
-        <!-- Books Grid (6-7 Columns Desktop, matching recent desktop audit!) -->
-        <div id="books-grid" class="grid grid-cols-2 min-[480px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
-          
-          <!-- Book Card 1 -->
-          <div class="book-card group cursor-pointer" data-category="reading" data-title="the count of monte cristo" onclick="openBookInReader('The Count of Monte Cristo')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-amber-950 to-amber-700 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-amber-200/80">EPUB</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">The Count of Monte Cristo</div>
-                <div class="text-[10px] text-amber-200/70">A. Dumas</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-rose-400 h-full w-[42%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">Monte Cristo</div>
-            <div class="text-[10px] text-slate-500">42% • Chapter 4</div>
-          </div>
-
-          <!-- Book Card 2 -->
-          <div class="book-card group cursor-pointer" data-category="reading" data-title="dune frank herbert" onclick="openBookInReader('Dune')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-orange-950 to-orange-600 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-orange-200/80">EPUB</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">Dune</div>
-                <div class="text-[10px] text-orange-200/70">Frank Herbert</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-rose-400 h-full w-[78%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">Dune</div>
-            <div class="text-[10px] text-slate-500">78% • Part II</div>
-          </div>
-
-          <!-- Book Card 3: Manga -->
-          <div class="book-card group cursor-pointer" data-category="manga" data-title="one piece eiichiro oda" onclick="openBookInReader('One Piece: Vol 105')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-red-950 to-rose-700 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-rose-200/80">CBZ Manga</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">One Piece #105</div>
-                <div class="text-[10px] text-rose-200/70">Eiichiro Oda</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-emerald-400 h-full w-[95%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">One Piece 105</div>
-            <div class="text-[10px] text-slate-500">Ch. 1062 • 95%</div>
-          </div>
-
-          <!-- Book Card 4: Manga -->
-          <div class="book-card group cursor-pointer" data-category="manga" data-title="chainsaw man tatsuki fujimoto" onclick="openBookInReader('Chainsaw Man')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-yellow-950 to-amber-600 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-yellow-200/80">CBZ Manga</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">Chainsaw Man</div>
-                <div class="text-[10px] text-yellow-200/70">Tatsuki Fujimoto</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-rose-400 h-full w-[25%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">Chainsaw Man</div>
-            <div class="text-[10px] text-slate-500">Ch. 24 • 25%</div>
-          </div>
-
-          <!-- Book Card 5 -->
-          <div class="book-card group cursor-pointer" data-category="finished" data-title="steppenwolf hermann hesse" onclick="openBookInReader('Steppenwolf')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-slate-900 to-indigo-950 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-200/80">PDF Reflow</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">Steppenwolf</div>
-                <div class="text-[10px] text-indigo-200/70">Hermann Hesse</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-emerald-400 h-full w-[100%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">Steppenwolf</div>
-            <div class="text-[10px] text-emerald-400">Completed ✓</div>
-          </div>
-
-          <!-- Book Card 6 -->
-          <div class="book-card group cursor-pointer" data-category="reading" data-title="crime and punishment dostoevsky" onclick="openBookInReader('Crime and Punishment')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-zinc-900 to-stone-800 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-stone-300">EPUB</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">Crime & Punish.</div>
-                <div class="text-[10px] text-stone-400">F. Dostoevsky</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-rose-400 h-full w-[50%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">Crime & Punish.</div>
-            <div class="text-[10px] text-slate-500">50% • Part III</div>
-          </div>
-
-          <!-- Book Card 7 -->
-          <div class="book-card group cursor-pointer" data-category="manga" data-title="berserk kentaro miura" onclick="openBookInReader('Berserk Deluxe')">
-            <div class="aspect-[2/3] rounded-xl bg-gradient-to-tr from-black to-red-950 p-3 flex flex-col justify-between shadow-md relative overflow-hidden group-hover:shadow-rose-500/20 group-hover:scale-105 transition-all">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-red-400">CBZ Manga</span>
-              <div class="space-y-1">
-                <div class="font-bold text-white text-xs leading-tight">Berserk Deluxe</div>
-                <div class="text-[10px] text-red-300">Kentaro Miura</div>
-              </div>
-              <div class="w-full bg-black/40 h-1.5 rounded-full overflow-hidden">
-                <div class="bg-rose-400 h-full w-[64%]"></div>
-              </div>
-            </div>
-            <div class="mt-1.5 text-[11px] font-medium text-slate-300 truncate">Berserk Deluxe</div>
-            <div class="text-[10px] text-slate-500">Vol 8 • 64%</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ======================================================== -->
-      <!-- TAB 3: FORMAT CONVERTER SIMULATOR                      -->
-      <!-- ======================================================== -->
-      <div id="tab-converter-content" class="hidden p-6 sm:p-10 space-y-6">
-        <div class="max-w-2xl mx-auto text-center space-y-2">
-          <h3 class="text-xl font-bold text-white">Universal Format Engine (Rust Backend)</h3>
-          <p class="text-xs sm:text-sm text-slate-400">
-            Shiori converts ugly PDFs, MOBI, AZW3, DOCX, and FB2 files into pristine, reflowable EPUBs in milliseconds.
-          </p>
-        </div>
-
-        <!-- Interactive Drag & Drop Area -->
-        <div id="converter-dropzone" class="max-w-xl mx-auto border-2 border-dashed border-slate-700 hover:border-rose-500/80 rounded-2xl p-8 text-center bg-slate-950/60 transition-all cursor-pointer" onclick="runConversionSimulation()">
-          <div class="w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 mx-auto flex items-center justify-center mb-3">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          </div>
-          <div class="font-semibold text-white text-sm">Click to simulate converting sample "Paperback_Manual.pdf"</div>
-          <div class="text-xs text-slate-400 mt-1">Supports PDF, MOBI, AZW3, DOCX, FB2, CBZ, TXT</div>
-
-          <!-- Progress Bar (Shown on click) -->
-          <div id="conversion-progress" class="hidden mt-6 space-y-2 text-left">
-            <div class="flex justify-between text-xs">
-              <span id="conversion-step" class="text-rose-400 font-medium">Extracting text & reflowing paragraphs...</span>
-              <span id="conversion-percent" class="text-white font-bold">45%</span>
-            </div>
-            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div id="conversion-bar" class="bg-gradient-to-r from-rose-500 to-amber-400 h-full w-[45%] transition-all duration-300"></div>
+          <!-- Big Play/Pause Center Indicator (Animates on click) -->
+          <div id="play-pause-indicator" class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300 z-40">
+            <div class="w-20 h-20 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-2xl">
+              <svg id="indicator-play-icon" class="w-8 h-8 ml-1 hidden" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg id="indicator-pause-icon" class="w-8 h-8 hidden" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
             </div>
           </div>
         </div>
 
-        <!-- Conversion Highlights Matrix -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto pt-4">
-          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-left">
-            <div class="text-rose-400 text-sm font-bold mb-1">⚡ Paragraph Reflow</div>
-            <p class="text-[11px] text-slate-400">Eliminates mid-sentence line wraps and header junk common to PDF exports.</p>
+        <!-- Cinema Timeline Scrubber Bar -->
+        <div class="px-2 pt-3 pb-1 flex flex-col gap-2">
+          <!-- Continuous Progress Track -->
+          <div class="relative w-full h-1.5 bg-slate-800/80 rounded-full cursor-pointer overflow-hidden group/bar" onclick="seekByClick(event)">
+            <div id="scrubber-bar" class="h-full bg-gradient-to-r from-amber-600 via-amber-500 to-amber-300 rounded-full w-0 scrubber-fill shadow-[0_0_12px_rgba(245,158,11,0.6)]"></div>
           </div>
-          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-left">
-            <div class="text-amber-400 text-sm font-bold mb-1">🖼️ High-Res Covers</div>
-            <p class="text-[11px] text-slate-400">Automatically discovers and enhances book cover artwork for your shelf.</p>
-          </div>
-          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-left">
-            <div class="text-emerald-400 text-sm font-bold mb-1">🔒 100% On-Device</div>
-            <p class="text-[11px] text-slate-400">Pure Rust engine running locally without sending a byte to external cloud servers.</p>
-          </div>
-        </div>
-      </div>
 
-      <!-- ======================================================== -->
-      <!-- TAB 4: READING ANALYTICS & STREAK HEATMAP              -->
-      <!-- ======================================================== -->
-      <div id="tab-analytics-content" class="hidden p-6 sm:p-10 space-y-6">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div>
-            <h3 class="text-xl font-bold text-white">Your Reading Insights</h3>
-            <p class="text-xs text-slate-400">Track habits, pace, and completion streaks offline.</p>
-          </div>
-          <div class="px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-1.5">
-            🔥 14-Day Streak
-          </div>
-        </div>
+          <!-- Playback Controls Toolbar -->
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+            <!-- Left: Play/Pause, Step Prev/Next -->
+            <div class="flex items-center gap-2">
+              <button onclick="stepChapter(-1)" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors" title="Previous (Left Arrow)">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+              </button>
 
-        <!-- Metrics Row -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
-            <div class="text-slate-400 text-xs">Total Pages Read</div>
-            <div class="text-2xl font-bold text-white mt-1">3,420</div>
-            <div class="text-[10px] text-emerald-400 mt-1">↑ 18% vs last month</div>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
-            <div class="text-slate-400 text-xs">Hours Immersed</div>
-            <div class="text-2xl font-bold text-white mt-1">48.5 hrs</div>
-            <div class="text-[10px] text-rose-400 mt-1">Avg 1.6 hrs/day</div>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
-            <div class="text-slate-400 text-xs">Books Finished</div>
-            <div class="text-2xl font-bold text-white mt-1">28 Books</div>
-            <div class="text-[10px] text-amber-400 mt-1">Goal: 35 for 2026</div>
-          </div>
-          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
-            <div class="text-slate-400 text-xs">Reading Speed</div>
-            <div class="text-2xl font-bold text-white mt-1">285 wpm</div>
-            <div class="text-[10px] text-slate-400 mt-1">Optimal retention</div>
-          </div>
-        </div>
+              <button id="main-play-btn" onclick="togglePlayPause()" class="p-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-transform active:scale-95 shadow-md shadow-amber-500/20" title="Play / Pause (Spacebar)">
+                <svg id="main-play-icon" class="w-4 h-4 hidden" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <svg id="main-pause-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              </button>
 
-        <!-- 30-Day Activity Heatmap -->
-        <div class="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-white">30-Day Activity Grid</span>
-            <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <span>Less</span>
-              <span class="w-2.5 h-2.5 rounded-sm bg-slate-800"></span>
-              <span class="w-2.5 h-2.5 rounded-sm bg-rose-900"></span>
-              <span class="w-2.5 h-2.5 rounded-sm bg-rose-700"></span>
-              <span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>
-              <span>More</span>
+              <button onclick="stepChapter(1)" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors" title="Next (Right Arrow)">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+              </button>
+
+              <!-- Time Display -->
+              <span id="time-counter" class="font-mono text-[11px] text-slate-400 ml-2">00:00 / 00:42</span>
             </div>
-          </div>
 
-          <!-- Heatmap Squares -->
-          <div class="grid grid-cols-10 sm:grid-cols-15 gap-1.5 pt-2">
-            <!-- 30 Squares -->
-            <div class="h-6 rounded bg-slate-800 hover:scale-110 transition-transform cursor-pointer" title="Day 1: 0 mins"></div>
-            <div class="h-6 rounded bg-rose-900 hover:scale-110 transition-transform cursor-pointer" title="Day 2: 24 mins"></div>
-            <div class="h-6 rounded bg-rose-700 hover:scale-110 transition-transform cursor-pointer" title="Day 3: 45 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer" title="Day 4: 90 mins"></div>
-            <div class="h-6 rounded bg-rose-700 hover:scale-110 transition-transform cursor-pointer" title="Day 5: 50 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer" title="Day 6: 120 mins"></div>
-            <div class="h-6 rounded bg-rose-900 hover:scale-110 transition-transform cursor-pointer" title="Day 7: 30 mins"></div>
-            <div class="h-6 rounded bg-rose-700 hover:scale-110 transition-transform cursor-pointer" title="Day 8: 60 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer" title="Day 9: 110 mins"></div>
-            <div class="h-6 rounded bg-rose-700 hover:scale-110 transition-transform cursor-pointer" title="Day 10: 45 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer" title="Day 11: 85 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer" title="Day 12: 130 mins"></div>
-            <div class="h-6 rounded bg-rose-700 hover:scale-110 transition-transform cursor-pointer" title="Day 13: 50 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer" title="Day 14: 95 mins"></div>
-            <div class="h-6 rounded bg-rose-500 hover:scale-110 transition-transform cursor-pointer ring-2 ring-rose-400" title="Today: 75 mins"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ======================================================== -->
-      <!-- TAB 5: ANILIST SYNC HUB                                -->
-      <!-- ======================================================== -->
-      <div id="tab-anilist-content" class="hidden p-6 sm:p-10 space-y-6">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-[#02A9FF]/20 text-[#02A9FF] flex items-center justify-center font-black">
-              AL
-            </div>
-            <div>
-              <h3 class="text-base font-bold text-white">AniList Manga Integration</h3>
-              <p class="text-xs text-slate-400">Track chapter progress with 6–7 desktop title cards per row.</p>
-            </div>
-          </div>
-          <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-            Connected as @vinayydv3695
-          </span>
-        </div>
-
-        <!-- 6–7 Column Desktop Grid Demo -->
-        <div class="space-y-3">
-          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Your Reading List (Live Sync)</span>
-          <div class="grid grid-cols-2 min-[440px]:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-            
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-red-950 flex items-center justify-center font-bold text-xs text-red-200">OP</div>
-              <div class="text-xs font-semibold text-white truncate">One Piece</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 1062</span>
-                <span class="text-emerald-400">Synced</span>
+            <!-- Right: Playback Speed Selector & Reset -->
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800">
+                <button onclick="setSpeed(1)" id="speed-1x" class="px-2 py-0.5 rounded text-[11px] font-mono text-amber-400 bg-amber-500/10 font-bold">1x</button>
+                <button onclick="setSpeed(1.5)" id="speed-15x" class="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-white">1.5x</button>
+                <button onclick="setSpeed(2)" id="speed-2x" class="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-white">2x</button>
               </div>
-            </div>
 
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-orange-950 flex items-center justify-center font-bold text-xs text-orange-200">CSM</div>
-              <div class="text-xs font-semibold text-white truncate">Chainsaw Man</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 145</span>
-                <span class="text-emerald-400">Synced</span>
-              </div>
-            </div>
-
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-purple-950 flex items-center justify-center font-bold text-xs text-purple-200">JJK</div>
-              <div class="text-xs font-semibold text-white truncate">Jujutsu Kaisen</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 250</span>
-                <span class="text-emerald-400">Synced</span>
-              </div>
-            </div>
-
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-200">SL</div>
-              <div class="text-xs font-semibold text-white truncate">Solo Leveling</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 179</span>
-                <span class="text-slate-400">Complete</span>
-              </div>
-            </div>
-
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-emerald-950 flex items-center justify-center font-bold text-xs text-emerald-200">VR</div>
-              <div class="text-xs font-semibold text-white truncate">Vinland Saga</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 204</span>
-                <span class="text-emerald-400">Synced</span>
-              </div>
-            </div>
-
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-blue-950 flex items-center justify-center font-bold text-xs text-blue-200">FR</div>
-              <div class="text-xs font-semibold text-white truncate">Frieren</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 128</span>
-                <span class="text-emerald-400">Synced</span>
-              </div>
-            </div>
-
-            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
-              <div class="aspect-[2/3] rounded-lg bg-amber-950 flex items-center justify-center font-bold text-xs text-amber-200">DND</div>
-              <div class="text-xs font-semibold text-white truncate">Dandadan</div>
-              <div class="text-[10px] text-slate-400 flex justify-between">
-                <span>Ch. 140</span>
-                <span class="text-emerald-400">Synced</span>
-              </div>
+              <button onclick="resetTour()" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-amber-400 transition-colors" title="Restart Tour">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              </button>
             </div>
           </div>
         </div>
       </div>
+    </main>
 
-    </div>
-
-    <!-- COMPARISON TABLE (BIG TECH SAAS STYLE) -->
-    <div class="space-y-6 pt-6">
-      <div class="text-center space-y-2">
-        <h2 class="text-2xl sm:text-3xl font-bold text-white">How Shiori Compares</h2>
-        <p class="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-          Built for readers who refuse closed ecosystems, telemetry tracking, and laggy bloated interfaces.
+    <!-- Feature Value Cards (Linear / Apple style) -->
+    <section class="py-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="p-5 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        </div>
+        <h4 class="font-serif font-bold text-white text-base mb-1">100% Local-First & Private</h4>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Zero telemetry. Your library, annotations, and reading history live in an embedded SQLite database on your device.
         </p>
       </div>
 
-      <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/70">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="border-b border-slate-800 bg-slate-900/60">
-              <th class="p-4 font-semibold text-slate-300">Features</th>
-              <th class="p-4 font-bold text-rose-400 bg-rose-500/10 border-x border-rose-500/20">Shiori v1.0.7</th>
-              <th class="p-4 font-semibold text-slate-400">Apple Books</th>
-              <th class="p-4 font-semibold text-slate-400">Kindle App</th>
-              <th class="p-4 font-semibold text-slate-400">Calibre</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-800/60">
-            <tr>
-              <td class="p-4 font-medium text-slate-200">100% Local & Zero Telemetry</td>
-              <td class="p-4 font-bold text-emerald-400 bg-rose-500/5 border-x border-rose-500/20">✓ Yes (Open Source)</td>
-              <td class="p-4 text-slate-500">✕ Apple ID required</td>
-              <td class="p-4 text-slate-500">✕ Amazon telemetry</td>
-              <td class="p-4 text-emerald-400">✓ Yes</td>
-            </tr>
-            <tr>
-              <td class="p-4 font-medium text-slate-200">Android & Desktop Feature Parity</td>
-              <td class="p-4 font-bold text-emerald-400 bg-rose-500/5 border-x border-rose-500/20">✓ Full Parity (Tauri)</td>
-              <td class="p-4 text-slate-500">✕ iOS / Mac only</td>
-              <td class="p-4 text-slate-400">Partial</td>
-              <td class="p-4 text-slate-500">✕ Desktop only</td>
-            </tr>
-            <tr>
-              <td class="p-4 font-medium text-slate-200">Automatic PDF Paragraph Reflow</td>
-              <td class="p-4 font-bold text-emerald-400 bg-rose-500/5 border-x border-rose-500/20">✓ Built-in Rust Engine</td>
-              <td class="p-4 text-slate-500">✕ Rigid PDF pages</td>
-              <td class="p-4 text-slate-500">✕ Fixed layout</td>
-              <td class="p-4 text-slate-400">Requires plugins</td>
-            </tr>
-            <tr>
-              <td class="p-4 font-medium text-slate-200">Native Manga & AniList Sync</td>
-              <td class="p-4 font-bold text-emerald-400 bg-rose-500/5 border-x border-rose-500/20">✓ Direct Sync</td>
-              <td class="p-4 text-slate-500">✕ No</td>
-              <td class="p-4 text-slate-500">✕ No</td>
-              <td class="p-4 text-slate-500">✕ No</td>
-            </tr>
-            <tr>
-              <td class="p-4 font-medium text-slate-200">1-Click Chapter Bookmarks & Ribbons</td>
-              <td class="p-4 font-bold text-emerald-400 bg-rose-500/5 border-x border-rose-500/20">✓ Instant Toggle & Export</td>
-              <td class="p-4 text-slate-400">Basic</td>
-              <td class="p-4 text-slate-400">Basic</td>
-              <td class="p-4 text-slate-400">Manual bookmarks</td>
-            </tr>
-            <tr>
-              <td class="p-4 font-medium text-slate-200">Startup Time & Memory Footprint</td>
-              <td class="p-4 font-bold text-rose-400 bg-rose-500/5 border-x border-rose-500/20">&lt; 150ms • ~80MB</td>
-              <td class="p-4 text-slate-400">Moderate</td>
-              <td class="p-4 text-slate-400">Heavy (~300MB)</td>
-              <td class="p-4 text-slate-400">Slow (~400MB Python)</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="p-5 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+        </div>
+        <h4 class="font-serif font-bold text-white text-base mb-1">Universal Format Support</h4>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Read EPUB, PDF, MOBI, AZW3, CBZ, CBR, FB2, and DOCX. Converted automatically on demand with native layout reflow.
+        </p>
       </div>
-    </div>
 
-    <!-- CTA & Download Section -->
-    <div class="p-8 sm:p-12 rounded-3xl bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-950 border border-rose-500/20 text-center space-y-6 shadow-2xl">
-      <h3 class="text-2xl sm:text-4xl font-extrabold text-white">Start Reading with Shiori Today</h3>
-      <p class="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-        No subscription, no accounts required, no tracking. Download the official release for Linux, Windows, macOS, or Android.
-      </p>
+      <div class="p-5 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"></path></svg>
+        </div>
+        <h4 class="font-serif font-bold text-white text-base mb-1">First-Class Bookmarks & Notes</h4>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          1-click bookmarks, corner ribbon indicators, 8-color highlights, and instant Markdown export into Obsidian.
+        </p>
+      </div>
+    </section>
 
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <a href="https://github.com/vinayydv3695/Shiori/releases/latest" target="_blank" class="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm transition-all shadow-lg shadow-rose-600/30 flex items-center gap-2">
-          <span>⬇️</span> Download v1.0.7 for Linux / Windows / macOS
-        </a>
-        <a href="https://github.com/vinayydv3695/Shiori/releases/latest" target="_blank" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm transition-colors border border-slate-700 flex items-center gap-2">
-          <span>📱</span> Android APK
+    <!-- Bottom Footer CTA -->
+    <footer class="pt-6 pb-4 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
+        <span>Shiori local-first reader</span>
+        <span>•</span>
+        <span>GPL-3.0 License</span>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <a href="https://github.com/vinayydv3695/Shiori" target="_blank" class="text-slate-400 hover:text-amber-400 transition-colors flex items-center gap-1.5">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>Star on GitHub</span>
         </a>
       </div>
-
-      <div class="pt-2 text-[11px] text-slate-500">
-        GPL-3.0 Open Source • Powered by Tauri, Rust & React
-      </div>
-    </div>
-
+    </footer>
   </div>
 
-  <!-- Interactive JavaScript Logic -->
+  <!-- Interactive Demo Logic -->
   <script>
-    let isBookmarked = true;
-    let activeTab = 'reader';
+    // Chapter definitions mapping to the 5 Sepia screenshots
+    const CHAPTERS = [
+      {
+        id: 'home',
+        number: '01',
+        title: 'Home Hub',
+        windowTitle: 'Shiori — Home Hub',
+        image: './demo_assets/home.webp',
+        fallback: '/new_screenshots/Sepia/home.webp',
+        duration: 8,
+        description: 'Your personal literary sanctuary. Instant overview of current reads, reading habits, and local activity heatmap.',
+        badges: ['Local-First', 'Resume Anywhere', 'Activity Heatmap'],
+        hotspots: [
+          { top: '38%', left: '32%', label: 'Continue Reading', detail: 'Jump right back to where you left off with precise scroll preservation.' },
+          { top: '42%', left: '76%', label: 'Reading Insights', detail: 'Track daily reading velocity, books completed, and active streaks.' },
+          { top: '56%', left: '10%', label: 'Smart Navigation', detail: 'Effortlessly switch between Books, Manga, Shelves, and Torbox.' }
+        ]
+      },
+      {
+        id: 'library',
+        number: '02',
+        title: 'Library Grid',
+        windowTitle: 'Shiori — All Titles (Library)',
+        image: './demo_assets/library_grid.webp',
+        fallback: '/new_screenshots/Sepia/library_grid.webp',
+        duration: 8,
+        description: 'Keyset-paginated grid handling thousands of EPUB, PDF, CBZ, and MOBI titles with high-DPI cover art.',
+        badges: ['Keyset Pagination', 'SQLite FTS', 'High-DPI Covers'],
+        hotspots: [
+          { top: '35%', left: '26%', label: 'Multi-Format Collection', detail: 'Universal reader engine for EPUB, PDF, MOBI, CBZ, and CBR.' },
+          { top: '15%', left: '68%', label: 'Sub-Millisecond Search', detail: 'Lightning-fast SQLite full-text search across titles and authors.' },
+          { top: '15%', left: '90%', label: 'Layout Customizer', detail: 'Toggle between comfortable grid cards, compact covers, and list view.' }
+        ]
+      },
+      {
+        id: 'shelves',
+        number: '03',
+        title: 'Shelves & Series',
+        windowTitle: 'Shiori — Custom Shelves & Series',
+        image: './demo_assets/shelf_detail.webp',
+        fallback: '/new_screenshots/Sepia/shelf_detail.webp',
+        duration: 8,
+        description: 'Organize your universe with custom collections, series trackers, and fast batch metadata curation.',
+        badges: ['Custom Collections', 'Series Stacking', 'Batch Tagging'],
+        hotspots: [
+          { top: '28%', left: '22%', label: 'Custom Shelves', detail: 'Curate reading lists by genre, mood, priority, or reading challenge.' },
+          { top: '48%', left: '55%', label: 'Series Stacking', detail: 'Automatic volume ordering and progress indicators per series.' },
+          { top: '22%', left: '86%', label: 'Batch Actions', detail: 'Bulk edit authors, tags, and shelf assignments in one click.' }
+        ]
+      },
+      {
+        id: 'reader',
+        number: '04',
+        title: 'Zen EPUB Reader',
+        windowTitle: 'Shiori — EPUB Reader (Zen Mode)',
+        image: './demo_assets/epub_reader.webp',
+        fallback: '/new_screenshots/Sepia/epub_reader.webp',
+        duration: 9,
+        description: 'Refined reading engine with custom themes (Paper, Sepia, Charcoal, OLED, Nord), fluid continuous flow, and bookmarks.',
+        badges: ['5 Reader Themes', '1-Click Bookmark', 'Continuous Scroll'],
+        hotspots: [
+          { top: '11%', left: '85%', label: '1-Click Bookmark', detail: 'Toggle bookmark with visual corner ribbon indicator and dedicated sidebar tab.' },
+          { top: '11%', left: '76%', label: 'Table of Contents', detail: 'Collapsible hierarchical TOC with chapter progress markers.' },
+          { top: '50%', left: '50%', label: 'Refined Typography', detail: 'Customizable fonts (Serif, Sans, Mono), margins, line-height, and UI scale.' }
+        ]
+      },
+      {
+        id: 'annotations',
+        number: '05',
+        title: 'Notes & Highlights',
+        windowTitle: 'Shiori — Annotations & Marginalia',
+        image: './demo_assets/annotations.webp',
+        fallback: '/new_screenshots/Sepia/annotations.webp',
+        duration: 9,
+        description: 'Color-coded highlights, inline notes, dictionary lookups, and one-click export to Markdown for Obsidian.',
+        badges: ['Obsidian Ready', '8 Highlight Colors', 'Instant Definition'],
+        hotspots: [
+          { top: '32%', left: '78%', label: 'Annotations Sidebar', detail: 'Dedicated tab for highlights, personal notes, bookmarks, and search results.' },
+          { top: '42%', left: '44%', label: 'Text Highlights', detail: '8 vibrant highlight colors with quick deletion and editing.' },
+          { top: '18%', left: '82%', label: 'Markdown Export', detail: 'Export all annotations, quotes, and bookmarks directly into your vault.' }
+        ]
+      }
+    ];
 
-    function switchTab(tabId) {
-      activeTab = tabId;
-      const tabs = ['reader', 'library', 'converter', 'analytics', 'anilist'];
-      tabs.forEach(t => {
-        const el = document.getElementById('tab-' + t + '-content');
-        const nav = document.getElementById('nav-' + t);
-        if (t === tabId) {
-          el.classList.remove('hidden');
-          if (nav) {
-            nav.classList.add('bg-rose-500', 'text-white', 'shadow-sm');
-            nav.classList.remove('text-slate-300');
-          }
+    // State
+    let currentChapterIndex = 0;
+    let isPlaying = true;
+    let playbackSpeed = 1.0;
+    let soundEnabled = false;
+    let hotspotsVisible = true;
+    let cinematicMotion = true;
+    let chapterElapsed = 0; // seconds elapsed in current chapter
+    let totalElapsed = 0;   // seconds elapsed in whole tour
+    let tourTimer = null;
+    let audioCtx = null;
+
+    // Total Tour Duration Calculation
+    const TOTAL_TOUR_SECONDS = CHAPTERS.reduce((sum, c) => sum + c.duration, 0);
+
+    // DOM Elements
+    const screenshotEl = document.getElementById('demo-screenshot');
+    const windowTitleText = document.getElementById('window-title-text');
+    const chapterPillNum = document.getElementById('chapter-pill-num');
+    const capsuleTag = document.getElementById('capsule-tag');
+    const capsuleTitle = document.getElementById('capsule-title');
+    const capsuleTime = document.getElementById('capsule-time');
+    const capsuleDesc = document.getElementById('capsule-desc');
+    const capsuleBadges = document.getElementById('capsule-badges');
+    const hotspotsLayer = document.getElementById('hotspots-layer');
+    const scrubberBar = document.getElementById('scrubber-bar');
+    const timeCounter = document.getElementById('time-counter');
+    const chapterNavList = document.getElementById('chapter-nav-list');
+    const mainPlayIcon = document.getElementById('main-play-icon');
+    const mainPauseIcon = document.getElementById('main-pause-icon');
+    const indicatorPlayIcon = document.getElementById('indicator-play-icon');
+    const indicatorPauseIcon = document.getElementById('indicator-pause-icon');
+    const playPauseIndicator = document.getElementById('play-pause-indicator');
+    const soundIconOn = document.getElementById('sound-icon-on');
+    const soundIconOff = document.getElementById('sound-icon-off');
+    const hotspotsBtn = document.getElementById('hotspots-btn');
+    const motionBtn = document.getElementById('motion-btn');
+
+    // Initialize Navigation Pills
+    function initNavPills() {
+      chapterNavList.innerHTML = CHAPTERS.map((ch, idx) => `
+        <button 
+          id="nav-pill-${idx}"
+          onclick="goToChapter(${idx})" 
+          class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${idx === 0 ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20' : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'}"
+        >
+          <span class="font-mono opacity-60">${ch.number}</span>
+          <span>${ch.title}</span>
+        </button>
+      `).join('');
+    }
+
+    // Render Current Chapter
+    function renderChapter(index, resetProgress = true) {
+      currentChapterIndex = index;
+      const ch = CHAPTERS[index];
+
+      if (resetProgress) {
+        chapterElapsed = 0;
+        // recalculate total elapsed before this chapter
+        totalElapsed = CHAPTERS.slice(0, index).reduce((sum, c) => sum + c.duration, 0);
+      }
+
+      // Update Screenshot Image with fallback support
+      screenshotEl.style.opacity = '0.5';
+      const img = new Image();
+      img.src = ch.image;
+      img.onload = () => {
+        screenshotEl.src = ch.image;
+        screenshotEl.style.opacity = '1';
+      };
+      img.onerror = () => {
+        // Fallback to relative site path if opened in Shiori-site
+        screenshotEl.src = ch.fallback;
+        screenshotEl.style.opacity = '1';
+      };
+
+      // Update Text Meta
+      windowTitleText.innerText = ch.windowTitle;
+      chapterPillNum.innerText = ch.number;
+      capsuleTag.innerText = `Chapter ${ch.number}`;
+      capsuleTitle.innerText = ch.title;
+      capsuleTime.innerText = `${ch.duration}s`;
+      capsuleDesc.innerText = ch.description;
+
+      // Update Badges
+      capsuleBadges.innerHTML = ch.badges.map(b => `
+        <span class="px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">${b}</span>
+      `).join('');
+
+      // Update Nav Pills Active State
+      CHAPTERS.forEach((_, idx) => {
+        const pill = document.getElementById(`nav-pill-${idx}`);
+        if (!pill) return;
+        if (idx === index) {
+          pill.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20";
         } else {
-          el.classList.add('hidden');
-          if (nav) {
-            nav.classList.remove('bg-rose-500', 'text-white', 'shadow-sm');
-            nav.classList.add('text-slate-300');
-          }
+          pill.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800";
         }
       });
 
-      const titles = {
-        reader: 'Reader Studio',
-        library: 'Personal Library',
-        converter: 'Universal Format Engine',
-        analytics: 'Reading Analytics',
-        anilist: 'AniList Sync Hub'
-      };
-      document.getElementById('window-mode-pill').textContent = titles[tabId] || 'Shiori';
+      // Render Hotspots
+      renderHotspots(ch.hotspots);
+
+      // Sound Cue on chapter transition
+      playTone(480, 0.08, 'sine');
     }
 
-    // Bookmark Toggle Simulation
-    function toggleBookmark() {
-      isBookmarked = !isBookmarked;
-      const ribbon = document.getElementById('visual-corner-ribbon');
-      const icon = document.getElementById('bookmark-icon');
-      const btn = document.getElementById('reader-bookmark-btn');
+    // Render Hotspots
+    function renderHotspots(hotspots) {
+      if (!hotspotsVisible || !hotspots || hotspots.length === 0) {
+        hotspotsLayer.innerHTML = '';
+        return;
+      }
 
-      if (isBookmarked) {
-        ribbon.classList.remove('-translate-y-full');
-        ribbon.classList.add('translate-y-0');
-        icon.setAttribute('fill', 'currentColor');
-        btn.classList.add('text-rose-500');
-        btn.classList.remove('text-slate-400');
-        showToast('Bookmark added for Chapter IV');
+      hotspotsLayer.innerHTML = hotspots.map((h, i) => `
+        <div 
+          class="absolute z-20 pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 group/spot"
+          style="top: ${h.top}; left: ${h.left};"
+        >
+          <!-- Pulsing Dot -->
+          <button 
+            onclick="triggerHotspot(${i}, event)" 
+            class="relative w-7 h-7 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs shadow-lg shadow-amber-500/50 hotspot-pulse hover:scale-125 transition-transform"
+            title="${h.label}"
+          >
+            <span class="w-2.5 h-2.5 rounded-full bg-white"></span>
+          </button>
+
+          <!-- Floating Tooltip Box -->
+          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 hidden group-hover/spot:flex flex-col w-56 p-3 rounded-xl bg-slate-950/95 backdrop-blur-xl border border-amber-500/40 shadow-2xl z-50 pointer-events-none">
+            <span class="text-xs font-bold text-amber-400 mb-1">${h.label}</span>
+            <span class="text-[11px] text-slate-300 leading-snug">${h.detail}</span>
+            <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function triggerHotspot(idx, event) {
+      event.stopPropagation();
+      playTone(660, 0.1, 'triangle');
+    }
+
+    // Timer Loop
+    function startTimer() {
+      if (tourTimer) clearInterval(tourTimer);
+      tourTimer = setInterval(() => {
+        if (!isPlaying) return;
+
+        const delta = 0.1 * playbackSpeed;
+        chapterElapsed += delta;
+        totalElapsed += delta;
+
+        const currentChapter = CHAPTERS[currentChapterIndex];
+
+        // Check if chapter ended
+        if (chapterElapsed >= currentChapter.duration) {
+          if (currentChapterIndex < CHAPTERS.length - 1) {
+            renderChapter(currentChapterIndex + 1);
+          } else {
+            // Loop back to start
+            renderChapter(0);
+          }
+        }
+
+        // Update Scrubber & Time
+        updateScrubber();
+      }, 100);
+    }
+
+    function updateScrubber() {
+      const percent = Math.min(100, (totalElapsed / TOTAL_TOUR_SECONDS) * 100);
+      scrubberBar.style.width = `${percent}%`;
+
+      const curM = Math.floor(totalElapsed / 60);
+      const curS = Math.floor(totalElapsed % 60);
+      const totM = Math.floor(TOTAL_TOUR_SECONDS / 60);
+      const totS = Math.floor(TOTAL_TOUR_SECONDS % 60);
+
+      timeCounter.innerText = `${pad(curM)}:${pad(curS)} / ${pad(totM)}:${pad(totS)}`;
+    }
+
+    function pad(n) {
+      return n < 10 ? '0' + n : n;
+    }
+
+    // Controls
+    function togglePlayPause() {
+      isPlaying = !isPlaying;
+      if (isPlaying) {
+        mainPlayIcon.classList.add('hidden');
+        mainPauseIcon.classList.remove('hidden');
+        showCenterIndicator(false);
       } else {
-        ribbon.classList.add('-translate-y-full');
-        ribbon.classList.remove('translate-y-0');
-        icon.setAttribute('fill', 'none');
-        btn.classList.remove('text-rose-500');
-        btn.classList.add('text-slate-400');
-        showToast('Bookmark removed');
+        mainPlayIcon.classList.remove('hidden');
+        mainPauseIcon.classList.add('hidden');
+        showCenterIndicator(true);
+      }
+      playTone(isPlaying ? 520 : 340, 0.08, 'sine');
+    }
+
+    function showCenterIndicator(isPaused) {
+      indicatorPlayIcon.classList.toggle('hidden', isPaused);
+      indicatorPauseIcon.classList.toggle('hidden', !isPaused);
+      playPauseIndicator.style.opacity = '1';
+      setTimeout(() => {
+        playPauseIndicator.style.opacity = '0';
+      }, 400);
+    }
+
+    function stepChapter(dir) {
+      let newIdx = currentChapterIndex + dir;
+      if (newIdx < 0) newIdx = CHAPTERS.length - 1;
+      if (newIdx >= CHAPTERS.length) newIdx = 0;
+      goToChapter(newIdx);
+    }
+
+    function goToChapter(index) {
+      renderChapter(index, true);
+      updateScrubber();
+    }
+
+    function seekByClick(e) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const targetSeconds = ratio * TOTAL_TOUR_SECONDS;
+
+      // Find chapter containing targetSeconds
+      let accumulated = 0;
+      for (let i = 0; i < CHAPTERS.length; i++) {
+        if (accumulated + CHAPTERS[i].duration >= targetSeconds || i === CHAPTERS.length - 1) {
+          currentChapterIndex = i;
+          chapterElapsed = targetSeconds - accumulated;
+          totalElapsed = targetSeconds;
+          renderChapter(i, false);
+          updateScrubber();
+          break;
+        }
+        accumulated += CHAPTERS[i].duration;
+      }
+      playTone(560, 0.06, 'sine');
+    }
+
+    function setSpeed(speed) {
+      playbackSpeed = speed;
+      [1, 1.5, 2].forEach(s => {
+        const id = s === 1 ? 'speed-1x' : s === 1.5 ? 'speed-15x' : 'speed-2x';
+        const el = document.getElementById(id);
+        if (s === speed) {
+          el.className = "px-2 py-0.5 rounded text-[11px] font-mono text-amber-400 bg-amber-500/10 font-bold";
+        } else {
+          el.className = "px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-white";
+        }
+      });
+      playTone(500, 0.05, 'sine');
+    }
+
+    function resetTour() {
+      currentChapterIndex = 0;
+      chapterElapsed = 0;
+      totalElapsed = 0;
+      renderChapter(0, true);
+      updateScrubber();
+    }
+
+    function toggleHotspots() {
+      hotspotsVisible = !hotspotsVisible;
+      hotspotsBtn.innerHTML = hotspotsVisible 
+        ? `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>Hotspots On</span>`
+        : `<span class="w-2 h-2 rounded-full bg-slate-500"></span><span>Hotspots Off</span>`;
+      hotspotsBtn.className = hotspotsVisible 
+        ? "px-3 py-1.5 rounded-xl text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-all flex items-center gap-1.5"
+        : "px-3 py-1.5 rounded-xl text-xs font-medium text-slate-400 bg-slate-800/60 border border-slate-700 hover:bg-slate-800 transition-all flex items-center gap-1.5";
+      renderHotspots(CHAPTERS[currentChapterIndex].hotspots);
+      playTone(hotspotsVisible ? 600 : 350, 0.08, 'sine');
+    }
+
+    function toggleMotion() {
+      cinematicMotion = !cinematicMotion;
+      screenshotEl.classList.toggle('ken-burns', cinematicMotion);
+      motionBtn.querySelector('span').innerText = cinematicMotion ? 'Cinematic Zoom' : 'Static View';
+      playTone(cinematicMotion ? 580 : 380, 0.06, 'sine');
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      soundIconOn.classList.toggle('hidden', !soundEnabled);
+      soundIconOff.classList.toggle('hidden', soundEnabled);
+      if (soundEnabled) {
+        initAudio();
+        playTone(600, 0.1, 'sine');
       }
     }
 
-    // Themes
-    function setTheme(theme) {
-      const canvas = document.getElementById('reader-canvas');
-      canvas.className = 'flex-1 p-8 sm:p-12 overflow-y-auto max-h-[560px] transition-colors duration-200 reader-theme-' + theme;
-      showToast('Theme switched to ' + theme.charAt(0).toUpperCase() + theme.slice(1));
+    function toggleFullscreen() {
+      const container = document.getElementById('mockup-container');
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
     }
 
-    // Typography
-    function setFontFamily(font) {
-      const container = document.getElementById('reader-prose-container');
-      container.classList.remove('font-reader-serif', 'font-reader-sans', 'font-reader-mono');
-      container.classList.add('font-reader-' + font);
-      showToast('Font family: ' + font.toUpperCase());
+    // Subtle Synthesized Web Audio Tones (Zero external dependencies)
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
     }
 
-    function setFontSize(size) {
-      document.getElementById('reader-prose-container').style.fontSize = size + 'px';
-      document.getElementById('font-size-label').textContent = size + 'px';
+    function playTone(freq, dur, type = 'sine') {
+      if (!soundEnabled) return;
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + dur);
+      } catch {
+        // audio blocked or unsupported
+      }
     }
 
-    function setMargins(level) {
-      const container = document.getElementById('reader-prose-container');
-      const labels = { '1': 'Narrow (100%)', '2': 'Medium (960px)', '3': 'Relaxed (720px)' };
-      const maxW = { '1': 'max-w-full', '2': 'max-w-2xl', '3': 'max-w-xl' };
-      container.classList.remove('max-w-full', 'max-w-2xl', 'max-w-xl');
-      container.classList.add(maxW[level]);
-      document.getElementById('margin-size-label').textContent = labels[level];
-    }
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        stepChapter(1);
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        stepChapter(-1);
+      }
+    });
 
-    function toggleTypographyPopover() {
-      const pop = document.getElementById('typography-popover');
-      pop.classList.toggle('hidden');
-    }
-
-    // Sidebar
-    function toggleReaderSidebar(tab) {
-      const sb = document.getElementById('reader-sidebar');
-      sb.classList.toggle('hidden');
-      if (tab) setSidebarTab(tab);
-    }
-
-    function closeReaderSidebar() {
-      document.getElementById('reader-sidebar').classList.add('hidden');
-    }
-
-    function setSidebarTab(tab) {
-      const title = document.getElementById('sidebar-title');
-      title.textContent = tab.toUpperCase();
-    }
-
-    // Context menu demo
-    function showContextMenuDemo() {
-      const menu = document.getElementById('simulated-context-menu');
-      menu.classList.toggle('hidden');
-    }
-
-    function hideContextMenuDemo() {
-      document.getElementById('simulated-context-menu').classList.add('hidden');
-    }
-
-    function highlightSelection() {
-      showToast('Selection highlighted in Ruby Yellow!');
-    }
-
-    function showWordLookup() {
-      showToast('Mercédès • Proper Noun • Dantès\' fiancé in Marseille');
-    }
-
-    // Toast
-    let toastTimer = null;
-    function showToast(msg) {
-      const t = document.getElementById('reader-toast');
-      document.getElementById('toast-text').textContent = msg;
-      t.classList.remove('hidden');
-      if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        t.classList.add('hidden');
-      }, 2200);
-    }
-
-    // Library Filtering
-    function filterBooks(query) {
-      const q = query.toLowerCase().trim();
-      const cards = document.querySelectorAll('.book-card');
-      cards.forEach(card => {
-        const title = card.getAttribute('data-title') || '';
-        if (!q || title.includes(q)) {
-          card.classList.remove('hidden');
-        } else {
-          card.classList.add('hidden');
-        }
-      });
-    }
-
-    function filterShelf(category) {
-      const cards = document.querySelectorAll('.book-card');
-      const pills = document.querySelectorAll('.shelf-pill');
-      
-      pills.forEach(p => {
-        if (p.textContent.toLowerCase().includes(category)) {
-          p.classList.add('bg-rose-500', 'text-white');
-          p.classList.remove('bg-slate-800', 'text-slate-300');
-        } else {
-          p.classList.remove('bg-rose-500', 'text-white');
-          p.classList.add('bg-slate-800', 'text-slate-300');
-        }
-      });
-
-      cards.forEach(card => {
-        const cat = card.getAttribute('data-category');
-        if (category === 'all' || cat === category) {
-          card.classList.remove('hidden');
-        } else {
-          card.classList.add('hidden');
-        }
-      });
-    }
-
-    function openBookInReader(title) {
-      switchTab('reader');
-      showToast('Opening "' + title + '" in Reader');
-    }
-
-    // Conversion Simulator
-    let isConverting = false;
-    function runConversionSimulation() {
-      if (isConverting) return;
-      isConverting = true;
-      const p = document.getElementById('conversion-progress');
-      const bar = document.getElementById('conversion-bar');
-      const percent = document.getElementById('conversion-percent');
-      const step = document.getElementById('conversion-step');
-
-      p.classList.remove('hidden');
-      bar.style.width = '20%';
-      percent.textContent = '20%';
-      step.textContent = 'Scanning PDF text blocks & spine...';
-
-      setTimeout(() => {
-        bar.style.width = '65%';
-        percent.textContent = '65%';
-        step.textContent = 'Unwrapping lines & reflowing paragraph boundaries...';
-      }, 600);
-
-      setTimeout(() => {
-        bar.style.width = '100%';
-        percent.textContent = '100%';
-        step.textContent = 'Packaging clean EPUB 3.0 with chapter TOC!';
-        showToast('Successfully converted "Paperback_Manual.pdf" to EPUB!');
-        isConverting = false;
-      }, 1300);
-    }
+    // Boot
+    initNavPills();
+    renderChapter(0, true);
+    startTimer();
   </script>
 </body>
 </html>

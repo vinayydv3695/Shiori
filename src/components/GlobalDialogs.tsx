@@ -132,6 +132,9 @@ export function GlobalDialogs({
             isOpen={resumeReading.showDialog}
             onOpenChange={resumeReading.onDialogOpenChange}
             bookTitle={resumeReading.pendingResume.bookTitle}
+            bookAuthor={resumeReading.pendingResume.bookAuthor}
+            coverPath={resumeReading.pendingResume.coverPath}
+            lastRead={resumeReading.pendingResume.progress.lastRead}
             progressPercent={resumeReading.pendingResume.progress.progressPercent}
             locationLabel={resumeReading.buildLocationLabel(resumeReading.pendingResume.progress)}
             onResume={resumeReading.onResume}

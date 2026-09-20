@@ -3,7 +3,8 @@ use crate::error::{Result, ShioriError};
 use crate::models::{
     Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions,
     AnnotationSearchResult, BookReadingStats, DailyReadingStats, ReaderSettings, ReadingGoal,
-    ReadingProgress, ReadingSession, ReadingStreak,
+    ReadingProgress, ReadingSession, ReadingStreak, ReadingWrappedData, WrappedGenreStat,
+    WrappedHourlyBucket, WrappedTopBook, WrappedWeekdayBucket,
 };
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -1039,6 +1040,297 @@ impl ReaderService {
             .unwrap_or(0);
 
         Ok(seconds)
+    }
+
+    pub fn get_reading_wrapped(conn: &Connection, year: i32) -> Result<ReadingWrappedData> {
+        let start_str = if year <= 0 {
+            "2000-01-01 00:00:00".to_string()
+        } else {
+            format!("{:04}-01-01 00:00:00", year)
+        };
+        let end_str = if year <= 0 {
+            "2099-12-31 23:59:59".to_string()
+        } else {
+            format!("{:04}-12-31 23:59:59", year)
+        };
+
+        // 1. Overview metrics
+        let overview_sql = r#"
+            SELECT
+                COALESCE(SUM(s.duration_seconds), 0) as total_seconds,
+                COUNT(*) as total_sessions,
+                COUNT(DISTINCT date(s.started_at)) as total_days,
+                COALESCE(SUM(
+                    CASE WHEN NOT (COALESCE(b.domain, '') IN ('manga', 'comics', 'manga_comics') OR LOWER(COALESCE(b.file_format, '')) IN ('cbz', 'cbr', 'zip', 'rar', '7z'))
+                    THEN MAX(COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0), CASE WHEN s.duration_seconds >= 60 THEN s.duration_seconds / 120 ELSE 0 END)
+                    ELSE MAX(COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0), CASE WHEN s.duration_seconds >= 30 THEN s.duration_seconds / 30 ELSE 0 END)
+                    END
+                ), 0) as total_pages
+            FROM reading_sessions s
+            LEFT JOIN books b ON b.id = s.book_id
+            WHERE s.started_at >= ?1 AND s.started_at <= ?2 AND (s.duration_seconds > 0 OR COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0) > 0)
+        "#;
+
+        let (total_seconds, total_sessions, total_reading_days, total_pages_read): (i64, i64, i64, i64) = conn.query_row(
+            overview_sql,
+            params![start_str, end_str],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )?;
+
+        // 2. Books completed in that year
+        let completed_sql = r#"
+            SELECT COUNT(*)
+            FROM books
+            WHERE reading_status = 'completed'
+              AND (
+                (modified_date >= ?1 AND modified_date <= ?2)
+                OR (last_opened >= ?1 AND last_opened <= ?2)
+                OR (added_date >= ?1 AND added_date <= ?2)
+              )
+        "#;
+        let books_completed: i64 = conn.query_row(completed_sql, params![start_str, end_str], |row| row.get(0))?;
+
+        // 3. Top Books
+        let top_books_sql = r#"
+            SELECT
+                b.id,
+                b.title,
+                (SELECT a.name FROM authors a JOIN books_authors ba ON ba.author_id = a.id WHERE ba.book_id = b.id ORDER BY ba.author_order ASC LIMIT 1) as author,
+                b.cover_path,
+                b.domain,
+                b.file_format,
+                COALESCE(SUM(s.duration_seconds), 0) as book_seconds,
+                COUNT(s.id) as sessions_count,
+                CASE WHEN b.reading_status = 'completed' THEN 1 ELSE 0 END as is_completed
+            FROM reading_sessions s
+            JOIN books b ON b.id = s.book_id
+            WHERE s.started_at >= ?1 AND s.started_at <= ?2 AND s.duration_seconds > 0
+            GROUP BY b.id
+            ORDER BY book_seconds DESC
+            LIMIT 5
+        "#;
+
+        let mut top_stmt = conn.prepare(top_books_sql)?;
+        let top_books = top_stmt.query_map(params![start_str, end_str], |row| {
+            Ok(WrappedTopBook {
+                book_id: row.get(0)?,
+                title: row.get(1)?,
+                author: row.get(2)?,
+                cover_path: row.get(3)?,
+                domain: row.get(4)?,
+                file_format: row.get(5)?,
+                total_seconds: row.get(6)?,
+                sessions_count: row.get(7)?,
+                completed: row.get::<_, i32>(8)? != 0,
+            })
+        })?.collect::<std::result::Result<Vec<_>, _>>()?;
+
+        // 4. Hourly distribution (24 buckets)
+        let mut hourly_map = std::collections::HashMap::new();
+        let hourly_sql = r#"
+            SELECT
+                CAST(strftime('%H', started_at) AS INTEGER) as h,
+                COALESCE(SUM(duration_seconds), 0) as total_sec,
+                COUNT(*) as count
+            FROM reading_sessions
+            WHERE started_at >= ?1 AND started_at <= ?2 AND duration_seconds > 0
+            GROUP BY h
+        "#;
+        let mut h_stmt = conn.prepare(hourly_sql)?;
+        let h_rows = h_stmt.query_map(params![start_str, end_str], |row| {
+            Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?))
+        })?;
+        for r in h_rows {
+            if let Ok((h, sec, cnt)) = r {
+                hourly_map.insert(h, (sec, cnt));
+            }
+        }
+
+        let mut hourly_distribution = Vec::with_capacity(24);
+        for h in 0..24 {
+            let (sec, cnt) = hourly_map.get(&h).cloned().unwrap_or((0, 0));
+            hourly_distribution.push(WrappedHourlyBucket {
+                hour: h,
+                total_seconds: sec,
+                sessions_count: cnt,
+            });
+        }
+
+        // 5. Weekday distribution (Sunday = 0 .. Saturday = 6)
+        let day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        let mut weekday_map = std::collections::HashMap::new();
+        let weekday_sql = r#"
+            SELECT
+                CAST(strftime('%w', started_at) AS INTEGER) as w,
+                COALESCE(SUM(duration_seconds), 0) as total_sec
+            FROM reading_sessions
+            WHERE started_at >= ?1 AND started_at <= ?2 AND duration_seconds > 0
+            GROUP BY w
+        "#;
+        let mut w_stmt = conn.prepare(weekday_sql)?;
+        let w_rows = w_stmt.query_map(params![start_str, end_str], |row| {
+            Ok((row.get::<_, u32>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        for r in w_rows {
+            if let Ok((w, sec)) = r {
+                weekday_map.insert(w, sec);
+            }
+        }
+
+        let mut weekday_distribution = Vec::with_capacity(7);
+        for w in 0..7 {
+            let sec = weekday_map.get(&w).cloned().unwrap_or(0);
+            weekday_distribution.push(WrappedWeekdayBucket {
+                day: w,
+                day_name: day_names[w as usize].to_string(),
+                total_seconds: sec,
+            });
+        }
+
+        // 6. Genre / Tag distribution
+        let genre_sql = r#"
+            SELECT
+                t.name,
+                COUNT(DISTINCT b.id) as book_count,
+                COALESCE(SUM(s.duration_seconds), 0) as total_sec
+            FROM reading_sessions s
+            JOIN books b ON b.id = s.book_id
+            JOIN books_tags bt ON bt.book_id = b.id
+            JOIN tags t ON t.id = bt.tag_id
+            WHERE s.started_at >= ?1 AND s.started_at <= ?2 AND s.duration_seconds > 0
+            GROUP BY t.id
+            ORDER BY total_sec DESC
+            LIMIT 6
+        "#;
+        let mut g_stmt = conn.prepare(genre_sql)?;
+        let mut genre_distribution = g_stmt.query_map(params![start_str, end_str], |row| {
+            Ok(WrappedGenreStat {
+                name: row.get(0)?,
+                count: row.get(1)?,
+                total_seconds: row.get(2)?,
+            })
+        })?.collect::<std::result::Result<Vec<_>, _>>()?;
+
+        // Fallback if no tags were assigned: categorize by domain/format
+        if genre_distribution.is_empty() {
+            let domain_sql = r#"
+                SELECT
+                    CASE
+                        WHEN COALESCE(b.domain, '') IN ('manga', 'comics', 'manga_comics') OR LOWER(COALESCE(b.file_format, '')) IN ('cbz', 'cbr', 'zip') THEN 'Manga & Comics'
+                        WHEN LOWER(COALESCE(b.file_format, '')) = 'pdf' THEN 'PDF Documents'
+                        WHEN LOWER(COALESCE(b.file_format, '')) IN ('mobi', 'azw3') THEN 'MOBI / Kindle'
+                        ELSE 'EPUB Novels'
+                    END as category,
+                    COUNT(DISTINCT b.id) as book_count,
+                    COALESCE(SUM(s.duration_seconds), 0) as total_sec
+                FROM reading_sessions s
+                JOIN books b ON b.id = s.book_id
+                WHERE s.started_at >= ?1 AND s.started_at <= ?2 AND s.duration_seconds > 0
+                GROUP BY category
+                ORDER BY total_sec DESC
+            "#;
+            let mut d_stmt = conn.prepare(domain_sql)?;
+            genre_distribution = d_stmt.query_map(params![start_str, end_str], |row| {
+                Ok(WrappedGenreStat {
+                    name: row.get(0)?,
+                    count: row.get(1)?,
+                    total_seconds: row.get(2)?,
+                })
+            })?.collect::<std::result::Result<Vec<_>, _>>()?;
+        }
+
+        // 7. Longest streak in the year
+        let streak_sql = r#"
+            WITH reading_days AS (
+                SELECT DISTINCT date(started_at) as d
+                FROM reading_sessions
+                WHERE duration_seconds > 0 AND started_at >= ?1 AND started_at <= ?2
+            ),
+            numbered AS (
+                SELECT d, ROW_NUMBER() OVER (ORDER BY d) as rn
+                FROM reading_days
+            ),
+            groups AS (
+                SELECT d, date(d, '-' || rn || ' days') as grp
+                FROM numbered
+            )
+            SELECT COALESCE(MAX(streak_len), 0) FROM (
+                SELECT COUNT(*) as streak_len FROM groups GROUP BY grp
+            )
+        "#;
+        let longest_streak: i32 = conn.query_row(streak_sql, params![start_str, end_str], |row| row.get(0)).unwrap_or(0);
+
+        // 8. Calculate Rhythm & Persona
+        let night_sec: i64 = hourly_distribution.iter().filter(|b| b.hour >= 22 || b.hour <= 4).map(|b| b.total_seconds).sum();
+        let morning_sec: i64 = hourly_distribution.iter().filter(|b| b.hour >= 5 && b.hour <= 11).map(|b| b.total_seconds).sum();
+        let afternoon_sec: i64 = hourly_distribution.iter().filter(|b| b.hour >= 12 && b.hour <= 16).map(|b| b.total_seconds).sum();
+        let evening_sec: i64 = hourly_distribution.iter().filter(|b| b.hour >= 17 && b.hour <= 21).map(|b| b.total_seconds).sum();
+
+        let max_sec = night_sec.max(morning_sec).max(afternoon_sec).max(evening_sec);
+        let primary_rhythm = if max_sec == 0 {
+            "Daytime Voyager".to_string()
+        } else if max_sec == night_sec {
+            "Night Owl".to_string()
+        } else if max_sec == morning_sec {
+            "Early Bird".to_string()
+        } else if max_sec == afternoon_sec {
+            "Afternoon Reader".to_string()
+        } else {
+            "Evening Luminary".to_string()
+        };
+
+        // Weekend vs Weekday ratio
+        let weekend_sec = weekday_map.get(&0).cloned().unwrap_or(0) + weekday_map.get(&6).cloned().unwrap_or(0);
+        let weekend_ratio = if total_seconds > 0 { weekend_sec as f64 / total_seconds as f64 } else { 0.0 };
+
+        let (persona_title, persona_description) = if primary_rhythm == "Night Owl" && night_sec > 1800 {
+            (
+                "The Night Owl Scholar".to_string(),
+                "You do your best reading under the quiet glow of midnight when the rest of the world has gone to sleep.".to_string(),
+            )
+        } else if weekend_ratio >= 0.55 && total_seconds > 3600 {
+            (
+                "The Weekend Binge-Reader".to_string(),
+                "Busy weekdays, but when Saturday arrives you dive headfirst into stories and lose track of time.".to_string(),
+            )
+        } else if longest_streak >= 14 {
+            (
+                "The Daily Devotee".to_string(),
+                "Unstoppable dedication. Reading is woven naturally into every single day of your life.".to_string(),
+            )
+        } else if books_completed >= 15 {
+            (
+                "The Voracious Marathoner".to_string(),
+                "You conquer libraries at breakneck speed, devouring worlds and characters volume by volume.".to_string(),
+            )
+        } else if genre_distribution.len() >= 3 {
+            (
+                "The Eclectic Polymath".to_string(),
+                "From immersive novels to rich visual manga, your literary appetite knows no boundaries.".to_string(),
+            )
+        } else {
+            (
+                "The Mindful Explorer".to_string(),
+                "You savor every chapter and page, finding deep immersion and calm in your reading journeys.".to_string(),
+            )
+        };
+
+        Ok(ReadingWrappedData {
+            year,
+            total_seconds,
+            total_sessions,
+            total_reading_days,
+            total_pages_read,
+            books_completed,
+            top_books,
+            hourly_distribution,
+            weekday_distribution,
+            genre_distribution,
+            longest_streak,
+            primary_rhythm,
+            persona_title,
+            persona_description,
+        })
     }
 
     // ==================== Reader Settings ====================

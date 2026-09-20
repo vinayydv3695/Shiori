@@ -2,7 +2,7 @@ use crate::error::Result;
 use crate::models::{
     Annotation, AnnotationCategory, AnnotationExportData, AnnotationExportOptions,
     AnnotationSearchResult, BookReadingStats, DailyReadingStats, ReaderSettings, ReadingGoal,
-    ReadingProgress, ReadingSession, ReadingStreak,
+    ReadingProgress, ReadingSession, ReadingStreak, ReadingWrappedData,
 };
 use crate::services::format_detector;
 use crate::services::reader_service::ReaderService;
@@ -403,6 +403,18 @@ pub fn get_reading_streak(state: State<AppState>) -> Result<ReadingStreak> {
 pub fn get_reading_goal(state: State<AppState>) -> Result<ReadingGoal> {
     let conn = state.db.get_connection()?;
     ReaderService::get_reading_goal(&conn)
+}
+
+#[tauri::command]
+pub fn get_reading_wrapped(
+    year: Option<i32>,
+    state: State<AppState>,
+) -> Result<ReadingWrappedData> {
+    let conn = state.db.get_connection()?;
+    let target_year = year.unwrap_or_else(|| {
+        chrono::Utc::now().format("%Y").to_string().parse::<i32>().unwrap_or(2026)
+    });
+    ReaderService::get_reading_wrapped(&conn, target_year)
 }
 
 #[tauri::command]

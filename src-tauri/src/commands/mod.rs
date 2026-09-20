@@ -120,6 +120,7 @@ macro_rules! generate_shiori_handlers {
             commands::reader::get_book_reading_stats,
             commands::reader::get_reading_streak,
             commands::reader::get_reading_goal,
+            commands::reader::get_reading_wrapped,
             commands::reader::update_reading_goal,
             commands::reader::get_today_reading_time,
             commands::rendering::open_book_renderer,

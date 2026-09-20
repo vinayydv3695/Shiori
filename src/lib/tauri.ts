@@ -485,6 +485,53 @@ export interface BookReadingStats {
   average_session_minutes: number
 }
 
+export interface WrappedTopBook {
+  book_id: number;
+  title: string;
+  author: string | null;
+  cover_path: string | null;
+  domain: string | null;
+  file_format: string | null;
+  total_seconds: number;
+  sessions_count: number;
+  completed: boolean;
+}
+
+export interface WrappedHourlyBucket {
+  hour: number;
+  total_seconds: number;
+  sessions_count: number;
+}
+
+export interface WrappedWeekdayBucket {
+  day: number;
+  day_name: string;
+  total_seconds: number;
+}
+
+export interface WrappedGenreStat {
+  name: string;
+  count: number;
+  total_seconds: number;
+}
+
+export interface ReadingWrappedData {
+  year: number;
+  total_seconds: number;
+  total_sessions: number;
+  total_reading_days: number;
+  total_pages_read: number;
+  books_completed: number;
+  top_books: WrappedTopBook[];
+  hourly_distribution: WrappedHourlyBucket[];
+  weekday_distribution: WrappedWeekdayBucket[];
+  genre_distribution: WrappedGenreStat[];
+  longest_streak: number;
+  primary_rhythm: string;
+  persona_title: string;
+  persona_description: string;
+}
+
 export interface BackupInfo {
   version: string
   created_at: string
@@ -1699,6 +1746,10 @@ export const api = {
 
   async getTodayReadingTime(): Promise<number> {
     return invoke("get_today_reading_time")
+  },
+
+  async getReadingWrapped(year?: number): Promise<ReadingWrappedData> {
+    return invoke("get_reading_wrapped", { year })
   },
 
   // Backup & Restore

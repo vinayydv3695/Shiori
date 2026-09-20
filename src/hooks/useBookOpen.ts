@@ -138,6 +138,8 @@ function hasMeaningfulProgress(progress: ReadingProgress): boolean {
 interface PendingResume {
   bookId: number;
   bookTitle: string;
+  bookAuthor?: string;
+  coverPath?: string;
   filePath: string;
   format: string;
   progress: ReadingProgress;
@@ -271,7 +273,18 @@ export function useBookOpen() {
               return bookId;
             }
             // Desktop/web: Show resume dialog for user to choose
-            setPendingResume({ bookId, bookTitle: book.title, filePath, format, progress });
+            const bookAuthor = book.authors && book.authors.length > 0
+              ? book.authors.map(a => a.name).join(', ')
+              : (book as unknown as { author?: string }).author || undefined;
+            setPendingResume({
+              bookId,
+              bookTitle: book.title,
+              bookAuthor,
+              coverPath: book.cover_path || undefined,
+              filePath,
+              format,
+              progress,
+            });
             setShowResumeDialog(true);
             return bookId;
           }

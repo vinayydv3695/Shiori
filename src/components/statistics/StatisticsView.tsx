@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, isTauri, isAndroid } from '@/lib/tauri';
-import type { DailyReadingStats, ReadingStreak, ReadingGoal, Book, BookReadingStats } from '@/lib/tauri';
+import type { DailyReadingStats, ReadingStreak, ReadingGoal, Book, BookReadingStats, ReadingWrappedData } from '@/lib/tauri';
 import { 
   X, RotateCw, Library, Clock, BookCheck,
   BookDashed, PlayCircle, HardDrive,
   Layers, BookText, Image as ImageIcon,
   Activity, Star, Link2, Trophy, CheckCircle2,
   TrendingUp, BookOpen, ChevronRight, BarChart3,
-  Flame, LayoutGrid
+  Flame, LayoutGrid, Award, Bookmark, Moon, Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { ReadingCalendar } from './ReadingCalendar';
+import { ReadingWrappedModal } from './ReadingWrappedModal';
+import { formatWrappedTime } from './wrappedCanvasRenderer';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { motion } from 'framer-motion';
@@ -232,6 +234,10 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
   const [newGoalInput, setNewGoalInput] = useState("");
 
   const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [wrappedData, setWrappedData] = useState<ReadingWrappedData | null>(null);
+  const [isWrappedOpen, setIsWrappedOpen] = useState(false);
+
   const booksReadThisYear = books.filter(b => {
     if (b.reading_status !== 'completed') return false;
     const dateStr = b.last_opened || b.modified_date || b.added_date;
@@ -274,15 +280,71 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
         setAllStats(dummyStats);
         setStreak({ current_streak: 4, longest_streak: 12, total_reading_days: 45 });
         setGoal({ daily_minutes_target: 30, yearly_books_target: 20, is_active: true, created_at: '', updated_at: '' });
+        setWrappedData({
+          year: selectedYear,
+          total_seconds: 72000,
+          total_sessions: 42,
+          total_reading_days: 28,
+          total_pages_read: 1450,
+          books_completed: 6,
+          top_books: [
+            {
+              book_id: 1,
+              title: "The Way of Kings",
+              author: "Brandon Sanderson",
+              cover_path: null,
+              domain: "books",
+              file_format: "epub",
+              total_seconds: 36000,
+              sessions_count: 24,
+              completed: true,
+            },
+            {
+              book_id: 2,
+              title: "Dune",
+              author: "Frank Herbert",
+              cover_path: null,
+              domain: "books",
+              file_format: "epub",
+              total_seconds: 18000,
+              sessions_count: 14,
+              completed: true,
+            },
+          ],
+          hourly_distribution: Array.from({ length: 24 }, (_, h) => ({
+            hour: h,
+            total_seconds: (h >= 22 || h <= 2) ? 7200 : (h >= 14 && h <= 18) ? 3600 : 600,
+            sessions_count: (h >= 22 || h <= 2) ? 4 : 1,
+          })),
+          weekday_distribution: [
+            { day: 0, day_name: "Sunday", total_seconds: 14400 },
+            { day: 1, day_name: "Monday", total_seconds: 7200 },
+            { day: 2, day_name: "Tuesday", total_seconds: 7200 },
+            { day: 3, day_name: "Wednesday", total_seconds: 7200 },
+            { day: 4, day_name: "Thursday", total_seconds: 7200 },
+            { day: 5, day_name: "Friday", total_seconds: 14400 },
+            { day: 6, day_name: "Saturday", total_seconds: 14400 },
+          ],
+          genre_distribution: [
+            { name: "EPUB", count: 8, total_seconds: 45000 },
+            { name: "Manga", count: 4, total_seconds: 20000 },
+            { name: "PDF", count: 2, total_seconds: 7000 },
+          ],
+          longest_streak: 14,
+          primary_rhythm: "Night Owl",
+          persona_title: "The Night Owl Scholar",
+          persona_description: "Your mind comes alive when the world quietens down. Over 65% of your reading takes place between 10 PM and 3 AM.",
+        });
         setLoading(false);
         return;
       }
 
-      const [stats, currentStreak, currentGoal, fullLibraryRes] = await Promise.all([
+      const [stats, currentStreak, currentGoal, fullLibraryRes, wrappedRes] = await Promise.all([
         api.getDailyReadingStats(3650),
         api.getReadingStreak(),
         api.getReadingGoal(),
-        api.searchBooks({ limit: 10000 }).catch(() => ({ books: [] }))
+        api.searchBooks({ limit: 10000 }).catch(() => ({ books: [] })),
+        api.getReadingWrapped(selectedYear).catch(() => null)
       ]);
 
       const fetchedBooks = fullLibraryRes.books && fullLibraryRes.books.length > 0 ? fullLibraryRes.books : storeBooks;
@@ -291,6 +353,9 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
       setStreak(currentStreak);
       setGoal(currentGoal);
       setAllLibraryBooks(fetchedBooks);
+      if (wrappedRes) {
+        setWrappedData(wrappedRes);
+      }
 
       const candidateBooks = fetchedBooks.slice(0, 50);
       const topStatsPromises = candidateBooks.map(async b => {
@@ -315,11 +380,18 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [storeBooks]);
+  }, [storeBooks, selectedYear]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    api.getReadingWrapped(selectedYear)
+      .then(setWrappedData)
+      .catch((err) => console.error('Failed to load wrapped for year:', selectedYear, err));
+  }, [selectedYear]);
 
   const formatDuration = (totalSeconds: number) => {
     const days = Math.floor(totalSeconds / (3600 * 24));
@@ -392,6 +464,59 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
               transition={{ duration: 0.3 }}
               className="flex flex-col gap-6"
             >
+              {/* ── 0. Reading Wrapped Celebratory Banner ── */}
+              {wrappedData && (
+                <div className="relative overflow-hidden rounded-2xl p-5 sm:p-6 bg-card/85 backdrop-blur-xl border border-border/70 shadow-xs transition-all hover:border-primary/40">
+                  <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                          <Award size={13} className="text-primary" />
+                          Annual Edition
+                        </span>
+                        <div className="flex items-center gap-1 bg-muted/60 border border-border/40 rounded-xl p-0.5">
+                          {[currentYear, currentYear - 1].map((yr) => (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => setSelectedYear(yr)}
+                              className={cn(
+                                "px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all",
+                                selectedYear === yr
+                                  ? "bg-primary text-primary-foreground shadow-2xs"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {yr}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+                          Your {selectedYear} Reading Wrapped
+                        </h2>
+                        <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-1 max-w-xl">
+                          You logged <span className="text-foreground font-bold">{formatWrappedTime(wrappedData.total_seconds)}</span> across <span className="text-foreground font-bold">{wrappedData.total_reading_days} active days</span>. Persona: <span className="text-primary font-bold">{wrappedData.persona_title}</span>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 w-full md:w-auto">
+                      <Button
+                        type="button"
+                        onClick={() => setIsWrappedOpen(true)}
+                        className="w-full md:w-auto px-5 py-2.5 rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs flex items-center justify-center gap-2"
+                      >
+                        <BookOpen size={16} />
+                        View Wrapped
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── 1. Top Row Overview Hero Cards ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Books & Manga Read */}
@@ -456,6 +581,66 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
                 </div>
                 <ActivityHeatmap data={allStats} currentStreak={streak?.current_streak} />
               </div>
+
+              {/* ── 3.5. Circadian Reading Rhythm & Peak Hours ── */}
+              {wrappedData && wrappedData.hourly_distribution.length > 0 && (
+                <div className="bg-card/75 backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                        <Moon size={18} className="text-primary" />
+                        Circadian Reading Rhythm · {wrappedData.primary_rhythm}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {wrappedData.persona_description}
+                      </p>
+                    </div>
+                    <span className="hidden sm:inline-flex text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {wrappedData.persona_title}
+                    </span>
+                  </div>
+
+                  <div className="pt-2">
+                    <div className="flex items-end justify-between h-28 gap-1.5 pt-2 pb-1">
+                      {wrappedData.hourly_distribution.map((h, i) => {
+                        const maxSec = Math.max(1, ...wrappedData.hourly_distribution.map((d) => d.total_seconds));
+                        const heightPct = (h.total_seconds / maxSec) * 100;
+                        const isPeak = h.total_seconds === maxSec && maxSec > 0;
+                        return (
+                          <div
+                            key={i}
+                            className="flex-1 flex flex-col items-center justify-end h-full group relative cursor-pointer"
+                          >
+                            <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-popover text-popover-foreground border border-border text-[10px] font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap z-20">
+                              {h.hour}:00 · {formatMinutes(h.total_seconds)} ({h.sessions_count} sessions)
+                            </div>
+                            <div
+                              className={cn(
+                                "w-full rounded-t-sm transition-all duration-300",
+                                isPeak
+                                  ? "bg-primary shadow-md shadow-primary/30"
+                                  : h.total_seconds > 0
+                                  ? "bg-foreground/75 group-hover:bg-primary/80"
+                                  : "bg-muted/40"
+                              )}
+                              style={{ height: `${Math.max(6, heightPct)}%` }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground pt-2 border-t border-border/30">
+                      <span>12 AM</span>
+                      <span>4 AM</span>
+                      <span>8 AM</span>
+                      <span>12 PM</span>
+                      <span>4 PM</span>
+                      <span>8 PM</span>
+                      <span>11 PM</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ── 4. Most Read Titles Showcase ── */}
               {topBookStats.length > 0 && (
@@ -523,6 +708,14 @@ export function StatisticsView({ onClose, onOpenBook }: StatisticsViewProps) {
           )}
         </div>
       </div>
+
+      {wrappedData && (
+        <ReadingWrappedModal
+          data={wrappedData}
+          isOpen={isWrappedOpen}
+          onClose={() => setIsWrappedOpen(false)}
+        />
+      )}
     </div>
   );
 }

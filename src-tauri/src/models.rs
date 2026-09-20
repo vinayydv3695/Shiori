@@ -409,6 +409,58 @@ pub struct BookReadingStats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WrappedTopBook {
+    pub book_id: i64,
+    pub title: String,
+    pub author: Option<String>,
+    pub cover_path: Option<String>,
+    pub domain: Option<String>,
+    pub file_format: Option<String>,
+    pub total_seconds: i64,
+    pub sessions_count: i64,
+    pub completed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WrappedHourlyBucket {
+    pub hour: u32,
+    pub total_seconds: i64,
+    pub sessions_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WrappedWeekdayBucket {
+    pub day: u32,
+    pub day_name: String,
+    pub total_seconds: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WrappedGenreStat {
+    pub name: String,
+    pub count: i64,
+    pub total_seconds: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadingWrappedData {
+    pub year: i32,
+    pub total_seconds: i64,
+    pub total_sessions: i64,
+    pub total_reading_days: i64,
+    pub total_pages_read: i64,
+    pub books_completed: i64,
+    pub top_books: Vec<WrappedTopBook>,
+    pub hourly_distribution: Vec<WrappedHourlyBucket>,
+    pub weekday_distribution: Vec<WrappedWeekdayBucket>,
+    pub genre_distribution: Vec<WrappedGenreStat>,
+    pub longest_streak: i32,
+    pub primary_rhythm: String,
+    pub persona_title: String,
+    pub persona_description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MangaSeries {
     pub id: Option<i64>,
     pub title: String,

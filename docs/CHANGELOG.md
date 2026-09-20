@@ -1,3 +1,12 @@
+# Release Notes (v1.0.8)
+
+## UI, Reading & Analytics Polish
+
+- **Desktop Book Details Dialog Redesign** — Refactored the book details dialog on desktop to a cohesive two-column layout with 100% solid opacity, tactile 3D cover showcase (spine crease, page-block depth, ambient cover glow), quick format pills, and seamless metadata integration.
+- **Minimal & Simple Continue Reading Dialog** — Completely overhauled the "Continue Reading" popup to be minimal, clean, and distraction-free, highlighting the current checkpoint, inline progress bar, and auto-focused primary resume button without visual clutter.
+- **Reading Wrapped & Enhanced Statistics** — Introduced the Reading Wrapped modal featuring canvas-rendered shareable summary cards, comprehensive pages read and book completion tracking, and improved statistics persistence across sessions.
+- **Desktop Free Space Context Menu Suppressed** — Suppressed the default browser context menu ("Back, Forward, Reload, Inspect Element") when right-clicking on empty background space in production builds, while preserving custom in-app menus and maintaining full DevTools inspection in dev mode.
+
 # Release Notes (v1.0.7)
 
 ## Reader & UI Improvements

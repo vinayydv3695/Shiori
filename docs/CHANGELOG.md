@@ -1,7 +1,8 @@
-# Release Notes (v1.0.9)
+# Release Notes (v1.0.10)
 
-## UI, Reading & Analytics Polish
+## Build & CI Fixes
 
+- **Fix Android CI Build Action** — Upgraded `android-actions/setup-android` to `v4` and pinned `packages: 'platform-tools'` to prevent build failures from Google's deprecation of the legacy `tools` SDK component.
 - **Fix Reading Progress Property Type in Book Details** — Resolved TypeScript property mismatch (`progress_percent` -> `progressPercent`) in `BookDetailsDialog.tsx` to restore clean production builds.
 - **Desktop Book Details Dialog Redesign** — Refactored the book details dialog on desktop to a cohesive two-column layout with 100% solid opacity, tactile 3D cover showcase (spine crease, page-block depth, ambient cover glow), quick format pills, and seamless metadata integration.
 - **Minimal & Simple Continue Reading Dialog** — Completely overhauled the "Continue Reading" popup to be minimal, clean, and distraction-free, highlighting the current checkpoint, inline progress bar, and auto-focused primary resume button without visual clutter.

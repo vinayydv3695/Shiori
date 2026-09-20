@@ -140,8 +140,8 @@ export const BookDetailsDialog = ({
       // Fetch reading progress
       api.getReadingProgress(bookId)
         .then(prog => {
-          if (!canceled && prog && typeof prog.progress_percent === 'number' && prog.progress_percent > 0) {
-            setReadingProgress(Math.min(100, Math.round(prog.progress_percent * 100)));
+          if (!canceled && prog && typeof prog.progressPercent === 'number' && prog.progressPercent > 0) {
+            setReadingProgress(Math.min(100, Math.round(prog.progressPercent)));
           } else if (!canceled) {
             setReadingProgress(null);
           }

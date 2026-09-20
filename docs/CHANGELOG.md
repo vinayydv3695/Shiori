@@ -1,7 +1,8 @@
-# Release Notes (v1.0.8)
+# Release Notes (v1.0.9)
 
 ## UI, Reading & Analytics Polish
 
+- **Fix Reading Progress Property Type in Book Details** — Resolved TypeScript property mismatch (`progress_percent` -> `progressPercent`) in `BookDetailsDialog.tsx` to restore clean production builds.
 - **Desktop Book Details Dialog Redesign** — Refactored the book details dialog on desktop to a cohesive two-column layout with 100% solid opacity, tactile 3D cover showcase (spine crease, page-block depth, ambient cover glow), quick format pills, and seamless metadata integration.
 - **Minimal & Simple Continue Reading Dialog** — Completely overhauled the "Continue Reading" popup to be minimal, clean, and distraction-free, highlighting the current checkpoint, inline progress bar, and auto-focused primary resume button without visual clutter.
 - **Reading Wrapped & Enhanced Statistics** — Introduced the Reading Wrapped modal featuring canvas-rendered shareable summary cards, comprehensive pages read and book completion tracking, and improved statistics persistence across sessions.

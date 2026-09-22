@@ -37,6 +37,13 @@ export class TTSEngine {
   }
 
   /**
+   * Instance check for Web Speech API availability
+   */
+  isAvailable(): boolean {
+    return TTSEngine.isAvailable();
+  }
+
+  /**
    * Get available speech synthesis voices
    * Note: May return empty array initially, call after 'voiceschanged' event for full list
    */
@@ -66,7 +73,7 @@ export class TTSEngine {
     
     // Set explicit volume and pitch defaults
     utterance.volume = options?.volume !== undefined ? Math.max(0, Math.min(1, options.volume)) : 1.0;
-    utterance.pitch = 1.0;
+    utterance.pitch = options?.pitch !== undefined ? Math.max(0, Math.min(2, options.pitch)) : 1.0;
     
     // Apply options
     if (options?.rate !== undefined) {

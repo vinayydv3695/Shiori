@@ -14,7 +14,20 @@ export function useAnnotationsData() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewModeState] = useState<'grid' | 'list'>(() => {
+    try {
+      const saved = localStorage.getItem('shiori-annotations-view-mode');
+      if (saved === 'list' || saved === 'grid') return saved;
+    } catch {}
+    return 'grid';
+  });
+
+  const setViewMode = useCallback((mode: 'grid' | 'list') => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem('shiori-annotations-view-mode', mode);
+    } catch {}
+  }, []);
   const [sortOrder, setSortOrder] = useState<AnnotationSortOrder>('newest');
 
   // Render cap: long libraries can hold 1000+ annotations; rendering them all

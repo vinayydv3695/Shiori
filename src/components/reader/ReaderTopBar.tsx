@@ -2,8 +2,10 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { ArrowLeft, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
+import { Headphones } from 'lucide-react';
 import { ReaderTooltip } from './ReaderTooltip';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
+import { AmbientSoundBar } from './AmbientSoundBar';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
 
@@ -35,18 +37,21 @@ export function ReaderTopBar({
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = React.useState(false);
+  const [showAmbientBar, setShowAmbientBar] = React.useState(false);
 
   // Automatically ensure menus close whenever the topbar hides, sidebar opens, or book changes
   React.useEffect(() => {
     if (!isTopBarVisible || isSidebarOpen) {
       setIsMoreMenuOpen(false);
       setIsDesktopMenuOpen(false);
+      setShowAmbientBar(false);
     }
   }, [isTopBarVisible, isSidebarOpen]);
 
   React.useEffect(() => {
     setIsMoreMenuOpen(false);
     setIsDesktopMenuOpen(false);
+    setShowAmbientBar(false);
   }, [bookId]);
 
   const extraChildren = React.Children.toArray(
@@ -99,6 +104,19 @@ export function ReaderTopBar({
           <div className="flex items-center gap-1">
             {desktopPrimary}
             <ReaderSettings format={format} />
+            <ReaderTooltip content="Ambient Soundscapes">
+              <button
+                type="button"
+                className={`premium-control-button ${showAmbientBar ? 'premium-control-button--active' : ''}`}
+                aria-label="Ambient Soundscapes"
+                onClick={() => {
+                  setShowAmbientBar(!showAmbientBar);
+                  setIsMoreMenuOpen(false);
+                }}
+              >
+                <Headphones className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
           </div>
 
           {/* More Options Dropdown */}
@@ -107,7 +125,10 @@ export function ReaderTopBar({
               <button
                 className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
                 aria-label="More options"
-                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                onClick={() => {
+                  setIsMoreMenuOpen(!isMoreMenuOpen);
+                  setShowAmbientBar(false);
+                }}
               >
                 <MoreVertical className="premium-control-icon" />
               </button>
@@ -205,6 +226,8 @@ export function ReaderTopBar({
           </div>
         </div>
       </div>
+
+      <AmbientSoundBar open={showAmbientBar} onClose={() => setShowAmbientBar(false)} />
     </div>
   );
 }

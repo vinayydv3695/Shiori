@@ -12,7 +12,7 @@ export interface ToastMessage {
 
 interface ToastStore {
   toasts: ToastMessage[];
-  addToast: (toast: Omit<ToastMessage, 'id'>) => void;
+  addToast: (toast: Omit<ToastMessage, 'id'> & { id?: string }) => void;
   removeToast: (id: string) => void;
   clearAll: () => void;
 }
@@ -25,6 +25,7 @@ export const useToastStore = create<ToastStore>((set) => ({
   
   addToast: (toast) => {
     const toastDuration = toast.duration ?? 1200;
+    const id = toast.id ?? Math.random().toString(36).substring(7);
 
     // Toasts are the app's visible response to an action — mirror them into the
     // (opt-in) action log. No-op unless logging is enabled; never throws.
@@ -37,21 +38,20 @@ export const useToastStore = create<ToastStore>((set) => ({
       // ignore
     }
 
-    // Intercept to Sonner
+    // Intercept to Sonner with deduplicating id
     if (toast.variant === 'success') {
-      sonnerToast.success(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
+      sonnerToast.success(toast.title, { id, description: toast.description, action: toast.action, duration: toastDuration });
     } else if (toast.variant === 'error') {
-      sonnerToast.error(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
+      sonnerToast.error(toast.title, { id, description: toast.description, action: toast.action, duration: toastDuration });
     } else if (toast.variant === 'warning') {
-      sonnerToast.warning(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
+      sonnerToast.warning(toast.title, { id, description: toast.description, action: toast.action, duration: toastDuration });
     } else if (toast.variant === 'info') {
-      sonnerToast.info(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
+      sonnerToast.info(toast.title, { id, description: toast.description, action: toast.action, duration: toastDuration });
     } else {
-      sonnerToast(toast.title, { description: toast.description, action: toast.action, duration: toastDuration });
+      sonnerToast(toast.title, { id, description: toast.description, action: toast.action, duration: toastDuration });
     }
 
     // Keep state for backwards compatibility if needed
-    const id = Math.random().toString(36).substring(7);
     set((state) => ({
       toasts: [...state.toasts, { ...toast, id }],
     }));

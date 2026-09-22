@@ -457,7 +457,15 @@ async fn translate_text_single(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    // Primary: Google Web Translate (super fast ~150-250ms, handles auto-detect & all languages)
+    // 0. Primary: Google GTX endpoint (JSON, fast, rock-solid, auto-detect)
+    match translate_google_gtx(text, source_lang, target_lang).await {
+        Ok(result) => return Ok(result),
+        Err(e) => {
+            log::warn!("Google GTX translation failed: {}, trying Google web fallback", e);
+        }
+    }
+
+    // 1. Secondary: Google Web Translate mobile endpoint
     match translate_google_web(text, source_lang, target_lang).await {
         Ok(result) => return Ok(result),
         Err(e) => {
@@ -465,17 +473,16 @@ async fn translate_text_single(
         }
     }
 
-    // Fallback 1: MyMemory
-    if source_lang != "auto" {
-        match translate_mymemory(text, source_lang, target_lang).await {
-            Ok(result) => return Ok(result),
-            Err(e) => {
-                log::warn!("MyMemory translation failed: {}, trying Lingva fallback", e);
-            }
+    // 2. Fallback: MyMemory (accepts ISO codes or 'autodetect')
+    let mymemory_source = if source_lang == "auto" { "autodetect" } else { source_lang };
+    match translate_mymemory(text, mymemory_source, target_lang).await {
+        Ok(result) => return Ok(result),
+        Err(e) => {
+            log::warn!("MyMemory translation failed: {}, trying Lingva fallback", e);
         }
     }
 
-    // Fallback 2: Lingva
+    // 3. Fallback: Lingva
     match translate_lingva(text, source_lang, target_lang).await {
         Ok(result) => Ok(result),
         Err(e) => Err(ShioriError::Other(format!(
@@ -485,7 +492,70 @@ async fn translate_text_single(
     }
 }
 
-/// Primary translation provider: Google Web Translate mobile endpoint.
+/// Primary translation provider: Google Translate GTX endpoint (JSON).
+/// Fast (~80-180ms), reliable, native auto-detection, no HTML scraping.
+async fn translate_google_gtx(
+    text: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<TranslationResult> {
+    let client = get_client();
+    let url = "https://translate.googleapis.com/translate_a/single";
+
+    let response = client
+        .get(url)
+        .query(&[
+            ("client", "gtx"),
+            ("sl", source_lang),
+            ("tl", target_lang),
+            ("dt", "t"),
+            ("q", text),
+        ])
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Google GTX request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(ShioriError::Other(format!(
+            "Google GTX returned status {}",
+            response.status()
+        )));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Failed to parse Google GTX JSON: {}", e)))?;
+
+    let mut translated_text = String::new();
+    if let Some(sentences) = json.get(0).and_then(|v| v.as_array()) {
+        for s in sentences {
+            if let Some(part) = s.get(0).and_then(|v| v.as_str()) {
+                translated_text.push_str(part);
+            }
+        }
+    }
+
+    let detected_lang = json
+        .get(2)
+        .and_then(|v| v.as_str())
+        .unwrap_or(source_lang)
+        .to_string();
+
+    let cleaned = decode_html_entities(&translated_text).trim().to_string();
+    if cleaned.is_empty() {
+        return Err(ShioriError::Other("Empty translation received from Google GTX".to_string()));
+    }
+
+    Ok(TranslationResult {
+        translated_text: cleaned,
+        source_language: detected_lang,
+        target_language: target_lang.to_string(),
+        provider: "google".to_string(),
+    })
+}
+
+/// Fallback translation provider: Google Web Translate mobile endpoint.
 /// Fast, robust, supports auto-detection and all language pairs without rate-limiting.
 async fn translate_google_web(
     text: &str,
@@ -599,9 +669,10 @@ async fn translate_lingva(
     let client = get_client();
 
     let instances = [
-        "https://lingva.garudalinux.org",
+        "https://lingva.ml",
+        "https://translate.nerdvpn.de",
+        "https://lingva.lunar.icu",
         "https://lingva.thedesk.top",
-        "https://translate.plausibility.cloud",
     ];
 
     let mut last_error = String::new();

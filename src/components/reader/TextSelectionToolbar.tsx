@@ -9,9 +9,12 @@ import { useToastStore } from '@/store/toastStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
+import { AICopilotPopup } from './AICopilotPopup';
+import { Brain } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
 import { useReadingSettings, READER_THEME_COLORS, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { hapticTick } from '@/lib/haptics';
+import { useAIStore } from '@/store/aiStore';
 
 interface TextSelectionToolbarProps {
   bookId: number;
@@ -77,6 +80,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categories, setCategories] = useState<AnnotationCategory[]>([]);
   const [showTranslation, setShowTranslation] = useState(false);
+  const [showAICopilot, setShowAICopilot] = useState(false);
   const [translationMode, setTranslationMode] = useState<'translate' | 'define'>('translate');
   const [translationLoading, setTranslationLoading] = useState(false);
   const [dictionaryResult, setDictionaryResult] = useState<DictionaryResponse | null>(null);
@@ -92,16 +96,25 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   // mount at document.body — outside the reader container — so without this they
   // inherit the app theme's vars from <body> instead of the reader's.
   const readerTheme = useReadingSettings((s) => s.theme);
+  const aiEnabled = useAIStore((s) => s.enabled);
   useEffect(() => {
     const el = toolbarRef.current;
     if (!isVisible || !el) return;
     applyReaderThemeToElement(el, readerTheme || 'paper');
-    return () => removeReaderThemeFromElement(el);
+    // No cleanup: the toolbar unmounts with `isVisible`, so removal is handled
+    // by the unmount-only effect below and re-applies just overwrite.
   }, [isVisible, readerTheme]);
+
+  useEffect(() => () => {
+    const el = toolbarRef.current;
+    if (el) removeReaderThemeFromElement(el);
+  }, []);
   
-  // useTTS hook with dummy ref just for speakText
-  const dummyRef = useRef<HTMLDivElement>(null);
-  const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: dummyRef });
+  // useTTS hook for "Aloud": contentRef points at the element containing the
+  // selected text (snapshotted in handleSelectionChange) so sentence
+  // highlighting / stop-cleanup target real reader content, not a dummy node.
+  const selectionContainerRef = useRef<HTMLElement | null>(null);
+  const { speakText, stop: stopSpeaking, state: ttsState } = useTTS({ contentRef: selectionContainerRef });
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [toolbarBaseActions, setToolbarBaseActions] = useState<string[]>(['highlight', 'note', 'translate']);
@@ -140,6 +153,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       hideTimerRef.current = null;
     }
     selectionAnchorRef.current = undefined;
+    selectionContainerRef.current = null;
     setIsVisible(false);
     setShowColorPicker(false);
     setShowNoteInput(false);
@@ -147,6 +161,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     setNoteText('');
     setSelectedCategoryId(undefined);
     setShowTranslation(false);
+    setShowAICopilot(false);
     setDictionaryResult(null);
     setTranslationResult(null);
     setTranslationError(null);
@@ -232,6 +247,12 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       selectionRectRef.current = rect;
+      // Snapshot the element containing the selection for the TTS contentRef, so
+      // "Aloud" highlighting/cleanup operate on the real reader content.
+      const anchor = range.commonAncestorContainer;
+      selectionContainerRef.current = anchor.nodeType === Node.ELEMENT_NODE
+        ? (anchor as HTMLElement)
+        : (anchor.parentElement as HTMLElement | null);
 
       // Position toolbar relative to selection with safe bounds
       const isCard = showNoteInput || showTranslation || showColorPicker;
@@ -270,14 +291,14 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
 
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [hideToolbar, showNoteInput, showTranslation, showColorPicker]);
+  }, [hideToolbar, showNoteInput, showTranslation, showColorPicker, showAICopilot]);
 
   const selectionRectRef = useRef<DOMRect | null>(null);
 
   // Dynamic repositioning whenever toolbar size or content changes
   const repositionToolbar = useCallback(() => {
     if (!toolbarRef.current) return;
-    const isCard = showNoteInput || showTranslation || showColorPicker;
+    const isCard = showNoteInput || showTranslation || showColorPicker || showAICopilot;
     const actualWidth = toolbarRef.current.offsetWidth || (isCard ? 380 : 320);
     const actualHeight = toolbarRef.current.offsetHeight || (isCard ? 300 : 45);
     const rect = selectionRectRef.current;
@@ -324,7 +345,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       }
       return { x: clampedX, y: clampedY };
     });
-  }, [showNoteInput, showTranslation, showColorPicker]);
+  }, [showNoteInput, showTranslation, showColorPicker, showAICopilot]);
 
   // Click outside to dismiss toolbar
   useEffect(() => {
@@ -717,7 +738,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
       {isVisible && (
         <motion.div
           ref={toolbarRef}
-          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showColorPicker) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
+          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showColorPicker && !showAICopilot) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
           style={isAndroid ? undefined : { left: position.x, top: position.y }}
           initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.96 }}
           animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
@@ -742,7 +763,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
           }}
         >
           {/* Main action buttons: Fig 3 Icon-Top + Fig 2 Sub-view on Android, Single-row on Desktop */}
-          {!showNoteInput && !showTranslation && (
+          {!showNoteInput && !showTranslation && !showAICopilot && (
             isAndroid ? (
               !showAndroidMore ? (
                 /* Primary Fig 3 Bar: Copy | Highlight | Translate | Dictionary | More ⋮ */
@@ -836,6 +857,21 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     <span className="text-[13.5px] font-medium tracking-tight" style={{ color: 'var(--text-primary)' }}>Note</span>
                   </button>
 
+                  {aiEnabled && (
+                  <button
+                    type="button"
+                    className="text-selection-toolbar-android-btn flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
+                    onClick={() => {
+                      hapticTick();
+                      setShowAndroidMore(false);
+                      setShowAICopilot(true);
+                    }}
+                  >
+                    <Brain size={18} className="shrink-0" style={{ color: 'var(--text-primary)' }} />
+                    <span className="text-[13.5px] font-medium tracking-tight" style={{ color: 'var(--text-primary)' }}>Ask AI</span>
+                  </button>
+                  )}
+
                   <button
                     type="button"
                     className="text-selection-toolbar-android-btn flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
@@ -876,7 +912,10 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     setShowNoteInput(true);
                   }}
                 >
-                  <StickyNote size={14} />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" />
+                    <path d="M14 3v4a2 2 0 0 0 2 2h4" />
+                  </svg>
                   <span>Note</span>
                 </button>
 
@@ -890,7 +929,10 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     setShowColorPicker(!showColorPicker);
                   }}
                 >
-                  <Highlighter size={14} />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m9 11-6 6v3h3l6-6" />
+                    <path d="m22 12-4.6 4.6a2.78 2.78 0 0 1-3.9 0l-2.1-2.1a2.78 2.78 0 0 1 0-3.9L16 6" />
+                  </svg>
                   <span>Highlight</span>
                 </button>
 
@@ -904,7 +946,10 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     ttsState === 'speaking' ? stopSpeaking() : speakText(selectedText);
                   }}
                 >
-                  <Volume2 size={14} className={ttsState === 'speaking' ? "text-primary" : ""} />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={ttsState === 'speaking' ? "text-primary animate-pulse" : ""}>
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  </svg>
                   <span>{ttsState === 'speaking' ? "Stop" : "Aloud"}</span>
                 </button>
 
@@ -925,6 +970,27 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                 </button>
 
                 <span className="text-selection-toolbar-divider" />
+
+                {!isAndroid && aiEnabled && (
+                  <>
+                    <button
+                      type="button"
+                      className="text-selection-toolbar-btn"
+                      onClick={() => {
+                        hapticTick();
+                        setShowAICopilot(!showAICopilot);
+                        setShowTranslation(false);
+                        setShowNoteInput(false);
+                        setShowColorPicker(false);
+                      }}
+                    >
+                      <Brain size={14} style={{ color: 'var(--text-primary)' }} />
+                      <span>Ask AI</span>
+                    </button>
+
+                    <span className="text-selection-toolbar-divider" />
+                  </>
+                )}
 
                 <button
                   type="button"
@@ -1094,6 +1160,24 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
               onSwitchMode={(mode) => {
                 if (mode === 'define') handleDefine();
                 else handleTranslate();
+              }}
+            />
+          )}
+
+          {showAICopilot && (
+            <AICopilotPopup
+              selectedText={selectedText}
+              context={{
+                bookId,
+                selectedText,
+              }}
+              onClose={() => {
+                setShowAICopilot(false);
+              }}
+              onSaveAsNote={(aiNote) => {
+                setNoteText(aiNote);
+                setShowAICopilot(false);
+                setShowNoteInput(true);
               }}
             />
           )}

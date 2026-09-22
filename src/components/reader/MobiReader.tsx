@@ -73,6 +73,7 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     const currentChapterRef = useRef<Chapter | null>(null);
     const metadataRef = useRef<BookMetadata | null>(null);
     const loadBookRef = useRef<() => Promise<void>>(async () => { });
+    const hasShownResumeToastRef = useRef(false);
 
     // ── Reader Theme ──
     useReaderTheme(readerContainerRef, theme);
@@ -258,8 +259,10 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
             await loadChapter(startIndex, savedScrollRatio);
 
-            if (startIndex > 0 || savedScrollRatio > 0) {
+            if ((startIndex > 0 || savedScrollRatio > 0) && !hasShownResumeToastRef.current) {
+                hasShownResumeToastRef.current = true;
                 useToastStore.getState().addToast({
+                    id: 'resume-reading',
                     title: 'Resuming reading',
                     description: `Chapter ${startIndex + 1} of ${bookMetadata.total_chapters}`,
                     variant: 'info',

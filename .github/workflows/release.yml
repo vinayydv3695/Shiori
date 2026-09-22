@@ -427,7 +427,7 @@ jobs:
           VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           python3 - <<'PY'
-          import json, os, subprocess, sys
+          import json, os, subprocess, sys, time
           from datetime import datetime, timezone
 
           version = os.environ["VERSION"]
@@ -435,13 +435,46 @@ jobs:
           tag = f"v{version}"
 
           os.makedirs("/tmp/release-assets", exist_ok=True)
-          subprocess.run(["gh", "release", "download", tag, "--repo", repo, "--dir", "/tmp/release-assets", "--clobber"], check=False)
 
-          files = os.listdir("/tmp/release-assets")
+          # ── Wait for all required updater assets to appear on the release ──
+          # Each build matrix job uploads independently; GitHub CDN can lag
+          # a few seconds even after all jobs finish.  Poll until every
+          # platform has both the payload and its .sig file.
+          REQUIRED_CHECKS = {
+              "linux":       lambda f: f.endswith(".AppImage.tar.gz"),
+              "linux_sig":   lambda f: f.endswith(".AppImage.tar.gz.sig"),
+              "windows":     lambda f: "nsis.zip" in f and not f.endswith(".sig"),
+              "windows_sig": lambda f: "nsis.zip.sig" in f,
+              "macos":       lambda f: f.endswith(".app.tar.gz"),
+              "macos_sig":   lambda f: f.endswith(".app.tar.gz.sig"),
+          }
+
+          files = []
+          for attempt in range(1, 21):          # up to ~3 minutes (20 x 10s)
+              result = subprocess.run(
+                  ["gh", "release", "download", tag, "--repo", repo,
+                   "--dir", "/tmp/release-assets", "--clobber"],
+                  capture_output=True, text=True,
+              )
+              if result.returncode != 0:
+                  print(f"gh release download failed (attempt {attempt}/20): {result.stderr.strip()}")
+              files = os.listdir("/tmp/release-assets")
+              missing = [k for k, pred in REQUIRED_CHECKS.items() if not any(pred(f) for f in files)]
+              if not missing:
+                  print(f"All updater assets present on attempt {attempt}: {sorted(files)}")
+                  break
+              print(f"Attempt {attempt}/20 – still waiting for: {missing}")
+              if attempt < 20:
+                  time.sleep(10)
+          else:
+              missing = [k for k, pred in REQUIRED_CHECKS.items() if not any(pred(f) for f in files)]
+              print(f"WARNING: timed out waiting for assets. Still missing: {missing}", file=sys.stderr)
+
+          print(f"Release assets found: {sorted(files)}")
           platforms = {}
 
           # Linux AppImage
-          linux_gz = next((f for f in files if f.endswith(".AppImage.tar.gz")), None)
+          linux_gz  = next((f for f in files if f.endswith(".AppImage.tar.gz")), None)
           linux_sig = next((f for f in files if f.endswith(".AppImage.tar.gz.sig")), None)
           if linux_gz and linux_sig:
               sig_content = open(f"/tmp/release-assets/{linux_sig}", "r").read().strip()
@@ -449,8 +482,11 @@ jobs:
                   "signature": sig_content,
                   "url": f"https://github.com/{repo}/releases/download/{tag}/{linux_gz}"
               }
+          else:
+              print(f"WARNING: Linux updater assets not found (gz={linux_gz}, sig={linux_sig})", file=sys.stderr)
 
-          # Windows NSIS
+          # Windows NSIS – the critical one; abort if missing so we never
+          # publish a latest.json that silently excludes Windows users.
           win_zip = next((f for f in files if "nsis.zip" in f and not f.endswith(".sig")), None)
           win_sig = next((f for f in files if "nsis.zip.sig" in f), None)
           if win_zip and win_sig:
@@ -459,9 +495,14 @@ jobs:
                   "signature": sig_content,
                   "url": f"https://github.com/{repo}/releases/download/{tag}/{win_zip}"
               }
+          else:
+              print(f"ERROR: Windows updater assets not found after polling (zip={win_zip}, sig={win_sig}). "
+                    "Refusing to upload latest.json without windows-x86_64 — Windows users would never "
+                    "see the update popup.", file=sys.stderr)
+              sys.exit(1)
 
-          # macOS DMG / App.tar.gz
-          mac_gz = next((f for f in files if f.endswith(".app.tar.gz")), None)
+          # macOS App bundle
+          mac_gz  = next((f for f in files if f.endswith(".app.tar.gz")), None)
           mac_sig = next((f for f in files if f.endswith(".app.tar.gz.sig")), None)
           if mac_gz and mac_sig:
               sig_content = open(f"/tmp/release-assets/{mac_sig}", "r").read().strip()
@@ -473,6 +514,8 @@ jobs:
                   "signature": sig_content,
                   "url": f"https://github.com/{repo}/releases/download/{tag}/{mac_gz}"
               }
+          else:
+              print(f"WARNING: macOS updater assets not found (gz={mac_gz}, sig={mac_sig})", file=sys.stderr)
 
           latest_json = {
               "version": version,
@@ -481,6 +524,7 @@ jobs:
               "platforms": platforms
           }
 
+          print(f"Uploading latest.json with platforms: {list(platforms.keys())}")
           with open("/tmp/latest.json", "w") as f:
               json.dump(latest_json, f, indent=2)
 

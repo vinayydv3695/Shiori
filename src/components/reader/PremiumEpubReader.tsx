@@ -7,6 +7,7 @@ import { findCurrentTocEntry } from '@/lib/toc';
 import { useReaderUIStore, useReadingSettings, applyReaderThemeToElement, removeReaderThemeFromElement, applyAllSettingsToDOM } from '@/store/premiumReaderStore';
 import { syncReaderStatusBar, restoreAppStatusBar } from '@/lib/statusBarTheme';
 import { useReaderStore } from '@/store/readerStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { useDoodleStore } from '@/store/doodleStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useFullscreen } from '@/hooks/useFullscreen';
@@ -562,6 +563,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
   const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
   const setActivePage = useDoodleStore(state => state.setActivePage);
+  const autoAdvance = usePreferencesStore(state => state.preferences?.tts?.autoAdvance ?? true);
 
   useReadingSession(bookId);
 
@@ -662,6 +664,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const chapterLoadInFlightRef = useRef(false);
   const previousTwoPageViewRef = useRef(twoPageView);
   const previousDoodleChapterRef = useRef<number | null>(null);
+  /** Guards the "Resuming reading" toast so it fires at most once per mount,
+   *  even if the init useEffect re-runs due to unstable dep references. */
+  const hasShownResumeToastRef = useRef(false);
 
   // Preloaded chapter content for page flip
   const [nextChapterContent, setNextChapterContent] = useState<string | null>(null);
@@ -874,6 +879,25 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     loadChapterRef.current = loadChapter;
   }, [loadChapter]);
 
+  // Keep the latest theme in a ref so the callback ref below can apply it the
+  // moment the reader container node attaches (initial mount, remount, or a
+  // null→node transition caused by chapter loads / error state).
+  const latestThemeRef = useRef(theme);
+  useEffect(() => {
+    latestThemeRef.current = theme;
+  }, [theme]);
+
+  const setReaderContainerNode = useCallback((node: HTMLDivElement | null) => {
+    readerContainerRef.current = node;
+    if (node) {
+      applyReaderThemeToElement(node, latestThemeRef.current);
+      syncReaderStatusBar(latestThemeRef.current);
+    }
+  }, []);
+
+  // Apply on theme change only — no cleanup, so an apply can never strip the
+  // theme while the container is temporarily detached (which left light
+  // content while settings still reported e.g. 'black').
   useEffect(() => {
     const el = readerContainerRef.current;
     if (el) {
@@ -883,11 +907,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       // useReaderTheme hook), so the sync must be wired here explicitly.
       syncReaderStatusBar(theme);
     }
-    return () => {
-      if (el) removeReaderThemeFromElement(el);
-      restoreAppStatusBar();
-    };
-  }, [theme, isLoading, error]);
+  }, [theme]);
+
+  // Unmount-only cleanup.
+  useEffect(() => () => {
+    const el = readerContainerRef.current;
+    if (el) removeReaderThemeFromElement(el);
+    restoreAppStatusBar();
+  }, []);
 
   // ────────────────────────────────────────────────────────────
   // AUTO-HIDE TOP BAR LOGIC
@@ -1265,11 +1292,13 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         await loadChapterRef.current(startIndex, null, savedScrollRatio);
         setIsLoading(false);
 
-        if (!skipRestore && (startIndex > 0 || savedScrollRatio > 0)) {
+        if (!skipRestore && (startIndex > 0 || savedScrollRatio > 0) && !hasShownResumeToastRef.current) {
+          hasShownResumeToastRef.current = true;
           const pct = bookMetadata.total_chapters > 0
             ? Math.round((startIndex / bookMetadata.total_chapters) * 100)
             : 0;
           useToastStore.getState().addToast({
+            id: 'resume-reading',
             title: 'Resuming reading',
             description: `Chapter ${startIndex + 1} of ${bookMetadata.total_chapters} (${pct}%)`,
             variant: 'info',
@@ -2258,7 +2287,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   if (error) {
     return (
-      <div ref={readerContainerRef} className="premium-reader premium-reader--error">
+      <div ref={setReaderContainerNode} className="premium-reader premium-reader--error">
         <div className="premium-error-container">
           <AlertCircle className="premium-error-icon" />
           <p className="premium-error-title">{error}</p>
@@ -2290,7 +2319,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
   return (
     <div 
-      ref={readerContainerRef} 
+      ref={setReaderContainerNode} 
       className={`premium-reader ${isFocusMode ? 'premium-reader--focus-mode' : ''} ${cursorHidden ? 'premium-reader--cursor-hidden' : ''}`} 
       onClick={handleContainerClick} 
       onDoubleClick={handleContainerDoubleClick}
@@ -2599,7 +2628,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       {/* TTS Audiobook UI */}
       <TTSControlBar
         contentRef={contentContainerRef}
-        onChapterEnd={() => loadChapter(currentIndex + 1)}
+        onChapterEnd={() => {
+          const lastIndex = (metadata?.total_chapters ?? 1) - 1;
+          if (autoAdvance && currentIndex < lastIndex) {
+            loadChapter(currentIndex + 1);
+          }
+        }}
         contentKey={currentIndex}
       />
 

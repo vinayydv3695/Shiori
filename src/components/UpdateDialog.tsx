@@ -102,7 +102,19 @@ export function UpdateDialog() {
         }
       } else {
         if (updateInfo.desktopUpdate) {
-          await updateInfo.desktopUpdate.downloadAndInstall();
+          let cumulativeDownloaded = 0;
+          let totalSize: number | null = null;
+          await updateInfo.desktopUpdate.downloadAndInstall((event: any) => {
+            if (event.event === 'Started') {
+              totalSize = event.data?.contentLength ?? null;
+              setDownloadProgress({ downloaded: 0, total: totalSize });
+            } else if (event.event === 'Progress') {
+              cumulativeDownloaded += event.data?.chunkLength ?? 0;
+              setDownloadProgress({ downloaded: cumulativeDownloaded, total: totalSize });
+            } else if (event.event === 'Finished') {
+              setDownloadProgress({ downloaded: cumulativeDownloaded, total: cumulativeDownloaded });
+            }
+          });
           await relaunch();
         } else {
           // Simulated progress for preview / dev

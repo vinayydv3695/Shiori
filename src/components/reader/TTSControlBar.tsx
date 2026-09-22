@@ -409,7 +409,13 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
                                   <div className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
                                     <span>{formatLanguageName(v.lang)}</span>
                                     <span>•</span>
-                                    <span>Offline Neural</span>
+                                    <span>
+                                      {v.voiceURI?.startsWith('edge:')
+                                        ? 'Neural Cloud (Edge)'
+                                        : v.voiceURI?.startsWith('piper:')
+                                        ? 'Offline Neural (Piper)'
+                                        : 'System Voice'}
+                                    </span>
                                   </div>
                                 </div>
 
@@ -559,7 +565,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
               }
             }}
             disabled={!isAvailable}
-            title={!isAvailable ? 'Text-to-speech not available' : 'Audiobook Mode'}
+            aria-label={!isAvailable ? 'Text-to-speech not available' : 'Audiobook Mode'}
             className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1.5rem)] right-4 md:right-8 z-50 p-4 rounded-full backdrop-blur-xl shadow-2xl transition-all duration-300 flex items-center justify-center ${
               !isAvailable
                 ? 'opacity-50 cursor-not-allowed' 
@@ -609,7 +615,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
                   onClick={() => setShowVoiceModal(true)}
                   className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
                   style={{ borderColor: 'var(--ui-border)', color: 'var(--text-secondary)' }}
-                  title="Manage Voices"
+                  aria-label="Manage Voices"
                 >
                   <Mic className="w-3 h-3" />
                   <span>Voices</span>
@@ -621,7 +627,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
                   }}
                   className="p-1.5 rounded-lg transition-colors hover:bg-black/10 dark:hover:bg-white/10"
                   style={{ color: 'var(--text-secondary)' }}
-                  title="Close Player"
+                  aria-label="Close Player"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -715,7 +721,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
                 disabled={currentSentenceIndex === 0 || totalSentences === 0}
                 className="p-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90"
                 style={{ color: 'var(--text-primary)' }}
-                title="Previous Sentence"
+                aria-label="Previous Sentence"
               >
                 <SkipBack className="w-5 h-5 fill-current" />
               </button>
@@ -728,7 +734,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
                   backgroundColor: 'var(--text-primary)',
                   color: 'var(--bg-primary)',
                 }}
-                title={state === 'speaking' ? 'Pause' : 'Play'}
+                aria-label={state === 'speaking' ? 'Pause' : 'Play'}
               >
                 {state === 'speaking' ? (
                   <Pause className="w-6 h-6 fill-current" />
@@ -743,7 +749,7 @@ export function TTSControlBar({ contentRef, onChapterEnd, contentKey }: TTSContr
                 disabled={currentSentenceIndex >= totalSentences - 1 || totalSentences === 0}
                 className="p-3 rounded-full hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90"
                 style={{ color: 'var(--text-primary)' }}
-                title="Next Sentence"
+                aria-label="Next Sentence"
               >
                 <SkipForward className="w-5 h-5 fill-current" />
               </button>

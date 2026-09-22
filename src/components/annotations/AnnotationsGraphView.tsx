@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { AnnotationSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { 
   Plus, Minus, RotateCcw, Sliders, Maximize2, BookOpen, 
-  Sparkles, Bookmark, ExternalLink
+  Network, Bookmark, ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -792,7 +792,7 @@ export function AnnotationsGraphView({
 
       {/* ── Top Left: Stats HUD ── */}
       <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-card/85 backdrop-blur-xl border border-border/70 shadow-lg rounded-2xl px-3.5 py-2 text-xs">
-        <Sparkles className="w-3.5 h-3.5 text-primary" />
+        <Network className="w-3.5 h-3.5 text-primary" />
         <div className="flex items-center gap-2 text-muted-foreground font-medium">
           <span className="font-bold text-foreground">
             {nodes.filter(n => n.type === 'book').length}

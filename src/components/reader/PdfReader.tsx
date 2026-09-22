@@ -280,6 +280,7 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
   // re-run the effect. loadedBookIdRef prevents duplicate opens on re-render.
   const flushProgressNowRef = useRef<() => void>(() => {});
   const loadedBookIdRef = useRef<number | null>(null);
+  const hasShownResumeToastRef = useRef(false);
 
   // ── Reader Theme ──
   useReaderTheme(readerContainerRef, theme);
@@ -564,8 +565,10 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
           pendingResumeScrollRatioRef.current = parsed.viewMode === 'scroll' && typeof parsed.scrollRatio === 'number'
             ? clamp(parsed.scrollRatio, 0, 1)
             : null;
-          if (parsed.page > 1) {
+          if (parsed.page > 1 && !hasShownResumeToastRef.current) {
+            hasShownResumeToastRef.current = true;
             useToastStore.getState().addToast({
+              id: 'resume-reading',
               title: 'Resuming reading',
               description: `Page ${parsed.page}`,
               variant: 'info',

@@ -85,6 +85,7 @@ export function MangaReader(props: MangaReaderProps) {
 
     // Guard: don't save progress until initialization + resume is complete
     const initCompleteRef = useRef(false);
+    const hasShownResumeToastRef = useRef(false);
 
     const [showCompletionPrompt, setShowCompletionPrompt] = useState(false);
     const [completionData, setCompletionData] = useState<{mediaId: number, title: string, totalChapters: number, token: string} | null>(null);
@@ -140,8 +141,10 @@ export function MangaReader(props: MangaReaderProps) {
                     if (progress && progress.currentPage !== undefined) {
                         logger.debug('[MangaReader] Resuming from page:', progress.currentPage);
                         setCurrentPage(progress.currentPage);
-                        if (progress.currentPage > 0) {
+                        if (progress.currentPage > 0 && !hasShownResumeToastRef.current) {
+                            hasShownResumeToastRef.current = true;
                             useToastStore.getState().addToast({
+                                id: 'resume-reading',
                                 title: 'Resuming reading',
                                 description: `Page ${progress.currentPage + 1} of ${metadata.page_count}`,
                                 variant: 'info',
@@ -193,10 +196,12 @@ export function MangaReader(props: MangaReaderProps) {
                         const { chapterId, page } = JSON.parse(savedProgress);
                         const savedPage = typeof page === 'number' ? Math.max(0, page) : 0;
 
-                        if (chapterId === onlineConfig.chapterId && savedPage > 0) {
+                        if (chapterId === onlineConfig.chapterId && savedPage > 0 && !hasShownResumeToastRef.current) {
+                            hasShownResumeToastRef.current = true;
                             const clampedPage = Math.min(savedPage, Math.max(0, onlineConfig.pageUrls.length - 1));
                             setCurrentPage(clampedPage);
                             useToastStore.getState().addToast({
+                                id: 'resume-reading',
                                 title: 'Resuming reading',
                                 description: `Page ${clampedPage + 1} of ${onlineConfig.pageUrls.length}`,
                                 variant: 'info',

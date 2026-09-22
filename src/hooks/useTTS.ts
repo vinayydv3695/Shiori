@@ -19,8 +19,9 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { useToastStore } from '@/store/toastStore';
 import { extractTextFromDOM } from '@/lib/textExtractor';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { synthesizeEdgeSpeech, POPULAR_EDGE_VOICES } from '@/lib/edgeTTS';
 // Native TTS support (Tauri plugin)
-import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices, onSpeechEvent } from 'tauri-plugin-tts-api';
+import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices, onSpeechEvent, pauseSpeaking } from 'tauri-plugin-tts-api';
 
 // Module-level cache for Piper voices in the reader picker. Tolerates
 // failure silently: a Piper outage must never break the native voice list.
@@ -73,12 +74,43 @@ export interface UseTTSReturn {
   speakText: (text: string) => void;
 }
 
+const cleanupAudioElement = (audio: HTMLAudioElement | null) => {
+  if (!audio) return;
+  audio.onended = null;
+  audio.onerror = null;
+  try {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  } catch {}
+};
+
+/** Strip cloud/local URI prefixes so native engines only ever receive plain voice ids. */
+const resolveNativeVoiceId = (voice: string | null | undefined): string | null => {
+  if (!voice || voice === 'default') return null;
+  if (voice.startsWith('edge:') || voice.startsWith('piper:')) return null;
+  return voice;
+};
+
+/** Revoke a tracked blob object URL (safe to call repeatedly / after revocation). */
+const revokeTrackedBlobUrl = (ref: { current: string | null }): void => {
+  if (ref.current) {
+    try {
+      URL.revokeObjectURL(ref.current);
+    } catch {
+      // already revoked or invalid — nothing else to do
+    }
+    ref.current = null;
+  }
+};
+
 export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions): UseTTSReturn {
   const [state, setState] = useState<TTSState>('idle');
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState<number>(0);
   const [sentences, setSentences] = useState<string[]>([]);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [noVoices, setNoVoices] = useState<boolean>(false);
+  const [piperAvailable, setPiperAvailable] = useState<boolean>(false);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [rate, setRateState] = useState<number>(1.0);
   const [pitch, setPitchState] = useState<number>(1.0);
@@ -87,6 +119,10 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   const sentencesRef = useRef<string[]>([]);
   const currentIndexRef = useRef<number>(0);
   const piperAudioRef = useRef<HTMLAudioElement | null>(null);
+  const piperFallbackRef = useRef(false);
+  const edgeFallbackRef = useRef(false);
+  const generationRef = useRef<number>(0);
+  const blobUrlRef = useRef<string | null>(null);
   const cleanupHighlightRef = useRef<(() => void) | null>(null);
   const speakSentenceAtIndexRef = useRef<(index: number, sentenceArray?: string[]) => void>(() => {});
   const nativeTTSTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,7 +135,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   const nativeErrorReportedRef = useRef(false);
   const finishAdvanceRef = useRef<() => void>(() => {});
 
-  const isAvailable = TTSEngine.isAvailable() || useNativeTTS || (isTauri && !isAndroid);
+  const isAvailable = TTSEngine.isAvailable() || useNativeTTS || piperAvailable || (isTauri && !isAndroid);
 
   // Always try to detect native TTS first if running in Tauri.
   // We can't use isAvailable to gate checkNativeTTS because Web Speech API might be entirely absent (e.g., on Android WebView)
@@ -122,6 +158,22 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
      };
 
     checkNativeTTS();
+  }, []);
+
+  // Piper is compiled into the desktop backend (not Android/iOS); its
+  // availability is async (voice query). Default unavailable, flip on when the
+  // query resolves so Linux (no Web Speech, no native plugin) still enables TTS.
+  useEffect(() => {
+    if (!isTauri || isAndroid) return;
+    let mounted = true;
+    loadPiperVoicesForPicker().then((piper) => {
+      if (mounted && piper.length > 0) {
+        setPiperAvailable(true);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Android: subscribe to plugin speech events so sentence advance follows real
@@ -220,10 +272,11 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         availableVoices = ttsEngine.getVoices();
       }
 
+      let piper: VoiceInfo[] = [];
       if (isTauri && !isAndroid) {
-        const piper = await loadPiperVoicesForPicker();
-        availableVoices = buildVoicePickerItems(availableVoices, piper);
+        piper = await loadPiperVoicesForPicker();
       }
+      availableVoices = buildVoicePickerItems(availableVoices, piper, POPULAR_EDGE_VOICES);
 
       setVoices(availableVoices);
       setNoVoices(availableVoices.length === 0);
@@ -261,6 +314,9 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
 
   // Reset TTS state when the content changes (e.g., chapter navigation)
   useEffect(() => {
+    // Invalidate any in-flight Edge/Piper synthesis and drop its object URL.
+    generationRef.current += 1;
+    revokeTrackedBlobUrl(blobUrlRef);
     setState('idle');
     setCurrentSentenceIndex(0);
     currentIndexRef.current = 0;
@@ -268,8 +324,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
     sentencesRef.current = [];
     
     if (piperAudioRef.current) {
-      piperAudioRef.current.pause();
-      piperAudioRef.current.src = '';
+      cleanupAudioElement(piperAudioRef.current);
       piperAudioRef.current = null;
     }
 
@@ -319,6 +374,9 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   useEffect(() => {
     const contentEl = contentRef.current;
     return () => {
+      // Invalidate in-flight synthesis and release the tracked object URL.
+      generationRef.current += 1;
+      revokeTrackedBlobUrl(blobUrlRef);
       if (useNativeTTS) {
         nativeStop().catch(() => {});
         if (nativeTTSTimeoutRef.current) {
@@ -344,6 +402,11 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
       return;
     }
 
+    // Bump the generation counter so any in-flight Edge/Piper synthesis from a
+    // previous sentence, skip or stop bails out before it creates/plays audio.
+    const gen = generationRef.current + 1;
+    generationRef.current = gen;
+
     if (cleanupHighlightRef.current) {
       cleanupHighlightRef.current();
       cleanupHighlightRef.current = null;
@@ -363,7 +426,107 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
 
     const preferences = usePreferencesStore.getState().preferences;
     const preferredVoice = preferences?.tts?.voice;
+    const isEdge = preferredVoice && preferredVoice.startsWith('edge:');
     const isPiper = preferredVoice && preferredVoice.startsWith('piper:');
+
+    if (isEdge) {
+      const voiceId = preferredVoice.replace('edge:', '');
+      setState('speaking');
+      setCurrentSentenceIndex(index);
+      currentIndexRef.current = index;
+
+      synthesizeEdgeSpeech(sentence, { voice: voiceId, rate, pitch })
+        .then((blob) => {
+          if (gen !== generationRef.current) return;
+
+          revokeTrackedBlobUrl(blobUrlRef);
+          const audioUrl = URL.createObjectURL(blob);
+          blobUrlRef.current = audioUrl;
+          const audio = new Audio(audioUrl);
+          // Edge SSML already carries the rate (prosody) — no playbackRate here
+          // or 1.5× would be applied twice (2.25×).
+          piperAudioRef.current = audio;
+
+          audio.onended = () => {
+            if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            if (gen !== generationRef.current) return;
+            const nextIndex = currentIndexRef.current + 1;
+            if (nextIndex < sentencesRef.current.length) {
+              speakSentenceAtIndexRef.current(nextIndex);
+            } else {
+              setState('idle');
+              setCurrentSentenceIndex(0);
+              currentIndexRef.current = 0;
+              if (cleanupHighlightRef.current) {
+                cleanupHighlightRef.current();
+                cleanupHighlightRef.current = null;
+              }
+              onChapterEnd?.();
+            }
+          };
+
+          audio.onerror = (e) => {
+            if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            if (gen !== generationRef.current) return;
+            logger.warn('Edge TTS playback error, falling back to Web Speech:', e);
+            piperAudioRef.current = null;
+            if (TTSEngine.isAvailable()) {
+              ttsEngine.speak(sentence, {
+                rate,
+                onEnd: () => {
+                  const nextIndex = currentIndexRef.current + 1;
+                  if (nextIndex < sentencesRef.current.length) {
+                    speakSentenceAtIndexRef.current(nextIndex);
+                  } else {
+                    setState('idle');
+                  }
+                },
+                onError: () => setState('idle'),
+              });
+            } else {
+              setState('idle');
+            }
+          };
+
+          audio.play().catch((e) => {
+            if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            if (gen !== generationRef.current) return;
+            logger.warn('Edge TTS audio play() rejected, falling back to Web Speech:', e);
+            piperAudioRef.current = null;
+            if (TTSEngine.isAvailable()) {
+              ttsEngine.speak(sentence, {
+                rate,
+                onEnd: () => {
+                  const nextIndex = currentIndexRef.current + 1;
+                  if (nextIndex < sentencesRef.current.length) {
+                    speakSentenceAtIndexRef.current(nextIndex);
+                  } else {
+                    setState('idle');
+                  }
+                },
+                onError: () => setState('idle'),
+              });
+            } else {
+              setState('idle');
+              useToastStore.getState().addToast({
+                title: 'TTS unavailable',
+                description: 'Edge audio could not start and no fallback TTS engine is available.',
+                variant: 'error',
+                duration: 4000,
+              });
+            }
+          });
+        })
+        .catch((err) => {
+          if (gen !== generationRef.current) return;
+          logger.warn('Edge TTS synthesis failed:', err);
+          setState('idle');
+        });
+      return;
+    }
 
     if (isPiper) {
       const voiceId = preferredVoice.replace('piper:', '');
@@ -373,6 +536,16 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
 
       api.synthesizeSpeech(sentence, voiceId)
         .then((rawUrl) => {
+          if (gen !== generationRef.current) {
+            if (rawUrl && rawUrl.startsWith('blob:')) {
+              try {
+                URL.revokeObjectURL(rawUrl);
+              } catch {
+                // already revoked or invalid — nothing else to do
+              }
+            }
+            return;
+          }
           let audioUrl = rawUrl;
           if (rawUrl && !rawUrl.startsWith('data:') && !rawUrl.startsWith('blob:') && !rawUrl.startsWith('http')) {
             try {
@@ -386,6 +559,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           piperAudioRef.current = audio;
           
           audio.onended = () => {
+            if (gen !== generationRef.current) return;
             const nextIndex = currentIndexRef.current + 1;
             if (nextIndex < sentencesRef.current.length) {
               speakSentenceAtIndexRef.current(nextIndex);
@@ -402,6 +576,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           };
           
           audio.onerror = (e) => {
+            if (gen !== generationRef.current) return;
             logger.warn('Piper audio playback error, falling back to Web Speech:', e);
             piperAudioRef.current = null;
             if (TTSEngine.isAvailable()) {
@@ -423,6 +598,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           };
           
           audio.play().catch(e => {
+            if (gen !== generationRef.current) return;
             logger.warn('Piper play() promise rejected, falling back to Web Speech:', e);
             if (TTSEngine.isAvailable()) {
               ttsEngine.speak(sentence, {
@@ -443,6 +619,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           });
         })
         .catch(error => {
+          if (gen !== generationRef.current) return;
           logger.warn('Piper synthesis failed, falling back to Web Speech:', error);
           if (TTSEngine.isAvailable()) {
             ttsEngine.speak(sentence, {
@@ -504,7 +681,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
       nativeSpeak({
         text: sentence,
         language: selectedVoice?.lang || null,
-        voiceId: preferredVoice && preferredVoice !== 'default' ? preferredVoice : null,
+        voiceId: resolveNativeVoiceId(preferredVoice),
         rate,
         pitch: null,
         volume: null,
@@ -650,6 +827,24 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         clearTimeout(nativeTTSTimeoutRef.current);
         nativeTTSTimeoutRef.current = null;
       }
+      if (audioGuardTimerRef.current) {
+        clearTimeout(audioGuardTimerRef.current);
+        audioGuardTimerRef.current = null;
+      }
+      if (!isAndroid) {
+        // tauri-plugin-tts only supports pauseSpeaking on iOS; on desktop the
+        // engine keeps talking after a timer-clear, so stop it for real —
+        // resume() re-speaks the current sentence exactly once.
+        pauseSpeaking()
+          .then((result) => {
+            if (!result.success) {
+              nativeStop().catch(() => {});
+            }
+          })
+          .catch(() => {
+            nativeStop().catch(() => {});
+          });
+      }
     } else {
       ttsEngine.pause();
     }
@@ -676,6 +871,10 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
   }, [state, useNativeTTS, speakSentenceAtIndex]);
 
   const stop = useCallback(async () => {
+    // Invalidate in-flight Edge/Piper synthesis and release its object URL
+    // before it can start playing up to 15s later.
+    generationRef.current += 1;
+    revokeTrackedBlobUrl(blobUrlRef);
     setState('idle');
     
     if (piperAudioRef.current) {
@@ -803,7 +1002,7 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
       nativeSpeak({
         text,
         language: null,
-        voiceId: selectedVoice?.voiceURI || null,
+        voiceId: resolveNativeVoiceId(selectedVoice?.voiceURI),
         rate,
         pitch,
         volume: null,

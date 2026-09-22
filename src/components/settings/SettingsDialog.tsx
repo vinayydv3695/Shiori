@@ -11,8 +11,10 @@ import {
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
   RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Cloud, Brain
 } from 'lucide-react'
+import { AISettingsSection } from './AISettingsSection'
+import { CloudSyncSection } from './CloudSyncSection'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -24,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '../../store/preferencesStore'
+import { useAIStore } from '@/store/aiStore'
 import type {
   Theme, UserPreferences, BookPreferences, MangaPreferences, TtsPreferences,
 } from '../../types/preferences'
@@ -129,7 +132,7 @@ function ToolbarActionsSelector() {
   )
 }
 
-type SettingsTab = 'general' | 'book-reading' | 'manga-reading' | 'companion' | 'advanced' | 'community-plugins' | 'about'
+type SettingsTab = 'general' | 'ai' | 'cloud-sync' | 'book-reading' | 'manga-reading' | 'companion' | 'advanced' | 'community-plugins' | 'about'
 
 interface SettingDefinition {
   label: string
@@ -151,6 +154,7 @@ const ALL_SETTINGS: SettingDefinition[] = [
   { label: 'Settings Transparency', description: 'Toggle transparent background for the settings dialog', tab: 'general', section: 'Appearance' },
   { label: 'Auto-start Application', description: 'Start Shiori when system boots', tab: 'general', section: 'General' },
   { label: 'Discord Rich Presence', description: 'Show your reading activity on Discord', tab: 'general', section: 'General' },
+  { label: 'AI Reading Assistant', description: 'Enable AI features including Book Copilot and Ask AI', tab: 'general', section: 'General' },
   { label: 'Primary Content Type', description: 'What type of content you prefer to read', tab: 'general', section: 'General' },
   { label: 'Filter NSFW & Adult Content', description: 'Hide 18+ adult content across online catalogs, manga browsing, metadata, and search results', tab: 'general', section: 'General' },
   { label: 'Import Path', description: 'Default import location', tab: 'general', section: 'Import' },
@@ -284,6 +288,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   const tabs = [
     { id: 'general' as const, name: 'General', icon: Palette },
+    ...(!isAndroid ? [{ id: 'ai' as const, name: 'AI & Intelligence', icon: Brain }] : []),
+    { id: 'cloud-sync' as const, name: 'Cloud & WebDAV Sync', icon: Cloud },
     { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
     { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },
     { id: 'advanced' as const, name: 'Advanced', icon: Shield },
@@ -485,6 +491,14 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     />
                   )}
 
+                  {selectedTab === 'ai' && (
+                    <AISettingsSection />
+                  )}
+
+                  {selectedTab === 'cloud-sync' && (
+                    <CloudSyncSection />
+                  )}
+
                   {selectedTab === 'book-reading' && (
                     <BookReadingSettings
                       preferences={preferences}
@@ -546,7 +560,7 @@ const itemVariants: Variants = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 }
 
-const SettingSection = ({
+export const SettingSection = ({
   title,
   description,
   children,
@@ -576,7 +590,7 @@ const SettingSection = ({
   </motion.section>
 )
 
-const SettingItem = ({
+export const SettingItem = ({
   label,
   description,
   children,
@@ -705,6 +719,8 @@ const GeneralSettings = ({
   const toast = useToast()
   const preferredDebridProvider = useSourceStore((state) => state.preferredDebridProvider)
   const setPreferredDebridProvider = useSourceStore((state) => state.setPreferredDebridProvider)
+  const aiEnabled = useAIStore((s) => s.enabled)
+  const setAiEnabled = useAIStore((s) => s.setEnabled)
 
   useEffect(() => {
     // Keep useEffect empty or remove it if not needed, but there are other things?
@@ -881,6 +897,11 @@ const GeneralSettings = ({
           {!isAndroid && isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
             <SettingItem label="Discord Rich Presence" description="Show your reading activity on Discord">
               <Switch checked={preferences.discordRpcEnabled ?? true} onChange={(checked) => updateGeneralSettings({ discordRpcEnabled: checked })} />
+            </SettingItem>
+          )}
+          {isSettingVisible('AI Reading Assistant', 'Enable AI features including Book Copilot and Ask AI', 'General') && (
+            <SettingItem label="AI Reading Assistant" description="Enable Book Copilot sidebar and Ask AI text selection. Off by default — no network calls are made when disabled.">
+              <Switch checked={aiEnabled} onChange={setAiEnabled} aria-label="Toggle AI Reading Assistant" />
             </SettingItem>
           )}
           {isSettingVisible('Primary Content Type', 'What type of content you prefer to read', 'General') && (

@@ -587,6 +587,7 @@ export function LibraryGrid({
             return (
               <div
                 key={virtualRow.index}
+                data-index={virtualRow.index}
                 ref={(el) => { if (el) rowVirtualizer.measureElement(el); }}
                 style={{
                   position: "absolute",

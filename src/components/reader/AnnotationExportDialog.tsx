@@ -3,11 +3,13 @@ import { api, type AnnotationExportData } from '@/lib/tauri';
 import { useToastStore } from '@/store/toastStore';
 import { 
   X, FileText, Code2, AlignLeft, Copy, Download, 
-  Check, FileDown, Loader2, Layers, BookOpen 
+  Check, FileDown, Loader2, Layers, BookOpen, Diamond 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import * as Dialog from '@radix-ui/react-dialog';
+import { formatForObsidian } from '@/lib/export/obsidianExporter';
+import { formatForAnki } from '@/lib/export/ankiExporter';
 
 interface AnnotationExportDialogProps {
   open: boolean;
@@ -17,11 +19,25 @@ interface AnnotationExportDialogProps {
 
 const FORMAT_OPTIONS = [
   {
+    id: 'obsidian',
+    label: 'Obsidian Vault',
+    extension: '.md',
+    icon: Diamond,
+    description: 'YAML frontmatter, Callout quote blocks (> [!quote]), & tags',
+  },
+  {
+    id: 'anki',
+    label: 'Anki Flashcards',
+    extension: '.tsv',
+    icon: Layers,
+    description: 'Importable flashcards for vocabulary & quotes',
+  },
+  {
     id: 'markdown',
     label: 'Markdown',
     extension: '.md',
     icon: FileText,
-    description: 'Formatted for Obsidian, Notion & Bear',
+    description: 'Formatted for Notion, Bear & standard tools',
   },
   {
     id: 'json',
@@ -71,12 +87,25 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
   const loadPreview = useCallback(async () => {
     setLoading(true);
     try {
+      const backendFormat = (format === 'obsidian' || format === 'anki') ? 'json' : format;
       const data = await api.exportAnnotations({
-        format,
+        format: backendFormat,
         book_id: bookId,
         include_book_info: true,
       });
-      setExportData(data);
+
+      let finalContent = data.content;
+      if (format === 'obsidian') {
+        finalContent = formatForObsidian(data.content);
+      } else if (format === 'anki') {
+        finalContent = formatForAnki(data.content);
+      }
+
+      setExportData({
+        ...data,
+        content: finalContent,
+        format,
+      });
     } catch (err) {
       useToastStore.getState().addToast({
         title: 'Failed to generate export preview',
@@ -96,6 +125,7 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
 
   const cleanedContent = useMemo(() => {
     if (!exportData?.content) return '';
+    if (format === 'obsidian' || format === 'anki') return exportData.content;
     return cleanExportContent(exportData.content, format);
   }, [exportData, format]);
 

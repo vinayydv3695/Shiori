@@ -57,4 +57,16 @@ describe('buildVoicePickerItems', () => {
     const [item] = buildVoicePickerItems([], piper);
     expect(item.lang).toBe('en-US');
   });
+
+  it('prepends Edge Neural voices when provided', () => {
+    const edge = [
+      { id: 'en-US-GuyNeural', name: 'Guy', shortName: 'en-US-GuyNeural', gender: 'Male' as const, locale: 'en-US', language: 'English' }
+    ];
+    const native = [nativeVoice('native-1', 'Native One')];
+    const items = buildVoicePickerItems(native, [], edge);
+    expect(items).toHaveLength(2);
+    expect(items[0].voiceURI).toBe('edge:en-US-GuyNeural');
+    expect(items[0].name).toBe('Edge Neural — Guy');
+    expect(items[1].voiceURI).toBe('native-1');
+  });
 });

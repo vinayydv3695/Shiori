@@ -6,6 +6,7 @@ use std::fs;
 use tokio::io::AsyncWriteExt;
 use serde::{Deserialize, Serialize};
 use crate::error::ShioriError;
+use crate::AppState;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VoiceInfo {
@@ -1645,7 +1646,12 @@ impl PiperService {
         Ok(())
     }
 
-    pub async fn synthesize(&self, text: &str, voice_id: &str) -> Result<String, ShioriError> {
+    /// Synthesize `text` with `voice_id` at the given speed.
+    ///
+    /// `rate` is the TTS rate multiplier (1.0 = default). It is clamped to
+    /// 0.5-2.0 and mapped to piper's `length_scale` via `1.0 / rate` (piper's
+    /// length_scale is inversely proportional to speaking rate).
+    pub async fn synthesize(&self, text: &str, voice_id: &str, rate: f32) -> Result<String, ShioriError> {
         log::debug!("piper: synthesizing {} chars with voice {}", text.len(), voice_id);
         
         // ponytail: safety net only — espeak-rs reads PIPER_ESPEAKNG_DATA_DIRECTORY
@@ -1699,7 +1705,7 @@ impl PiperService {
         let text_owned = text.to_string();
         // create() can block (phonemization + inference), run in block_in_place
         let (samples, sample_rate) = tokio::task::block_in_place(move || {
-            engine_lock.create(&text_owned, false, None, None, None, None)
+            engine_lock.create(&text_owned, false, None, Some(1.0 / rate.clamp(0.5, 2.0)), None, None)
         }).map_err(|e| {
             log::error!("piper: synthesis failed for voice {}: {}", voice_id, e);
             ShioriError::Other(format!("Failed to synthesize speech with voice '{}': {}", voice_id, e))
@@ -1784,14 +1790,34 @@ pub async fn download_voice(
 
 #[tauri::command]
 pub async fn synthesize_speech(
+    app: AppHandle,
     text: String,
     voice_id: String,
     state: tauri::State<'_, Arc<tokio::sync::Mutex<PiperService>>>,
 ) -> Result<String, ShioriError> {
     // Synthesis keeps the service lock: model load + inference are CPU-bound and
     // must be serialized across concurrent requests. Load timing is logged inside.
+    //
+    // The frontend does not pass a rate, so read the persisted TTS rate
+    // (user_preferences.tts_rate, default 1.0) with the same db access other
+    // commands use. Non-fatal: any DB hiccup degrades to the default rate.
+    let rate = app
+        .state::<AppState>()
+        .db
+        .get_connection()
+        .ok()
+        .and_then(|conn| {
+            conn.query_row(
+                "SELECT tts_rate FROM user_preferences WHERE id = 1",
+                [],
+                |row| row.get::<_, f64>(0),
+            )
+            .ok()
+        })
+        .unwrap_or(1.0) as f32;
+
     let service = state.lock().await;
-    service.synthesize(&text, &voice_id).await
+    service.synthesize(&text, &voice_id, rate).await
 }
 
 #[cfg(test)]
@@ -2044,7 +2070,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let service = PiperService::for_test(dir.path().to_path_buf());
 
-        let err = service.synthesize("hello", "xx_XX-nonexistent").await.unwrap_err();
+        let err = service.synthesize("hello", "xx_XX-nonexistent", 1.0).await.unwrap_err();
         match err {
             ShioriError::FileNotFound { path } => {
                 assert!(path.contains("xx_XX-nonexistent.onnx"), "unexpected path: {}", path)
@@ -2067,7 +2093,7 @@ mod tests {
         .unwrap();
         let service = PiperService::for_test(dir.path().to_path_buf());
 
-        let err = service.synthesize("hello", "xx_XX-test-medium").await.unwrap_err();
+        let err = service.synthesize("hello", "xx_XX-test-medium", 1.0).await.unwrap_err();
         match err {
             ShioriError::Other(msg) => {
                 assert!(msg.contains("xx_XX-test-medium"), "message lacks voice id: {}", msg);

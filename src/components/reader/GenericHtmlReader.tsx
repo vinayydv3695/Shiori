@@ -4,6 +4,7 @@ import type { BookMetadata } from '@/lib/tauri';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from '@/components/icons';
 import { logger } from '@/lib/logger';
 import { useReadingSettings, useReaderUIStore } from '@/store/premiumReaderStore';
+import { usePreferencesStore } from '@/store/preferencesStore';
 import { useToastStore } from '@/store/toastStore';
 import { usePremiumReaderKeyboard } from '@/hooks/usePremiumReaderKeyboard';
 import { useReaderAutoHide } from '@/hooks/useReaderAutoHide';
@@ -50,6 +51,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     const { isFocusMode } = useReaderAutoHide();
     const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
     const { theme, fontSize, fontFamily, lineHeight, width } = useReadingSettings();
+    const autoAdvance = usePreferencesStore(state => state.preferences?.tts?.autoAdvance ?? true);
 
     const isDoodleMode = useDoodleStore(state => state.isDoodleMode);
     const toggleDoodleMode = useDoodleStore(state => state.toggleDoodleMode);
@@ -78,6 +80,7 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
     const chapterRequestRef = useRef(0);
     const lastAnnotatedContentRef = useRef<string | null>(null);
     const flushProgressNowRef = useRef<() => void>(() => {});
+    const hasShownResumeToastRef = useRef(false);
 
     const isMobiFamilyFormat = format === 'mobi' || format === 'azw' || format === 'azw3';
     const locationPrefix = isMobiFamilyFormat ? 'mobi' : 'generic';
@@ -140,9 +143,11 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 }
             }
 
-            if (targetTop !== null && targetTop > 0) {
+            if (targetTop !== null && targetTop > 0 && !hasShownResumeToastRef.current) {
+                hasShownResumeToastRef.current = true;
                 containerRef.current.scrollTo({ top: targetTop, behavior: 'auto' });
                 useToastStore.getState().addToast({
+                    id: 'resume-reading',
                     title: 'Resuming reading',
                     description: `Restored to previous position`,
                     variant: 'info',
@@ -770,7 +775,11 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             {/* TTS Audiobook UI (mirrors PremiumEpubReader) */}
             <TTSControlBar
                 contentRef={contentRef}
-                onChapterEnd={() => goToChapter(currentChapter + 1)}
+                onChapterEnd={() => {
+                    if (autoAdvance && currentChapter < totalChapters - 1) {
+                        goToChapter(currentChapter + 1);
+                    }
+                }}
                 contentKey={currentChapter}
             />
 

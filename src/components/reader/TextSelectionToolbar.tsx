@@ -10,7 +10,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
 import { AICopilotPopup } from './AICopilotPopup';
-import { Brain, Tag, RotateCcw, Check, Pencil } from 'lucide-react';
+import { Brain } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
 import { useReadingSettings, READER_THEME_COLORS, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { hapticTick } from '@/lib/haptics';
@@ -100,7 +100,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
       return {};
     }
   });
-  const [isEditingLabels, setIsEditingLabels] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const hideTimerRef = useRef<number | null>(null);
@@ -270,9 +269,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         : (anchor.parentElement as HTMLElement | null);
 
       // Position toolbar relative to selection with safe bounds
-      const isCard = showNoteInput || showTranslation || showColorPicker;
-      const toolbarWidth = toolbarRef.current?.offsetWidth || (isCard ? 380 : 320);
-      const toolbarHeight = toolbarRef.current?.offsetHeight || (isCard ? 300 : 45);
+      const isCard = showNoteInput || showTranslation || showAICopilot;
+      const toolbarWidth = toolbarRef.current?.offsetWidth || (isCard ? 380 : (showColorPicker ? 500 : 460));
+      const toolbarHeight = toolbarRef.current?.offsetHeight || (isCard ? 300 : (showColorPicker ? 85 : 45));
 
       const vpWidth = window.innerWidth;
       const vpHeight = window.innerHeight;
@@ -313,9 +312,9 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   // Dynamic repositioning whenever toolbar size or content changes
   const repositionToolbar = useCallback(() => {
     if (!toolbarRef.current) return;
-    const isCard = showNoteInput || showTranslation || showColorPicker || showAICopilot;
-    const actualWidth = toolbarRef.current.offsetWidth || (isCard ? 380 : 320);
-    const actualHeight = toolbarRef.current.offsetHeight || (isCard ? 300 : 45);
+    const isCard = showNoteInput || showTranslation || showAICopilot;
+    const actualWidth = toolbarRef.current.offsetWidth || (isCard ? 380 : (showColorPicker ? 500 : 460));
+    const actualHeight = toolbarRef.current.offsetHeight || (isCard ? 300 : (showColorPicker ? 85 : 45));
     const rect = selectionRectRef.current;
 
     const vpWidth = window.innerWidth;
@@ -764,7 +763,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
       {isVisible && (
         <motion.div
           ref={toolbarRef}
-          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showColorPicker && !showAICopilot) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
+          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showAICopilot) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showColorPicker ? 'text-selection-toolbar--highlight-active' : ''} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
           style={isAndroid ? undefined : { left: position.x, top: position.y }}
           initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.96 }}
           animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
@@ -1047,141 +1046,38 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
             )
           )}
 
-          {/* Color picker with quick swatches and custom labels for highlight */}
+          {/* Minimal sleek color picker for highlight */}
           {showColorPicker && !showNoteInput && !showTranslation && !showAICopilot && (
             <motion.div
-              className="text-selection-highlight-panel w-full pt-1 pb-1 space-y-2.5"
+              className="text-selection-highlight-panel w-full"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
             >
-              <div className="w-full h-px bg-[var(--ui-divider)] opacity-35 -mt-0.5 mb-2" />
+              <div
+                className="w-full h-px my-1.5"
+                style={{ background: 'var(--ui-divider, var(--ui-border))', opacity: 0.35 }}
+              />
 
-              {/* 1-Tap Quick Color Swatches */}
-              <div className="flex items-center justify-between gap-2 px-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] select-none">
-                  Quick Color
-                </span>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  {DEFAULT_HIGHLIGHT_PRESETS.map((c) => {
-                    const currentLabel = highlightLabels[c.value] || c.defaultLabel;
-                    return (
-                      <button
-                        key={c.value}
-                        type="button"
-                        className="text-selection-quick-swatch group relative w-6 h-6 sm:w-7 sm:h-7 rounded-full cursor-pointer transition-all duration-150 active:scale-90 flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: c.value }}
-                        onClick={() => {
-                          hapticTick();
-                          handleHighlight(c.value, currentLabel);
-                        }}
-                        title={`${c.name} • ${currentLabel}`}
-                        aria-label={`Highlight with ${c.name} (${currentLabel})`}
-                      >
-                        <span className="absolute inset-0 rounded-full ring-1 ring-black/15 group-hover:ring-black/30 dark:ring-white/20 transition-all pointer-events-none" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Section Header: Labels & Edit Mode Toggle */}
-              <div className="flex items-center justify-between px-1 pt-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] select-none">
-                  <Tag size={11} className="opacity-80" />
-                  <span>Highlight Labels</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {isEditingLabels && (
-                    <button
-                      type="button"
-                      className="px-2 py-0.5 rounded-md text-[10px] font-medium text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--ui-hover)] transition-all cursor-pointer flex items-center gap-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        hapticTick();
-                        setHighlightLabels({});
-                        localStorage.removeItem('shiori-highlight-labels');
-                      }}
-                      title="Reset all labels to default"
-                    >
-                      <RotateCcw size={10} />
-                      <span>Reset</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--ui-hover)] hover:opacity-90 transition-all cursor-pointer flex items-center gap-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      hapticTick();
-                      setIsEditingLabels(!isEditingLabels);
-                    }}
-                  >
-                    {isEditingLabels ? (
-                      <>
-                        <Check size={11} />
-                        <span>Done</span>
-                      </>
-                    ) : (
-                      <>
-                        <Pencil size={10} />
-                        <span>Edit labels</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Labels Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
+              {/* Minimal 1-tap color swatches — evenly spaced */}
+              <div className="flex items-center justify-evenly gap-1.5 px-1 py-1">
                 {DEFAULT_HIGHLIGHT_PRESETS.map((c) => {
                   const currentLabel = highlightLabels[c.value] || c.defaultLabel;
-                  if (isEditingLabels) {
-                    return (
-                      <div
-                        key={c.value}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-[var(--ui-focus)] bg-[var(--bg-elevated)] shadow-2xs transition-all"
-                      >
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs ring-1 ring-black/10" style={{ backgroundColor: c.value }} />
-                        <input
-                          type="text"
-                          value={currentLabel}
-                          onChange={(e) => {
-                            const newLabels = { ...highlightLabels, [c.value]: e.target.value };
-                            setHighlightLabels(newLabels);
-                            localStorage.setItem('shiori-highlight-labels', JSON.stringify(newLabels));
-                          }}
-                          className="w-full text-[11px] bg-transparent outline-none text-[var(--text-primary)] font-medium"
-                          placeholder={c.defaultLabel}
-                        />
-                      </div>
-                    );
-                  }
-
                   return (
                     <button
                       key={c.value}
                       type="button"
-                      className="text-selection-label-chip group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all duration-150 cursor-pointer text-left active:scale-[0.97]"
-                      style={{
-                        backgroundColor: `color-mix(in srgb, ${c.value} 12%, var(--bg-elevated))`,
-                        borderColor: `color-mix(in srgb, ${c.value} 30%, var(--ui-border))`,
-                        '--chip-color': c.value,
-                      } as React.CSSProperties}
+                      className="text-selection-quick-swatch group relative w-7 h-7 rounded-full cursor-pointer flex items-center justify-center shrink-0 active:scale-90 transition-transform"
+                      style={{ backgroundColor: c.value }}
                       onClick={() => {
                         hapticTick();
                         handleHighlight(c.value, currentLabel);
                       }}
-                      aria-label={`${c.name} • ${currentLabel}`}
+                      title={`${c.name} • ${currentLabel}`}
+                      aria-label={`Highlight: ${currentLabel}`}
                     >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs ring-1 ring-black/15 group-hover:scale-115 transition-transform"
-                        style={{ backgroundColor: c.value }}
-                      />
-                      <span className="text-[11.5px] font-semibold text-[var(--text-primary)] truncate">
-                        {currentLabel}
-                      </span>
+                      <span className="absolute inset-0 rounded-full ring-[1.5px] ring-inset ring-black/15 dark:ring-white/20 pointer-events-none group-hover:ring-black/35 transition-all" />
                     </button>
                   );
                 })}

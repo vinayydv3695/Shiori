@@ -2179,7 +2179,17 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     const target = e.target as Element;
     if (e.defaultPrevented || !target || typeof target.closest !== 'function') return;
     
-    if (isTouchOnSelectionOrModal(target) || target.closest('a') || target.closest('button') || target.closest('.premium-top-bar') || target.closest('.premium-sidebar') || target.closest('.text-selection-toolbar')) {
+    if (
+      isTouchOnSelectionOrModal(target) ||
+      target.closest('a') ||
+      target.closest('button') ||
+      target.closest('.premium-top-bar') ||
+      target.closest('.premium-sidebar') ||
+      target.closest('.text-selection-toolbar') ||
+      target.closest('.character-network-graph') ||
+      target.closest('[data-graph-fullscreen]') ||
+      target.closest('.fixed.inset-0')
+    ) {
       return;
     }
 
@@ -2343,10 +2353,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             aria-hidden="true"
           >
             <div
-              className="w-6 h-9 sm:w-7 sm:h-10 flex items-center justify-center pt-1"
+              className="w-6 h-9 sm:w-7 sm:h-10 flex items-center justify-center pt-1 transition-colors duration-200"
               style={{
-                backgroundColor: '#e11d48',
+                backgroundColor: 'var(--bookmark-color, #e11d48)',
                 clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%)',
+                filter: 'drop-shadow(0 2px 5px rgba(0, 0, 0, 0.22))',
               }}
             >
               <Bookmark size={13} className="text-white" fill="white" />
@@ -2397,7 +2408,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               <button
                 type="button"
                 onClick={handleToggleBookmark}
-                className={`premium-control-button ${isCurrentChapterBookmarked ? 'premium-control-button--active !text-rose-500' : ''}`}
+                className={`premium-control-button ${isCurrentChapterBookmarked ? 'premium-control-button--active' : ''}`}
+                style={isCurrentChapterBookmarked ? { color: 'var(--bookmark-color, #e11d48)' } : undefined}
                 aria-label={isCurrentChapterBookmarked ? "Remove bookmark" : "Bookmark chapter"}
               >
                 <Bookmark

@@ -117,15 +117,13 @@ export function UpdateDialog() {
           });
           await relaunch();
         } else {
-          // Simulated progress for preview / dev
-          setDownloadProgress({ downloaded: 14200000, total: 24800000 });
-          setTimeout(() => {
-            setDownloadProgress({ downloaded: 24800000, total: 24800000 });
-            setTimeout(() => {
-              setIsUpdating(false);
-              setIsUpdateDialogOpen(false);
-            }, 800);
-          }, 1200);
+          // GitHub API fallback path: no desktopUpdate object available.
+          // Open GitHub Releases page so user can manually download.
+          const rawVer = updateInfo.version.replace(/^v/, '');
+          const releaseUrl = `https://github.com/vinayydv3695/Shiori-releases/releases/tag/v${rawVer}`;
+          const { openExternal } = await import('@/lib/externalLinks');
+          await openExternal(releaseUrl);
+          setIsUpdateDialogOpen(false);
         }
       }
     } catch (err) {
@@ -377,7 +375,7 @@ export function UpdateDialog() {
                     ) : (
                       <>
                         <Download className="w-3.5 h-3.5" />
-                        <span>{isAndroid ? 'Install Now' : 'Install & Restart'}</span>
+                        <span>{isAndroid ? 'Install Now' : updateInfo.desktopUpdate ? 'Install & Restart' : 'Download'}</span>
                       </>
                     )}
                   </button>

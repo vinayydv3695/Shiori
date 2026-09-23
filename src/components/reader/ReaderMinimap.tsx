@@ -184,8 +184,8 @@ export function ReaderMinimap({
       {/* Bookmark tick (if current chapter is bookmarked) */}
       {isCurrentChapterBookmarked && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm border border-white/60 pointer-events-none z-10"
-          style={{ top: '2px' }}
+          className="absolute left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full shadow-sm border border-white/60 pointer-events-none z-10"
+          style={{ top: '2px', backgroundColor: 'var(--bookmark-color, #f59e0b)' }}
           aria-label="Bookmarked"
         />
       )}

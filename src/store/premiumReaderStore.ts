@@ -448,6 +448,7 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--shadow': 'rgba(0, 0, 0, 0.05)',
     '--overlay': 'rgba(0, 0, 0, 0.2)',
     '--progress-bar': '#3B82F6',
+    '--bookmark-color': '#E11D48',
   },
 
   black: {
@@ -467,6 +468,7 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--shadow': 'rgba(0, 0, 0, 0.5)',
     '--overlay': 'rgba(0, 0, 0, 0.8)',
     '--progress-bar': '#60A5FA',
+    '--bookmark-color': '#60A5FA',
   },
   paper: {
     '--bg-primary': '#F5F0E8',
@@ -485,6 +487,7 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--shadow': 'rgba(139, 119, 90, 0.12)',
     '--overlay': 'rgba(44, 36, 22, 0.25)',
     '--progress-bar': '#8B6914',
+    '--bookmark-color': '#8B6914',
   },
   'paper-dark': {
     '--bg-primary': '#2A2520',
@@ -503,6 +506,7 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--shadow': 'rgba(0, 0, 0, 0.25)',
     '--overlay': 'rgba(0, 0, 0, 0.45)',
     '--progress-bar': '#D4A574',
+    '--bookmark-color': '#D4A574',
   },
   'sepia': {
     '--bg-primary': '#F4ECD8',
@@ -521,6 +525,7 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--shadow': 'rgba(139, 90, 43, 0.12)',
     '--overlay': 'rgba(67, 52, 34, 0.25)',
     '--progress-bar': '#8B5A2B',
+    '--bookmark-color': '#8B5A2B',
   },
   'dark': {
     '--bg-primary': '#202020',
@@ -539,6 +544,7 @@ export const READER_THEME_COLORS: Record<ReaderTheme, Record<string, string>> = 
     '--shadow': 'rgba(0, 0, 0, 0.4)',
     '--overlay': 'rgba(0, 0, 0, 0.6)',
     '--progress-bar': '#78909C',
+    '--bookmark-color': '#78909C',
   }
 };
 

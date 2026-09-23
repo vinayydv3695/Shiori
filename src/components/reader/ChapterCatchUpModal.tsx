@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
@@ -109,11 +110,11 @@ export function ChapterCatchUpModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const themeVars = (READER_THEME_COLORS[readerTheme] || READER_THEME_COLORS.paper) as React.CSSProperties;
 
-  return (
+  return createPortal(
     <div
       ref={modalRef}
       data-reader-theme={readerTheme}
@@ -307,6 +308,7 @@ export function ChapterCatchUpModal({
           </button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

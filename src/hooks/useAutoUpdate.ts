@@ -91,29 +91,59 @@ export function useAutoUpdate() {
         } else {
           // Desktop check via Tauri plugin
           logger.info('[AutoUpdate] Checking Desktop updates via Tauri plugin...');
-          const update = await check();
-          
-          if (update && update.available && mounted) {
-            let notes = update.body || '';
-            if (!notes || notes.trim().length < 20) {
-              try {
-                const rawVer = update.version.replace(/^v/, '');
-                const res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/tags/v${rawVer}`);
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.body) notes = data.body;
+          let tauriUpdateFound = false;
+          try {
+            const update = await check();
+            
+            if (update && update.available && mounted) {
+              tauriUpdateFound = true;
+              let notes = update.body || '';
+              if (!notes || notes.trim().length < 20) {
+                try {
+                  const rawVer = update.version.replace(/^v/, '');
+                  const res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/tags/v${rawVer}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.body) notes = data.body;
+                  }
+                } catch {
+                  // fallback to default
                 }
-              } catch {
-                // fallback to default
               }
-            }
 
-            setUpdateInfo({
-              version: update.version,
-              notes: notes || 'No release notes provided.',
-              desktopUpdate: update
-            });
-            setIsUpdateDialogOpen(true);
+              setUpdateInfo({
+                version: update.version,
+                notes: notes || 'No release notes provided.',
+                desktopUpdate: update
+              });
+              setIsUpdateDialogOpen(true);
+            }
+          } catch (pluginErr) {
+            logger.warn('[AutoUpdate] Tauri plugin check failed, will try GitHub API fallback:', pluginErr);
+          }
+
+          // GitHub API fallback — catches cases where latest.json is missing the
+          // windows-x86_64 entry or the Tauri plugin silently returns nothing.
+          if (!tauriUpdateFound && mounted) {
+            logger.info('[AutoUpdate] Tauri plugin found no update; trying GitHub API fallback...');
+            try {
+              const currentVersion = await getVersion();
+              const res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
+              if (res.ok) {
+                const data = await res.json();
+                if (isNewerVersion(currentVersion, data.tag_name) && mounted) {
+                  setUpdateInfo({
+                    version: data.tag_name.replace(/^v/, ''),
+                    notes: data.body || 'No release notes provided.',
+                    // No desktopUpdate object — the dialog will show the info but
+                    // the install button will open the GitHub release page instead.
+                  });
+                  setIsUpdateDialogOpen(true);
+                }
+              }
+            } catch (ghErr) {
+              logger.warn('[AutoUpdate] GitHub API fallback also failed:', ghErr);
+            }
           }
         }
       } catch (err) {

@@ -1441,7 +1441,14 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
                       whileTap={{ scale: 0.995 }}
                     >
                       <div className="flex items-center justify-between gap-2 w-full">
-                        <div className="premium-badge flex items-center gap-1 text-[10px] font-semibold text-rose-500 bg-rose-500/10 border border-rose-500/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        <div
+                          className="premium-badge flex items-center gap-1 text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider border"
+                          style={{
+                            color: 'var(--bookmark-color, #e11d48)',
+                            backgroundColor: 'color-mix(in srgb, var(--bookmark-color, #e11d48) 12%, transparent)',
+                            borderColor: 'color-mix(in srgb, var(--bookmark-color, #e11d48) 25%, transparent)',
+                          }}
+                        >
                           <Bookmark size={10} fill="currentColor" />
                           Bookmark
                         </div>

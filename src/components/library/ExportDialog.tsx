@@ -84,7 +84,7 @@ export const ExportDialog = ({ open, onOpenChange }: ExportDialogProps) => {
           <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border/50 px-6 py-4 z-10 flex items-center justify-between">
             <Dialog.Title className="text-xl font-bold tracking-tight text-foreground">Export Library</Dialog.Title>
             <Dialog.Close asChild>
-              <button className="p-2 hover:bg-secondary rounded-full text-muted-foreground hover:text-foreground transition-colors" title="Close">
+              <button className="p-2 hover:bg-secondary rounded-full text-muted-foreground hover:text-foreground transition-colors" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </Dialog.Close>

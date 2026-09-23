@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Trash2, RefreshCw, XCircle, CheckSquare, Square, AlertTriangle, ArrowLeft, BookOpen, Library, Check, X } from "lucide-react"
 import { api, BookSummary } from "../lib/tauri"
 import { Button } from "./ui/button"
+import { AppTooltip } from "./ui/tooltip"
 import { useToast } from "../store/toastStore"
 import { useLibraryStore } from "../store/libraryStore"
 import { useUIStore } from "../store/uiStore"
@@ -186,27 +187,31 @@ export function RecycleBinView() {
 
           {/* Quick Select/Empty Controls for Mobile (Right-aligned in header) */}
           <div className="flex items-center gap-1.5 md:hidden">
-            <button 
-              onClick={handleSelectAll} 
-              disabled={trashedBooks.length === 0 || isActioning || loading}
-              className="p-2 text-xs font-extrabold text-muted-foreground hover:text-foreground bg-secondary/50 border border-border/40 rounded-xl transition-all disabled:opacity-40 active:scale-95"
-              title="Select All"
-            >
-              {selectedIds.size === trashedBooks.length && trashedBooks.length > 0 ? (
-                <CheckSquare className="w-4 h-4 text-primary" />
-              ) : (
-                <Square className="w-4 h-4" />
-              )}
-            </button>
+            <AppTooltip content="Select All" side="bottom">
+              <button 
+                onClick={handleSelectAll} 
+                disabled={trashedBooks.length === 0 || isActioning || loading}
+                aria-label="Select All"
+                className="p-2 text-xs font-extrabold text-muted-foreground hover:text-foreground bg-secondary/50 border border-border/40 rounded-xl transition-all disabled:opacity-40 active:scale-95"
+              >
+                {selectedIds.size === trashedBooks.length && trashedBooks.length > 0 ? (
+                  <CheckSquare className="w-4 h-4 text-primary" />
+                ) : (
+                  <Square className="w-4 h-4" />
+                )}
+              </button>
+            </AppTooltip>
 
-            <button 
-              onClick={() => setConfirmModal({ type: 'empty' })} 
-              disabled={trashedBooks.length === 0 || isActioning || loading}
-              className="p-2 text-xs font-extrabold text-destructive bg-destructive/15 border border-destructive/30 rounded-xl transition-all disabled:opacity-40 active:scale-95"
-              title="Empty Trash"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <AppTooltip content="Empty Trash" side="bottom">
+              <button 
+                onClick={() => setConfirmModal({ type: 'empty' })} 
+                disabled={trashedBooks.length === 0 || isActioning || loading}
+                aria-label="Empty Trash"
+                className="p-2 text-xs font-extrabold text-destructive bg-destructive/15 border border-destructive/30 rounded-xl transition-all disabled:opacity-40 active:scale-95"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </AppTooltip>
           </div>
         </div>
 
@@ -309,26 +314,30 @@ export function RecycleBinView() {
 
                     {/* Quick Touch Restore & Delete Actions on Top-Right Corner */}
                     <div className="absolute top-2 right-2 z-20 flex items-center gap-1 sm:hidden">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          book.id && handleRestore(book.id);
-                        }}
-                        className="w-7 h-7 rounded-lg bg-background/90 text-primary flex items-center justify-center border border-border/40 shadow-md active:scale-95"
-                        title="Restore"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          book.id && handlePermanentDelete(book.id);
-                        }}
-                        className="w-7 h-7 rounded-lg bg-destructive text-destructive-foreground flex items-center justify-center border border-destructive/30 shadow-md active:scale-95"
-                        title="Delete"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                      </button>
+                      <AppTooltip content="Restore" side="bottom">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            book.id && handleRestore(book.id);
+                          }}
+                          aria-label="Restore"
+                          className="w-7 h-7 rounded-lg bg-background/90 text-primary flex items-center justify-center border border-border/40 shadow-md active:scale-95"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      </AppTooltip>
+                      <AppTooltip content="Delete" side="bottom">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            book.id && handlePermanentDelete(book.id);
+                          }}
+                          aria-label="Delete"
+                          className="w-7 h-7 rounded-lg bg-destructive text-destructive-foreground flex items-center justify-center border border-destructive/30 shadow-md active:scale-95"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </AppTooltip>
                     </div>
 
                     {/* Book Cover */}
@@ -374,9 +383,11 @@ export function RecycleBinView() {
 
                   {/* Title & Metadata */}
                   <div className="mt-2 space-y-1">
-                    <h3 className="font-extrabold text-[11px] sm:text-xs text-foreground truncate leading-tight" title={book.title}>
-                      {book.title}
-                    </h3>
+                    <AppTooltip content={book.title} side="top">
+                      <h3 className="font-extrabold text-[11px] sm:text-xs text-foreground truncate leading-tight">
+                        {book.title}
+                      </h3>
+                    </AppTooltip>
                     {book.deleted_at && (
                       <span className="inline-block text-[10px] font-extrabold text-muted-foreground bg-secondary/60 border border-border/40 px-1.5 py-0.5 rounded-lg">
                         Deleted {formatTimeAgo(book.deleted_at)}
@@ -421,13 +432,15 @@ export function RecycleBinView() {
                 <XCircle className="w-3.5 h-3.5" />
                 <span>Delete</span>
               </button>
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="p-2 text-muted-foreground hover:text-foreground rounded-xl transition-colors"
-                title="Cancel selection"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <AppTooltip content="Cancel selection" side="top">
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  aria-label="Cancel selection"
+                  className="p-2 text-muted-foreground hover:text-foreground rounded-xl transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </AppTooltip>
             </div>
           </motion.div>
         )}

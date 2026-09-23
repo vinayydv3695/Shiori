@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { useToastStore } from '@/store/toastStore';
 import { openExternal } from '@/lib/externalLinks';
 import { Button } from '@/components/ui/button';
@@ -283,7 +284,9 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
                           {info.tag}
                         </span>
                         {hasKey && !isSelected && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Configured" />
+                          <AppTooltip content="Configured" side="top">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" aria-label="Configured" />
+                          </AppTooltip>
                         )}
                       </div>
                     </button>
@@ -463,30 +466,34 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
                     </Select>
 
                     {/* Fetch Models button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={fetchingModels}
-                      onClick={handleFetchModels}
-                      className="gap-1.5 shrink-0 text-xs cursor-pointer"
-                      title="Discover authorized models for this key"
-                    >
-                      <RefreshCw size={12} className={fetchingModels ? 'animate-spin' : ''} />
-                      <span>{fetchingModels ? '...' : 'Fetch'}</span>
-                    </Button>
+                    <AppTooltip content="Discover authorized models for this key" side="top">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={fetchingModels}
+                        onClick={handleFetchModels}
+                        className="gap-1.5 shrink-0 text-xs cursor-pointer"
+                        aria-label="Discover authorized models for this key"
+                      >
+                        <RefreshCw size={12} className={fetchingModels ? 'animate-spin' : ''} />
+                        <span>{fetchingModels ? '...' : 'Fetch'}</span>
+                      </Button>
+                    </AppTooltip>
 
                     {/* Custom Model Toggle */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowCustomModelInput(!showCustomModelInput)}
-                      className="p-2 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
-                      title="Enter custom model name"
-                    >
-                      <Plus size={14} />
-                    </Button>
+                    <AppTooltip content="Enter custom model name" side="top">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowCustomModelInput(!showCustomModelInput)}
+                        className="p-2 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                        aria-label="Enter custom model name"
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    </AppTooltip>
                   </div>
 
                   {/* Inline Custom Model Input */}

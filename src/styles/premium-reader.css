@@ -3799,3 +3799,45 @@ select {
   filter: brightness(1.15);
 }
 
+/* ── Minimap Active Pulse ── */
+@keyframes highlight-pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--ui-focus-rgb, 59, 130, 246), 0.7);
+    filter: brightness(1.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(var(--ui-focus-rgb, 59, 130, 246), 0);
+    filter: brightness(1.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--ui-focus-rgb, 59, 130, 246), 0);
+    filter: brightness(1);
+  }
+}
+
+.epub-highlight--active-pulse {
+  animation: highlight-pulse-glow 1.2s cubic-bezier(0, 0, 0.2, 1) 2;
+  border-radius: 4px;
+}
+
+/* ── Word-by-Word Karaoke TTS Highlighting ── */
+.tts-word {
+  display: inline;
+  padding: 1px 2px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.tts-word:hover {
+  background-color: color-mix(in srgb, var(--ui-focus) 15%, transparent);
+}
+
+.tts-word--active {
+  background-color: var(--ui-focus) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+  border-radius: 4px;
+}
+

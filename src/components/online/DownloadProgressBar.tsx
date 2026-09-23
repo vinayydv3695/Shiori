@@ -79,7 +79,6 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
               onClick={onClear}
               aria-label="Dismiss item"
               className="p-1 rounded-full text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 transition-colors cursor-pointer"
-              title="Dismiss"
             >
               <X className="w-3.5 h-3.5" />
             </button>

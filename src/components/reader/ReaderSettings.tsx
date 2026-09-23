@@ -411,14 +411,15 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
               <label className="premium-settings-label">Reading Width</label>
               <div className="premium-settings-segment-group">
                 {widthOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => setWidth(option.id)}
-                    className={`premium-settings-segment-button ${width === option.id ? 'premium-settings-segment-button--active' : ''}`}
-                    title={option.chars}
-                  >
-                    {option.label}
-                  </button>
+                  <ReaderTooltip key={option.id} content={option.chars} side="top">
+                    <button
+                      onClick={() => setWidth(option.id)}
+                      aria-label={`${option.label} (${option.chars})`}
+                      className={`premium-settings-segment-button ${width === option.id ? 'premium-settings-segment-button--active' : ''}`}
+                    >
+                      {option.label}
+                    </button>
+                  </ReaderTooltip>
                 ))}
               </div>
             </div>

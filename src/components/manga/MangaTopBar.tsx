@@ -1,6 +1,7 @@
 import React, { memo, useRef, useEffect } from 'react';
 import { useMangaContentStore, useMangaUIStore, useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { PanelRightOpen, X, ZoomIn, ZoomOut, Library, CheckCircle2 } from 'lucide-react';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
 
@@ -80,46 +81,56 @@ export const MangaTopBar = memo(function MangaTopBar({ onClose }: MangaTopBarPro
 
                 {/* Right: Actions */}
                 <div className="manga-topbar-right">
-                    <button
-                        className="manga-topbar-btn"
-                        onClick={zoomOut}
-                        title="Zoom Out"
-                    >
-                        <ZoomOut />
-                    </button>
-                    <button
-                        className="manga-topbar-btn"
-                        onClick={zoomIn}
-                        title="Zoom In"
-                    >
-                        <ZoomIn />
-                    </button>
-                    {sourceType === 'online' && (
+                    <AppTooltip content="Zoom Out" side="bottom">
                         <button
                             className="manga-topbar-btn"
-                            onClick={addToLibrary}
-                            disabled={isAlreadyInLibrary}
-                            title={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
+                            onClick={zoomOut}
+                            aria-label="Zoom Out"
                         >
-                            {isAlreadyInLibrary ? <CheckCircle2 className="text-green-500" /> : <Library />}
+                            <ZoomOut />
                         </button>
+                    </AppTooltip>
+                    <AppTooltip content="Zoom In" side="bottom">
+                        <button
+                            className="manga-topbar-btn"
+                            onClick={zoomIn}
+                            aria-label="Zoom In"
+                        >
+                            <ZoomIn />
+                        </button>
+                    </AppTooltip>
+                    {sourceType === 'online' && (
+                        <AppTooltip content={isAlreadyInLibrary ? "Already in Library" : "Add to Library"} side="bottom">
+                            <button
+                                className="manga-topbar-btn"
+                                onClick={addToLibrary}
+                                disabled={isAlreadyInLibrary}
+                                aria-label={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
+                            >
+                                {isAlreadyInLibrary ? <CheckCircle2 className="text-green-500" /> : <Library />}
+                            </button>
+                        </AppTooltip>
                     )}
                     <div className="manga-topbar-divider" />
-                    <button
-                        className="manga-topbar-btn"
-                        onClick={toggleSidebar}
-                        title="Toggle sidebar (S)"
-                    >
-                        <PanelRightOpen />
-                    </button>
+                    <AppTooltip content="Toggle sidebar (S)" side="bottom">
+                        <button
+                            className="manga-topbar-btn"
+                            onClick={toggleSidebar}
+                            aria-label="Toggle sidebar (S)"
+                        >
+                            <PanelRightOpen />
+                        </button>
+                    </AppTooltip>
                     <div className="manga-topbar-divider" />
-                    <button
-                        className="manga-topbar-btn"
-                        onClick={onClose}
-                        title="Close reader (Esc)"
-                    >
-                        <X />
-                    </button>
+                    <AppTooltip content="Close reader (Esc)" side="bottom">
+                        <button
+                            className="manga-topbar-btn"
+                            onClick={onClose}
+                            aria-label="Close reader (Esc)"
+                        >
+                            <X />
+                        </button>
+                    </AppTooltip>
                 </div>
             </div>
         </div>

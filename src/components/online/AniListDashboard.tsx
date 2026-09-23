@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/store/toastStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAniListAccessToken } from '@/auth/useAniListAccessToken';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -404,17 +405,19 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
               className="flex flex-col md:flex-row items-center md:items-end gap-5 w-full"
             >
               {user && (
-                <button 
-                  className="relative shrink-0 transition-transform active:scale-95 hover:scale-105 cursor-pointer select-none"
-                  onClick={() => setShowProfileView(true)}
-                  title="View Profile Details"
-                >
-                  <img 
-                    src={user.avatar.large || user.avatar.medium} 
-                    alt={user.name} 
-                    className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-card shadow-xl object-cover ring-2 ring-primary/30 ring-offset-2 ring-offset-background" 
-                  />
-                </button>
+                <AppTooltip content="View Profile Details" side="bottom">
+                  <button 
+                    className="relative shrink-0 transition-transform active:scale-95 hover:scale-105 cursor-pointer select-none"
+                    onClick={() => setShowProfileView(true)}
+                    aria-label="View Profile Details"
+                  >
+                    <img 
+                      src={user.avatar.large || user.avatar.medium} 
+                      alt={user.name} 
+                      className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-card shadow-xl object-cover ring-2 ring-primary/30 ring-offset-2 ring-offset-background" 
+                    />
+                  </button>
+                </AppTooltip>
               )}
               <div className="flex flex-col text-center md:text-left mb-1">
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
@@ -423,21 +426,27 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
                 
                 {/* Compact Glass Pill Stats */}
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-2.5">
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/80 backdrop-blur-md border border-border/60 shadow-xs text-xs font-bold text-foreground" title="Chapters Read">
-                    <BookOpen size={13} className="text-primary" />
-                    <span>{totalChaptersRead}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase font-extrabold tracking-wider">Chapters</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/80 backdrop-blur-md border border-border/60 shadow-xs text-xs font-bold text-foreground" title="Completed Series">
-                    <CheckCircle2 size={13} className="text-primary" />
-                    <span>{completedCount}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase font-extrabold tracking-wider">Completed</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/80 backdrop-blur-md border border-border/60 shadow-xs text-xs font-bold text-foreground" title="Mean Score">
-                    <Star size={13} className="text-amber-400 fill-amber-400" />
-                    <span>{meanScore}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase font-extrabold tracking-wider">Score</span>
-                  </div>
+                  <AppTooltip content="Chapters Read" side="bottom">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/80 backdrop-blur-md border border-border/60 shadow-xs text-xs font-bold text-foreground">
+                      <BookOpen size={13} className="text-primary" />
+                      <span>{totalChaptersRead}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-extrabold tracking-wider">Chapters</span>
+                    </div>
+                  </AppTooltip>
+                  <AppTooltip content="Completed Series" side="bottom">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/80 backdrop-blur-md border border-border/60 shadow-xs text-xs font-bold text-foreground">
+                      <CheckCircle2 size={13} className="text-primary" />
+                      <span>{completedCount}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-extrabold tracking-wider">Completed</span>
+                    </div>
+                  </AppTooltip>
+                  <AppTooltip content="Mean Score" side="bottom">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-card/80 backdrop-blur-md border border-border/60 shadow-xs text-xs font-bold text-foreground">
+                      <Star size={13} className="text-amber-400 fill-amber-400" />
+                      <span>{meanScore}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-extrabold tracking-wider">Score</span>
+                    </div>
+                  </AppTooltip>
                 </div>
               </div>
             </motion.div>
@@ -463,15 +472,17 @@ export function AniListDashboard({ onOpenSettings }: AniListDashboardProps = {})
                 )}
               </form>
               <div className="flex gap-2 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setSortBy(prev => prev === 'default' ? 'score' : prev === 'score' ? 'title' : prev === 'title' ? 'progress' : 'default')}
-                  className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-foreground shadow-xs text-xs font-bold transition-all hover:scale-102 active:scale-98 cursor-pointer select-none"
-                  title={`Sorted by: ${sortBy === 'default' ? 'Default' : sortBy === 'score' ? 'Top Score' : sortBy === 'title' ? 'Title A-Z' : 'Most Progress'}`}
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
-                  <span className="capitalize">{sortBy === 'default' ? 'Sort' : sortBy}</span>
-                </button>
+                <AppTooltip content={`Sorted by: ${sortBy === 'default' ? 'Default' : sortBy === 'score' ? 'Top Score' : sortBy === 'title' ? 'Title A-Z' : 'Most Progress'}`} side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => setSortBy(prev => prev === 'default' ? 'score' : prev === 'score' ? 'title' : prev === 'title' ? 'progress' : 'default')}
+                    aria-label={`Sorted by: ${sortBy === 'default' ? 'Default' : sortBy === 'score' ? 'Top Score' : sortBy === 'title' ? 'Title A-Z' : 'Most Progress'}`}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-foreground shadow-xs text-xs font-bold transition-all hover:scale-102 active:scale-98 cursor-pointer select-none"
+                  >
+                    <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
+                    <span className="capitalize">{sortBy === 'default' ? 'Sort' : sortBy}</span>
+                  </button>
+                </AppTooltip>
 
                 <button
                   type="button"

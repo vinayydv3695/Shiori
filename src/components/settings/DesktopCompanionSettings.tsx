@@ -4,6 +4,7 @@ import { QrCode, Wifi, MonitorSmartphone, Server, KeyRound, Copy, RotateCcw } fr
 import { Button } from '@/components/ui/button';
 import { SyncClient } from '@/lib/sync';
 import { useToast } from '@/store/toastStore';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface LocalIp {
   ip: string;
@@ -150,15 +151,17 @@ export function DesktopCompanionSettings() {
                   >
                     <Copy className="h-3 w-3" />
                   </Button>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-7 w-7"
-                    onClick={rotateToken}
-                    title="Rotate Token"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                  </Button>
+                  <AppTooltip content="Rotate Token">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-7 w-7"
+                      onClick={rotateToken}
+                      aria-label="Rotate Token"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                    </Button>
+                  </AppTooltip>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">

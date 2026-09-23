@@ -25,6 +25,7 @@ import { useTombstoneConfirm } from '@/hooks/useTombstoneConfirm';
 import { pluginApi } from '@/lib/pluginSources';
 import { toast } from '@/store/toastStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface AniListImportDialogProps {
   isOpen: boolean;
@@ -447,24 +448,28 @@ export function AniListImportDialog({ isOpen, onClose, shelf, anilistToken }: An
 
                       {/* View Mode Toggle */}
                       <div className="flex items-center p-0.5 rounded-xl bg-secondary/60 border border-border/50 ml-0.5">
-                        <button
-                          onClick={() => setViewMode('grid')}
-                          className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                            viewMode === 'grid' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                          title="Grid View"
-                        >
-                          <LayoutGrid className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setViewMode('list')}
-                          className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                            viewMode === 'list' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                          }`}
-                          title="List View"
-                        >
-                          <List className="w-3.5 h-3.5" />
-                        </button>
+                        <AppTooltip content="Grid View" side="top">
+                          <button
+                            onClick={() => setViewMode('grid')}
+                            aria-label="Grid View"
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                              viewMode === 'grid' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                          </button>
+                        </AppTooltip>
+                        <AppTooltip content="List View" side="top">
+                          <button
+                            onClick={() => setViewMode('list')}
+                            aria-label="List View"
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                              viewMode === 'list' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            <List className="w-3.5 h-3.5" />
+                          </button>
+                        </AppTooltip>
                       </div>
                     </div>
                   </div>

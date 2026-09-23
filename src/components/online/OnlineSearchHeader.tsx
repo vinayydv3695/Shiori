@@ -9,6 +9,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { useUIStore } from '@/store/uiStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { SourceKind } from '@/store/sourceStore';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface OnlineSearchHeaderProps {
   kind: SourceKind;
@@ -86,19 +87,21 @@ export function OnlineSearchHeader({
                 <div className="flex items-center gap-1 pl-0.5 shrink-0">
                   {/* Filter Option */}
                   {(kind === 'books' || kind === 'manga') && (
-                    <button 
-                      onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
-                      className={cn(
-                        "w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95",
-                        (kind === 'books' && hasFilters) || kind === 'manga'
-                          ? "bg-primary text-primary-foreground shadow-xs" 
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-secondary/40"
-                      )}
-                      disabled={disabled}
-                      title="Filters"
-                    >
-                      <Filter className="w-3.5 h-3.5 stroke-[2.2]" />
-                    </button>
+                    <AppTooltip content="Filters" side="bottom">
+                      <button 
+                        onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
+                        aria-label="Filters"
+                        className={cn(
+                          "w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95",
+                          (kind === 'books' && hasFilters) || kind === 'manga'
+                            ? "bg-primary text-primary-foreground shadow-xs" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-secondary/40"
+                        )}
+                        disabled={disabled}
+                      >
+                        <Filter className="w-3.5 h-3.5 stroke-[2.2]" />
+                      </button>
+                    </AppTooltip>
                   )}
 
                   {/* Sources Option */}
@@ -160,19 +163,21 @@ export function OnlineSearchHeader({
                 />
                 <div className="flex items-center gap-2 pr-1 shrink-0">
                   {(kind === 'books' || kind === 'manga') && (
-                    <button 
-                      onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
-                      className={cn(
-                        "p-2.5 rounded-xl transition-all flex items-center justify-center",
-                        (kind === 'books' && hasFilters) || kind === 'manga'
-                          ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner" 
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
-                      )}
-                      disabled={disabled}
-                      title="Filters"
-                    >
-                      <Filter className="w-4 h-4 stroke-[2.2]" />
-                    </button>
+                    <AppTooltip content="Filters" side="bottom">
+                      <button 
+                        onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
+                        aria-label="Filters"
+                        className={cn(
+                          "p-2.5 rounded-xl transition-all flex items-center justify-center",
+                          (kind === 'books' && hasFilters) || kind === 'manga'
+                            ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
+                        )}
+                        disabled={disabled}
+                      >
+                        <Filter className="w-4 h-4 stroke-[2.2]" />
+                      </button>
+                    </AppTooltip>
                   )}
                   <button 
                     onClick={onSubmit} 

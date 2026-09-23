@@ -25,6 +25,7 @@ import { SettingSection, SettingItem } from './SettingsDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { AppTooltip } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -326,38 +327,44 @@ export function AISettingsSection() {
                   placeholder={`Paste ${currentProviderMeta.name} API key...`}
                   className="font-mono text-xs pr-9"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title={showKey ? 'Hide key' : 'Show key'}
-                >
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
+                <AppTooltip content={showKey ? 'Hide key' : 'Show key'}>
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    aria-label={showKey ? 'Hide key' : 'Show key'}
+                  >
+                    {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </AppTooltip>
               </div>
 
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSaveApiKey}
-                className="gap-1.5 shrink-0 cursor-pointer"
-                title="Save API Key"
-              >
-                <Save size={14} />
-                <span>Save Key</span>
-              </Button>
+              <AppTooltip content="Save API Key">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSaveApiKey}
+                  className="gap-1.5 shrink-0 cursor-pointer"
+                  aria-label="Save API Key"
+                >
+                  <Save size={14} />
+                  <span>Save Key</span>
+                </Button>
+              </AppTooltip>
 
               {currentProviderMeta.url && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openExternal(currentProviderMeta.url!)}
-                  className="gap-1.5 shrink-0 cursor-pointer"
-                  title="Get API Key"
-                >
-                  <ExternalLink size={13} />
-                  <span>Get Key</span>
-                </Button>
+                <AppTooltip content="Get API Key">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openExternal(currentProviderMeta.url!)}
+                    className="gap-1.5 shrink-0 cursor-pointer"
+                    aria-label="Get API Key"
+                  >
+                    <ExternalLink size={13} />
+                    <span>Get Key</span>
+                  </Button>
+                </AppTooltip>
               )}
             </div>
           </SettingItem>
@@ -459,28 +466,32 @@ export function AISettingsSection() {
               </Select>
 
               {/* Fetch Models button */}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={fetchingModels}
-                onClick={handleFetchModels}
-                className="gap-1.5 shrink-0 text-xs cursor-pointer"
-                title="Query provider to discover all available models"
-              >
-                <RefreshCw size={12} className={fetchingModels ? 'animate-spin' : ''} />
-                <span>{fetchingModels ? '...' : 'Fetch'}</span>
-              </Button>
+              <AppTooltip content="Query provider to discover all available models">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={fetchingModels}
+                  onClick={handleFetchModels}
+                  className="gap-1.5 shrink-0 text-xs cursor-pointer"
+                  aria-label="Query provider to discover all available models"
+                >
+                  <RefreshCw size={12} className={fetchingModels ? 'animate-spin' : ''} />
+                  <span>{fetchingModels ? '...' : 'Fetch'}</span>
+                </Button>
+              </AppTooltip>
 
               {/* Custom Model Toggle button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowCustomModelInput(!showCustomModelInput)}
-                className="p-2 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
-                title="Enter custom model ID"
-              >
-                <Plus size={14} />
-              </Button>
+              <AppTooltip content="Enter custom model ID">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCustomModelInput(!showCustomModelInput)}
+                  className="p-2 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Enter custom model ID"
+                >
+                  <Plus size={14} />
+                </Button>
+              </AppTooltip>
             </div>
 
             {/* Inline Custom Model Input */}

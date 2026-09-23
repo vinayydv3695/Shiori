@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { isAndroid } from '@/lib/tauri';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 type SettingsTab = 'layout' | 'image' | 'shortcuts';
 
@@ -159,15 +160,17 @@ export function AdvancedSettingsPanel() {
                             </p>
                         </div>
                     </div>
-                    <button 
-                        onClick={closeSettings}
-                        className={`p-2 rounded-full transition-colors ${
-                            isLight ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-white/60 hover:text-white hover:bg-white/10'
-                        }`}
-                        title="Close settings (Esc)"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
+                    <AppTooltip content="Close settings (Esc)">
+                        <button 
+                            onClick={closeSettings}
+                            className={`p-2 rounded-full transition-colors ${
+                                isLight ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-white/60 hover:text-white hover:bg-white/10'
+                            }`}
+                            aria-label="Close settings (Esc)"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </AppTooltip>
                 </div>
 
                 {/* Tab Navigation */}
@@ -523,24 +526,28 @@ export function AdvancedSettingsPanel() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={zoomOut}
-                                        className={`p-2 rounded-xl border flex items-center justify-center transition-all ${
-                                            isLight ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
-                                        }`}
-                                        title="Zoom out"
-                                    >
-                                        <ZoomOut className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={zoomIn}
-                                        className={`p-2 rounded-xl border flex items-center justify-center transition-all ${
-                                            isLight ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
-                                        }`}
-                                        title="Zoom in"
-                                    >
-                                        <ZoomIn className="w-4 h-4" />
-                                    </button>
+                                    <AppTooltip content="Zoom out">
+                                        <button
+                                            onClick={zoomOut}
+                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all ${
+                                                isLight ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+                                            }`}
+                                            aria-label="Zoom out"
+                                        >
+                                            <ZoomOut className="w-4 h-4" />
+                                        </button>
+                                    </AppTooltip>
+                                    <AppTooltip content="Zoom in">
+                                        <button
+                                            onClick={zoomIn}
+                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all ${
+                                                isLight ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
+                                            }`}
+                                            aria-label="Zoom in"
+                                        >
+                                            <ZoomIn className="w-4 h-4" />
+                                        </button>
+                                    </AppTooltip>
                                 </div>
                             </div>
 

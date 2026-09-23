@@ -22,6 +22,7 @@ import { SeriesManagementDialog } from "./SeriesManagementDialog";
 import { api } from "@/lib/tauri";
 import { useLibraryStore } from "@/store/libraryStore";
 import { useToast } from "@/store/toastStore";
+import { AppTooltip } from "@/components/ui/tooltip";
 
 // ─── Shimmer Skeleton ─────────────────────────
 const CoverSkeleton = () => (
@@ -237,7 +238,7 @@ export const SeriesCard = memo(function SeriesCard({
                   isSelected
                     ? "ring-2 ring-primary border-primary shadow-md"
                     : "hover:border-border/80 hover:shadow-md hover:-translate-y-px",
-                  "border-[var(--manga-accent)]/20",
+                  "border-[color-mix(in_srgb,var(--manga-accent)_20%,transparent)]",
                 )}
               >
                 {/* ── Cover Area (2:3 ratio) ── */}
@@ -319,22 +320,24 @@ export const SeriesCard = memo(function SeriesCard({
                       'bg-gradient-to-t from-black/95 via-black/80 to-transparent',
                       'px-2 pt-8 pb-2 rounded-b-[inherit]',
                     )}>
-                      <h3
-                        className={cn(
-                          'font-bold leading-tight drop-shadow-sm text-white/95 line-clamp-2 text-sm',
-                        )}
-                        title={series.title}
-                      >
-                        {series.title}
-                      </h3>
-                      <p
-                        className={cn(
-                          'truncate drop-shadow-sm text-white/75 font-medium mt-0.5 text-xs',
-                        )}
-                        title={Array.from(series.authors).join(", ")}
-                      >
-                        {Array.from(series.authors).join(", ") || (isRss ? "Daily RSS Feed" : "Unknown Author")}
-                      </p>
+                      <AppTooltip content={series.title} side="top" className="max-w-xs text-center">
+                        <h3
+                          className={cn(
+                            'font-bold leading-tight drop-shadow-sm text-white/95 line-clamp-2 text-sm',
+                          )}
+                        >
+                          {series.title}
+                        </h3>
+                      </AppTooltip>
+                      <AppTooltip content={Array.from(series.authors).join(", ") || (isRss ? "Daily RSS Feed" : "Unknown Author")} side="top" className="max-w-xs text-center">
+                        <p
+                          className={cn(
+                            'truncate drop-shadow-sm text-white/75 font-medium mt-0.5 text-xs',
+                          )}
+                        >
+                          {Array.from(series.authors).join(", ") || (isRss ? "Daily RSS Feed" : "Unknown Author")}
+                        </p>
+                      </AppTooltip>
                     </div>
                   )}
                 </div>

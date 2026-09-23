@@ -3,6 +3,7 @@ import { useUnifiedImageDecode } from './hooks/useUnifiedImageDecode';
 import { useMangaSettingsStore } from '@/store/mangaReaderStore';
 import { getEffectiveMaxDimension } from './hooks/useMangaPreloader';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface MangaPageImageProps {
     pageIndex: number;
@@ -71,15 +72,17 @@ export const MangaPageImage = memo(function MangaPageImage({
                 <AlertTriangle />
                 <span>Failed to load page {pageIndex + 1}</span>
                 <span style={{ fontSize: '11px', opacity: 0.6 }}>{error}</span>
-                <button
-                    type="button"
-                    onClick={retry}
-                    className="manga-page-retry-btn"
-                    title="Retry loading this page"
-                >
-                    <RefreshCw size={14} />
-                    <span>Retry</span>
-                </button>
+                <AppTooltip content="Retry loading this page">
+                    <button
+                        type="button"
+                        onClick={retry}
+                        className="manga-page-retry-btn"
+                        aria-label="Retry loading this page"
+                    >
+                        <RefreshCw size={14} />
+                        <span>Retry</span>
+                    </button>
+                </AppTooltip>
             </div>
         );
     }

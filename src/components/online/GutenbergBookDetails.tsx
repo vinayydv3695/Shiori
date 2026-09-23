@@ -109,7 +109,7 @@ export function GutenbergBookDetails({ book, open, onOpenChange }: Props) {
               {book.authors.map(a => a.name).join(', ') || 'Unknown Author'}
             </Dialog.Description>
             <Dialog.Close asChild>
-              <button className="absolute right-4 sm:right-6 top-4 sm:top-6 p-2 sm:p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-xl sm:rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground cursor-pointer" title="Close">
+              <button className="absolute right-4 sm:right-6 top-4 sm:top-6 p-2 sm:p-2.5 bg-card/40 hover:bg-card/80 border border-border/50 rounded-xl sm:rounded-2xl transition-all duration-300 text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Close">
                 <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </Dialog.Close>

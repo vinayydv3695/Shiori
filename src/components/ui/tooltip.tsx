@@ -27,3 +27,44 @@ const TooltipContent = React.forwardRef<
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+
+export interface AppTooltipProps {
+  children: React.ReactNode;
+  content: React.ReactNode;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+  sideOffset?: number;
+  delayDuration?: number;
+  className?: string;
+  asChild?: boolean;
+  disabled?: boolean;
+}
+
+export function AppTooltip({
+  children,
+  content,
+  side = 'top',
+  sideOffset = 6,
+  delayDuration = 150,
+  className,
+  asChild = true,
+  disabled = false,
+}: AppTooltipProps) {
+  if (!content || disabled) return <>{children}</>;
+
+  const trigger = React.isValidElement(children) && asChild ? (
+    <TooltipTrigger asChild>{children}</TooltipTrigger>
+  ) : (
+    <TooltipTrigger asChild>
+      <span className="inline-flex max-w-full truncate">{children}</span>
+    </TooltipTrigger>
+  );
+
+  return (
+    <Tooltip delayDuration={delayDuration}>
+      {trigger}
+      <TooltipContent side={side} sideOffset={sideOffset} className={className}>
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  );
+}

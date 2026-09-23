@@ -86,8 +86,14 @@ export function ReaderTopBar({
             </button>
           </ReaderTooltip>
           <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full py-0.5">
-            <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm" title={title}>{title}</span>
-            {subtitle && <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5" title={subtitle}>{subtitle}</span>}
+            <ReaderTooltip content={title} side="bottom">
+              <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm">{title}</span>
+            </ReaderTooltip>
+            {subtitle && (
+              <ReaderTooltip content={subtitle} side="bottom">
+                <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5">{subtitle}</span>
+              </ReaderTooltip>
+            )}
           </div>
         </div>
 

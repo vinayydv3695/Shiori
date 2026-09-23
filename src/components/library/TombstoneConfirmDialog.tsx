@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '../ui/button';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface TombstoneConfirmDialogProps {
   paths: string[];
@@ -28,7 +29,7 @@ export function TombstoneConfirmDialog({ paths, onConfirm, onCancel }: Tombstone
               </div>
               <span className="truncate">Previously Deleted Files</span>
             </Dialog.Title>
-            <Dialog.Close className="rounded-full p-2 bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all shrink-0 ml-2">
+            <Dialog.Close className="rounded-full p-2 bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all shrink-0 ml-2" aria-label="Close">
               <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
@@ -39,9 +40,11 @@ export function TombstoneConfirmDialog({ paths, onConfirm, onCancel }: Tombstone
 
           <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl p-3 border border-border/40 max-h-[30vh] overflow-y-auto custom-scrollbar space-y-1.5 min-w-0">
             {paths.map((path, index) => (
-              <div key={index} className="text-xs font-mono text-muted-foreground truncate" title={path}>
-                {path.split('/').pop()}
-              </div>
+              <AppTooltip key={index} content={path}>
+                <div className="text-xs font-mono text-muted-foreground truncate">
+                  {path.split('/').pop()}
+                </div>
+              </AppTooltip>
             ))}
           </div>
 

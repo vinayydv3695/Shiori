@@ -5,8 +5,11 @@ import { api, isAndroid } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download, Bookmark } from '@/components/icons';
-import { StickyNote, ListTree, SearchX, Brain, BookA, Languages, Quote, ChevronRight, History, Volume2 } from 'lucide-react';
+import { StickyNote, ListTree, SearchX, Brain, BookA, Languages, Quote, ChevronRight, History, Volume2, LayoutGrid, List, Users } from 'lucide-react';
 import { SidebarAICopilot } from './SidebarAICopilot';
+import { ChapterVisualCard } from './ChapterVisualCard';
+import { CharacterDirectoryPanel } from './CharacterDirectoryPanel';
+import { ReaderTooltip } from './ReaderTooltip';
 import { parseTocLocationToIndex, findCurrentTocEntry } from '@/lib/toc';
 import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
 import DOMPurify from 'dompurify';
@@ -62,6 +65,8 @@ function SidebarEmptyState({
 interface PremiumSidebarProps {
   bookId: number;
   currentIndex: number;
+  totalChapters?: number;
+  bookTitle?: string;
   onNavigate: (chapterIndex: number, searchTerm?: string | null) => void;
 }
 
@@ -99,7 +104,7 @@ function isRetryableTocError(err: unknown): boolean {
   return (err as { kind?: string } | null)?.kind === 'not_found';
 }
 
-export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSidebarProps) {
+export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle, onNavigate }: PremiumSidebarProps) {
   const isSidebarOpen = useReaderUIStore(state => state.isSidebarOpen);
   const sidebarTab = useReaderUIStore(state => state.sidebarTab);
   const closeSidebar = useReaderUIStore(state => state.closeSidebar);
@@ -114,6 +119,9 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [tocFilter, setTocFilter] = useState('');
+  const [tocViewMode, setTocViewMode] = useState<'list' | 'cards'>(() => {
+    return (localStorage.getItem('shiori-toc-view-mode') as 'list' | 'cards') || 'cards';
+  });
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
   const filteredToc = useMemo(() => {
@@ -137,6 +145,21 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
   }, [toc, tocFilter]);
   const [annotationFilter, setAnnotationFilter] = useState<'all' | 'highlights' | 'notes'>('all');
   const [categories, setCategories] = useState<AnnotationCategory[]>([]);
+
+  const chapterAnnotationCounts = useMemo(() => {
+    const map: Record<number, { highlights: number; notes: number }> = {};
+    annotations.forEach((ann) => {
+      const loc = ann.location;
+      const match = loc.match(/^chapter_(\d+)/) || loc.match(/^chapter:(\d+)/);
+      if (match) {
+        const idx = parseInt(match[1], 10);
+        if (!map[idx]) map[idx] = { highlights: 0, notes: 0 };
+        if (ann.annotationType === 'highlight') map[idx].highlights++;
+        if (ann.annotationType === 'note') map[idx].notes++;
+      }
+    });
+    return map;
+  }, [annotations]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -798,6 +821,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
             {[
               { id: 'search', label: 'Search', icon: Search },
               { id: 'toc', label: 'TOC', icon: BookOpen },
+              { id: 'characters', label: 'Characters', icon: Users },
               { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
               { id: 'highlights', label: 'Highlights', icon: Highlighter },
               ...(!isAndroid && aiEnabled ? [{ id: 'ai', label: 'AI', icon: Brain }] : []),
@@ -845,27 +869,68 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
           {sidebarTab === 'toc' && (
             <div className="premium-sidebar-panel">
               {toc.length > 0 && (
-                <div className="premium-search-input-container !mb-3">
-                  <Search className="premium-search-icon" />
-                  <input
-                    type="text"
-                    value={tocFilter}
-                    onChange={(e) => setTocFilter(e.target.value)}
-                    placeholder={`Search ${toc.length} ${toc.length === 1 ? 'chapter' : 'chapters'}...`}
-                    className="premium-search-input"
-                  />
-                  {tocFilter && (
-                    <div className="absolute right-3 flex items-center">
+                <div className="flex items-center justify-between gap-2 !mb-3">
+                  <div className="premium-search-input-container !mb-0 flex-1">
+                    <Search className="premium-search-icon" />
+                    <input
+                      type="text"
+                      value={tocFilter}
+                      onChange={(e) => setTocFilter(e.target.value)}
+                      placeholder={`Search ${toc.length} ${toc.length === 1 ? 'chapter' : 'chapters'}...`}
+                      className="premium-search-input"
+                    />
+                    {tocFilter && (
+                      <div className="absolute right-3 flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => setTocFilter('')}
+                          className="premium-search-clear"
+                          aria-label="Clear filter"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center p-0.5 rounded-xl bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shrink-0 shadow-2xs">
+                    <ReaderTooltip content="Visual Cards view">
                       <button
                         type="button"
-                        onClick={() => setTocFilter('')}
-                        className="premium-search-clear"
-                        aria-label="Clear filter"
+                        onClick={() => {
+                          setTocViewMode('cards');
+                          localStorage.setItem('shiori-toc-view-mode', 'cards');
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-lg transition-colors cursor-pointer",
+                          tocViewMode === 'cards'
+                            ? "bg-[var(--bg-elevated)] text-[var(--ui-focus)] shadow-xs"
+                            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        )}
+                        aria-label="Visual Cards view"
                       >
-                        <X size={12} />
+                        <LayoutGrid size={13} />
                       </button>
-                    </div>
-                  )}
+                    </ReaderTooltip>
+                    <ReaderTooltip content="Compact List view">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTocViewMode('list');
+                          localStorage.setItem('shiori-toc-view-mode', 'list');
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-lg transition-colors cursor-pointer",
+                          tocViewMode === 'list'
+                            ? "bg-[var(--bg-elevated)] text-[var(--ui-focus)] shadow-xs"
+                            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        )}
+                        aria-label="Compact List view"
+                      >
+                        <List size={13} />
+                      </button>
+                    </ReaderTooltip>
+                  </div>
                 </div>
               )}
 
@@ -881,6 +946,33 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                   title={tocFilter ? "No sections match" : "No Table of Contents"}
                   description={tocFilter ? `No chapter matched "${tocFilter}".` : "This book doesn't include an embedded chapter outline."}
                 />
+              ) : tocViewMode === 'cards' ? (
+                <div className="grid grid-cols-1 gap-2.5 pb-4">
+                  {filteredToc.map((entry, index) => {
+                    const chapterMatch = entry.location?.match(/^chapter_(\d+)/) || entry.location?.match(/^chapter:(\d+)/);
+                    const chapIdx = chapterMatch ? parseInt(chapterMatch[1], 10) : index;
+                    const isCurrent = Boolean(
+                      currentTocEntry === entry ||
+                      (currentTocEntry?.location && currentTocEntry.location === entry.location) ||
+                      (currentTocEntry?.label && currentTocEntry.label.trim() === entry.label.trim()) ||
+                      currentIndex === chapIdx
+                    );
+                    const isRead = chapIdx < currentIndex;
+
+                    return (
+                      <ChapterVisualCard
+                        key={index}
+                        entry={entry}
+                        index={chapIdx}
+                        bookId={bookId}
+                        isCurrent={isCurrent}
+                        isRead={isRead}
+                        onClick={handleTocClick}
+                        annotationCounts={chapterAnnotationCounts[chapIdx]}
+                      />
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="premium-toc-list">
                   {filteredToc.map((entry, index) => (
@@ -894,6 +986,19 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                 </div>
               )}
             </div>
+          )}
+
+          {/* Characters Tab */}
+          {sidebarTab === 'characters' && (
+            <CharacterDirectoryPanel
+              bookId={bookId}
+              totalChapters={totalChapters || toc.length || 1}
+              bookTitle={bookTitle}
+              onNavigateToFirstMention={(chapIdx, charName) => {
+                onNavigate(chapIdx, charName);
+                closeSidebar();
+              }}
+            />
           )}
           
           {/* Highlights & Notes Combined Tab */}
@@ -1024,6 +1129,31 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                       <Highlighter size={11} />
                                       Highlight
                                     </span>
+                                    {(() => {
+                                      const cat = item.categoryId ? categories.find(c => c.id === item.categoryId) : undefined;
+                                      const customLabels = (() => {
+                                        try { return JSON.parse(localStorage.getItem('shiori-highlight-labels') || '{}'); } catch { return {}; }
+                                      })();
+                                      const label = cat?.name || customLabels[item.color] || {
+                                        '#fbbf24': 'Important',
+                                        '#34d399': 'Quote',
+                                        '#60a5fa': 'Research',
+                                        '#a78bfa': 'Vocabulary',
+                                        '#f472b6': 'Idea',
+                                        '#fb923c': 'Review',
+                                        '#f87171': 'Critical',
+                                        '#2dd4bf': 'Reference',
+                                      }[item.color?.toLowerCase()] || null;
+
+                                      return label ? (
+                                        <span 
+                                          className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-black/10 shadow-2xs tracking-normal"
+                                          style={{ backgroundColor: `${item.color}22`, color: item.color }}
+                                        >
+                                          {label}
+                                        </span>
+                                      ) : null;
+                                    })()}
                                   </div>
                                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                                     <motion.button
@@ -1031,7 +1161,6 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                       className="premium-annotation-delete"
                                       onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, item)}
                                       aria-label="Delete highlight"
-                                      title="Delete"
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.9 }}
                                     >
@@ -1155,8 +1284,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                             }
                                           }}
                                           aria-label="Pronounce"
-                                          title="Pronounce"
-                                          whileHover={{ scale: 1.1 }}
+                                                                                    whileHover={{ scale: 1.1 }}
                                           whileTap={{ scale: 0.9 }}
                                         >
                                           <Volume2 size={13} className={playingWordId === note.id ? "animate-pulse" : ""} />
@@ -1167,8 +1295,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                         className="premium-annotation-action-btn"
                                         onClick={(e: React.MouseEvent) => handleStartEditNote(e, note)}
                                         aria-label="Edit note"
-                                        title="Edit"
-                                        whileHover={{ scale: 1.1 }}
+                                                                                whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
                                       >
                                         <Edit2 size={12} />
@@ -1178,8 +1305,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                         className="premium-annotation-delete"
                                         onClick={(e: React.MouseEvent) => handleDeleteAnnotation(e, note)}
                                         aria-label="Delete note"
-                                        title="Delete"
-                                        whileHover={{ scale: 1.1 }}
+                                                                                whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
                                       >
                                         <Trash2 size={12} />
@@ -1230,7 +1356,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                     return (
                                       <div className="flex flex-col gap-1.5">
                                         {note.selectedText && (
-                                          <div className="pl-2.5 border-l-2 border-[var(--ui-focus)]/40 py-0.5">
+                                          <div className="pl-2.5 border-l-2 border-[color-mix(in_srgb,var(--ui-focus)_50%,transparent)] py-0.5">
                                             <p className="text-[12.5px] font-serif italic leading-snug text-[var(--text-secondary)] m-0 select-text line-clamp-3">
                                               "{note.selectedText}"
                                             </p>
@@ -1248,7 +1374,7 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                                   })() : (
                                     <div className="flex flex-col gap-1.5">
                                       {note.selectedText && note.selectedText.trim() !== note.noteContent?.trim() && (
-                                        <div className="pl-2.5 border-l-2 border-[var(--ui-focus)]/40 py-0.5">
+                                        <div className="pl-2.5 border-l-2 border-[color-mix(in_srgb,var(--ui-focus)_50%,transparent)] py-0.5">
                                           <p className="text-[12.5px] font-serif italic text-[var(--text-secondary)] leading-snug m-0 select-text line-clamp-4">
                                             "{note.selectedText}"
                                           </p>
@@ -1465,22 +1591,24 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                     </button>
                   </div>
 
-                  <div className="rounded-2xl border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] bg-[color-mix(in_srgb,var(--bg-elevated)_70%,var(--bg-secondary))] overflow-hidden divide-y divide-[color-mix(in_srgb,var(--ui-border)_35%,transparent)] shadow-[0_1px_4px_rgba(0,0,0,0.03)]">
+                  <div className="flex flex-col gap-2">
                     <AnimatePresence initial={false}>
                       {searchHistory.map((term) => (
                         <motion.div
                           key={term}
                           layout
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.96 }}
                           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                          whileHover={{ y: -1 }}
+                          whileTap={{ scale: 0.995 }}
                           onClick={() => {
                             setSearchQuery(term);
                             handleSearch(term);
                             addToSearchHistory(term);
                           }}
-                          className="group flex items-center justify-between px-3.5 py-2.5 hover:bg-[color-mix(in_srgb,var(--ui-focus)_8%,var(--bg-elevated))] transition-colors cursor-pointer select-none"
+                          className="group flex items-center justify-between px-3.5 py-3 rounded-2xl bg-[color-mix(in_srgb,var(--bg-elevated)_80%,var(--bg-secondary))] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] hover:border-[color-mix(in_srgb,var(--ui-focus)_50%,transparent)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_5%,var(--bg-elevated))] hover:shadow-xs transition-all cursor-pointer select-none"
                           role="button"
                           tabIndex={0}
                           onKeyDown={(e) => {
@@ -1491,28 +1619,29 @@ export function PremiumSidebar({ bookId, currentIndex, onNavigate }: PremiumSide
                             }
                           }}
                         >
-                          <div className="flex items-center gap-2.5 overflow-hidden min-w-0 flex-1 mr-2">
-                            <div className="w-6 h-6 rounded-lg bg-[color-mix(in_srgb,var(--text-primary)_5%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--ui-focus)_15%,transparent)] flex items-center justify-center transition-colors shrink-0">
-                              <History size={12} className="text-[var(--text-tertiary)] group-hover:text-[var(--ui-focus)] transition-colors" />
+                          <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1 mr-2">
+                            <div className="w-7 h-7 rounded-xl bg-[color-mix(in_srgb,var(--text-primary)_5%,transparent)] group-hover:bg-[color-mix(in_srgb,var(--ui-focus)_14%,transparent)] flex items-center justify-center transition-colors shrink-0">
+                              <History size={13} className="text-[var(--text-tertiary)] group-hover:text-[var(--ui-focus)] transition-colors" />
                             </div>
-                            <span className="text-[13px] font-medium text-[var(--text-primary)] group-hover:text-[var(--ui-focus)] transition-colors truncate">
+                            <span className="text-[13.5px] font-medium text-[var(--text-primary)] group-hover:text-[var(--ui-focus)] transition-colors truncate">
                               {term}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] font-medium text-[var(--text-tertiary)] opacity-0 group-hover:opacity-75 transition-opacity px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] hidden sm:inline-block">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-semibold text-[var(--ui-focus)] opacity-0 group-hover:opacity-100 transition-opacity px-2 py-0.5 rounded-md bg-[color-mix(in_srgb,var(--ui-focus)_10%,transparent)] border border-[color-mix(in_srgb,var(--ui-focus)_20%,transparent)] hidden sm:inline-block">
                               Search ↵
                             </span>
-                            <button
-                              type="button"
-                              onClick={(e) => removeFromSearchHistory(term, e)}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--text-tertiary)] hover:text-rose-500 hover:bg-rose-500/15 opacity-40 group-hover:opacity-100 transition-all shrink-0 cursor-pointer"
-                              aria-label={`Remove ${term} from history`}
-                              title="Remove"
-                            >
-                              <X size={12} />
-                            </button>
+                            <ReaderTooltip content="Remove from history" side="top">
+                              <button
+                                type="button"
+                                onClick={(e) => removeFromSearchHistory(term, e)}
+                                className="w-7 h-7 rounded-xl flex items-center justify-center text-[var(--text-tertiary)] hover:text-rose-500 hover:bg-rose-500/15 opacity-50 group-hover:opacity-100 transition-all shrink-0 cursor-pointer"
+                                aria-label={`Remove ${term} from history`}
+                              >
+                                <X size={13} />
+                              </button>
+                            </ReaderTooltip>
                           </div>
                         </motion.div>
                       ))}

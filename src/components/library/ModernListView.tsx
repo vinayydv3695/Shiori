@@ -3,6 +3,7 @@ import { LibraryContextMenu, type LibraryMenuItem } from '@/components/ui/Librar
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
+import { AppTooltip } from '@/components/ui/tooltip'
 import { convertFileSrc } from '@tauri-apps/api/core'
 
 function resolveCoverSrc(path: string): string {
@@ -179,47 +180,54 @@ export const ModernListView = ({
 
             {/* Quick Actions */}
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpenBook(book.id!)
-                }}
-                className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
-                title="Open book"
-              >
-                <BookOpen className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onEditBook(book.id!)
-                }}
-                className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
-                title="Edit metadata"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDownloadBook(book.id!)
-                }}
-                className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
-                title="Download"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-
-               <button
-                 onClick={(e) => {
-                   e.stopPropagation()
-                   onDeleteBook(book.id!)
-                 }}
-                 className="p-1.5 rounded hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                 title="Delete"
-               >
-                 <Trash2 className="w-4 h-4" />
-               </button>
+              <AppTooltip content="Open book" side="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpenBook(book.id!)
+                  }}
+                  aria-label="Open book"
+                  className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  <BookOpen className="w-4 h-4" />
+                </button>
+              </AppTooltip>
+              <AppTooltip content="Edit metadata" side="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEditBook(book.id!)
+                  }}
+                  aria-label="Edit metadata"
+                  className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+              </AppTooltip>
+              <AppTooltip content="Download" side="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDownloadBook(book.id!)
+                  }}
+                  aria-label="Download"
+                  className="p-1.5 rounded hover:bg-primary hover:text-primary-foreground transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+              </AppTooltip>
+              <AppTooltip content="Delete" side="top">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDeleteBook(book.id!)
+                  }}
+                  aria-label="Delete"
+                  className="p-1.5 rounded hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </AppTooltip>
             </div>
             </div>
           </LibraryContextMenu>

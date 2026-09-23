@@ -9,6 +9,7 @@ import type {
 import { PROVIDER_AVAILABLE_MODELS } from './types';
 import { api, type SearchResult } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
+import { useAIStore } from '@/store/aiStore';
 
 /**
  * Builds the system prompt ensuring strict anti-spoiler discipline and book awareness.
@@ -712,4 +713,13 @@ export async function explainCharacter(
     ...options,
     context,
   });
+}
+
+export async function getCharacterRecap(
+  characterName: string,
+  context?: ReadingContext,
+  options?: AICompletionOptions
+): Promise<string> {
+  const config = useAIStore.getState().getActiveConfig();
+  return explainCharacter(config, characterName, context, options);
 }

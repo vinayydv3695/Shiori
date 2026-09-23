@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { AppTooltip } from '@/components/ui/tooltip'
 
 interface DatePickerProps {
   value: string // 'YYYY-MM-DD'
@@ -217,24 +218,28 @@ export function DatePicker({ value, onChange, placeholder = 'Select date...', cl
                 {MONTH_NAMES[month]} {year}
               </span>
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onPointerDown={handlePrevMonth}
-                  onClick={handlePrevMonth}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                  title="Previous Month"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onPointerDown={handleNextMonth}
-                  onClick={handleNextMonth}
-                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                  title="Next Month"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <AppTooltip content="Previous Month">
+                  <button
+                    type="button"
+                    onPointerDown={handlePrevMonth}
+                    onClick={handlePrevMonth}
+                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                    aria-label="Previous Month"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
+                <AppTooltip content="Next Month">
+                  <button
+                    type="button"
+                    onPointerDown={handleNextMonth}
+                    onClick={handleNextMonth}
+                    className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                    aria-label="Next Month"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
               </div>
             </div>
 

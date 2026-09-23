@@ -125,10 +125,60 @@ function findTextRanges(
   return ranges;
 }
 
+export interface SentenceWordToken {
+  word: string;
+  charStart: number;
+  charEnd: number;
+}
+
+export function getSentenceWords(sentence: string): SentenceWordToken[] {
+  const tokens: SentenceWordToken[] = [];
+  const regex = /\S+/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(sentence)) !== null) {
+    tokens.push({
+      word: match[0],
+      charStart: match.index,
+      charEnd: match.index + match[0].length,
+    });
+  }
+  return tokens;
+}
+
+export function getWordIndexAtCharOffset(sentence: string, charOffset: number): number {
+  const words = getSentenceWords(sentence);
+  for (let i = 0; i < words.length; i++) {
+    if (charOffset <= words[i].charEnd) {
+      return i;
+    }
+  }
+  return Math.max(0, words.length - 1);
+}
+
+export function highlightActiveWord(container: HTMLElement | null, wordIndex: number): void {
+  if (!container) return;
+  const current = container.querySelector('.tts-word--active');
+  const target = container.querySelector(`.tts-word[data-word-index="${wordIndex}"]`);
+  if (current === target) return;
+  if (current) current.classList.remove('tts-word--active');
+  if (target) {
+    target.classList.add('tts-word--active');
+    const rect = target.getBoundingClientRect();
+    if (rect.top < 80 || rect.bottom > window.innerHeight - 80) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
+
 /**
- * Wrap text range in a text node with a highlight span
+ * Wrap text range in a text node with a highlight span containing word tokens
  */
-function wrapTextRange(node: Text, start: number, end: number): HTMLSpanElement {
+function wrapTextRange(
+  node: Text,
+  start: number,
+  end: number,
+  startIndexOffset = 0
+): { span: HTMLSpanElement; wordsCount: number } {
   const text = node.textContent || '';
   const before = text.slice(0, start);
   const highlighted = text.slice(start, end);
@@ -136,11 +186,39 @@ function wrapTextRange(node: Text, start: number, end: number): HTMLSpanElement 
   
   const span = document.createElement('span');
   span.className = HIGHLIGHT_CLASS;
-  span.textContent = highlighted;
+  
+  // Segment highlighted text into words and whitespace
+  const parts = highlighted.split(/(\s+)/);
+  let currentWordIdx = startIndexOffset;
+
+  for (const part of parts) {
+    if (!part) continue;
+    if (/^\s+$/.test(part)) {
+      span.appendChild(document.createTextNode(part));
+    } else {
+      const wordSpan = document.createElement('span');
+      wordSpan.className = 'tts-word';
+      wordSpan.dataset.wordIndex = String(currentWordIdx);
+      wordSpan.textContent = part;
+
+      const boundIdx = currentWordIdx;
+      wordSpan.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.dispatchEvent(
+          new CustomEvent('shiori-tts-seek-word', {
+            detail: { wordIndex: boundIdx },
+          })
+        );
+      });
+
+      span.appendChild(wordSpan);
+      currentWordIdx++;
+    }
+  }
   
   const parent = node.parentNode;
   if (!parent) {
-    return span;
+    return { span, wordsCount: currentWordIdx - startIndexOffset };
   }
   
   if (before) {
@@ -152,7 +230,7 @@ function wrapTextRange(node: Text, start: number, end: number): HTMLSpanElement 
   }
   parent.removeChild(node);
   
-  return span;
+  return { span, wordsCount: currentWordIdx - startIndexOffset };
 }
 
 /**
@@ -170,11 +248,13 @@ export function highlightSentence(
     return () => {};
   }
   
-  // Wrap each range
+  // Wrap each range with continuous word index
   const createdSpans: HTMLSpanElement[] = [];
+  let globalWordOffset = 0;
   for (const range of ranges) {
-    const span = wrapTextRange(range.node, range.start, range.end);
+    const { span, wordsCount } = wrapTextRange(range.node, range.start, range.end, globalWordOffset);
     createdSpans.push(span);
+    globalWordOffset += wordsCount;
   }
   
   // Auto-scroll the first highlighted span into view smoothly

@@ -26,7 +26,7 @@ import {
 import { useLibraryStore } from '@/store/libraryStore'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import { LibraryContextMenu, type LibraryMenuItem } from '@/components/ui/LibraryContextMenu'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, AppTooltip } from '@/components/ui/tooltip'
 import { Edit2, Pencil, Trash2, Layers, Globe, FolderPlus, Tag as TagIcon, BookOpen, FileOutput } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem'
@@ -90,24 +90,25 @@ const FormatPill = ({
     }
 
     return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpen?.();
-        }}
-        className="flex items-center gap-1 px-2.5 py-[3px] text-[9.5px] font-bold rounded-full tracking-wide shadow-md bg-[var(--manga-accent,#ec4899)] hover:brightness-110 text-white border border-white/25 opacity-100 transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
-        title={`Open ${displaySource} in Online Manga`}
-      >
-        <Globe size={10} className="opacity-90 shrink-0" />
-        <span>{displaySource}</span>
-        {chapterText && (
-          <>
-            <span className="w-[1px] h-3 bg-white/40 mx-0.5"></span>
-            <span className="truncate max-w-[80px]">{chapterText}</span>
-          </>
-        )}
-      </button>
+      <AppTooltip content={`Open ${displaySource} in Online Manga`}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen?.();
+          }}
+          className="flex items-center gap-1 px-2.5 py-[3px] text-[9.5px] font-bold rounded-full tracking-wide shadow-md bg-[var(--manga-accent,#ec4899)] hover:brightness-110 text-white border border-white/25 opacity-100 transition-all hover:scale-105 active:scale-95 cursor-pointer select-none"
+        >
+          <Globe size={10} className="opacity-90 shrink-0" />
+          <span>{displaySource}</span>
+          {chapterText && (
+            <>
+              <span className="w-[1px] h-3 bg-white/40 mx-0.5"></span>
+              <span className="truncate max-w-[80px]">{chapterText}</span>
+            </>
+          )}
+        </button>
+      </AppTooltip>
     )
   }
 
@@ -335,7 +336,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         isSelected
           ? 'ring-2 ring-primary border-primary shadow-[0_8px_30px_rgba(var(--primary),0.4)]'
           : 'shadow-lg dark:shadow-[0_8px_20px_rgba(0,0,0,0.8)] ring-1 ring-black/10 dark:ring-white/10 hover:shadow-2xl hover:shadow-primary/20 dark:hover:shadow-primary/10 hover:-translate-y-1.5 hover:ring-black/20 dark:hover:ring-white/20',
-        isManga && !isSelected && 'ring-[var(--manga-accent)]/40 hover:ring-[var(--manga-accent)]/80',
+        isManga && !isSelected && 'ring-[color-mix(in_srgb,var(--manga-accent,#ec4899)_40%,transparent)] hover:ring-[color-mix(in_srgb,var(--manga-accent,#ec4899)_80%,transparent)]',
       )}
     >
       <div className="relative aspect-[2/3] bg-muted overflow-hidden rounded-[inherit]">
@@ -386,40 +387,42 @@ export const PremiumBookCard = memo(function PremiumBookCard({
         />
 
         {/* Selection checkbox */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onSelect(book.id!) }}
-          aria-label={isSelected ? 'Deselect' : 'Select'}
-          title={isSelected ? 'Deselect' : 'Select'}
-          className={cn(
-            'absolute top-2.5 left-2.5 z-10',
-            'w-5 h-5 rounded flex items-center justify-center',
-            'border transition-all duration-[100ms]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            isSelected
-              ? 'bg-primary border-primary shadow-sm opacity-100'
-              : 'bg-background/90 border-border/70 opacity-0 group-hover:opacity-100',
-          )}
-        >
-          {isSelected && <IconCheck size={11} className="text-primary-foreground" />}
-        </button>
+        <AppTooltip content={isSelected ? 'Deselect' : 'Select'} side="top">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSelect(book.id!) }}
+            aria-label={isSelected ? 'Deselect' : 'Select'}
+            className={cn(
+              'absolute top-2.5 left-2.5 z-10',
+              'w-5 h-5 rounded flex items-center justify-center',
+              'border transition-all duration-[100ms]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              isSelected
+                ? 'bg-primary border-primary shadow-sm opacity-100'
+                : 'bg-background/90 border-border/70 opacity-0 group-hover:opacity-100',
+            )}
+          >
+            {isSelected && <IconCheck size={11} className="text-primary-foreground" />}
+          </button>
+        </AppTooltip>
 
         {/* Favorite toggle */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
-          aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-          title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-          className={cn(
-            'absolute top-2.5 right-2.5 z-10',
-            'w-5 h-5 rounded flex items-center justify-center',
-            'transition-all duration-[100ms]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            isFavorited
-              ? 'text-red-500 opacity-100'
-              : 'text-white/70 opacity-0 group-hover:opacity-100 hover:text-red-400',
-          )}
-        >
-          <Heart size={13} fill={isFavorited ? 'currentColor' : 'none'} />
-        </button>
+        <AppTooltip content={isFavorited ? 'Remove from favorites' : 'Add to favorites'} side="top">
+          <button
+            onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            className={cn(
+              'absolute top-2.5 right-2.5 z-10',
+              'w-5 h-5 rounded flex items-center justify-center',
+              'transition-all duration-[100ms]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              isFavorited
+                ? 'text-red-500 opacity-100'
+                : 'text-white/70 opacity-0 group-hover:opacity-100 hover:text-red-400',
+            )}
+          >
+            <Heart size={13} fill={isFavorited ? 'currentColor' : 'none'} />
+          </button>
+        </AppTooltip>
 
         {/* Format badge */}
         <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5 pointer-events-none">
@@ -445,30 +448,32 @@ export const PremiumBookCard = memo(function PremiumBookCard({
             coverSize === 'medium' && 'px-2.5 pt-5 pb-2',
             coverSize === 'large' && 'px-3 pt-6 pb-2.5',
           )}>
-            <h3
-              className={cn(
-                'font-bold leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
-                book.file_format === 'online-manga' ? 'line-clamp-1 text-[12px]' : 'line-clamp-2',
-                book.file_format !== 'online-manga' && coverSize === 'small' && 'text-[11px]',
-                book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-xs sm:text-sm',
-                book.file_format !== 'online-manga' && coverSize === 'large' && 'text-sm sm:text-base',
-              )}
-              title={parsedTitle.fullFormattedTitle}
-            >
-              {parsedTitle.fullFormattedTitle}
-            </h3>
-            {authorStr && authorStr !== 'Unknown Author' && (
-              <p
+            <AppTooltip content={parsedTitle.fullFormattedTitle} side="top" className="max-w-xs text-center">
+              <h3
                 className={cn(
-                  'truncate text-white/80 font-medium mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]',
-                  coverSize === 'small' && 'text-[10px]',
-                  coverSize === 'medium' && 'text-[11px]',
-                  coverSize === 'large' && 'text-xs',
+                  'font-bold leading-snug text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]',
+                  book.file_format === 'online-manga' ? 'line-clamp-1 text-[12px]' : 'line-clamp-2',
+                  book.file_format !== 'online-manga' && coverSize === 'small' && 'text-[11px]',
+                  book.file_format !== 'online-manga' && coverSize === 'medium' && 'text-xs sm:text-sm',
+                  book.file_format !== 'online-manga' && coverSize === 'large' && 'text-sm sm:text-base',
                 )}
-                title={authorStr}
               >
-                {authorStr}
-              </p>
+                {parsedTitle.fullFormattedTitle}
+              </h3>
+            </AppTooltip>
+            {authorStr && authorStr !== 'Unknown Author' && (
+              <AppTooltip content={authorStr} side="top" className="max-w-xs text-center">
+                <p
+                  className={cn(
+                    'truncate text-white/80 font-medium mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]',
+                    coverSize === 'small' && 'text-[10px]',
+                    coverSize === 'medium' && 'text-[11px]',
+                    coverSize === 'large' && 'text-xs',
+                  )}
+                >
+                  {authorStr}
+                </p>
+              </AppTooltip>
             )}
           </div>
         )}

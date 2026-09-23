@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 // TrackerForm Component
 function TrackerForm({
@@ -629,13 +630,13 @@ export function AniListMangaDetailsView({
                           <h3 className={cn("font-bold text-primary mb-3", isMobile ? "text-lg" : "text-xl")}>Tags</h3>
                           <div className="flex flex-wrap gap-2">
                             {details.tags.map(tag => (
-                              <span 
-                                key={tag.id} 
-                                className={`bg-surface-variant/30 border border-border/50 text-xs px-3 py-1.5 rounded-full ${tag.isMediaSpoiler ? 'text-error opacity-70 hover:opacity-100 cursor-help' : 'text-muted-foreground'}`}
-                                title={tag.description}
-                              >
-                                {tag.name} <span className="opacity-50 ml-1">{tag.rank}%</span>
-                              </span>
+                              <AppTooltip key={tag.id} content={tag.description} side="top">
+                                <span 
+                                  className={`bg-surface-variant/30 border border-border/50 text-xs px-3 py-1.5 rounded-full ${tag.isMediaSpoiler ? 'text-error opacity-70 hover:opacity-100 cursor-help' : 'text-muted-foreground'}`}
+                                >
+                                  {tag.name} <span className="opacity-50 ml-1">{tag.rank}%</span>
+                                </span>
+                              </AppTooltip>
                             ))}
                           </div>
                         </div>

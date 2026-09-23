@@ -31,6 +31,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  AppTooltip,
 } from '@/components/ui/tooltip';
 import { cn, pageCountLabel } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -151,12 +152,16 @@ function ShelfBookCardGridItem({
 
       {/* Info Strip at bottom */}
       <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2.5 pt-8 pb-2">
-        <h3 className="font-bold text-xs sm:text-sm text-white drop-shadow-sm line-clamp-1" title={book.title}>
-          {book.title}
-        </h3>
-        <p className="text-[10px] text-white/75 font-medium truncate mt-0.5" title={authorStr}>
-          {authorStr}
-        </p>
+        <AppTooltip content={book.title} side="top">
+          <h3 className="font-bold text-xs sm:text-sm text-white drop-shadow-sm line-clamp-1">
+            {book.title}
+          </h3>
+        </AppTooltip>
+        <AppTooltip content={authorStr} side="top">
+          <p className="text-[10px] text-white/75 font-medium truncate mt-0.5">
+            {authorStr}
+          </p>
+        </AppTooltip>
 
         {/* Reading Progress bar if in progress */}
         {progressPercent > 0 && !isCompleted && (
@@ -227,9 +232,11 @@ function ShelfBookListItem({
         {/* Info */}
         <div className="min-w-0 pr-2">
           <div className="flex items-center gap-2">
-            <h4 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors" title={book.title}>
-              {book.title}
-            </h4>
+            <AppTooltip content={book.title} side="top">
+              <h4 className="font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                {book.title}
+              </h4>
+            </AppTooltip>
             <span className="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-secondary text-muted-foreground border border-border/40 shrink-0">
               {format}
             </span>
@@ -263,17 +270,19 @@ function ShelfBookListItem({
               <Play className="w-3 h-3 fill-current" />
               <span className="hidden sm:inline">Read</span>
             </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove();
-              }}
-              className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-all cursor-pointer"
-              title="Remove from shelf"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <AppTooltip content="Remove from shelf" side="top">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove();
+                }}
+                aria-label="Remove from shelf"
+                className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/15 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </AppTooltip>
           </>
         )}
       </div>
@@ -453,16 +462,18 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
           >
             {/* Row 1: Back | Shelf Title + Count | Select & Add */}
             <div className="flex items-center justify-between gap-2.5">
-              <button 
-                onClick={onBack}
-                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
-                title="Back to Shelves"
-              >
-                <div className="w-9 h-9 rounded-2xl bg-card/90 border border-border/60 flex items-center justify-center group-hover:bg-secondary transition-colors shadow-xs">
-                  <ArrowLeft size={16} />
-                </div>
-                <span className="text-xs font-bold hidden xs:inline">Back</span>
-              </button>
+              <AppTooltip content="Back to Shelves" side="bottom">
+                <button 
+                  onClick={onBack}
+                  aria-label="Back to Shelves"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group cursor-pointer shrink-0"
+                >
+                  <div className="w-9 h-9 rounded-2xl bg-card/90 border border-border/60 flex items-center justify-center group-hover:bg-secondary transition-colors shadow-xs">
+                    <ArrowLeft size={16} />
+                  </div>
+                  <span className="text-xs font-bold hidden xs:inline">Back</span>
+                </button>
+              </AppTooltip>
 
               <div className="flex items-center justify-center gap-2 min-w-0 flex-1 text-center truncate px-1">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: shelfColor }} />
@@ -557,28 +568,32 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
 
                 {/* View Switcher */}
                 <div className="flex items-center bg-muted/50 p-0.5 rounded-xl border border-border/50 shrink-0 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      "p-1.5 rounded-lg transition-all cursor-pointer",
-                      viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
-                    )}
-                    title="Grid View"
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={cn(
-                      "p-1.5 rounded-lg transition-all cursor-pointer",
-                      viewMode === 'list' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
-                    )}
-                    title="List View"
-                  >
-                    <List className="w-3.5 h-3.5" />
-                  </button>
+                  <AppTooltip content="Grid View" side="top">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      aria-label="Grid View"
+                      className={cn(
+                        "p-1.5 rounded-lg transition-all cursor-pointer",
+                        viewMode === 'grid' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                    </button>
+                  </AppTooltip>
+                  <AppTooltip content="List View" side="top">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      aria-label="List View"
+                      className={cn(
+                        "p-1.5 rounded-lg transition-all cursor-pointer",
+                        viewMode === 'list' ? "bg-card text-foreground shadow-xs font-bold border border-border/40" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </button>
+                  </AppTooltip>
                 </div>
               </div>
             )}
@@ -850,17 +865,19 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                                 <span>Read</span>
                               </button>
                               <div className="w-px h-3 bg-border/80 mx-0.5" />
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedBookId(null);
-                                }}
-                                className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all cursor-pointer"
-                                title="Close"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                              <AppTooltip content="Close" side="left">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedBookId(null);
+                                  }}
+                                  aria-label="Close"
+                                  className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-background/80 transition-all cursor-pointer"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </AppTooltip>
                             </div>
                           </div>
 
@@ -976,17 +993,19 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
                 <span>Remove from Shelf</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSelectionMode(false);
-                  setSelectedBookIds(new Set());
-                }}
-                className="text-muted-foreground hover:text-foreground hover:bg-muted/60 p-1.5 rounded-full cursor-pointer transition-colors shrink-0 ml-1"
-                title="Cancel Selection"
-              >
-                <X size={16} />
-              </button>
+              <AppTooltip content="Cancel Selection" side="top">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSelectionMode(false);
+                    setSelectedBookIds(new Set());
+                  }}
+                  aria-label="Cancel Selection"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted/60 p-1.5 rounded-full cursor-pointer transition-colors shrink-0 ml-1"
+                >
+                  <X size={16} />
+                </button>
+              </AppTooltip>
             </motion.div>
           </div>
         )}

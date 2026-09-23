@@ -16,6 +16,7 @@ import type { SeriesViewProps } from './types'
 import { MetadataSearchDialog } from './MetadataSearchDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { AppTooltip } from '@/components/ui/tooltip'
 import { api, type Book } from '@/lib/tauri'
 import { useToast } from '@/store/toastStore'
 import { useLibraryStore } from '@/store/libraryStore'
@@ -169,27 +170,31 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
 
             {/* Quick Action Icon Buttons */}
             <div className="flex items-center gap-1.5">
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                onClick={onMarkAllRead} 
-                className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all" 
-                title="Mark All Volumes as Read"
-              >
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              </Button>
+              <AppTooltip content="Mark All Volumes as Read" side="top">
+                <Button 
+                  variant="secondary" 
+                  size="lg" 
+                  onClick={onMarkAllRead} 
+                  aria-label="Mark All Volumes as Read"
+                  className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all" 
+                >
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                </Button>
+              </AppTooltip>
               
               <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <Button 
-                    variant="secondary" 
-                    size="lg" 
-                    className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all"
-                    title="More Options"
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </Button>
-                </DropdownMenu.Trigger>
+                <AppTooltip content="More Options" side="top">
+                  <DropdownMenu.Trigger asChild>
+                    <Button 
+                      variant="secondary" 
+                      size="lg" 
+                      aria-label="More Options"
+                      className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all"
+                    >
+                      <MoreVertical className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenu.Trigger>
+                </AppTooltip>
                 <DropdownMenu.Portal>
                   <DropdownMenu.Content align="start" className="w-52 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
                     <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-secondary rounded-lg transition-colors font-medium">
@@ -373,15 +378,17 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
               <span>{nextUnreadBook ? `Continue Vol. ${nextVolNum ?? ''}` : 'Read Again'}</span>
             </Button>
 
-            <Button 
-              variant="secondary" 
-              size="lg" 
-              onClick={onMarkAllRead} 
-              className="w-10 h-10 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 border border-border/40 backdrop-blur-xl shadow-xs transition-colors" 
-              title="Mark All Read"
-            >
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            </Button>
+            <AppTooltip content="Mark All Read" side="top">
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={onMarkAllRead} 
+                aria-label="Mark All Read"
+                className="w-10 h-10 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 border border-border/40 backdrop-blur-xl shadow-xs transition-colors" 
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              </Button>
+            </AppTooltip>
             
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
@@ -685,9 +692,11 @@ export const SeriesView = memo(function SeriesView({
           )}
         >
           <Dialog.Close asChild>
-            <button className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-secondary/80 hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95" title="Close series view">
-              <X className="h-5 w-5" />
-            </button>
+            <AppTooltip content="Close series view" side="left">
+              <button aria-label="Close series view" className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-secondary/80 hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95">
+                <X className="h-5 w-5" />
+              </button>
+            </AppTooltip>
           </Dialog.Close>
           
           <ScrollArea className="flex-1 bg-background/50">
@@ -740,7 +749,7 @@ export const SeriesView = memo(function SeriesView({
                   value={jumpInput}
                   onChange={(e) => setJumpInput(e.target.value)}
                   className="h-10 w-24 bg-muted/80 hover:bg-muted focus-visible:bg-background border-border/60 focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-full text-center text-sm font-bold transition-all shadow-xs [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  title="Jump to Volume Number"
+                  aria-label="Jump to Volume Number"
                 />
               </form>
             </div>
@@ -792,67 +801,77 @@ export const SeriesView = memo(function SeriesView({
 
               {/* Sort Action Group */}
               <div className="inline-flex items-center gap-0.5 p-1 bg-muted/80 backdrop-blur-xl border border-border/60 rounded-full shadow-inner shrink-0">
-                <button 
-                  type="button"
-                  onClick={() => setSortOrder('chapter_asc')} 
-                  className={cn(
-                    "p-2 rounded-full transition-all duration-200", 
-                    sortOrder === 'chapter_asc' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                  )} 
-                  title="Sort Ascending (Oldest First)"
-                >
-                  <SortAsc className="w-4 h-4" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setSortOrder('chapter_desc')} 
-                  className={cn(
-                    "p-2 rounded-full transition-all duration-200", 
-                    sortOrder === 'chapter_desc' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                  )} 
-                  title="Sort Descending (Newest First)"
-                >
-                  <SortDesc className="w-4 h-4" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setSortOrder('date_added')} 
-                  className={cn(
-                    "p-2 rounded-full transition-all duration-200", 
-                    sortOrder === 'date_added' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                  )} 
-                  title="Sort by Date Added"
-                >
-                  <Clock className="w-4 h-4" />
-                </button>
+                <AppTooltip content="Sort Ascending (Oldest First)" side="top">
+                  <button 
+                    type="button"
+                    onClick={() => setSortOrder('chapter_asc')} 
+                    aria-label="Sort Ascending (Oldest First)"
+                    className={cn(
+                      "p-2 rounded-full transition-all duration-200", 
+                      sortOrder === 'chapter_asc' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                    )} 
+                  >
+                    <SortAsc className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
+                <AppTooltip content="Sort Descending (Newest First)" side="top">
+                  <button 
+                    type="button"
+                    onClick={() => setSortOrder('chapter_desc')} 
+                    aria-label="Sort Descending (Newest First)"
+                    className={cn(
+                      "p-2 rounded-full transition-all duration-200", 
+                      sortOrder === 'chapter_desc' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                    )} 
+                  >
+                    <SortDesc className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
+                <AppTooltip content="Sort by Date Added" side="top">
+                  <button 
+                    type="button"
+                    onClick={() => setSortOrder('date_added')} 
+                    aria-label="Sort by Date Added"
+                    className={cn(
+                      "p-2 rounded-full transition-all duration-200", 
+                      sortOrder === 'date_added' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                    )} 
+                  >
+                    <Clock className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
               </div>
 
               <div className="h-5 w-px bg-border/40 mx-0.5 hidden md:block shrink-0" />
 
               {/* Grid / List View Mode Switcher */}
               <div className="inline-flex items-center gap-0.5 p-1 bg-muted/80 backdrop-blur-xl border border-border/60 rounded-full shadow-inner shrink-0">
-                <button 
-                  type="button"
-                  onClick={() => setViewMode('grid')} 
-                  className={cn(
-                    "p-2 rounded-full transition-all duration-200", 
-                    viewMode === 'grid' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                  )} 
-                  title="Grid View"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setViewMode('list')} 
-                  className={cn(
-                    "p-2 rounded-full transition-all duration-200", 
-                    viewMode === 'list' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                  )} 
-                  title="List View"
-                >
-                  <List className="w-4 h-4" />
-                </button>
+                <AppTooltip content="Grid View" side="top">
+                  <button 
+                    type="button"
+                    onClick={() => setViewMode('grid')} 
+                    aria-label="Grid View"
+                    className={cn(
+                      "p-2 rounded-full transition-all duration-200", 
+                      viewMode === 'grid' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                    )} 
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
+                <AppTooltip content="List View" side="top">
+                  <button 
+                    type="button"
+                    onClick={() => setViewMode('list')} 
+                    aria-label="List View"
+                    className={cn(
+                      "p-2 rounded-full transition-all duration-200", 
+                      viewMode === 'list' ? "bg-card text-foreground font-bold shadow-xs scale-105" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                    )} 
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </AppTooltip>
               </div>
             </div>
           </div>

@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { AppTooltip } from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -625,22 +626,28 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                   <div className="flex-1 min-w-0 flex flex-col text-left justify-between">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 pr-1">
-                        <h3 className="font-bold text-sm md:text-base text-foreground leading-snug line-clamp-2" title={job.title || 'Unknown Title'}>
-                          {job.title || 'Unknown Title'}
-                        </h3>
-                        <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/80 bg-muted/40 px-1.5 py-0.5 rounded border border-border/20 max-w-full inline-block" title={job.sourceLink}>
-                          {job.sourceLink.length > 36 ? `${job.sourceLink.slice(0, 36)}...` : job.sourceLink}
-                        </p>
+                        <AppTooltip content={job.title || 'Unknown Title'} side="top">
+                          <h3 className="font-bold text-sm md:text-base text-foreground leading-snug line-clamp-2">
+                            {job.title || 'Unknown Title'}
+                          </h3>
+                        </AppTooltip>
+                        <AppTooltip content={job.sourceLink} side="top">
+                          <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/80 bg-muted/40 px-1.5 py-0.5 rounded border border-border/20 max-w-full inline-block">
+                            {job.sourceLink.length > 36 ? `${job.sourceLink.slice(0, 36)}...` : job.sourceLink}
+                          </p>
+                        </AppTooltip>
                       </div>
                       
                       {/* Cancel / Remove Button */}
-                      <button 
-                        onClick={() => void removeJob(job.id)} 
-                        className="shrink-0 rounded-full bg-secondary/70 hover:bg-destructive text-muted-foreground hover:text-destructive-foreground border border-border/40 p-1.5 transition-all hover:scale-105 active:scale-95 shadow-xs" 
-                        title="Cancel / Remove Job"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      <AppTooltip content="Cancel / Remove Job" side="left">
+                        <button 
+                          onClick={() => void removeJob(job.id)} 
+                          aria-label="Cancel / Remove Job"
+                          className="shrink-0 rounded-full bg-secondary/70 hover:bg-destructive text-muted-foreground hover:text-destructive-foreground border border-border/40 p-1.5 transition-all hover:scale-105 active:scale-95 shadow-xs" 
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </AppTooltip>
                     </div>
 
                     {/* Status Badge & Percentage */}
@@ -758,9 +765,13 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
                 Torbox
               </h1>
               {apiKey ? (
-                <div className="flex items-center justify-center h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" title="API Active" />
+                <AppTooltip content="API Active" side="bottom">
+                  <div className="flex items-center justify-center h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
+                </AppTooltip>
               ) : (
-                <div className="flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" title="No Key" />
+                <AppTooltip content="No Key" side="bottom">
+                  <div className="flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                </AppTooltip>
               )}
             </div>
           </div>
@@ -770,12 +781,16 @@ export default function TorboxControlCenter({ initialTab = 'discover' }: { initi
           <AnimatePresence mode="wait">
             {keyStatus === 'set' && !editingKey ? (
               <motion.div key="connected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => { setEditingKey(true); setKeyStatus('unset'); setKeyFeedback(null) }} title="Change Key">
-                  <ShieldCheck className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-400/10" onClick={() => void clearSavedKey()} title="Disconnect">
-                  <X className="h-5 w-5" />
-                </Button>
+                <AppTooltip content="Change Key" side="bottom">
+                  <Button variant="ghost" size="icon" aria-label="Change Key" className="h-9 w-9 rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => { setEditingKey(true); setKeyStatus('unset'); setKeyFeedback(null) }}>
+                    <ShieldCheck className="h-5 w-5" />
+                  </Button>
+                </AppTooltip>
+                <AppTooltip content="Disconnect" side="bottom">
+                  <Button variant="ghost" size="icon" aria-label="Disconnect" className="h-9 w-9 rounded-full text-muted-foreground hover:text-red-400 hover:bg-red-400/10" onClick={() => void clearSavedKey()}>
+                    <X className="h-5 w-5" />
+                  </Button>
+                </AppTooltip>
               </motion.div>
             ) : (
               <motion.div key="disconnected" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2 relative">

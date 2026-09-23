@@ -15,6 +15,7 @@ import { SmartShelfSuggestionDialog } from './SmartShelfSuggestionDialog';
 import type { ShelfSuggestion } from '../../lib/shelfSuggestions';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 function isPermissionDeniedError(error: unknown) {
   if (typeof error === 'string') {
@@ -434,7 +435,7 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                 </div>
               </div>
               <Dialog.Close asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/40 transition-colors" title="Close">
+                <button className="w-8 h-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary border border-border/40 transition-colors" aria-label="Close">
                   <X className="h-4 w-4" />
                 </button>
               </Dialog.Close>
@@ -620,9 +621,11 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                       <div className="p-3 space-y-2">
                         {(showAllFailed ? result.failed : result.failed.slice(0, 100)).map(([path, error], index) => (
                           <div key={index} className="text-xs bg-background/50 p-3 rounded-lg border border-rose-500/10 transition-colors hover:border-rose-500/30">
-                            <div className="font-mono text-foreground/80 truncate mb-1" title={path}>
-                              {path.split('/').pop()}
-                            </div>
+                            <AppTooltip content={path}>
+                              <div className="font-mono text-foreground/80 truncate mb-1">
+                                {path.split('/').pop()}
+                              </div>
+                            </AppTooltip>
                             <div className="text-rose-500 font-medium">{error}</div>
                           </div>
                         ))}
@@ -650,9 +653,11 @@ export const ImportDialog = ({ open, onOpenChange, initialFilePaths, autoTrigger
                       </div>
                       <div className="p-3 space-y-1.5">
                         {result.previouslyDeleted.map((path, index) => (
-                          <div key={index} className="text-xs font-mono text-muted-foreground truncate" title={path}>
-                            {path.split('/').pop()}
-                          </div>
+                          <AppTooltip key={index} content={path}>
+                            <div className="text-xs font-mono text-muted-foreground truncate">
+                              {path.split('/').pop()}
+                            </div>
+                          </AppTooltip>
                         ))}
                       </div>
                     </div>

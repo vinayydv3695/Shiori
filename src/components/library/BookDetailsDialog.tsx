@@ -18,6 +18,7 @@ import { pageCountLabel, cn } from '@/lib/utils';
 import { FallbackBookCover } from './FallbackBookCover';
 import { useLibraryStore } from '../../store/libraryStore';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 function resolveCoverSrc(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -225,7 +226,6 @@ export const BookDetailsDialog = ({
           <button
             onClick={() => onOpenChange(false)}
             className="absolute top-4 right-4 sm:top-5 sm:right-5 z-40 p-2 rounded-full bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer border border-border/40 backdrop-blur-sm shadow-2xs"
-            title="Close"
             aria-label="Close"
           >
             <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
@@ -260,19 +260,21 @@ export const BookDetailsDialog = ({
                   <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-background/80 dark:bg-muted/80 border border-border/60 text-foreground shadow-2xs">
                     {book.file_format}
                   </span>
-                  <button
-                    type="button"
-                    onClick={handleToggleFavorite}
-                    className={cn(
-                      "p-2 rounded-full transition-all duration-200 border cursor-pointer active:scale-95",
-                      isFavorite
-                        ? "bg-rose-500/15 border-rose-500/30 text-rose-500 hover:bg-rose-500/25 shadow-2xs"
-                        : "bg-background/80 dark:bg-muted/80 border-border/60 text-muted-foreground hover:text-rose-500 hover:border-rose-500/30"
-                    )}
-                    title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-                  >
-                    <Heart className={cn("w-4 h-4", isFavorite && "fill-current")} />
-                  </button>
+                  <AppTooltip content={isFavorite ? "Remove from favorites" : "Add to favorites"}>
+                    <button
+                      type="button"
+                      onClick={handleToggleFavorite}
+                      className={cn(
+                        "p-2 rounded-full transition-all duration-200 border cursor-pointer active:scale-95",
+                        isFavorite
+                          ? "bg-rose-500/15 border-rose-500/30 text-rose-500 hover:bg-rose-500/25 shadow-2xs"
+                          : "bg-background/80 dark:bg-muted/80 border-border/60 text-muted-foreground hover:text-rose-500 hover:border-rose-500/30"
+                      )}
+                      aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <Heart className={cn("w-4 h-4", isFavorite && "fill-current")} />
+                    </button>
+                  </AppTooltip>
                 </div>
 
                 {/* Center 3D Book Presentation */}

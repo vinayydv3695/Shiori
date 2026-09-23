@@ -87,7 +87,7 @@ export const SeriesAssignmentDialog = ({
               Assign to Series
             </Dialog.Title>
              <Dialog.Close asChild>
-               <button className="text-muted-foreground hover:text-foreground hover:bg-muted p-1.5 rounded-md transition-colors" title="Close">
+               <button className="text-muted-foreground hover:text-foreground hover:bg-muted p-1.5 rounded-md transition-colors" aria-label="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>

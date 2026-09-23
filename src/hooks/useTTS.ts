@@ -11,7 +11,13 @@ import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { logger } from '@/lib/logger';
 import type { TTSState } from '@/lib/ttsEngine';
 import { splitSentences } from '@/lib/sentenceSplitter';
-import { highlightSentence, clearAllHighlights } from '@/lib/sentenceHighlighter';
+import {
+  highlightSentence,
+  clearAllHighlights,
+  highlightActiveWord,
+  getSentenceWords,
+  getWordIndexAtCharOffset,
+} from '@/lib/sentenceHighlighter';
 import { api, isTauri, isAndroid, isLinux } from '@/lib/tauri';
 import type { VoiceInfo } from '@/lib/tauri';
 import { buildVoicePickerItems } from '@/lib/voicePicker';
@@ -347,6 +353,28 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
     }
   }, [contentKey]);
 
+  // Click-to-seek playback to a specific word inside the highlighted sentence
+  useEffect(() => {
+    const handleSeekWord = (e: Event) => {
+      const custom = e as CustomEvent<{ wordIndex: number }>;
+      const targetWordIdx = custom.detail?.wordIndex;
+      if (targetWordIdx === undefined) return;
+
+      if (piperAudioRef.current && piperAudioRef.current.duration > 0) {
+        const sentence = sentencesRef.current[currentIndexRef.current] || '';
+        const words = getSentenceWords(sentence);
+        if (words.length > 0) {
+          const ratio = Math.max(0, Math.min(1, targetWordIdx / words.length));
+          piperAudioRef.current.currentTime = ratio * piperAudioRef.current.duration;
+        }
+      }
+      highlightActiveWord(contentRef.current, targetWordIdx);
+    };
+
+    window.addEventListener('shiori-tts-seek-word', handleSeekWord);
+    return () => window.removeEventListener('shiori-tts-seek-word', handleSeekWord);
+  }, [contentRef]);
+
   // Called by Android speech:finish (and as a fallback by the time-budget timer
   // on desktop where no events are emitted). Shared tail: advance or finish.
   useEffect(() => {
@@ -444,8 +472,15 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           blobUrlRef.current = audioUrl;
           const audio = new Audio(audioUrl);
           // Edge SSML already carries the rate (prosody) — no playbackRate here
-          // or 1.5× would be applied twice (2.25×).
           piperAudioRef.current = audio;
+
+          const edgeWords = getSentenceWords(sentence);
+          audio.ontimeupdate = () => {
+            if (!audio.duration || audio.duration <= 0 || edgeWords.length === 0) return;
+            const progress = Math.max(0, Math.min(1, audio.currentTime / audio.duration));
+            const wordIdx = Math.min(edgeWords.length - 1, Math.floor(progress * edgeWords.length));
+            highlightActiveWord(contentRef.current, wordIdx);
+          };
 
           audio.onended = () => {
             if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
@@ -557,6 +592,14 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
           const audio = new Audio(audioUrl);
           audio.playbackRate = rate;
           piperAudioRef.current = audio;
+
+          const piperWords = getSentenceWords(sentence);
+          audio.ontimeupdate = () => {
+            if (!audio.duration || audio.duration <= 0 || piperWords.length === 0) return;
+            const progress = Math.max(0, Math.min(1, audio.currentTime / audio.duration));
+            const wordIdx = Math.min(piperWords.length - 1, Math.floor(progress * piperWords.length));
+            highlightActiveWord(contentRef.current, wordIdx);
+          };
           
           audio.onended = () => {
             if (gen !== generationRef.current) return;
@@ -746,6 +789,12 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
         voice: selectedVoice || undefined,
         rate,
         pitch,
+        onBoundary: (event) => {
+          if (event.name === 'word') {
+            const wordIdx = getWordIndexAtCharOffset(sentence, event.charIndex);
+            highlightActiveWord(contentRef.current, wordIdx);
+          }
+        },
         onEnd: () => {
           const nextIndex = currentIndexRef.current + 1;
 

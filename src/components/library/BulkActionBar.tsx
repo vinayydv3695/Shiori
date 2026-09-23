@@ -16,6 +16,7 @@ import { useCallback } from 'react';
 import { X, FileOutput, FolderPlus, CheckSquare, Square } from 'lucide-react';
 import { useLibraryStore } from '@/store/libraryStore';
 import { Button } from '@/components/ui/button';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface BulkActionBarProps {
@@ -58,57 +59,61 @@ export function BulkActionBar({ visibleBookIds, onConvert, onAddToShelf }: BulkA
 
         <div className="w-px h-6 bg-border/70 mx-0.5" />
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSelectAll}
-          className="gap-1.5 h-9 rounded-lg text-sm"
-          title={allVisibleSelected ? 'Deselect visible' : 'Select all visible'}
-        >
-          {allVisibleSelected ? (
-            <CheckSquare className="w-4 h-4" />
-          ) : (
-            <Square className="w-4 h-4" />
-          )}
-          <span className="max-md:hidden">{allVisibleSelected ? 'Deselect' : 'Select all'}</span>
-        </Button>
+        <AppTooltip content={allVisibleSelected ? 'Deselect visible' : 'Select all visible'} side="top">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSelectAll}
+            className="gap-1.5 h-9 rounded-lg text-sm"
+          >
+            {allVisibleSelected ? (
+              <CheckSquare className="w-4 h-4" />
+            ) : (
+              <Square className="w-4 h-4" />
+            )}
+            <span className="max-md:hidden">{allVisibleSelected ? 'Deselect' : 'Select all'}</span>
+          </Button>
+        </AppTooltip>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onConvert}
-          className="gap-1.5 h-9 rounded-lg text-sm"
-          title="Convert selected books to EPUB"
-        >
-          <FileOutput className="w-4 h-4" />
-          <span className={cn('max-md:hidden')}>Convert to EPUB</span>
-          <span className="md:hidden">Convert</span>
-        </Button>
+        <AppTooltip content="Convert selected books to EPUB" side="top">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onConvert}
+            className="gap-1.5 h-9 rounded-lg text-sm"
+          >
+            <FileOutput className="w-4 h-4" />
+            <span className={cn('max-md:hidden')}>Convert to EPUB</span>
+            <span className="md:hidden">Convert</span>
+          </Button>
+        </AppTooltip>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onAddToShelf}
-          className="gap-1.5 h-9 rounded-lg text-sm"
-          title="Add selected books to a shelf"
-        >
-          <FolderPlus className="w-4 h-4" />
-          <span className={cn('max-md:hidden')}>Add to Shelf…</span>
-          <span className="md:hidden">Shelf</span>
-        </Button>
+        <AppTooltip content="Add selected books to a shelf" side="top">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAddToShelf}
+            className="gap-1.5 h-9 rounded-lg text-sm"
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span className={cn('max-md:hidden')}>Add to Shelf…</span>
+            <span className="md:hidden">Shelf</span>
+          </Button>
+        </AppTooltip>
 
         <div className="w-px h-6 bg-border/70 mx-0.5" />
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearSelection}
-          className="gap-1.5 h-9 rounded-lg text-sm text-muted-foreground hover:text-foreground"
-          title="Clear selection"
-        >
-          <X className="w-4 h-4" />
-          <span className="max-md:hidden">Clear</span>
-        </Button>
+        <AppTooltip content="Clear selection" side="top">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearSelection}
+            className="gap-1.5 h-9 rounded-lg text-sm text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4" />
+            <span className="max-md:hidden">Clear</span>
+          </Button>
+        </AppTooltip>
       </div>
     </div>
   );

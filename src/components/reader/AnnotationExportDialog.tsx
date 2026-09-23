@@ -200,7 +200,7 @@ export function AnnotationExportDialog({ open, onOpenChange, bookId }: Annotatio
             <button
               onClick={() => onOpenChange(false)}
               className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              title="Close"
+              aria-label="Close"
             >
               <X size={18} />
             </button>

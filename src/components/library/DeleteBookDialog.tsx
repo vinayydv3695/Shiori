@@ -70,7 +70,7 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
               {isMultiple ? 'Delete Books' : 'Delete Book'}
             </Dialog.Title>
              <Dialog.Close asChild>
-               <button className="text-muted-foreground hover:text-foreground transition-colors" title="Close">
+               <button className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>

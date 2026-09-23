@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, FileImage, File } from 'lucide-react';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface FormatBadgeProps {
   format: string;
@@ -107,13 +108,15 @@ const FormatBadge: React.FC<FormatBadgeProps> = ({
   const sizeClasses = getSizeClasses(size);
 
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full font-medium border ${style.bg} ${style.text} ${style.border} ${sizeClasses} ${className}`}
-      title={`${normalizedFormat} format`}
-    >
-      {showIcon && <span className={style.text}>{style.icon}</span>}
-      <span>{normalizedFormat}</span>
-    </span>
+    <AppTooltip content={`${normalizedFormat} format`}>
+      <span
+        className={`inline-flex items-center gap-1 rounded-full font-medium border ${style.bg} ${style.text} ${style.border} ${sizeClasses} ${className}`}
+        aria-label={`${normalizedFormat} format`}
+      >
+        {showIcon && <span className={style.text}>{style.icon}</span>}
+        <span>{normalizedFormat}</span>
+      </span>
+    </AppTooltip>
   );
 };
 

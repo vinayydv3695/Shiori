@@ -12,6 +12,7 @@ import { useLibraryStore } from '../../store/libraryStore';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useBottomSheetDrag } from '@/hooks/useBottomSheetDrag';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface EditMetadataDialogProps {
   open: boolean;
@@ -158,20 +159,23 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
 
   const renderLockBtn = (fieldKey: string) => {
     const isLocked = lockedFields[fieldKey];
+    const tooltipText = isLocked ? 'Locked: prevents auto-enrich from overwriting' : 'Auto: auto-enrich can update this field';
     return (
-      <button
-        onClick={() => toggleLock(fieldKey)}
-        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer active:scale-95 shrink-0 select-none ${
-          isLocked 
-            ? 'bg-primary/15 text-primary border-primary/30 shadow-2xs' 
-            : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
-        }`}
-        title={isLocked ? 'Locked: prevents auto-enrich from overwriting' : 'Auto: auto-enrich can update this field'}
-        type="button"
-      >
-        {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-        <span>{isLocked ? 'Locked' : 'Auto'}</span>
-      </button>
+      <AppTooltip content={tooltipText}>
+        <button
+          onClick={() => toggleLock(fieldKey)}
+          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer active:scale-95 shrink-0 select-none ${
+            isLocked 
+              ? 'bg-primary/15 text-primary border-primary/30 shadow-2xs' 
+              : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
+          }`}
+          aria-label={tooltipText}
+          type="button"
+        >
+          {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+          <span>{isLocked ? 'Locked' : 'Auto'}</span>
+        </button>
+      </AppTooltip>
     );
   };
 
@@ -202,7 +206,7 @@ export const EditMetadataDialog = ({ open, onOpenChange, bookId }: EditMetadataD
             <button
               onClick={() => onOpenChange(false)}
               className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
-              title="Close"
+              aria-label="Close"
             >
               <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </button>

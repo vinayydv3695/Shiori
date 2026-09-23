@@ -3,6 +3,7 @@ import { useCoverImage } from '../common/hooks/useCoverImage'
 import { BookOpen } from 'lucide-react'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
+import { AppTooltip } from '@/components/ui/tooltip'
 import { useThumbnail } from '@/hooks/useThumbnail'
 
 interface ContinueReadingCardProps {
@@ -105,9 +106,13 @@ export function ContinueReadingCard({ book, progress, domain, onClick }: Continu
                 )}
             </div>
             <div className="continue-card-info">
-                <div className="continue-card-title" title={book.title}>{book.title}</div>
+                <AppTooltip content={book.title} side="top">
+                    <div className="continue-card-title">{book.title}</div>
+                </AppTooltip>
                 {author && (
-                    <div className="continue-card-author" title={author}>{author}</div>
+                    <AppTooltip content={author} side="top">
+                        <div className="continue-card-author">{author}</div>
+                    </AppTooltip>
                 )}
                 <div className="continue-card-progress-bar">
                     <div
@@ -179,9 +184,13 @@ export function RecentlyAddedCard({ book, onClick }: RecentlyAddedCardProps) {
                 )}
             </div>
             <div className="recent-card-info">
-                <div className="recent-card-title" title={book.title}>{book.title}</div>
+                <AppTooltip content={book.title} side="top">
+                    <div className="recent-card-title">{book.title}</div>
+                </AppTooltip>
                 {author && (
-                    <div className="recent-card-author" title={author}>{author}</div>
+                    <AppTooltip content={author} side="top">
+                        <div className="recent-card-author">{author}</div>
+                    </AppTooltip>
                 )}
             </div>
         </button>

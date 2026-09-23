@@ -1,6 +1,7 @@
 import React from 'react';
 import { PlayCircle, Star, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 export interface AniListBookCardProps {
   id: string | number;
@@ -71,12 +72,13 @@ export function AniListBookCard({
 
       {/* Title & Progress Area */}
       <div className="absolute bottom-0 left-0 right-0 p-3 z-20 flex flex-col gap-1">
-        <h3 
-          className="font-bold text-xs sm:text-sm leading-snug text-white line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] group-hover:text-primary transition-colors"
-          title={title}
-        >
-          {title}
-        </h3>
+        <AppTooltip content={title} side="top">
+          <h3 
+            className="font-bold text-xs sm:text-sm leading-snug text-white line-clamp-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] group-hover:text-primary transition-colors"
+          >
+            {title}
+          </h3>
+        </AppTooltip>
         
         {progress !== undefined && (
           <div className="pointer-events-none flex items-center mt-0.5">

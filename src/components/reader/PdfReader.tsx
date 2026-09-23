@@ -116,15 +116,17 @@ function PageInput({ pageNumber, numPages, onNavigate }: { pageNumber: number; n
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="text-xs font-medium px-2 py-0.5 rounded hover:bg-white/10 transition-colors cursor-text"
-        style={{ color: 'var(--text-secondary)' }}
-        title="Click to jump to page"
-      >
-        {pageNumber} / {numPages}
-      </button>
+      <ReaderTooltip content="Click to jump to page" side="bottom">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          aria-label="Click to jump to page"
+          className="text-xs font-medium px-2 py-0.5 rounded hover:bg-white/10 transition-colors cursor-text"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          {pageNumber} / {numPages}
+        </button>
+      </ReaderTooltip>
     );
   }
 

@@ -5,6 +5,7 @@ import { Download, X, Inbox, CheckCircle2, Loader2 } from 'lucide-react';
 import { useOnlineDownloadStore, type DownloadProgress } from '@/store/onlineDownloadStore';
 import { DownloadProgressBar } from './DownloadProgressBar';
 import { cn } from '@/lib/utils';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 // Stable empty sentinel: DownloadQueuePanel is mounted globally (GlobalDialogs)
 // but only needs the live downloads object while open — progress ticks replace
@@ -46,67 +47,72 @@ export function DownloadsButton({ className, iconOnly }: { className?: string; i
 
   if (iconOnly) {
     return (
+      <AppTooltip content={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'} side="bottom">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
+          className={cn(
+            "relative w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95 border border-border/50",
+            activeCount > 0 
+              ? "bg-primary text-primary-foreground border-primary/40 shadow-xs" 
+              : "bg-secondary/40 hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
+            className
+          )}
+        >
+          {activeCount > 0 ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Download className="w-3.5 h-3.5" />
+          )}
+          {totalCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-black bg-primary text-primary-foreground flex items-center justify-center border border-background shadow-xs">
+              {activeCount > 0 ? activeCount : totalCount}
+            </span>
+          )}
+        </button>
+      </AppTooltip>
+    );
+  }
+
+
+  return (
+    <AppTooltip content={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'} side="bottom">
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
+        aria-label={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
         className={cn(
-          "relative w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95 border border-border/50",
+          "relative flex items-center gap-2.5 px-5 py-2 h-11 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 border shadow-xs outline-none group cursor-pointer select-none active:scale-95",
           activeCount > 0 
-            ? "bg-primary text-primary-foreground border-primary/40 shadow-xs" 
-            : "bg-secondary/40 hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
+            ? "bg-gradient-to-r from-primary via-primary/95 to-primary/85 text-primary-foreground border-primary/40 shadow-md shadow-primary/25 scale-[1.02]" 
+            : "bg-card/75 hover:bg-card text-foreground border-border/50 hover:border-primary/40 backdrop-blur-xl",
           className
         )}
       >
-        {activeCount > 0 ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : (
-          <Download className="w-3.5 h-3.5" />
-        )}
+        <div className="relative flex items-center justify-center">
+          {activeCount > 0 ? (
+            <Loader2 className="w-4 h-4 animate-spin text-primary-foreground" />
+          ) : (
+            <Download className="w-4 h-4 transition-transform duration-200 group-hover:translate-y-[1px] text-primary" />
+          )}
+          {activeCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          )}
+        </div>
+        <span className="tracking-tight">Downloads</span>
         {totalCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-black bg-primary text-primary-foreground flex items-center justify-center border border-background shadow-xs">
+          <span className={cn(
+            "min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-black flex items-center justify-center border shadow-2xs",
+            activeCount > 0
+              ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
+              : "bg-primary/15 text-primary border-primary/25"
+          )}>
             {activeCount > 0 ? activeCount : totalCount}
           </span>
         )}
       </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      title={totalCount > 0 ? `Downloads (${totalCount})` : 'Downloads'}
-      className={cn(
-        "relative flex items-center gap-2.5 px-5 py-2 h-11 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 border shadow-xs outline-none group cursor-pointer select-none active:scale-95",
-        activeCount > 0 
-          ? "bg-gradient-to-r from-primary via-primary/95 to-primary/85 text-primary-foreground border-primary/40 shadow-md shadow-primary/25 scale-[1.02]" 
-          : "bg-card/75 hover:bg-card text-foreground border-border/50 hover:border-primary/40 backdrop-blur-xl",
-        className
-      )}
-    >
-      <div className="relative flex items-center justify-center">
-        {activeCount > 0 ? (
-          <Loader2 className="w-4 h-4 animate-spin text-primary-foreground" />
-        ) : (
-          <Download className="w-4 h-4 transition-transform duration-200 group-hover:translate-y-[1px] text-primary" />
-        )}
-        {activeCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-        )}
-      </div>
-      <span className="tracking-tight">Downloads</span>
-      {totalCount > 0 && (
-        <span className={cn(
-          "min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-black flex items-center justify-center border shadow-2xs",
-          activeCount > 0
-            ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30"
-            : "bg-primary/15 text-primary border-primary/25"
-        )}>
-          {activeCount > 0 ? activeCount : totalCount}
-        </span>
-      )}
-    </button>
+    </AppTooltip>
   );
 }
 
@@ -178,21 +184,25 @@ export function DownloadQueuePanel() {
               </div>
               <div className="flex items-center gap-2">
                 {finishedCount > 0 && (
-                  <button
-                    onClick={handleClearFinished}
-                    className="px-3 py-1 text-xs font-bold rounded-full bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50 transition-all cursor-pointer shadow-xs"
-                    title="Clear completed and failed downloads"
-                  >
-                    Clear done
-                  </button>
+                  <AppTooltip content="Clear completed and failed downloads" side="bottom">
+                    <button
+                      onClick={handleClearFinished}
+                      aria-label="Clear completed and failed downloads"
+                      className="px-3 py-1 text-xs font-bold rounded-full bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50 transition-all cursor-pointer shadow-xs"
+                    >
+                      Clear done
+                    </button>
+                  </AppTooltip>
                 )}
                 <Dialog.Close asChild>
-                  <button
-                    className="p-2 bg-secondary/60 hover:bg-secondary border border-border/50 rounded-full transition-all text-muted-foreground hover:text-foreground shadow-xs cursor-pointer"
-                    title="Close downloads"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <AppTooltip content="Close downloads" side="bottom">
+                    <button
+                      aria-label="Close downloads"
+                      className="p-2 bg-secondary/60 hover:bg-secondary border border-border/50 rounded-full transition-all text-muted-foreground hover:text-foreground shadow-xs cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </AppTooltip>
                 </Dialog.Close>
               </div>
             </div>

@@ -23,6 +23,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  AppTooltip,
 } from '@/components/ui/tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
 import { 
@@ -158,15 +159,17 @@ export function HistoryViewDesktop({
 
           <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            title="Close history"
-            className="text-muted-foreground hover:text-foreground hover:bg-card/80 border border-transparent hover:border-border/60 rounded-full cursor-pointer h-9 w-9 transition-all shadow-xs"
-          >
-            <X size={18} />
-          </Button>
+          <AppTooltip content="Close history">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              aria-label="Close history"
+              className="text-muted-foreground hover:text-foreground hover:bg-card/80 border border-transparent hover:border-border/60 rounded-full cursor-pointer h-9 w-9 transition-all shadow-xs"
+            >
+              <X size={18} />
+            </Button>
+          </AppTooltip>
         </div>
       </div>
 
@@ -531,13 +534,14 @@ export function HistoryViewDesktop({
                             <div className="flex-1 min-w-0 space-y-2.5">
                               <div>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <h3 
-                                    onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
-                                    className="font-extrabold text-base sm:text-lg text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2 leading-tight"
-                                    title={book.title}
-                                  >
-                                    {book.title}
-                                  </h3>
+                                  <AppTooltip content={book.title}>
+                                    <h3 
+                                      onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
+                                      className="font-extrabold text-base sm:text-lg text-foreground hover:text-primary transition-colors cursor-pointer line-clamp-2 leading-tight"
+                                    >
+                                      {book.title}
+                                    </h3>
+                                  </AppTooltip>
                                 </div>
                                 <div className="flex items-center gap-2 mt-1">
                                   <p className="text-xs sm:text-sm text-muted-foreground truncate font-medium flex-1">
@@ -697,13 +701,14 @@ export function HistoryViewDesktop({
                     <div className="p-3.5 flex flex-col justify-between flex-1 gap-2">
                       <div className="flex items-start justify-between gap-1.5">
                         <div className="min-w-0 flex-1">
-                          <h3 
-                            onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
-                            className="font-bold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer"
-                            title={book.title}
-                          >
-                            {book.title}
-                          </h3>
+                          <AppTooltip content={book.title}>
+                            <h3 
+                              onClick={() => book.id && onOpenBook(book.id, p?.currentLocation)}
+                              className="font-bold text-sm text-foreground line-clamp-1 hover:text-primary transition-colors cursor-pointer"
+                            >
+                              {book.title}
+                            </h3>
+                          </AppTooltip>
                           <p className="text-xs text-muted-foreground truncate mt-0.5">
                             {authorName}
                           </p>

@@ -22,6 +22,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  AppTooltip,
 } from '@/components/ui/tooltip';
 import * as Dialog from '@radix-ui/react-dialog';
 import { 
@@ -163,22 +164,26 @@ export function HistoryViewAndroid({
 
           <div className="flex items-center gap-1.5 shrink-0">
             {books.length > 0 && (
-              <button 
-                onClick={() => setClearDialogOpen(true)} 
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border/60 transition-all active:scale-95 shadow-xs" 
-                title="Clear History"
-              >
-                <Trash2 size={16} />
-              </button>
+              <AppTooltip content="Clear History">
+                <button 
+                  onClick={() => setClearDialogOpen(true)} 
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border/60 transition-all active:scale-95 shadow-xs" 
+                  aria-label="Clear History"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </AppTooltip>
             )}
             {onClose && (
-              <button 
-                onClick={onClose} 
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-foreground border border-border/60 transition-all active:scale-95 shadow-xs" 
-                title="Close"
-              >
-                <X size={17} />
-              </button>
+              <AppTooltip content="Close">
+                <button 
+                  onClick={onClose} 
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-foreground border border-border/60 transition-all active:scale-95 shadow-xs" 
+                  aria-label="Close"
+                >
+                  <X size={17} />
+                </button>
+              </AppTooltip>
             )}
           </div>
         </div>

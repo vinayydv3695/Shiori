@@ -14,7 +14,7 @@ interface UIState {
   isTopBarVisible: boolean;
   isTopBarShortcutOnly: boolean;
   isSidebarOpen: boolean;
-  sidebarTab: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search' | 'ai';
+  sidebarTab: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search' | 'characters' | 'ai';
   isFocusMode: boolean;
   scrollProgress: number; // 0-100
   lastMouseMovement: number;
@@ -24,9 +24,9 @@ interface UIState {
   // Actions
   setTopBarVisible: (visible: boolean) => void;
   setTopBarShortcutOnly: (enabled: boolean) => void;
-  toggleSidebar: (tab?: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search' | 'ai') => void;
+  toggleSidebar: (tab?: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search' | 'characters' | 'ai') => void;
   closeSidebar: () => void;
-  setSidebarTab: (tab: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search' | 'ai') => void;
+  setSidebarTab: (tab: 'toc' | 'highlights' | 'notes' | 'bookmarks' | 'search' | 'characters' | 'ai') => void;
   toggleFocusMode: () => void;
   setScrollProgress: (progress: number) => void;
   updateMouseMovement: () => void;

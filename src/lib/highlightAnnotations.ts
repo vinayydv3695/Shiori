@@ -328,6 +328,30 @@ function createHighlightMark(annotation: Annotation): HTMLElement {
   mark.dataset.annotationId = String(annotation.id || '');
   mark.dataset.annotationType = annotation.annotationType;
 
+  if (annotation.categoryId) {
+    mark.dataset.categoryId = String(annotation.categoryId);
+  }
+
+  // Derive semantic label from saved custom labels or default preset
+  try {
+    const customLabels = JSON.parse(localStorage.getItem('shiori-highlight-labels') || '{}');
+    const label = customLabels[color] || {
+      '#fbbf24': 'Important',
+      '#34d399': 'Quote',
+      '#60a5fa': 'Research',
+      '#a78bfa': 'Vocabulary',
+      '#f472b6': 'Idea',
+      '#fb923c': 'Review',
+      '#f87171': 'Critical',
+      '#2dd4bf': 'Reference',
+    }[color.toLowerCase()];
+    if (label) {
+      mark.dataset.categoryName = label;
+    }
+  } catch {
+    // ignore parsing errors
+  }
+
   if (annotation.noteContent) {
     mark.dataset.hasNote = 'true';
     mark.dataset.noteContent = annotation.noteContent;

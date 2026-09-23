@@ -54,15 +54,21 @@ function buildTextRangeAnchor(selection: Selection): string | undefined {
   }
 }
 
-const HIGHLIGHT_COLORS = [
-  { name: 'Yellow', value: '#fbbf24' },
-  { name: 'Green', value: '#34d399' },
-  { name: 'Blue', value: '#60a5fa' },
-  { name: 'Pink', value: '#f472b6' },
-  { name: 'Purple', value: '#a78bfa' },
-  { name: 'Orange', value: '#fb923c' },
-  { name: 'Red', value: '#f87171' },
-  { name: 'Teal', value: '#2dd4bf' },
+export interface HighlightPreset {
+  name: string;
+  value: string;
+  defaultLabel: string;
+}
+
+export const DEFAULT_HIGHLIGHT_PRESETS: HighlightPreset[] = [
+  { name: 'Yellow', value: '#fbbf24', defaultLabel: 'Important' },
+  { name: 'Green', value: '#34d399', defaultLabel: 'Quote' },
+  { name: 'Blue', value: '#60a5fa', defaultLabel: 'Research' },
+  { name: 'Purple', value: '#a78bfa', defaultLabel: 'Vocabulary' },
+  { name: 'Pink', value: '#f472b6', defaultLabel: 'Idea' },
+  { name: 'Orange', value: '#fb923c', defaultLabel: 'Review' },
+  { name: 'Red', value: '#f87171', defaultLabel: 'Critical' },
+  { name: 'Teal', value: '#2dd4bf', defaultLabel: 'Reference' },
 ];
 
 /**
@@ -86,6 +92,15 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [dictionaryResult, setDictionaryResult] = useState<DictionaryResponse | null>(null);
   const [translationResult, setTranslationResult] = useState<TranslationResponse | null>(null);
   const [translationError, setTranslationError] = useState<string | null>(null);
+  const [highlightLabels, setHighlightLabels] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('shiori-highlight-labels');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [isEditingLabels, setIsEditingLabels] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const hideTimerRef = useRef<number | null>(null);
@@ -514,10 +529,20 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     return selectionAnchorRef.current ?? buildTextRangeAnchor(selection);
   }, []);
 
-  const handleHighlight = useCallback(async (color: string) => {
+  const handleHighlight = useCallback(async (color: string, label?: string) => {
     try {
       const location = getResolvedLocation();
       const cfiRange = getResolvedRangeAnchor();
+
+      // Look up matching category ID if available
+      let catId = selectedCategoryId;
+      if (!catId && label) {
+        const found = categories.find((c) => c.name.toLowerCase() === label.toLowerCase());
+        if (found) {
+          catId = found.id;
+        }
+      }
+
       await api.createAnnotation(
         bookId,
         'highlight',
@@ -525,10 +550,11 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         cfiRange,
         selectedText,
         undefined,
-        color
+        color,
+        catId
       );
       useToastStore.getState().addToast({
-        title: 'Highlight saved',
+        title: label ? `${label} highlight saved` : 'Highlight saved',
         variant: 'success',
         duration: 2000,
       });
@@ -544,7 +570,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     }
     hideToolbar();
     window.getSelection()?.removeAllRanges();
-  }, [bookId, getResolvedLocation, getResolvedRangeAnchor, selectedText, hideToolbar]);
+  }, [bookId, getResolvedLocation, getResolvedRangeAnchor, selectedText, hideToolbar, selectedCategoryId, categories]);
 
   const handleAddNote = useCallback(async () => {
     try {
@@ -1010,23 +1036,72 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
             )
           )}
 
-          {/* Color picker for highlight */}
+          {/* Color picker with custom labels for highlight */}
           {showColorPicker && !showNoteInput && !showTranslation && (
             <motion.div
-              className="text-selection-toolbar-colors"
+              className="p-2 space-y-2 max-w-sm"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              {HIGHLIGHT_COLORS.map((c) => (
+              <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-[var(--text-secondary)]">
+                <span>Select highlight label</span>
                 <button
-                  key={c.value}
-                  className="text-selection-color-swatch"
-                  style={{ backgroundColor: c.value }}
-                  onClick={() => handleHighlight(c.value)}
-                  title={c.name}
-                />
-              ))}
+                  type="button"
+                  className="hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[10px] underline underline-offset-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingLabels(!isEditingLabels);
+                  }}
+                >
+                  {isEditingLabels ? 'Done' : 'Edit labels'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
+                {DEFAULT_HIGHLIGHT_PRESETS.map((c) => {
+                  const currentLabel = highlightLabels[c.value] || c.defaultLabel;
+                  if (isEditingLabels) {
+                    return (
+                      <div
+                        key={c.value}
+                        className="flex items-center gap-1.5 p-1 rounded-lg bg-[var(--bg-secondary)] border border-[var(--ui-border)]"
+                      >
+                        <span className="w-3 h-3 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: c.value }} />
+                        <input
+                          type="text"
+                          value={currentLabel}
+                          onChange={(e) => {
+                            const newLabels = { ...highlightLabels, [c.value]: e.target.value };
+                            setHighlightLabels(newLabels);
+                            localStorage.setItem('shiori-highlight-labels', JSON.stringify(newLabels));
+                          }}
+                          className="w-full text-[11px] bg-transparent outline-none text-[var(--text-primary)]"
+                          placeholder={c.defaultLabel}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      className="group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] bg-[var(--bg-secondary)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] hover:border-[var(--ui-focus)] transition-all cursor-pointer text-left active:scale-95"
+                      onClick={() => handleHighlight(c.value, currentLabel)}
+                      aria-label={`${c.name} • ${currentLabel}`}
+                    >
+                      <span
+                        className="w-3 h-3 rounded-full shrink-0 shadow-xs ring-1 ring-black/10 group-hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c.value }}
+                      />
+                      <span className="text-[11px] font-semibold text-[var(--text-primary)] truncate">
+                        {currentLabel}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </motion.div>
           )}
 

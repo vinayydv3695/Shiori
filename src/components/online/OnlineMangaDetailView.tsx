@@ -3,6 +3,7 @@ import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { fetchWithRetry, cn } from '@/lib/utils';
 import { getProxyUrl } from '@/lib/tauri';
@@ -335,9 +336,13 @@ export function OnlineMangaDetailView({
               {title}
             </h1>
             
-            <p className="text-xs sm:text-sm md:text-base text-muted-foreground/80 mb-4 sm:mb-6 line-clamp-2 max-w-3xl" title={alternateTitles}>
-              {alternateTitles}
-            </p>
+            {alternateTitles && (
+              <AppTooltip content={alternateTitles}>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground/80 mb-4 sm:mb-6 line-clamp-2 max-w-3xl">
+                  {alternateTitles}
+                </p>
+              </AppTooltip>
+            )}
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
@@ -399,7 +404,9 @@ export function OnlineMangaDetailView({
               <div className="w-px h-8 bg-secondary/50 hidden sm:block"></div>
               <div className="flex flex-col">
                 <span className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mb-0.5 font-semibold">Author</span>
-                <span className="font-medium text-foreground text-xs sm:text-sm max-w-[120px] sm:max-w-[150px] truncate" title={finalAuthor}>{finalAuthor}</span>
+                <AppTooltip content={finalAuthor}>
+                  <span className="font-medium text-foreground text-xs sm:text-sm max-w-[120px] sm:max-w-[150px] truncate">{finalAuthor}</span>
+                </AppTooltip>
               </div>
               <div className="w-px h-8 bg-secondary/50 hidden sm:block"></div>
               <div className="flex flex-col">
@@ -523,9 +530,11 @@ export function OnlineMangaDetailView({
                           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                             <div className="flex flex-col items-end">
                               {ch.scanlationGroup && (
-                                <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>
-                                  {ch.scanlationGroup}
-                                </span>
+                                <AppTooltip content={ch.scanlationGroup} side="top">
+                                  <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate">
+                                    {ch.scanlationGroup}
+                                  </span>
+                                </AppTooltip>
                               )}
                               {ch.date && ch.date !== 'Unknown' && (
                                 <span className="text-[11px] text-muted-foreground/70">
@@ -534,20 +543,21 @@ export function OnlineMangaDetailView({
                               )}
                             </div>
                             {onDownloadChapter && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDownloadChapter(ch);
-                                }}
-                                disabled={chStatus === 'downloading' || chStatus === 'queued'}
-                                aria-label={`Download ${chapterDisplayLabel(ch)}`}
-                                data-status={chStatus ?? 'idle'}
-                                title="Download this chapter"
-                                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-primary/15 hover:text-primary disabled:opacity-60 disabled:pointer-events-none"
-                              >
-                                <ChapterDownloadStatusIcon status={chStatus} />
-                              </button>
+                              <AppTooltip content="Download this chapter" side="left">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDownloadChapter(ch);
+                                  }}
+                                  disabled={chStatus === 'downloading' || chStatus === 'queued'}
+                                  aria-label={`Download ${chapterDisplayLabel(ch)}`}
+                                  data-status={chStatus ?? 'idle'}
+                                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-primary/15 hover:text-primary disabled:opacity-60 disabled:pointer-events-none"
+                                >
+                                  <ChapterDownloadStatusIcon status={chStatus} />
+                                </button>
+                              </AppTooltip>
                             )}
                           </div>
                         </div>
@@ -599,35 +609,39 @@ export function OnlineMangaDetailView({
                                 </div>
                               ) : (
                                 (onDownloadChapters || onDownloadChapter) && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      const toDownload = vol.chapters.filter(c => chapterDownloadStatus?.[c.id] !== 'done');
-                                      if (onDownloadChapters) {
-                                        onDownloadChapters(toDownload);
-                                      } else if (onDownloadChapter) {
-                                        toDownload.forEach(ch => onDownloadChapter(ch));
-                                      }
-                                    }}
-                                    title={`Download ${vol.volumeLabel} (${vol.chapters.length} chapters)`}
-                                    className="h-8 px-3 rounded-full text-xs font-bold gap-1.5 bg-secondary/80 hover:bg-primary hover:text-primary-foreground border-border/50 transition-all shadow-xs"
-                                  >
-                                    <Download className="w-3.5 h-3.5" />
-                                    <span className="hidden sm:inline">Download Vol</span>
-                                  </Button>
+                                  <AppTooltip content={`Download ${vol.volumeLabel} (${vol.chapters.length} chapters)`} side="top">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        const toDownload = vol.chapters.filter(c => chapterDownloadStatus?.[c.id] !== 'done');
+                                        if (onDownloadChapters) {
+                                          onDownloadChapters(toDownload);
+                                        } else if (onDownloadChapter) {
+                                          toDownload.forEach(ch => onDownloadChapter(ch));
+                                        }
+                                      }}
+                                      aria-label={`Download ${vol.volumeLabel} (${vol.chapters.length} chapters)`}
+                                      className="h-8 px-3 rounded-full text-xs font-bold gap-1.5 bg-secondary/80 hover:bg-primary hover:text-primary-foreground border-border/50 transition-all shadow-xs"
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                      <span className="hidden sm:inline">Download Vol</span>
+                                    </Button>
+                                  </AppTooltip>
                                 )
                               )}
 
                               {/* Expand/Collapse Chevron Button */}
-                              <button 
-                                type="button"
-                                onClick={() => setExpandedVolume(isExpanded ? null : vol.id)}
-                                className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-                                title={isExpanded ? "Collapse" : "Expand"}
-                              >
-                                <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isExpanded && "rotate-180")} />
-                              </button>
+                              <AppTooltip content={isExpanded ? "Collapse" : "Expand"} side="top">
+                                <button 
+                                  type="button"
+                                  onClick={() => setExpandedVolume(isExpanded ? null : vol.id)}
+                                  aria-label={isExpanded ? "Collapse" : "Expand"}
+                                  className="p-1.5 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isExpanded && "rotate-180")} />
+                                </button>
+                              </AppTooltip>
                             </div>
                           </div>
 
@@ -653,34 +667,39 @@ export function OnlineMangaDetailView({
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0 ml-4">
-                                      <div className="flex flex-col items-end">
-                                        {ch.scanlationGroup && (
-                                          <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate" title={ch.scanlationGroup}>
-                                            {ch.scanlationGroup}
-                                          </span>
-                                        )}
-                                        {ch.date && ch.date !== 'Unknown' && (
-                                          <span className="text-[11px] text-muted-foreground/70">
-                                            {ch.date}
-                                          </span>
+                                      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                        <div className="flex flex-col items-end">
+                                          {ch.scanlationGroup && (
+                                            <AppTooltip content={ch.scanlationGroup}>
+                                              <span className="text-[11px] font-medium text-foreground/60 max-w-[100px] sm:max-w-[150px] truncate">
+                                                {ch.scanlationGroup}
+                                              </span>
+                                            </AppTooltip>
+                                          )}
+                                          {ch.date && ch.date !== 'Unknown' && (
+                                            <span className="text-[11px] text-muted-foreground/70">
+                                              {ch.date}
+                                            </span>
+                                          )}
+                                        </div>
+                                        {onDownloadChapter && (
+                                          <AppTooltip content="Download this chapter">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDownloadChapter(ch);
+                                              }}
+                                              disabled={chStatus === 'downloading' || chStatus === 'queued'}
+                                              aria-label={`Download ${chapterDisplayLabel(ch)}`}
+                                              data-status={chStatus ?? 'idle'}
+                                              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-primary/15 hover:text-primary disabled:opacity-60 disabled:pointer-events-none"
+                                            >
+                                              <ChapterDownloadStatusIcon status={chStatus} />
+                                            </button>
+                                          </AppTooltip>
                                         )}
                                       </div>
-                                      {onDownloadChapter && (
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onDownloadChapter(ch);
-                                          }}
-                                          disabled={chStatus === 'downloading' || chStatus === 'queued'}
-                                          aria-label={`Download ${chapterDisplayLabel(ch)}`}
-                                          data-status={chStatus ?? 'idle'}
-                                          title="Download this chapter"
-                                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors hover:bg-primary/15 hover:text-primary disabled:opacity-60 disabled:pointer-events-none"
-                                        >
-                                          <ChapterDownloadStatusIcon status={chStatus} />
-                                        </button>
-                                      )}
                                     </div>
                                   </div>
                                 );

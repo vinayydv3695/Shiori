@@ -10,6 +10,7 @@ import {
   type BrowseMode,
 } from "@/hooks/useMangaDex";
 import { Button } from "@/components/ui/button";
+import { AppTooltip } from "@/components/ui/tooltip";
 import { logger } from "@/lib/logger";
 
 
@@ -1415,9 +1416,11 @@ export function OnlineMangaView() {
       </div>
       
       {/* Chapter Title */}
-      <p className="text-xs text-muted-foreground truncate" title={downloadProgress.chapterTitle}>
-        {downloadProgress.chapterTitle}
-      </p>
+      <AppTooltip content={downloadProgress.chapterTitle} side="bottom">
+        <p className="text-xs text-muted-foreground truncate">
+          {downloadProgress.chapterTitle}
+        </p>
+      </AppTooltip>
 
       {/* Progress Bar */}
       <div className="space-y-1.5">
@@ -1580,33 +1583,37 @@ export function OnlineMangaView() {
             />
 
             {searchQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("manga", "");
-                  setHasSearched(false);
-                }}
-                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors mr-1.5 cursor-pointer"
-                title="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <AppTooltip content="Clear search" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("manga", "");
+                    setHasSearched(false);
+                  }}
+                  aria-label="Clear search"
+                  className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent transition-colors mr-1.5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </AppTooltip>
             )}
 
             <div className="flex items-center gap-2 shrink-0 pr-1">
-              <button
-                type="button"
-                onClick={() => setMobileFilterOpen(true)}
-                className={cn(
-                  "p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer",
-                  isAdvancedFilterActive
-                    ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
-                )}
-                title="Filters"
-              >
-                <Filter className="w-4 h-4 stroke-[2.2]" />
-              </button>
+              <AppTooltip content="Filters" side="bottom">
+                <button
+                  type="button"
+                  onClick={() => setMobileFilterOpen(true)}
+                  aria-label="Filters"
+                  className={cn(
+                    "p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer",
+                    isAdvancedFilterActive
+                      ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/25 shadow-inner"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 bg-transparent"
+                  )}
+                >
+                  <Filter className="w-4 h-4 stroke-[2.2]" />
+                </button>
+              </AppTooltip>
               <button
                 type="button"
                 onClick={() => {

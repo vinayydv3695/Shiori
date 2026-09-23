@@ -27,6 +27,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { api } from '@/lib/tauri';
@@ -544,12 +545,11 @@ export function DuplicateFinderDialog({
                               </div>
                               <div className="flex items-center gap-2">
                                 <HardDrive className="w-3.5 h-3.5 shrink-0" />
-                                <span
-                                  className="truncate text-[11px]"
-                                  title={book.file_path}
-                                >
-                                  {book.file_path}
-                                </span>
+                                <AppTooltip content={book.file_path}>
+                                  <span className="truncate text-[11px]">
+                                    {book.file_path}
+                                  </span>
+                                </AppTooltip>
                               </div>
                               {book.file_hash && (
                                 <div className="flex items-center gap-2">

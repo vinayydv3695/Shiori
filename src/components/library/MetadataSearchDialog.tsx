@@ -5,8 +5,8 @@ import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
 import { openExternal } from '@/lib/externalLinks';
 import { Button } from '../ui/button';
-
 import { Skeleton } from '@/components/ui/skeleton';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { useToast } from '@/store/toastStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -613,7 +613,7 @@ export const MetadataSearchDialog = ({
                 </div>
               </div>
               <Dialog.Close asChild>
-                <button className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" title="Close">
+                <button className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" aria-label="Close">
                   <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </button>
               </Dialog.Close>
@@ -676,7 +676,11 @@ export const MetadataSearchDialog = ({
                   <tbody className="divide-y divide-border/40">
                     {resultsArray.map((r) => (
                       <tr key={r.book.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 sm:px-6 py-3.5 font-semibold text-foreground truncate max-w-[180px] sm:max-w-[220px]" title={r.book.title}>{r.book.title}</td>
+                        <td className="px-4 sm:px-6 py-3.5 font-semibold text-foreground truncate max-w-[180px] sm:max-w-[220px]">
+                          <AppTooltip content={r.book.title}>
+                            <span className="truncate block">{r.book.title}</span>
+                          </AppTooltip>
+                        </td>
                         <td className="px-4 sm:px-6 py-3.5 truncate max-w-[200px] sm:max-w-[260px] text-muted-foreground">
                           {r.bestMatch ? r.bestMatch.mappedMetadata.title : '-'}
                         </td>
@@ -703,7 +707,13 @@ export const MetadataSearchDialog = ({
                           {r.status === 'searching' && <Loader2 className="w-4 h-4 animate-spin ml-auto text-primary" />}
                           {r.status === 'review' && <span className="text-primary font-semibold text-xs">Ready</span>}
                           {r.status === 'applied' && <CheckCircle className="w-4 h-4 ml-auto text-green-500" />}
-                          {r.status === 'error' && <span title={r.error}><AlertTriangle className="w-4 h-4 ml-auto text-destructive" /></span>}
+                          {r.status === 'error' && (
+                            <AppTooltip content={r.error || 'Error'}>
+                              <span aria-label={r.error || 'Error'}>
+                                <AlertTriangle className="w-4 h-4 ml-auto text-destructive" />
+                              </span>
+                            </AppTooltip>
+                          )}
                           {r.status === 'skipped' && <span className="text-muted-foreground text-xs">Skipped</span>}
                         </td>
                       </tr>
@@ -785,7 +795,7 @@ export const MetadataSearchDialog = ({
                 </div>
               </div>
               <Dialog.Close asChild>
-                <button className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" title="Close">
+                <button className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" aria-label="Close">
                   <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
                 </button>
               </Dialog.Close>
@@ -1032,7 +1042,7 @@ export const MetadataSearchDialog = ({
               <button 
                 onClick={handleClosePreview}
                 className="p-1.5 sm:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0" 
-                title="Close"
+                aria-label="Close"
               >
                 <X className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
               </button>

@@ -17,6 +17,7 @@ import {
 import { MetadataSearchDialog } from './MetadataSearchDialog';
 
 import { useToast } from '@/store/toastStore';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 interface SeriesManagementDialogProps {
   open: boolean;
@@ -228,7 +229,7 @@ export const SeriesManagementDialog = ({
               Manage Series
             </Dialog.Title>
              <Dialog.Close asChild>
-               <button className="text-muted-foreground hover:text-foreground hover:bg-muted p-1.5 rounded-md transition-colors" title="Close">
+               <button className="text-muted-foreground hover:text-foreground hover:bg-muted p-1.5 rounded-md transition-colors" aria-label="Close">
                  <X className="h-5 w-5" />
                </button>
              </Dialog.Close>
@@ -338,7 +339,9 @@ export const SeriesManagementDialog = ({
                               {/* Thumbnail placeholder */}
                             </div>
                             <div className="truncate">
-                              <div className="font-medium text-sm truncate" title={vol.title}>{vol.title}</div>
+                              <AppTooltip content={vol.title}>
+                                <div className="font-medium text-sm truncate">{vol.title}</div>
+                              </AppTooltip>
                               <div className="text-xs text-muted-foreground">Vol. {vol.series_index || '?'}</div>
                             </div>
                           </div>

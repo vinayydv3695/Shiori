@@ -30,6 +30,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import { AppTooltip } from '@/components/ui/tooltip';
 import { useOnlineMangaReaderStore } from '@/store/onlineMangaReaderStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { isAndroid } from '@/lib/tauri';
@@ -266,20 +267,26 @@ export function MangaReaderHeader({
                 
                 {/* Left Side: Close & Title */}
                 <div className="manga-topbar-left">
-                    <button type="button" className="manga-topbar-btn" onClick={onClose} title="Close Reader (Esc)">
-                        <X size={18} />
-                    </button>
+                    <AppTooltip content="Close Reader (Esc)" side="bottom">
+                        <button type="button" className="manga-topbar-btn" onClick={onClose} aria-label="Close Reader (Esc)">
+                            <X size={18} />
+                        </button>
+                    </AppTooltip>
                     <div className="manga-topbar-divider" />
                     <div className="manga-header-title-group">
-                        <span className="manga-header-title" title={title}>
-                            {title}
-                        </span>
+                        <AppTooltip content={title} side="bottom">
+                            <span className="manga-header-title">
+                                {title}
+                            </span>
+                        </AppTooltip>
                         {onlineSource?.chapterTitle && (
                             <>
                                 <span style={{ color: 'var(--manga-text-tertiary)' }}>•</span>
-                                <span className="manga-header-chapter" title={onlineSource.chapterTitle}>
-                                    {onlineSource.chapterTitle}
-                                </span>
+                                <AppTooltip content={onlineSource.chapterTitle} side="bottom">
+                                    <span className="manga-header-chapter">
+                                        {onlineSource.chapterTitle}
+                                    </span>
+                                </AppTooltip>
                             </>
                         )}
                     </div>
@@ -297,20 +304,22 @@ export function MangaReaderHeader({
                 <div className="manga-topbar-right">
                     {(sourceType === 'online' || seriesBooks.length > 1) && (
                         <>
-                            <button 
-                                type="button" 
-                                onClick={() => setDropdownOpen(true)}
-                                className={`manga-topbar-btn cursor-pointer transition-all ${
-                                    dropdownOpen 
-                                        ? isLight 
-                                            ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30' 
-                                            : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20' 
-                                        : ''
-                                }`} 
-                                title={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
-                            >
-                                <List size={18} />
-                            </button>
+                            <AppTooltip content={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"} side="bottom">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setDropdownOpen(true)}
+                                    aria-label={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
+                                    className={`manga-topbar-btn cursor-pointer transition-all ${
+                                        dropdownOpen 
+                                            ? isLight 
+                                                ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30' 
+                                                : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20' 
+                                            : ''
+                                    }`} 
+                                >
+                                    <List size={18} />
+                                </button>
+                            </AppTooltip>
 
                             {/* Chapter / Volume Modal - Portaled to document.body */}
                             {typeof document !== 'undefined' && createPortal(
@@ -371,19 +380,21 @@ export function MangaReaderHeader({
                                                         </div>
 
                                                         <div className="flex items-center gap-2 shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
-                                                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
-                                                                    isLight 
-                                                                        ? 'text-[#5C4430] hover:text-[#2C1E0F] bg-[#EAE0CB] border-[#D9C9A3]' 
-                                                                        : 'text-white/80 hover:text-white bg-white/10 border-white/10'
-                                                                }`}
-                                                                title={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
-                                                            >
-                                                                <ArrowUpDown className={`w-3.5 h-3.5 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
-                                                                <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
-                                                            </button>
+                                                            <AppTooltip content={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`} side="bottom">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                                                                    aria-label={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
+                                                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
+                                                                        isLight 
+                                                                            ? 'text-[#5C4430] hover:text-[#2C1E0F] bg-[#EAE0CB] border-[#D9C9A3]' 
+                                                                            : 'text-white/80 hover:text-white bg-white/10 border-white/10'
+                                                                    }`}
+                                                                >
+                                                                    <ArrowUpDown className={`w-3.5 h-3.5 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                                                    <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
+                                                                </button>
+                                                            </AppTooltip>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => setDropdownOpen(false)}
@@ -639,93 +650,107 @@ export function MangaReaderHeader({
 
                     {sourceType === 'local' && seriesBooks.length > 1 && (
                         <>
-                            <button 
-                                type="button"
-                                className="manga-topbar-btn"
-                                onClick={() => {
-                                    const prevBook = seriesBooks[currentLocalIndex - 1];
-                                    if (prevBook) {
-                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: prevBook.id } }));
-                                    }
-                                }}
-                                disabled={!hasPrevLocalVolume}
-                                style={{ opacity: hasPrevLocalVolume ? 1 : 0.4 }}
-                                title="Previous Volume"
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-                            <button 
-                                type="button"
-                                className="manga-topbar-btn"
-                                onClick={() => {
-                                    const nextBook = seriesBooks[currentLocalIndex + 1];
-                                    if (nextBook) {
-                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextBook.id } }));
-                                    }
-                                }}
-                                disabled={!hasNextLocalVolume}
-                                style={{ opacity: hasNextLocalVolume ? 1 : 0.4 }}
-                                title="Next Volume"
-                            >
-                                <ChevronRight size={20} />
-                            </button>
+                            <AppTooltip content="Previous Volume" side="bottom">
+                                <button 
+                                    type="button"
+                                    className="manga-topbar-btn"
+                                    onClick={() => {
+                                        const prevBook = seriesBooks[currentLocalIndex - 1];
+                                        if (prevBook) {
+                                            window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: prevBook.id } }));
+                                        }
+                                    }}
+                                    disabled={!hasPrevLocalVolume}
+                                    style={{ opacity: hasPrevLocalVolume ? 1 : 0.4 }}
+                                    aria-label="Previous Volume"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                            </AppTooltip>
+                            <AppTooltip content="Next Volume" side="bottom">
+                                <button 
+                                    type="button"
+                                    className="manga-topbar-btn"
+                                    onClick={() => {
+                                        const nextBook = seriesBooks[currentLocalIndex + 1];
+                                        if (nextBook) {
+                                            window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextBook.id } }));
+                                        }
+                                    }}
+                                    disabled={!hasNextLocalVolume}
+                                    style={{ opacity: hasNextLocalVolume ? 1 : 0.4 }}
+                                    aria-label="Next Volume"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </AppTooltip>
                             <div className="manga-topbar-divider" />
                         </>
                     )}
 
                     {sourceType === 'online' && (
                         <>
-                            <button 
-                                type="button"
-                                className="manga-topbar-btn"
-                                onClick={() => handleChapterNav('prev')}
-                                disabled={!hasPrevChapter}
-                                style={{ opacity: hasPrevChapter ? 1 : 0.4 }}
-                                title="Previous Chapter"
-                            >
-                                <ChevronLeft size={20} />
-                            </button>
-                            <button 
-                                type="button"
-                                className="manga-topbar-btn"
-                                onClick={() => handleChapterNav('next')}
-                                disabled={!hasNextChapter}
-                                style={{ opacity: hasNextChapter ? 1 : 0.4 }}
-                                title="Next Chapter"
-                            >
-                                <ChevronRight size={20} />
-                            </button>
-                            <button
-                                type="button"
-                                className="manga-topbar-btn"
-                                onClick={addToLibrary}
-                                disabled={isAlreadyInLibrary}
-                                title={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
-                            >
-                                {isAlreadyInLibrary ? <CheckCircle2 size={18} className="text-green-500" /> : <Library size={18} />}
-                            </button>
+                            <AppTooltip content="Previous Chapter" side="bottom">
+                                <button 
+                                    type="button"
+                                    className="manga-topbar-btn"
+                                    onClick={() => handleChapterNav('prev')}
+                                    disabled={!hasPrevChapter}
+                                    style={{ opacity: hasPrevChapter ? 1 : 0.4 }}
+                                    aria-label="Previous Chapter"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                            </AppTooltip>
+                            <AppTooltip content="Next Chapter" side="bottom">
+                                <button 
+                                    type="button"
+                                    className="manga-topbar-btn"
+                                    onClick={() => handleChapterNav('next')}
+                                    disabled={!hasNextChapter}
+                                    style={{ opacity: hasNextChapter ? 1 : 0.4 }}
+                                    aria-label="Next Chapter"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </AppTooltip>
+                            <AppTooltip content={isAlreadyInLibrary ? "Already in Library" : "Add to Library"} side="bottom">
+                                <button
+                                    type="button"
+                                    className="manga-topbar-btn"
+                                    onClick={addToLibrary}
+                                    disabled={isAlreadyInLibrary}
+                                    aria-label={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
+                                >
+                                    {isAlreadyInLibrary ? <CheckCircle2 size={18} className="text-green-500" /> : <Library size={18} />}
+                                </button>
+                            </AppTooltip>
                             <div className="manga-topbar-divider" />
                         </>
                     )}
 
-                    <button 
-                        type="button"
-                        className={`manga-topbar-btn ${isSidebarOpen ? 'manga-topbar-btn--active' : ''}`}
-                        onClick={toggleSidebar}
-                        title="Toggle Sidebar (S)"
-                    >
-                        <Settings size={18} />
-                    </button>
-                    
-                    {!isAndroid && (
+                    <AppTooltip content="Toggle Sidebar (S)" side="bottom">
                         <button 
                             type="button"
-                            className="manga-topbar-btn" 
-                            onClick={toggleFullscreen}
-                            title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
+                            className={`manga-topbar-btn ${isSidebarOpen ? 'manga-topbar-btn--active' : ''}`}
+                            onClick={toggleSidebar}
+                            aria-label="Toggle Sidebar (S)"
                         >
-                            {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                            <Settings size={18} />
                         </button>
+                    </AppTooltip>
+                    
+                    {!isAndroid && (
+                        <AppTooltip content={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"} side="bottom">
+                            <button 
+                                type="button"
+                                className="manga-topbar-btn" 
+                                onClick={toggleFullscreen}
+                                aria-label={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
+                            >
+                                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                            </button>
+                        </AppTooltip>
                     )}
                 </div>
 

@@ -672,13 +672,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [nextChapterContent, setNextChapterContent] = useState<string | null>(null);
   const [prevChapterContent, setPrevChapterContent] = useState<string | null>(null);
 
-  // Active chapter bookmark state
+  // Active chapter bookmark & annotations state
   const [isCurrentChapterBookmarked, setIsCurrentChapterBookmarked] = useState(false);
+  const [currentAnnotations, setCurrentAnnotations] = useState<Annotation[]>([]);
 
   const checkBookmark = useCallback(async () => {
     if (!bookId) return;
     try {
       const annotations = await api.getAnnotations(bookId);
+      setCurrentAnnotations(annotations);
       const chapterLoc = `chapter_${currentIndexRef.current}`;
       const isBookmarked = annotations.some(
         (a) => a.annotationType === 'bookmark' && a.location === chapterLoc
@@ -2622,6 +2624,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       <PremiumSidebar
         bookId={bookId}
         currentIndex={currentIndex}
+        totalChapters={metadata?.total_chapters}
+        bookTitle={metadata?.title || readerContent?.title}
         onNavigate={loadChapter}
       />
 

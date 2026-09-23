@@ -150,8 +150,8 @@ export function AniListUserProfileView({ onClose, user, shelf }: AniListUserProf
                 {/* Close button positioned at top-right of banner */}
                 <button 
                   onClick={onClose}
+                  aria-label="Close"
                   className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-xl border border-white/15 shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-20 cursor-pointer"
-                  title="Close"
                 >
                   <X className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>

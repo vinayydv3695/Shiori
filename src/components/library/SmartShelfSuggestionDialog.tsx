@@ -136,7 +136,7 @@ export const SmartShelfSuggestionDialog = ({
               <Dialog.Close asChild>
                 <button
                   className="p-2.5 bg-secondary hover:bg-secondary/80 border border-transparent rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground"
-                  title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>

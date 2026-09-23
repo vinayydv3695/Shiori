@@ -8,6 +8,7 @@ import { Input } from '../ui/input'
 import { usePreferencesStore } from '../../store/preferencesStore'
 import { useToast } from '../../store/toastStore'
 import { logger } from '../../lib/logger'
+import { AppTooltip } from '@/components/ui/tooltip'
 
 interface ProwlarrSearchProps {
   open: boolean
@@ -245,9 +246,11 @@ export const ProwlarrSearch = ({ open, onOpenChange, bookTitle, bookAuthor }: Pr
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium truncate" title={result.title}>
-                                {result.title}
-                              </p>
+                              <AppTooltip content={result.title}>
+                                <p className="text-sm font-medium truncate">
+                                  {result.title}
+                                </p>
+                              </AppTooltip>
                               {result.infoUrl && (
                                 <a
                                   href={result.infoUrl}

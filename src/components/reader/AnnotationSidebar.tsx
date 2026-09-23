@@ -7,6 +7,7 @@ import { AnnotationExportDialog } from './AnnotationExportDialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 export function AnnotationSidebar() {
   const annotations = useReaderStore(state => state.annotations);
@@ -107,19 +108,22 @@ export function AnnotationSidebar() {
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="font-semibold text-lg text-gray-900">Annotations</h2>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setExportDialogOpen(true)}
-            className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
-            title="Export annotations"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-          </button>
+          <AppTooltip content="Export annotations" side="bottom">
+            <button
+              onClick={() => setExportDialogOpen(true)}
+              aria-label="Export annotations"
+              className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+          </AppTooltip>
           <button
             onClick={toggleAnnotationSidebar}
+            aria-label="Close"
             className="p-1.5 hover:bg-gray-100 rounded text-gray-600 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -210,20 +214,24 @@ export function AnnotationSidebar() {
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleEditStart(annotation)}
-                      className="p-1 hover:bg-gray-200 rounded"
-                      title="Edit note"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(annotation)}
-                      className="p-1 hover:bg-red-100 rounded text-red-600"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <AppTooltip content="Edit note" side="top">
+                      <button
+                        onClick={() => handleEditStart(annotation)}
+                        aria-label="Edit note"
+                        className="p-1 hover:bg-gray-200 rounded"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    </AppTooltip>
+                    <AppTooltip content="Delete" side="top">
+                      <button
+                        onClick={() => handleDelete(annotation)}
+                        aria-label="Delete"
+                        className="p-1 hover:bg-red-100 rounded text-red-600"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </AppTooltip>
                   </div>
                 </div>
 

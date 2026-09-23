@@ -12,6 +12,7 @@ interface TooltipData {
   noteRaw: string;
   annotationId?: string;
   annotationType?: string;
+  categoryName?: string;
 }
 
 export function ReaderAnnotationTooltip() {
@@ -56,6 +57,8 @@ export function ReaderAnnotationTooltip() {
       mark.removeAttribute('title');
     }
 
+    const categoryName = mark.dataset.categoryName || undefined;
+
     if (pinned) {
       isPinnedRef.current = true;
       const rect = mark.getBoundingClientRect();
@@ -64,6 +67,7 @@ export function ReaderAnnotationTooltip() {
         noteRaw,
         annotationId,
         annotationType: mark.dataset.annotationType || (mark.dataset.hasNote === 'true' ? 'note' : 'highlight'),
+        categoryName,
       });
       return;
     }
@@ -75,6 +79,7 @@ export function ReaderAnnotationTooltip() {
         noteRaw,
         annotationId,
         annotationType: mark.dataset.annotationType || (mark.dataset.hasNote === 'true' ? 'note' : 'highlight'),
+        categoryName,
       });
     }, 120);
   }, [clearTimers]);
@@ -335,6 +340,17 @@ export function ReaderAnnotationTooltip() {
                   ? 'Highlight'
                   : 'Note'}
               </span>
+              {tooltipData.categoryName && !isDefinition && !isTranslation && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/10 shadow-2xs tracking-normal"
+                  style={{
+                    backgroundColor: colors['--bg-secondary'],
+                    color: colors['--text-primary'],
+                  }}
+                >
+                  {tooltipData.categoryName}
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
@@ -348,7 +364,6 @@ export function ReaderAnnotationTooltip() {
                     backgroundColor: colors['--bg-secondary'],
                     color: colors['--text-tertiary'],
                   }}
-                  title="Delete annotation"
                   aria-label="Delete annotation"
                 >
                   {isDeleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
@@ -367,7 +382,6 @@ export function ReaderAnnotationTooltip() {
                   backgroundColor: colors['--bg-secondary'],
                   color: colors['--text-tertiary'],
                 }}
-                title="Dismiss"
                 aria-label="Dismiss"
               >
                 <X size={12} />
@@ -408,7 +422,7 @@ export function ReaderAnnotationTooltip() {
                       backgroundColor: `color-mix(in srgb, ${accentColor} 18%, transparent)`,
                       color: accentColor,
                     }}
-                    title="Pronounce"
+                    aria-label="Pronounce"
                   >
                     <Volume2 size={14} className={isPlayingAudio ? 'animate-pulse' : ''} />
                   </button>

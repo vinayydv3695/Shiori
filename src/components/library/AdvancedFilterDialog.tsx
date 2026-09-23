@@ -9,6 +9,7 @@ import { useLibraryStore } from '@/store/libraryStore'
 import type { FilterCriteria, FilterPreset, ReadingStatus } from '@/store/libraryStore'
 import { matchesAdvancedFilters, countActiveFilterCriteria } from '@/store/libraryStore'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { AppTooltip } from '@/components/ui/tooltip'
 
 const STORAGE_KEY = 'shiori_filter_presets'
 
@@ -177,7 +178,7 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
               Advanced Filters
             </Dialog.Title>
             <Dialog.Close asChild>
-              <button className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all" title="Close">
+              <button className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all" aria-label="Close">
                 <X size={20} />
               </button>
             </Dialog.Close>
@@ -461,13 +462,15 @@ export function AdvancedFilterDialog({ open, onOpenChange }: AdvancedFilterDialo
                             <span className="flex-1 text-sm font-medium text-foreground truncate">
                               {preset.name}
                             </span>
-                            <button
-                              onClick={e => { e.stopPropagation(); handleDeletePreset(preset.name) }}
-                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                              title="Delete preset"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <AppTooltip content="Delete preset">
+                              <button
+                                onClick={e => { e.stopPropagation(); handleDeletePreset(preset.name) }}
+                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+                                aria-label="Delete preset"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </AppTooltip>
                           </div>
                         ))}
                       </div>

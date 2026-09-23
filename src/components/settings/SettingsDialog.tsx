@@ -58,6 +58,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
 import { OnlineCacheSettings } from './OnlineCacheSettings'
+import { AppTooltip } from '@/components/ui/tooltip'
 import { TorboxSettings } from './TorboxSettings'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
@@ -791,13 +792,27 @@ const GeneralSettings = ({
             <div className="mt-6 p-5 rounded-2xl bg-muted/30 border border-border/40">
               <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-widest mb-4">Color Palette</p>
               <div className="flex flex-wrap gap-4 items-center">
-                <div className="w-8 h-8 rounded-full bg-primary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Primary" />
-                <div className="w-8 h-8 rounded-full bg-secondary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Secondary" />
-                <div className="w-8 h-8 rounded-full bg-accent shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Accent" />
-                <div className="w-8 h-8 rounded-full bg-muted shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Muted" />
-                <div className="w-8 h-8 rounded-full bg-destructive shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Destructive" />
-                <div className="w-8 h-8 rounded-full bg-background shadow-sm ring-1 ring-border transition-transform hover:scale-110 cursor-default" title="Background" />
-                <div className="w-8 h-8 rounded-full bg-foreground shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" title="Foreground" />
+                <AppTooltip content="Primary">
+                  <div className="w-8 h-8 rounded-full bg-primary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Primary" />
+                </AppTooltip>
+                <AppTooltip content="Secondary">
+                  <div className="w-8 h-8 rounded-full bg-secondary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Secondary" />
+                </AppTooltip>
+                <AppTooltip content="Accent">
+                  <div className="w-8 h-8 rounded-full bg-accent shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Accent" />
+                </AppTooltip>
+                <AppTooltip content="Muted">
+                  <div className="w-8 h-8 rounded-full bg-muted shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Muted" />
+                </AppTooltip>
+                <AppTooltip content="Destructive">
+                  <div className="w-8 h-8 rounded-full bg-destructive shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Destructive" />
+                </AppTooltip>
+                <AppTooltip content="Background">
+                  <div className="w-8 h-8 rounded-full bg-background shadow-sm ring-1 ring-border transition-transform hover:scale-110 cursor-default" aria-label="Background" />
+                </AppTooltip>
+                <AppTooltip content="Foreground">
+                  <div className="w-8 h-8 rounded-full bg-foreground shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Foreground" />
+                </AppTooltip>
               </div>
             </div>
           )}

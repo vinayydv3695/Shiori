@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Minus, Square, X, Copy, Maximize2, Minimize2 } from 'lucide-react'
 import { useState } from 'react'
 import { useFullscreen } from '@/hooks/useFullscreen'
+import { AppTooltip } from '@/components/ui/tooltip'
 
 declare global {
   interface Window {
@@ -58,40 +59,48 @@ export function WindowControls() {
     <div className="flex items-center space-x-1 pl-2 h-full shrink-0 select-none z-50">
       {!isFullscreen && (
         <>
-          <button
-            onClick={handleMinimize}
-            className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
-            title="Minimize"
-            type="button"
-          >
-            <Minus size={14} />
-          </button>
-          <button
-            onClick={handleToggleMaximize}
-            className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
-            title={isMaximized ? 'Restore' : 'Maximize'}
-            type="button"
-          >
-            {isMaximized ? <Copy size={13} className="rotate-180" /> : <Square size={13} />}
-          </button>
+          <AppTooltip content="Minimize" side="bottom">
+            <button
+              onClick={handleMinimize}
+              aria-label="Minimize"
+              className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
+              type="button"
+            >
+              <Minus size={14} />
+            </button>
+          </AppTooltip>
+          <AppTooltip content={isMaximized ? 'Restore' : 'Maximize'} side="bottom">
+            <button
+              onClick={handleToggleMaximize}
+              aria-label={isMaximized ? 'Restore' : 'Maximize'}
+              className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
+              type="button"
+            >
+              {isMaximized ? <Copy size={13} className="rotate-180" /> : <Square size={13} />}
+            </button>
+          </AppTooltip>
         </>
       )}
-      <button
-        onClick={toggleFullscreen}
-        className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
-        title={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'}
-        type="button"
-      >
-        {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-      </button>
-      <button
-        onClick={handleClose}
-        className="p-1.5 hover:bg-destructive hover:text-destructive-foreground rounded-md text-muted-foreground transition-colors non-drag"
-        title="Close"
-        type="button"
-      >
-        <X size={14} />
-      </button>
+      <AppTooltip content={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'} side="bottom">
+        <button
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Exit Fullscreen (F11)' : 'Fullscreen (F11)'}
+          className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors non-drag"
+          type="button"
+        >
+          {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
+      </AppTooltip>
+      <AppTooltip content="Close" side="bottom">
+        <button
+          onClick={handleClose}
+          aria-label="Close"
+          className="p-1.5 hover:bg-destructive hover:text-destructive-foreground rounded-md text-muted-foreground transition-colors non-drag"
+          type="button"
+        >
+          <X size={14} />
+        </button>
+      </AppTooltip>
     </div>
   )
 }

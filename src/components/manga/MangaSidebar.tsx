@@ -49,6 +49,7 @@ import {
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { isAndroid } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { AppTooltip } from '@/components/ui/tooltip';
 
 /**
  * Manga Reader Sidebar & Settings.
@@ -168,30 +169,34 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                 </div>
 
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={resetToDefaults}
-                                        className={`p-2 rounded-xl transition-colors ${
-                                            isLight 
-                                                ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' 
-                                                : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                                        }`}
-                                        title="Reset all settings to default"
-                                    >
-                                        <RotateCcw className="w-4 h-4" />
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        onClick={closeSidebar} 
-                                        className={`p-2 rounded-xl transition-colors ${
-                                            isLight 
-                                                ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' 
-                                                : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                                        }`}
-                                        title="Close Settings"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </button>
+                                    <AppTooltip content="Reset all settings to default">
+                                        <button
+                                            type="button"
+                                            onClick={resetToDefaults}
+                                            className={`p-2 rounded-xl transition-colors ${
+                                                isLight 
+                                                    ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' 
+                                                    : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                                            }`}
+                                            aria-label="Reset all settings to default"
+                                        >
+                                            <RotateCcw className="w-4 h-4" />
+                                        </button>
+                                    </AppTooltip>
+                                    <AppTooltip content="Close Settings">
+                                        <button 
+                                            type="button"
+                                            onClick={closeSidebar} 
+                                            className={`p-2 rounded-xl transition-colors ${
+                                                isLight 
+                                                    ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' 
+                                                    : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                                            }`}
+                                            aria-label="Close Settings"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </AppTooltip>
                                 </div>
                             </div>
 
@@ -673,15 +678,17 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                         {isLight ? 'Sepia Theme' : 'OLED Midnight'}
                                     </p>
                                 </div>
-                                <button 
-                                    className={`p-1.5 rounded-lg transition-colors ${
-                                        isLight ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                                    }`} 
-                                    onClick={closeSidebar} 
-                                    title="Close sidebar (Esc)"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
+                                <AppTooltip content="Close sidebar (Esc)">
+                                    <button 
+                                        className={`p-1.5 rounded-lg transition-colors ${
+                                            isLight ? 'text-[#7D634B] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                                        }`} 
+                                        onClick={closeSidebar} 
+                                        aria-label="Close sidebar (Esc)"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </AppTooltip>
                             </div>
 
                             {/* Content */}
@@ -733,18 +740,20 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                                            disabled={currentPage <= 0}
-                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all disabled:opacity-30 ${
-                                                isLight
-                                                    ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]'
-                                                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                                            }`}
-                                            title="Previous Page"
-                                        >
-                                            <ChevronLeft className="w-4 h-4" />
-                                        </button>
+                                        <AppTooltip content="Previous Page">
+                                            <button
+                                                onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                                                disabled={currentPage <= 0}
+                                                className={`p-2 rounded-xl border flex items-center justify-center transition-all disabled:opacity-30 ${
+                                                    isLight
+                                                        ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]'
+                                                        : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                                                }`}
+                                                aria-label="Previous Page"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                        </AppTooltip>
 
                                         <div className="flex-1">
                                             <Select
@@ -764,26 +773,28 @@ export const MangaSidebar = memo(function MangaSidebar() {
                                                         : '!bg-[#121216] text-white border-white/10'
                                                 }`}>
                                                     {Array.from({ length: totalPages }, (_, i) => (
-                                                        <SelectItem key={i} value={String(i)} className="text-xs">
-                                                            Page {i + 1} / {totalPages}
-                                                        </SelectItem>
-                                                    ))}
+                                                         <SelectItem key={i} value={String(i)} className="text-xs">
+                                                             Page {i + 1} / {totalPages}
+                                                         </SelectItem>
+                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
 
-                                        <button
-                                            onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                                            disabled={currentPage >= totalPages - 1}
-                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all disabled:opacity-30 ${
-                                                isLight
-                                                    ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]'
-                                                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                                            }`}
-                                            title="Next Page"
-                                        >
-                                            <ChevronRight className="w-4 h-4" />
-                                        </button>
+                                        <AppTooltip content="Next Page">
+                                            <button
+                                                onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
+                                                disabled={currentPage >= totalPages - 1}
+                                                className={`p-2 rounded-xl border flex items-center justify-center transition-all disabled:opacity-30 ${
+                                                    isLight
+                                                        ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]'
+                                                        : 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                                                }`}
+                                                aria-label="Next Page"
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                        </AppTooltip>
                                     </div>
                                 </motion.div>
 

@@ -644,6 +644,8 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
                 progress={progressPercentage}
                 format={format}
                 onClose={handleClose}
+                currentChapterIndex={currentChapter}
+                onNavigateToChapter={(idx) => setCurrentChapter(idx)}
                 rightExtra={
                     <>
                         <ReaderTooltip content="Search in book">

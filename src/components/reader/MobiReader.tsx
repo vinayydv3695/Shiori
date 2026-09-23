@@ -655,6 +655,8 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
                 progress={topBarProgress}
                 format="mobi"
                 onClose={handleClose}
+                currentChapterIndex={currentIndex}
+                onNavigateToChapter={(idx) => void loadChapter(idx)}
                 centerExtra={
                     <button
                         type="button"

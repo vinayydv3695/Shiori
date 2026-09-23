@@ -2,14 +2,15 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { ArrowLeft, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
-import { Headphones } from 'lucide-react';
+import { Headphones, History } from 'lucide-react';
 import { ReaderTooltip } from './ReaderTooltip';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { AmbientSoundBar } from './AmbientSoundBar';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
-
-import { isAndroid } from '@/lib/tauri';
+import { checkHiatus } from '@/lib/catchUpService';
+import { ChapterCatchUpModal } from './ChapterCatchUpModal';
+import { api, isAndroid } from '@/lib/tauri';
 
 interface ReaderTopBarProps {
   bookId: number;
@@ -20,6 +21,9 @@ interface ReaderTopBarProps {
   onClose: () => void;
   centerExtra?: React.ReactNode;
   rightExtra?: React.ReactNode;
+  currentChapterIndex?: number;
+  lastRead?: string;
+  onNavigateToChapter?: (chapterIndex: number) => void;
 }
 
 export function ReaderTopBar({
@@ -31,6 +35,9 @@ export function ReaderTopBar({
   onClose,
   centerExtra,
   rightExtra,
+  currentChapterIndex = 0,
+  lastRead,
+  onNavigateToChapter,
 }: ReaderTopBarProps) {
   const isTopBarVisible = useReaderUIStore(state => state.isTopBarVisible);
   const isSidebarOpen = useReaderUIStore(state => state.isSidebarOpen);
@@ -38,6 +45,22 @@ export function ReaderTopBar({
   const [isMoreMenuOpen, setIsMoreMenuOpen] = React.useState(false);
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = React.useState(false);
   const [showAmbientBar, setShowAmbientBar] = React.useState(false);
+  const [isCatchUpOpen, setIsCatchUpOpen] = React.useState(false);
+  const [savedLastRead, setSavedLastRead] = React.useState<string | undefined>(lastRead);
+
+  React.useEffect(() => {
+    if (lastRead) {
+      setSavedLastRead(lastRead);
+      return;
+    }
+    api.getReadingProgress(bookId).then((p) => {
+      if (p?.lastRead) {
+        setSavedLastRead(p.lastRead);
+      }
+    }).catch(() => {});
+  }, [bookId, lastRead]);
+
+  const { isHiatus, daysAgo } = checkHiatus(savedLastRead);
 
   // Automatically ensure menus close whenever the topbar hides, sidebar opens, or book changes
   React.useEffect(() => {
@@ -95,6 +118,18 @@ export function ReaderTopBar({
               </ReaderTooltip>
             )}
           </div>
+          {isHiatus && (
+            <ReaderTooltip content={`Hiatus: Last read ${daysAgo} days ago. Click for recap!`}>
+              <button
+                type="button"
+                onClick={() => setIsCatchUpOpen(true)}
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-500 hover:bg-amber-500/25 border border-amber-500/30 transition-all shrink-0 cursor-pointer animate-pulse hover:animate-none"
+              >
+                <History className="w-3 h-3" />
+                <span>Catch-Up</span>
+              </button>
+            </ReaderTooltip>
+          )}
         </div>
 
         {/* ── CENTER: Optional Extra Controls ── */}
@@ -210,6 +245,22 @@ export function ReaderTopBar({
                         </motion.button>
                       )}
 
+                      <motion.button
+                        type="button"
+                        variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          setIsCatchUpOpen(true);
+                        }}
+                        className="premium-menu-item"
+                        aria-label="Previously On... (Catch-Up Recap)"
+                      >
+                        <History className="premium-control-icon text-amber-500" />
+                        <span className="premium-menu-item-label">
+                          Previously On... (Recap)
+                        </span>
+                      </motion.button>
+
                       <div className="my-1 border-t border-[var(--ui-border)] opacity-40" />
 
                       <motion.div
@@ -234,6 +285,19 @@ export function ReaderTopBar({
       </div>
 
       <AmbientSoundBar open={showAmbientBar} onClose={() => setShowAmbientBar(false)} />
+
+      <ChapterCatchUpModal
+        isOpen={isCatchUpOpen}
+        onClose={() => setIsCatchUpOpen(false)}
+        bookId={bookId}
+        bookTitle={title}
+        currentChapterIndex={currentChapterIndex}
+        lastRead={savedLastRead}
+        onNavigateToChapter={(idx) => {
+          setIsCatchUpOpen(false);
+          onNavigateToChapter?.(idx);
+        }}
+      />
     </div>
   );
 }

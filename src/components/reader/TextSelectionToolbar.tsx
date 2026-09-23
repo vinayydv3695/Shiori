@@ -10,7 +10,7 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
 import { AICopilotPopup } from './AICopilotPopup';
-import { Brain } from 'lucide-react';
+import { Brain, Tag, RotateCcw, Check, Pencil } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
 import { useReadingSettings, READER_THEME_COLORS, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { hapticTick } from '@/lib/haptics';
@@ -808,14 +808,16 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
                   <button
                     type="button"
-                    className="text-selection-toolbar-android-btn flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
+                    className={`text-selection-toolbar-android-btn flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0 ${showColorPicker ? 'text-selection-toolbar-btn--active' : ''}`}
                     onClick={() => {
                       hapticTick();
                       setShowColorPicker(!showColorPicker);
                     }}
+                    aria-expanded={showColorPicker}
+                    aria-label="Highlight"
                   >
-                    <Highlighter size={18} className="mb-1" style={{ color: 'var(--text-primary)' }} />
-                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight" style={{ color: 'var(--text-primary)' }}>Highlight</span>
+                    <Highlighter size={18} className="mb-1" style={{ color: showColorPicker ? 'var(--ui-focus)' : 'var(--text-primary)' }} />
+                    <span className="text-[10px] sm:text-[11px] font-medium tracking-tight" style={{ color: showColorPicker ? 'var(--ui-focus)' : 'var(--text-primary)' }}>Highlight</span>
                   </button>
 
                   <button
@@ -823,6 +825,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     className="text-selection-toolbar-android-btn flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
                     onClick={() => {
                       hapticTick();
+                      setShowColorPicker(false);
                       handleTranslate();
                     }}
                   >
@@ -837,6 +840,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     className="text-selection-toolbar-android-btn flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
                     onClick={() => {
                       hapticTick();
+                      setShowColorPicker(false);
                       handleDefine();
                     }}
                   >
@@ -849,6 +853,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     className="text-selection-toolbar-android-btn flex flex-col items-center justify-center py-1.5 px-3 rounded-xl hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
                     onClick={() => {
                       hapticTick();
+                      setShowColorPicker(false);
                       setShowAndroidMore(true);
                     }}
                   >
@@ -919,6 +924,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                   className="text-selection-toolbar-btn"
                   onClick={() => {
                     hapticTick();
+                    setShowColorPicker(false);
                     handleTranslate();
                   }}
                 >
@@ -935,6 +941,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                   className="text-selection-toolbar-btn"
                   onClick={() => {
                     hapticTick();
+                    setShowColorPicker(false);
                     setShowNoteInput(true);
                   }}
                 >
@@ -949,11 +956,13 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
                 <button
                   type="button"
-                  className="text-selection-toolbar-btn"
+                  className={`text-selection-toolbar-btn ${showColorPicker ? 'text-selection-toolbar-btn--active' : ''}`}
                   onClick={() => {
                     hapticTick();
                     setShowColorPicker(!showColorPicker);
                   }}
+                  aria-expanded={showColorPicker}
+                  aria-label="Highlight"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 11-6 6v3h3l6-6" />
@@ -986,6 +995,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                   className="text-selection-toolbar-btn"
                   onClick={() => {
                     hapticTick();
+                    setShowColorPicker(false);
                     handleDefine();
                   }}
                 >
@@ -1023,6 +1033,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                   className="text-selection-toolbar-btn"
                   onClick={() => {
                     hapticTick();
+                    setShowColorPicker(false);
                     handleCopy();
                   }}
                 >
@@ -1036,38 +1047,103 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
             )
           )}
 
-          {/* Color picker with custom labels for highlight */}
-          {showColorPicker && !showNoteInput && !showTranslation && (
+          {/* Color picker with quick swatches and custom labels for highlight */}
+          {showColorPicker && !showNoteInput && !showTranslation && !showAICopilot && (
             <motion.div
-              className="p-2 space-y-2 max-w-sm"
+              className="text-selection-highlight-panel w-full pt-1 pb-1 space-y-2.5"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
             >
-              <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-[var(--text-secondary)]">
-                <span>Select highlight label</span>
-                <button
-                  type="button"
-                  className="hover:text-[var(--text-primary)] transition-colors cursor-pointer text-[10px] underline underline-offset-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditingLabels(!isEditingLabels);
-                  }}
-                >
-                  {isEditingLabels ? 'Done' : 'Edit labels'}
-                </button>
+              <div className="w-full h-px bg-[var(--ui-divider)] opacity-35 -mt-0.5 mb-2" />
+
+              {/* 1-Tap Quick Color Swatches */}
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] select-none">
+                  Quick Color
+                </span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {DEFAULT_HIGHLIGHT_PRESETS.map((c) => {
+                    const currentLabel = highlightLabels[c.value] || c.defaultLabel;
+                    return (
+                      <button
+                        key={c.value}
+                        type="button"
+                        className="text-selection-quick-swatch group relative w-6 h-6 sm:w-7 sm:h-7 rounded-full cursor-pointer transition-all duration-150 active:scale-90 flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: c.value }}
+                        onClick={() => {
+                          hapticTick();
+                          handleHighlight(c.value, currentLabel);
+                        }}
+                        title={`${c.name} • ${currentLabel}`}
+                        aria-label={`Highlight with ${c.name} (${currentLabel})`}
+                      >
+                        <span className="absolute inset-0 rounded-full ring-1 ring-black/15 group-hover:ring-black/30 dark:ring-white/20 transition-all pointer-events-none" />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
+              {/* Section Header: Labels & Edit Mode Toggle */}
+              <div className="flex items-center justify-between px-1 pt-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] select-none">
+                  <Tag size={11} className="opacity-80" />
+                  <span>Highlight Labels</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {isEditingLabels && (
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 rounded-md text-[10px] font-medium text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--ui-hover)] transition-all cursor-pointer flex items-center gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        hapticTick();
+                        setHighlightLabels({});
+                        localStorage.removeItem('shiori-highlight-labels');
+                      }}
+                      title="Reset all labels to default"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="px-2 py-0.5 rounded-md text-[10px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--ui-hover)] hover:opacity-90 transition-all cursor-pointer flex items-center gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      hapticTick();
+                      setIsEditingLabels(!isEditingLabels);
+                    }}
+                  >
+                    {isEditingLabels ? (
+                      <>
+                        <Check size={11} />
+                        <span>Done</span>
+                      </>
+                    ) : (
+                      <>
+                        <Pencil size={10} />
+                        <span>Edit labels</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Labels Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full max-h-48 overflow-y-auto pr-0.5 no-scrollbar">
                 {DEFAULT_HIGHLIGHT_PRESETS.map((c) => {
                   const currentLabel = highlightLabels[c.value] || c.defaultLabel;
                   if (isEditingLabels) {
                     return (
                       <div
                         key={c.value}
-                        className="flex items-center gap-1.5 p-1 rounded-lg bg-[var(--bg-secondary)] border border-[var(--ui-border)]"
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-xl border border-[var(--ui-focus)] bg-[var(--bg-elevated)] shadow-2xs transition-all"
                       >
-                        <span className="w-3 h-3 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: c.value }} />
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs ring-1 ring-black/10" style={{ backgroundColor: c.value }} />
                         <input
                           type="text"
                           value={currentLabel}
@@ -1076,7 +1152,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                             setHighlightLabels(newLabels);
                             localStorage.setItem('shiori-highlight-labels', JSON.stringify(newLabels));
                           }}
-                          className="w-full text-[11px] bg-transparent outline-none text-[var(--text-primary)]"
+                          className="w-full text-[11px] bg-transparent outline-none text-[var(--text-primary)] font-medium"
                           placeholder={c.defaultLabel}
                         />
                       </div>
@@ -1087,15 +1163,23 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     <button
                       key={c.value}
                       type="button"
-                      className="group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] bg-[var(--bg-secondary)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] hover:border-[var(--ui-focus)] transition-all cursor-pointer text-left active:scale-95"
-                      onClick={() => handleHighlight(c.value, currentLabel)}
+                      className="text-selection-label-chip group flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all duration-150 cursor-pointer text-left active:scale-[0.97]"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${c.value} 12%, var(--bg-elevated))`,
+                        borderColor: `color-mix(in srgb, ${c.value} 30%, var(--ui-border))`,
+                        '--chip-color': c.value,
+                      } as React.CSSProperties}
+                      onClick={() => {
+                        hapticTick();
+                        handleHighlight(c.value, currentLabel);
+                      }}
                       aria-label={`${c.name} • ${currentLabel}`}
                     >
                       <span
-                        className="w-3 h-3 rounded-full shrink-0 shadow-xs ring-1 ring-black/10 group-hover:scale-110 transition-transform"
+                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs ring-1 ring-black/15 group-hover:scale-115 transition-transform"
                         style={{ backgroundColor: c.value }}
                       />
-                      <span className="text-[11px] font-semibold text-[var(--text-primary)] truncate">
+                      <span className="text-[11.5px] font-semibold text-[var(--text-primary)] truncate">
                         {currentLabel}
                       </span>
                     </button>

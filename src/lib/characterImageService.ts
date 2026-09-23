@@ -1449,3 +1449,56 @@ export function useCharacterPortrait(name: string, introductionLine?: string, bo
 
   return { portrait, isLoading };
 }
+
+/**
+ * Synchronously retrieves a cached character portrait if available in memory or localStorage
+ */
+export function getCachedCharacterPortrait(name: string, bookTitle?: string): CharacterPortrait | null {
+  const normalized = name.trim().toLowerCase();
+  const cacheKey = `${normalized}::${(bookTitle || '').toLowerCase()}`;
+  if (MEMORY_CACHE.has(cacheKey)) {
+    return MEMORY_CACHE.get(cacheKey)!;
+  }
+  const stored = getStoredCache();
+  if (stored[cacheKey]) {
+    MEMORY_CACHE.set(cacheKey, stored[cacheKey]);
+    return stored[cacheKey];
+  }
+  return null;
+}
+
+/**
+ * Prefetches portraits for a batch of character names (used by the relationship graph)
+ */
+export async function prefetchCharacterPortraits(
+  names: string[],
+  bookTitle?: string
+): Promise<Record<string, CharacterPortrait>> {
+  const results: Record<string, CharacterPortrait> = {};
+  const missing: string[] = [];
+
+  for (const name of names) {
+    const cached = getCachedCharacterPortrait(name, bookTitle);
+    if (cached) {
+      results[name] = cached;
+    } else {
+      missing.push(name);
+    }
+  }
+
+  // Fetch missing concurrently with rate limiting
+  await Promise.allSettled(
+    missing.slice(0, 30).map(async (name) => {
+      try {
+        const p = await fetchCharacterPortrait(name, undefined, bookTitle);
+        if (p && (p.imageUrl || p.description)) {
+          results[name] = p;
+        }
+      } catch {
+        // Ignore errors
+      }
+    })
+  );
+
+  return results;
+}

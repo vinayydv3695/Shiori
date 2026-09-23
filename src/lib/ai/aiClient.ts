@@ -723,3 +723,26 @@ export async function getCharacterRecap(
   const config = useAIStore.getState().getActiveConfig();
   return explainCharacter(config, characterName, context, options);
 }
+
+export async function getChapterCatchUpRecap(
+  bookTitle: string,
+  chapterTitle: string,
+  chapterExcerpt: string,
+  options?: AICompletionOptions
+): Promise<string> {
+  const config = useAIStore.getState().getActiveConfig();
+  const prompt = `You are a literary assistant. Write an engaging, crisp "Previously on ${bookTitle}..." catch-up recap of ${chapterTitle}.
+Format as 3 to 4 bullet points highlighting:
+- The central conflict or scene that unfolded
+- Key actions and emotional turning points for the active characters
+- Exactly where the story left off heading into the next chapter
+
+IMPORTANT: Be dramatic yet factual. Rely solely on the provided chapter excerpt and DO NOT invent or reveal any future spoilers beyond this chapter.
+
+Excerpt:
+"""
+${chapterExcerpt.slice(0, 4500)}
+"""`;
+
+  return executeAICompletion(config, [{ role: 'user', content: prompt }], options);
+}

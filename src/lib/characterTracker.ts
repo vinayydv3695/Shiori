@@ -17,6 +17,24 @@ export interface TrackedCharacter {
   imageUrl?: string;
 }
 
+export interface CharacterInteractionQuote {
+  chapterIndex: number;
+  quote: string;
+}
+
+export interface CharacterInteractionEdge {
+  source: string;
+  target: string;
+  weight: number;
+  chapters: number[];
+  sampleQuotes: CharacterInteractionQuote[];
+}
+
+export interface CharacterNetworkData {
+  characters: TrackedCharacter[];
+  edges: CharacterInteractionEdge[];
+}
+
 // Pronouns that must never be considered character names
 const PRONOUNS = new Set([
   'she', 'he', 'it', 'we', 'they', 'you', 'i', 'her', 'him', 'his', 'hers',
@@ -33,6 +51,9 @@ const OBJECT_OR_LOCATION_SUFFIXES = new Set([
   'ocean', 'world', 'kingdom', 'country', 'empire', 'street', 'castle', 'forest',
   'valley', 'port', 'bay', 'ship', 'fruit', 'hat', 'cap', 'sword', 'gun', 'story',
   'piece', 'novel', 'family', 'blue', 'cleaner', 'palace', 'house', 'room', 'inn',
+  'drive', 'lane', 'road', 'avenue', 'boulevard', 'station', 'express', 'thousand',
+  'hundred', 'hall', 'corridor', 'cupboard', 'stairs', 'dungeon', 'office', 'ground',
+  'grounds', 'pitch', 'dormitory', 'classroom', 'shop', 'pub', 'alley', 'bank',
 ]);
 
 const CALENDAR_WORDS = new Set([
@@ -161,8 +182,8 @@ export async function scanBookCharacters(
   totalChapters: number,
   onProgress?: (progress: number) => void
 ): Promise<TrackedCharacter[]> {
-  // Bumped cache key to v9 to automatically flush stale characters and quotes
-  const cacheKey = `shiori-characters-v9-${bookId}`;
+  // Bumped cache key to v11 to automatically flush stale characters and quotes
+  const cacheKey = `shiori-characters-v11-${bookId}`;
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -193,15 +214,37 @@ export async function scanBookCharacters(
   // Scan up to first 25 chapters for speed and relevance
   const chaptersToScan = Math.min(totalChapters, 25);
 
+  // Store structured paragraphs for scene and co-occurrence extraction
+  const chapterParagraphs: { chapIdx: number; paragraphs: string[] }[] = [];
+
   for (let chapIdx = 0; chapIdx < chaptersToScan; chapIdx++) {
     try {
       const chapter = await api.getBookChapter(bookId, chapIdx);
       if (!chapter?.content) continue;
 
-      // Extract plain text
+      // Extract DOM paragraphs
       const doc = new DOMParser().parseFromString(chapter.content, 'text/html');
-      doc.querySelectorAll('script, style').forEach((el) => el.remove());
-      const plain = (doc.body.textContent || '').replace(/\s+/g, ' ');
+      doc.querySelectorAll('script, style, nav, header, footer').forEach((el) => el.remove());
+
+      const paragraphs: string[] = [];
+      doc.querySelectorAll('p, blockquote, li, dd').forEach((el) => {
+        const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        if (text.length >= 20) {
+          paragraphs.push(text);
+        }
+      });
+
+      if (paragraphs.length === 0) {
+        const rawText = doc.body.textContent || '';
+        const lines = rawText.split(/(?:\r?\n\s*){2,}|\s{4,}/);
+        for (const l of lines) {
+          const trimmed = l.replace(/\s+/g, ' ').trim();
+          if (trimmed.length >= 20) paragraphs.push(trimmed);
+        }
+      }
+
+      chapterParagraphs.push({ chapIdx, paragraphs });
+      const plain = paragraphs.join('\n\n');
 
       // 1. Scan mid-sentence occurrences
       let match: RegExpExecArray | null;
@@ -282,18 +325,16 @@ export async function scanBookCharacters(
     }
 
     if (onProgress) {
-      onProgress(Math.round(((chapIdx + 1) / chaptersToScan) * 100));
+      onProgress(Math.round(((chapIdx + 1) / chaptersToScan) * 80));
     }
   }
 
-  // Filter candidates:
-  // 1. Must appear capitalized mid-sentence at least 2 times (proves it is a proper noun, NOT a sentence-starting word like 'Not', 'Whoa', 'Stop')
-  // 2. Must exhibit human signals (dialogue, actions, honorifics, or vocative address)
-  const results: TrackedCharacter[] = [];
+  // Filter raw candidates:
+  const rawList: TrackedCharacter[] = [];
   for (const [name, data] of characterMap.entries()) {
     const isHonored = /^(Mr|Mrs|Ms|Miss|Dr|Lord|Lady|Sir|Captain|Professor)\b/i.test(name);
     if ((data.midSentenceMentions >= 2 && data.hasHumanSignals) || isHonored) {
-      results.push({
+      rawList.push({
         name,
         totalMentions: data.totalMentions,
         firstMention: data.firstMention!,
@@ -303,15 +344,233 @@ export async function scanBookCharacters(
     }
   }
 
-  // Sort by mention frequency descending
-  results.sort((a, b) => b.totalMentions - a.totalMentions);
+  // Deduplicate and merge partial names (e.g. "Hermione" -> "Hermione Granger", "Potter" -> "Harry Potter")
+  const mergedMap = new Map<string, TrackedCharacter>();
+  rawList.sort((a, b) => b.name.length - a.name.length);
 
-  // Cache results
+  for (const item of rawList) {
+    let absorbed = false;
+    for (const [canonicalName, canonicalChar] of mergedMap.entries()) {
+      const canonicalLower = canonicalName.toLowerCase();
+      const itemLower = item.name.toLowerCase();
+
+      const canonicalTokens = canonicalLower.split(/\s+/);
+      const isSub = canonicalTokens.includes(itemLower) || (item.name.length >= 4 && canonicalLower.includes(itemLower));
+
+      if (isSub) {
+        canonicalChar.totalMentions += item.totalMentions;
+        for (const ch of item.chapters) {
+          if (!canonicalChar.chapters.includes(ch)) {
+            canonicalChar.chapters.push(ch);
+          }
+        }
+        canonicalChar.chapters.sort((a, b) => a - b);
+        absorbed = true;
+        break;
+      }
+    }
+
+    if (!absorbed) {
+      mergedMap.set(item.name, { ...item, chapters: [...item.chapters] });
+    }
+  }
+
+  const results = Array.from(mergedMap.values());
+  results.sort((a, b) => b.totalMentions - a.totalMentions);
+  const topCharacters = results.slice(0, 45);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Extract Character Interaction Edges (Paragraph & Scene Co-occurrence)
+  // ──────────────────────────────────────────────────────────────────────────
+  const edgeMap = new Map<string, {
+    source: string;
+    target: string;
+    weight: number;
+    chapters: Set<number>;
+    sampleQuotes: CharacterInteractionQuote[];
+  }>();
+
+  const charTokensList = topCharacters.map((c) => {
+    const lowerName = c.name.toLowerCase();
+    const tokens = lowerName
+      .replace(/^(mr|mrs|ms|miss|dr|lord|lady|sir|captain|professor)\.?\s+/i, '')
+      .split(/\s+/)
+      .filter((t) => t.length >= 4 && !COMMON_NON_NAMES.has(t) && !PRONOUNS.has(t));
+
+    return {
+      name: c.name,
+      lowerName,
+      tokens,
+    };
+  });
+
+  for (const { chapIdx, paragraphs } of chapterParagraphs) {
+    const pAppearances: { pIdx: number; chars: string[]; text: string }[] = [];
+
+    for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
+      const pText = paragraphs[pIdx];
+      const pLower = pText.toLowerCase();
+
+      const foundChars: string[] = [];
+      for (const ct of charTokensList) {
+        if (pLower.includes(ct.lowerName)) {
+          foundChars.push(ct.name);
+          continue;
+        }
+        if (ct.tokens.some((token) => new RegExp(`\\b${token}\\b`, 'i').test(pLower))) {
+          foundChars.push(ct.name);
+        }
+      }
+
+      if (foundChars.length > 0) {
+        pAppearances.push({ pIdx, chars: foundChars, text: pText });
+      }
+    }
+
+    // 1. Direct Same-Paragraph Interactions (Weight +2)
+    for (const app of pAppearances) {
+      if (app.chars.length >= 2) {
+        for (let i = 0; i < app.chars.length; i++) {
+          for (let j = i + 1; j < app.chars.length; j++) {
+            const charA = app.chars[i];
+            const charB = app.chars[j];
+            const [src, tgt] = charA.localeCompare(charB) < 0 ? [charA, charB] : [charB, charA];
+            const pairKey = `${src}:::${tgt}`;
+
+            let edge = edgeMap.get(pairKey);
+            if (!edge) {
+              edge = {
+                source: src,
+                target: tgt,
+                weight: 2,
+                chapters: new Set([chapIdx]),
+                sampleQuotes: [],
+              };
+              edgeMap.set(pairKey, edge);
+            } else {
+              edge.weight += 2;
+              edge.chapters.add(chapIdx);
+            }
+
+            if (edge.sampleQuotes.length < 5) {
+              const quoteSnippet = app.text.slice(0, 240).trim() + (app.text.length > 240 ? '...' : '');
+              if (!edge.sampleQuotes.some((q) => q.quote === quoteSnippet)) {
+                edge.sampleQuotes.push({ chapterIndex: chapIdx, quote: quoteSnippet });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Sliding Scene Window Interactions (Adjacent Paragraphs <= 2 apart, Weight +1)
+    for (let i = 0; i < pAppearances.length; i++) {
+      for (let j = i + 1; j < pAppearances.length; j++) {
+        if (pAppearances[j].pIdx - pAppearances[i].pIdx > 2) break;
+
+        const charsA = pAppearances[i].chars;
+        const charsB = pAppearances[j].chars;
+
+        for (const charA of charsA) {
+          for (const charB of charsB) {
+            if (charA === charB) continue;
+            const [src, tgt] = charA.localeCompare(charB) < 0 ? [charA, charB] : [charB, charA];
+            const pairKey = `${src}:::${tgt}`;
+
+            let edge = edgeMap.get(pairKey);
+            if (!edge) {
+              edge = {
+                source: src,
+                target: tgt,
+                weight: 1,
+                chapters: new Set([chapIdx]),
+                sampleQuotes: [],
+              };
+              edgeMap.set(pairKey, edge);
+            } else {
+              edge.weight += 1;
+              edge.chapters.add(chapIdx);
+            }
+
+            if (edge.sampleQuotes.length < 5) {
+              const combinedText = `${pAppearances[i].text.slice(0, 140)} ... ${pAppearances[j].text.slice(0, 140)}`.trim();
+              if (!edge.sampleQuotes.some((q) => q.quote.includes(pAppearances[i].text.slice(0, 60)))) {
+                edge.sampleQuotes.push({ chapterIndex: chapIdx, quote: combinedText });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const edges: CharacterInteractionEdge[] = Array.from(edgeMap.values()).map((e) => ({
+    source: e.source,
+    target: e.target,
+    weight: e.weight,
+    chapters: Array.from(e.chapters).sort((a, b) => a - b),
+    sampleQuotes: e.sampleQuotes,
+  }));
+
+  edges.sort((a, b) => b.weight - a.weight);
+
+  const networkData: CharacterNetworkData = {
+    characters: topCharacters,
+    edges,
+  };
+
   try {
-    localStorage.setItem(cacheKey, JSON.stringify(results.slice(0, 50)));
+    localStorage.setItem(cacheKey, JSON.stringify(topCharacters));
+    localStorage.setItem(`shiori-char-network-v4-${bookId}`, JSON.stringify(networkData));
   } catch {
     // Ignore quota errors
   }
 
-  return results.slice(0, 50);
+  if (onProgress) {
+    onProgress(100);
+  }
+
+  return topCharacters;
+}
+
+/**
+ * Scan and return full character network graph data (nodes + interaction edges)
+ */
+export async function scanBookCharacterNetwork(
+  bookId: number,
+  totalChapters: number,
+  onProgress?: (progress: number) => void
+): Promise<CharacterNetworkData> {
+  const networkCacheKey = `shiori-char-network-v4-${bookId}`;
+  try {
+    const cached = localStorage.getItem(networkCacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (
+        parsed &&
+        Array.isArray(parsed.characters) &&
+        parsed.characters.length > 0 &&
+        Array.isArray(parsed.edges) &&
+        (parsed.edges.length > 0 || parsed.characters.length < 2)
+      ) {
+        if (onProgress) onProgress(100);
+        return parsed as CharacterNetworkData;
+      }
+    }
+  } catch {
+    // Cache miss, proceed to scan
+  }
+
+  // scanBookCharacters populates the network cache
+  const characters = await scanBookCharacters(bookId, totalChapters, onProgress);
+  try {
+    const cached = localStorage.getItem(networkCacheKey);
+    if (cached) {
+      return JSON.parse(cached) as CharacterNetworkData;
+    }
+  } catch {
+    // Ignore
+  }
+
+  return { characters, edges: [] };
 }

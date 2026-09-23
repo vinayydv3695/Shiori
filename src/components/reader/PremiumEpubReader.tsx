@@ -2367,6 +2367,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         progress={progressPercentage}
         format="epub"
         onClose={handleClose}
+        currentChapterIndex={currentIndex}
+        onNavigateToChapter={(idx) => void loadChapter(idx)}
         rightExtra={
           <>
             <ReaderTooltip content="Search in book">

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Users, Sparkles, Loader2, BookOpen, Maximize2, X } from 'lucide-react';
-import { scanBookCharacters, type TrackedCharacter } from '@/lib/characterTracker';
+import { Search, Users, Sparkles, Loader2, BookOpen, Maximize2, X, Network, List } from 'lucide-react';
+import { scanBookCharacters, scanBookCharacterNetwork, type TrackedCharacter, type CharacterNetworkData } from '@/lib/characterTracker';
 import { useCharacterPortrait, type CharacterPortrait } from '@/lib/characterImageService';
+import { CharacterNetworkGraph } from './CharacterNetworkGraph';
 import { useAIStore } from '@/store/aiStore';
 import { getCharacterRecap } from '@/lib/ai/aiClient';
 import { useToastStore } from '@/store/toastStore';
@@ -19,6 +20,7 @@ import {
 interface CharacterDirectoryPanelProps {
   bookId: number;
   totalChapters: number;
+  currentChapterIndex?: number;
   onNavigateToFirstMention: (chapterIndex: number, characterName: string) => void;
   bookTitle?: string;
 }
@@ -515,10 +517,14 @@ function CharacterItem({
 export function CharacterDirectoryPanel({
   bookId,
   totalChapters,
+  currentChapterIndex = 0,
   onNavigateToFirstMention,
   bookTitle: initialBookTitle,
 }: CharacterDirectoryPanelProps) {
   const [characters, setCharacters] = useState<TrackedCharacter[]>([]);
+  const [networkData, setNetworkData] = useState<CharacterNetworkData>({ characters: [], edges: [] });
+  const [viewMode, setViewMode] = useState<'list' | 'network'>('list');
+  const [isGraphFullscreen, setIsGraphFullscreen] = useState(false);
   const [bookTitle, setBookTitle] = useState<string>(initialBookTitle || '');
   const [isLoading, setIsLoading] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -531,6 +537,8 @@ export function CharacterDirectoryPanel({
   } | null>(null);
 
   const aiEnabled = useAIStore((s) => s.enabled);
+  const readerTheme = useReadingSettings((s) => s.theme) || 'paper';
+  const themeVars = (READER_THEME_COLORS[readerTheme] || READER_THEME_COLORS.paper) as React.CSSProperties;
 
   useEffect(() => {
     if (initialBookTitle) {
@@ -546,9 +554,10 @@ export function CharacterDirectoryPanel({
 
   useEffect(() => {
     setIsLoading(true);
-    scanBookCharacters(bookId, totalChapters, setScanProgress)
-      .then((chars) => {
-        setCharacters(chars);
+    scanBookCharacterNetwork(bookId, totalChapters, setScanProgress)
+      .then((data) => {
+        setCharacters(data.characters);
+        setNetworkData(data);
         setIsLoading(false);
       })
       .catch(() => {
@@ -583,16 +592,41 @@ export function CharacterDirectoryPanel({
 
   return (
     <div className="premium-sidebar-panel space-y-3">
-      {/* Search Input */}
-      <div className="premium-search-input-container !mb-1">
-        <Search className="premium-search-icon" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={`Search ${characters.length} characters...`}
-          className="premium-search-input"
-        />
+      {/* View Switcher: List vs Relationship Web */}
+      <div className="flex items-center justify-between gap-2 pb-0.5">
+        <div className="flex items-center p-0.5 rounded-xl bg-[color-mix(in_srgb,var(--text-primary)_6%,var(--bg-secondary))] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)]">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              viewMode === 'list'
+                ? 'bg-[var(--bg-elevated)] text-[var(--ui-focus)] shadow-2xs'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <List size={13} />
+            <span>List</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('network');
+              setIsGraphFullscreen(true);
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              viewMode === 'network'
+                ? 'bg-[var(--bg-elevated)] text-[var(--ui-focus)] shadow-2xs'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <Network size={13} />
+            <span>Relationship Web</span>
+          </button>
+        </div>
+
+        <span className="text-[11px] font-mono text-[var(--text-tertiary)] font-medium">
+          {characters.length} characters
+        </span>
       </div>
 
       {/* Loading Bar if indexing */}
@@ -601,7 +635,7 @@ export function CharacterDirectoryPanel({
           <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
             <span className="flex items-center gap-1.5 font-medium">
               <Loader2 size={13} className="animate-spin text-[var(--ui-focus)]" />
-              Indexing characters...
+              Indexing characters & relationships...
             </span>
             <span className="font-mono text-[11px] font-bold">{scanProgress}%</span>
           </div>
@@ -614,58 +648,107 @@ export function CharacterDirectoryPanel({
         </div>
       )}
 
-      {/* AI Recap Modal / Popover */}
-      <AnimatePresence>
-        {aiRecapResult && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="p-3 rounded-2xl bg-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-elevated))] border border-[var(--ui-focus)] shadow-lg space-y-2"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--ui-focus)]">
-                <Sparkles size={13} />
-                <span>Recall: {aiRecapResult.name}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAiRecapResult(null)}
-                className="text-[11px] font-semibold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
-              >
-                Dismiss
-              </button>
-            </div>
-            <p className="text-xs leading-relaxed text-[var(--text-primary)] font-serif italic">
-              {aiRecapResult.text}
+      {/* Mode 1: Interactive Relationship Network Launcher */}
+      {viewMode === 'network' && (
+        <div className="p-4 rounded-2xl bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] shadow-2xs space-y-3.5 text-center my-1">
+          <div className="w-12 h-12 rounded-2xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] text-[var(--ui-focus)] flex items-center justify-center mx-auto shadow-xs">
+            <Network size={24} />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-[var(--text-primary)] m-0">Character Relationship Web</h4>
+            <p className="text-xs text-[var(--text-tertiary)] leading-relaxed m-0">
+              Explore character alliances, interactions, and dialogue quotes in an Obsidian-style full-screen force-directed graph.
             </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+          <div className="flex items-center justify-center gap-2 text-xs font-mono text-[var(--text-secondary)] font-medium">
+            <span className="px-2 py-0.5 rounded-lg bg-[var(--bg-secondary)] border border-[var(--ui-border)]">
+              {characters.length} characters
+            </span>
+            <span>•</span>
+            <span className="px-2 py-0.5 rounded-lg bg-[var(--bg-secondary)] border border-[var(--ui-border)]">
+              {networkData.edges.length} interactions
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsGraphFullscreen(true)}
+            className="w-full py-2.5 px-4 rounded-xl bg-[var(--ui-focus)] text-white text-xs font-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-98 transition-all cursor-pointer shadow-sm"
+          >
+            <Maximize2 size={14} />
+            <span>Open Fullscreen Relationship Web</span>
+          </button>
+        </div>
+      )}
 
-      {/* Character List */}
-      {!isLoading && filteredCharacters.length === 0 ? (
-        <div className="text-center py-10 space-y-2">
-          <Users size={32} className="mx-auto text-[var(--text-tertiary)] opacity-40" />
-          <p className="text-xs text-[var(--text-tertiary)]">
-            {searchQuery ? `No characters matched "${searchQuery}".` : 'No distinct characters found.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2.5 pb-4">
-          {filteredCharacters.map((char) => (
-            <CharacterItem
-              key={char.name}
-              char={char}
-              bookTitle={bookTitle}
-              aiEnabled={aiEnabled}
-              aiRecapLoading={aiRecapLoading === char.name}
-              onAIRecap={handleAIRecap}
-              onNavigateToFirstMention={onNavigateToFirstMention}
-              onOpenDetail={(c, p) => setSelectedDetail({ char: c, portrait: p })}
+      {/* Mode 2: Traditional Character Directory List */}
+      {viewMode === 'list' && (
+        <>
+          {/* Search Input */}
+          <div className="premium-search-input-container !mb-1">
+            <Search className="premium-search-icon" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search ${characters.length} characters...`}
+              className="premium-search-input"
             />
-          ))}
-        </div>
+          </div>
+
+          {/* AI Recap Modal / Popover */}
+          <AnimatePresence>
+            {aiRecapResult && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="p-3 rounded-2xl bg-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-elevated))] border border-[var(--ui-focus)] shadow-lg space-y-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--ui-focus)]">
+                    <Sparkles size={13} />
+                    <span>Recall: {aiRecapResult.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiRecapResult(null)}
+                    className="text-[11px] font-semibold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-xs leading-relaxed text-[var(--text-primary)] font-serif italic">
+                  {aiRecapResult.text}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Character List */}
+          {!isLoading && filteredCharacters.length === 0 ? (
+            <div className="text-center py-10 space-y-2">
+              <Users size={32} className="mx-auto text-[var(--text-tertiary)] opacity-40" />
+              <p className="text-xs text-[var(--text-tertiary)]">
+                {searchQuery ? `No characters matched "${searchQuery}".` : 'No distinct characters found.'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2.5 pb-4">
+              {filteredCharacters.map((char) => (
+                <CharacterItem
+                  key={char.name}
+                  char={char}
+                  bookTitle={bookTitle}
+                  aiEnabled={aiEnabled}
+                  aiRecapLoading={aiRecapLoading === char.name}
+                  onAIRecap={handleAIRecap}
+                  onNavigateToFirstMention={onNavigateToFirstMention}
+                  onOpenDetail={(c, p) => setSelectedDetail({ char: c, portrait: p })}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* Character Detail Modal (Full Picture & Description) */}
@@ -680,6 +763,42 @@ export function CharacterDirectoryPanel({
           />
         )}
       </AnimatePresence>
+
+
+      {/* Fullscreen Relationship Web Modal */}
+      {isGraphFullscreen && typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="graph-fullscreen"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            ref={(el) => {
+              if (el) applyReaderThemeToElement(el, readerTheme);
+            }}
+            data-reader-theme={readerTheme}
+            style={themeVars}
+            className="fixed inset-0 z-[999999] bg-[var(--bg-elevated)] text-[var(--text-primary)] flex flex-col w-screen h-screen overflow-hidden font-sans"
+          >
+            <CharacterNetworkGraph
+              networkData={networkData}
+              currentChapterIndex={currentChapterIndex}
+              totalChapters={totalChapters}
+              bookTitle={bookTitle}
+              isFullscreen={true}
+              onOpenCharacterDetail={(char, portrait) => setSelectedDetail({ char, portrait })}
+              onNavigateToChapter={(chapIdx, charName) => {
+                setIsGraphFullscreen(false);
+                onNavigateToFirstMention(chapIdx, charName || '');
+              }}
+              onToggleFullscreen={() => setIsGraphFullscreen(false)}
+            />
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 }
+

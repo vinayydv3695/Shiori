@@ -993,6 +993,7 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
             <CharacterDirectoryPanel
               bookId={bookId}
               totalChapters={totalChapters || toc.length || 1}
+              currentChapterIndex={currentIndex}
               bookTitle={bookTitle}
               onNavigateToFirstMention={(chapIdx, charName) => {
                 onNavigate(chapIdx, charName);

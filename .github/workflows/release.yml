@@ -436,17 +436,10 @@ jobs:
 
           os.makedirs("/tmp/release-assets", exist_ok=True)
 
-          # ── Wait for all required updater assets to appear on the release ──
-          # Each build matrix job uploads independently; GitHub CDN can lag
-          # a few seconds even after all jobs finish.  Poll until every
-          # platform has both the payload and its .sig file.
+          # ── Poll until at least Linux assets are present (others are optional) ──
           REQUIRED_CHECKS = {
-              "linux":       lambda f: f.endswith(".AppImage.tar.gz"),
-              "linux_sig":   lambda f: f.endswith(".AppImage.tar.gz.sig"),
-              "windows":     lambda f: "nsis.zip" in f and not f.endswith(".sig"),
-              "windows_sig": lambda f: "nsis.zip.sig" in f,
-              "macos":       lambda f: f.endswith(".app.tar.gz"),
-              "macos_sig":   lambda f: f.endswith(".app.tar.gz.sig"),
+              "linux":       lambda f: f.endswith(".AppImage.tar.gz") or (f.endswith(".AppImage") and not f.endswith(".tar.gz")),
+              "linux_sig":   lambda f: f.endswith(".AppImage.tar.gz.sig") or (f.endswith(".AppImage.sig") and not f.endswith(".tar.gz.sig")),
           }
 
           files = []
@@ -461,7 +454,7 @@ jobs:
               files = os.listdir("/tmp/release-assets")
               missing = [k for k, pred in REQUIRED_CHECKS.items() if not any(pred(f) for f in files)]
               if not missing:
-                  print(f"All updater assets present on attempt {attempt}: {sorted(files)}")
+                  print(f"Required Linux assets present on attempt {attempt}: {sorted(files)}")
                   break
               print(f"Attempt {attempt}/20 – still waiting for: {missing}")
               if attempt < 20:
@@ -473,9 +466,13 @@ jobs:
           print(f"Release assets found: {sorted(files)}")
           platforms = {}
 
-          # Linux AppImage
+          # Linux AppImage — prefer the Tauri updater bundle (.AppImage.tar.gz),
+          # fall back to the plain .AppImage + .AppImage.sig pair.
           linux_gz  = next((f for f in files if f.endswith(".AppImage.tar.gz")), None)
           linux_sig = next((f for f in files if f.endswith(".AppImage.tar.gz.sig")), None)
+          if not linux_gz:
+              linux_gz  = next((f for f in files if f.endswith(".AppImage") and not f.endswith(".tar.gz")), None)
+              linux_sig = next((f for f in files if f.endswith(".AppImage.sig") and not f.endswith(".tar.gz.sig")), None)
           if linux_gz and linux_sig:
               sig_content = open(f"/tmp/release-assets/{linux_sig}", "r").read().strip()
               platforms["linux-x86_64"] = {
@@ -485,10 +482,12 @@ jobs:
           else:
               print(f"WARNING: Linux updater assets not found (gz={linux_gz}, sig={linux_sig})", file=sys.stderr)
 
-          # Windows NSIS – the critical one; abort if missing so we never
-          # publish a latest.json that silently excludes Windows users.
+          # Windows NSIS — optional; prefer nsis.zip updater bundle, fall back to .exe.
           win_zip = next((f for f in files if "nsis.zip" in f and not f.endswith(".sig")), None)
           win_sig = next((f for f in files if "nsis.zip.sig" in f), None)
+          if not win_zip:
+              win_zip = next((f for f in files if f.endswith("-setup.exe") and not f.endswith(".sig")), None)
+              win_sig = next((f for f in files if f.endswith("-setup.exe.sig")), None)
           if win_zip and win_sig:
               sig_content = open(f"/tmp/release-assets/{win_sig}", "r").read().strip()
               platforms["windows-x86_64"] = {
@@ -496,12 +495,10 @@ jobs:
                   "url": f"https://github.com/{repo}/releases/download/{tag}/{win_zip}"
               }
           else:
-              print(f"ERROR: Windows updater assets not found after polling (zip={win_zip}, sig={win_sig}). "
-                    "Refusing to upload latest.json without windows-x86_64 — Windows users would never "
-                    "see the update popup.", file=sys.stderr)
-              sys.exit(1)
+              print(f"WARNING: Windows updater assets not found (zip={win_zip}, sig={win_sig}). "
+                    "Windows users will not receive the in-app update popup for this release.", file=sys.stderr)
 
-          # macOS App bundle
+          # macOS App bundle — optional; warn but do not abort.
           mac_gz  = next((f for f in files if f.endswith(".app.tar.gz")), None)
           mac_sig = next((f for f in files if f.endswith(".app.tar.gz.sig")), None)
           if mac_gz and mac_sig:
@@ -516,6 +513,10 @@ jobs:
               }
           else:
               print(f"WARNING: macOS updater assets not found (gz={mac_gz}, sig={mac_sig})", file=sys.stderr)
+
+          if not platforms:
+              print("ERROR: No platforms resolved — refusing to upload an empty latest.json.", file=sys.stderr)
+              sys.exit(1)
 
           latest_json = {
               "version": version,

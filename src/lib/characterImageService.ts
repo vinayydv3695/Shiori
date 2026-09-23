@@ -11,8 +11,8 @@ export interface CharacterPortrait {
 }
 
 const MEMORY_CACHE = new Map<string, CharacterPortrait>();
-// Bumped cache key to v12 to flush old anime portraits for western books
-const LOCAL_STORAGE_KEY = 'shiori-char-portraits-v12';
+// Bumped cache key to v13 to flush stale book-cover image entries and rebuild character dossiers
+const LOCAL_STORAGE_KEY = 'shiori-char-portraits-v13';
 const IN_FLIGHT_REQUESTS = new Map<string, Promise<CharacterPortrait>>();
 const NEGATIVE_CACHE = new Map<string, number>(); // cacheKey -> expiresAt timestamp
 let anilistCooldownUntil = 0;
@@ -24,7 +24,7 @@ let anilistCooldownUntil = 0;
 async function safeFetch(url: string | URL | Request, init?: RequestInit): Promise<Response> {
   const customHeaders: Record<string, string> = {
     Accept: 'application/json',
-    'User-Agent': 'Shiori-Reader/1.0.12 (https://github.com/vinayydv3695/Shiori)',
+    'User-Agent': 'Shiori-Reader/1.0.13 (https://github.com/vinayydv3695/Shiori)',
     ...((init?.headers as Record<string, string>) || {}),
   };
   const requestInit = {
@@ -182,14 +182,8 @@ export function isAnimeOrManga(bookTitle?: string, introductionLine?: string): b
  */
 function detectFranchise(bookTitle?: string, introductionLine?: string): string | null {
   const combined = `${bookTitle || ''} ${introductionLine || ''}`.toLowerCase();
-  if (
-    combined.includes('one piece') ||
-    combined.includes('straw hat') ||
-    combined.includes('grand line') ||
-    combined.includes('devil fruit')
-  ) {
-    return 'onepiece';
-  }
+
+  // Literary & Novel Franchises
   if (
     combined.includes('harry potter') ||
     combined.includes('hogwarts') ||
@@ -199,23 +193,173 @@ function detectFranchise(bookTitle?: string, introductionLine?: string): string 
   ) {
     return 'harrypotter';
   }
-  if (combined.includes('percy jackson') || combined.includes('camp half blood') || combined.includes('lightning thief')) {
+  if (
+    combined.includes('sherlock') ||
+    combined.includes('holmes') ||
+    combined.includes('baker street') ||
+    combined.includes('conan doyle')
+  ) {
+    return 'bakerstreet';
+  }
+  if (
+    combined.includes('percy jackson') ||
+    combined.includes('camp half blood') ||
+    combined.includes('lightning thief') ||
+    combined.includes('rick riordan')
+  ) {
     return 'riordan';
   }
-  if (combined.includes('lord of the rings') || combined.includes('lotr') || combined.includes('middle earth') || combined.includes('tolkien')) {
+  if (
+    combined.includes('lord of the rings') ||
+    combined.includes('lotr') ||
+    combined.includes('middle earth') ||
+    combined.includes('tolkien') ||
+    combined.includes('the hobbit')
+  ) {
     return 'lotr';
   }
-  if (combined.includes('game of thrones') || combined.includes('song of ice and fire') || combined.includes('westeros')) {
+  if (
+    combined.includes('game of thrones') ||
+    combined.includes('song of ice and fire') ||
+    combined.includes('westeros') ||
+    combined.includes('targaryen')
+  ) {
     return 'gameofthrones';
   }
-  if (combined.includes('dune') || combined.includes('arrakis') || combined.includes('atreides')) {
+  if (
+    combined.includes('dune') ||
+    combined.includes('arrakis') ||
+    combined.includes('atreides') ||
+    combined.includes('frank herbert')
+  ) {
     return 'dune';
   }
-  if (combined.includes('hunger games') || combined.includes('katniss') || combined.includes('panem')) {
+  if (
+    combined.includes('hunger games') ||
+    combined.includes('katniss') ||
+    combined.includes('panem') ||
+    combined.includes('mockingjay')
+  ) {
     return 'thehungergames';
   }
-  if (combined.includes('star wars') || combined.includes('jedi') || combined.includes('sith')) {
+  if (
+    combined.includes('arsene lupin') ||
+    combined.includes('arsène lupin') ||
+    combined.includes('gentleman burglar') ||
+    combined.includes('gentleman-cambrioleur') ||
+    combined.includes('maurice leblanc')
+  ) {
+    return 'lupin';
+  }
+  if (
+    combined.includes('agatha christie') ||
+    combined.includes('hercule poirot') ||
+    combined.includes('poirot') ||
+    combined.includes('miss marple')
+  ) {
+    return 'agathachristie';
+  }
+  if (
+    combined.includes('twilight') ||
+    combined.includes('edward cullen') ||
+    combined.includes('bella swan')
+  ) {
+    return 'twilight';
+  }
+  if (
+    combined.includes('stephen king') ||
+    combined.includes('dark tower') ||
+    combined.includes('gunslinger')
+  ) {
+    return 'stephenking';
+  }
+  if (
+    combined.includes('narnia') ||
+    combined.includes('aslan') ||
+    combined.includes('c.s. lewis')
+  ) {
+    return 'narnia';
+  }
+  if (
+    combined.includes('wheel of time') ||
+    combined.includes('robert jordan') ||
+    combined.includes('rand al\'thor')
+  ) {
+    return 'wot';
+  }
+  if (
+    combined.includes('discworld') ||
+    combined.includes('terry pratchett') ||
+    combined.includes('ankh-morpork')
+  ) {
+    return 'discworld';
+  }
+  if (
+    combined.includes('maze runner') ||
+    combined.includes('glade') ||
+    combined.includes('james dashner')
+  ) {
+    return 'mazerunner';
+  }
+  if (
+    combined.includes('grisha') ||
+    combined.includes('shadow and bone') ||
+    combined.includes('six of crows') ||
+    combined.includes('leigh bardugo')
+  ) {
+    return 'thegrishaverse';
+  }
+  if (
+    combined.includes('shadowhunter') ||
+    combined.includes('mortal instruments') ||
+    combined.includes('cassandra clare')
+  ) {
+    return 'shadowhunters';
+  }
+  if (
+    combined.includes('witcher') ||
+    combined.includes('geralt') ||
+    combined.includes('rivia')
+  ) {
+    return 'witcher';
+  }
+  if (
+    combined.includes('vampire chronicles') ||
+    combined.includes('lestat') ||
+    combined.includes('anne rice')
+  ) {
+    return 'vampirechronicles';
+  }
+  if (
+    combined.includes('hitchhiker') ||
+    combined.includes('douglas adams') ||
+    combined.includes('arthur dent')
+  ) {
+    return 'hitchhikers';
+  }
+  if (
+    combined.includes('dracula') ||
+    combined.includes('bram stoker') ||
+    combined.includes('van helsing')
+  ) {
+    return 'dracula';
+  }
+  if (
+    combined.includes('star wars') ||
+    combined.includes('jedi') ||
+    combined.includes('sith')
+  ) {
     return 'starwars';
+  }
+
+  // Manga / Anime Franchises
+  if (
+    combined.includes('one piece') ||
+    combined.includes('straw hat') ||
+    combined.includes('grand line') ||
+    combined.includes('devil fruit')
+  ) {
+    return 'onepiece';
   }
   if (combined.includes('naruto') || combined.includes('konoha') || combined.includes('hokage')) {
     return 'naruto';
@@ -226,6 +370,49 @@ function detectFranchise(bookTitle?: string, introductionLine?: string): string 
   if (combined.includes('jujutsu kaisen') || combined.includes('gojo') || combined.includes('sukuna')) {
     return 'jujutsu-kaisen';
   }
+  if (combined.includes('dragon ball') || combined.includes('goku') || combined.includes('saiyan')) {
+    return 'dragonball';
+  }
+  if (combined.includes('attack on titan') || combined.includes('shingeki') || combined.includes('eren yeager')) {
+    return 'attackontitan';
+  }
+  if (combined.includes('my hero academia') || combined.includes('boku no hero') || combined.includes('deku')) {
+    return 'myheroacademia';
+  }
+  if (combined.includes('demon slayer') || combined.includes('kimetsu') || combined.includes('tanjiro')) {
+    return 'kimetsu-no-yaiba';
+  }
+  if (combined.includes('chainsaw man') || combined.includes('denji') || combined.includes('makima')) {
+    return 'chainsaw-man';
+  }
+  if (combined.includes('death note') || combined.includes('light yagami') || combined.includes('ryuk')) {
+    return 'deathnote';
+  }
+  if (combined.includes('tokyo ghoul') || combined.includes('kaneki')) {
+    return 'tokyoghoul';
+  }
+  if (combined.includes('berserk') || combined.includes('guts') || combined.includes('griffith')) {
+    return 'berserk';
+  }
+  if (combined.includes('hunter x hunter') || combined.includes('killua') || combined.includes('gon freecss')) {
+    return 'hunterxhunter';
+  }
+  if (combined.includes('fullmetal alchemist') || combined.includes('elric')) {
+    return 'fma';
+  }
+  if (combined.includes('frieren')) {
+    return 'frieren';
+  }
+  if (combined.includes('dungeon meshi') || combined.includes('delicious in dungeon')) {
+    return 'delicious-in-dungeon';
+  }
+  if (combined.includes('solo leveling') || combined.includes('sung jinwoo')) {
+    return 'solo-leveling';
+  }
+  if (combined.includes('spy x family') || combined.includes('anya forger') || combined.includes('loid forger')) {
+    return 'spy-x-family';
+  }
+
   return null;
 }
 
@@ -615,6 +802,186 @@ async function getBookCastMap(bookTitle?: string): Promise<Record<string, CastMe
 }
 
 /**
+ * Detects whether an image URL or page context represents a book cover,
+ * publication jacket, or frontispiece rather than an individual character's face.
+ */
+function isBookCoverImage(url?: string | null, pageTitle?: string, bookTitle?: string): boolean {
+  if (!url) return false;
+  const lowerUrl = url.toLowerCase();
+
+  const coverKeywords = [
+    'cover',
+    'jacket',
+    'edition',
+    'first_edition',
+    'title_page',
+    'frontispiece',
+    'hardcover',
+    'paperback',
+    'binding',
+    'cambrioleur',
+    'dust_jacket',
+    'novel_cover',
+    'book_cover',
+    'children%27s_books',
+    '1001_books',
+    'publishing',
+    'magazine_cover',
+    'comic_cover',
+  ];
+
+  if (coverKeywords.some((kw) => lowerUrl.includes(kw))) {
+    return true;
+  }
+
+  // If page title is the book's own title, its lead thumbnail is virtually always the book cover!
+  if (pageTitle && bookTitle) {
+    const cleanBook = cleanBookTitle(bookTitle).toLowerCase();
+    const cleanPage = pageTitle.toLowerCase();
+    if (cleanBook && cleanPage.includes(cleanBook)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Verifies whether a Wikipedia page title actually refers to the queried character (or actor)
+ * and is NOT a page about the whole novel, series, author, or unrelated subject.
+ */
+function isCharacterArticle(pageTitle: string, characterName: string, actorName?: string): boolean {
+  const pLower = pageTitle.toLowerCase();
+  const cLower = characterName.toLowerCase();
+
+  // 1. Actor match for movie/tv adaptations (e.g. "Ezra Miller" for Patrick)
+  if (actorName && pLower.includes(actorName.toLowerCase())) {
+    return true;
+  }
+
+  // 2. Exact name or "(character)" / "(novel character)" qualifier
+  if (pLower === cLower || pLower.startsWith(`${cLower} (`)) {
+    return true;
+  }
+
+  // 3. Name token match (e.g. "Lupin" in "Arsène Lupin", "Dumbledore" in "Albus Dumbledore")
+  const tokens = cLower.split(/\s+/).filter((t) => t.length >= 3);
+  if (tokens.length > 0 && tokens.every((t) => pLower.includes(t))) {
+    return true;
+  }
+  if (tokens.length > 1 && tokens.some((t) => pLower.includes(t))) {
+    return true;
+  }
+
+  return false;
+}
+
+const BOOK_TEXT_CACHE = new Map<string, string>();
+const IN_FLIGHT_BOOK_TEXT = new Map<string, Promise<string | null>>();
+
+/**
+ * Dynamically fetches and caches the parsed text of a book's Wikipedia article
+ * to extract character-specific mentions without making repetitive network calls.
+ */
+async function getBookWikipediaText(bookTitle?: string): Promise<string | null> {
+  const cleanBook = cleanBookTitle(bookTitle).toLowerCase();
+  if (!cleanBook || cleanBook.length < 3) return null;
+
+  if (BOOK_TEXT_CACHE.has(cleanBook)) {
+    return BOOK_TEXT_CACHE.get(cleanBook) || null;
+  }
+  if (IN_FLIGHT_BOOK_TEXT.has(cleanBook)) {
+    return IN_FLIGHT_BOOK_TEXT.get(cleanBook)!;
+  }
+
+  const promise = (async () => {
+    try {
+      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanBook)}&srlimit=3&format=json&origin=*`;
+      const searchRes = await safeFetch(searchUrl);
+      if (!searchRes.ok) return null;
+      const searchJson = await searchRes.json();
+      const firstResult = searchJson.query?.search?.[0]?.title;
+      if (!firstResult) return null;
+
+      const parseUrl = `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(firstResult)}&prop=text&format=json&origin=*&redirects=1`;
+      const parseRes = await safeFetch(parseUrl);
+      if (!parseRes.ok) return null;
+      const parseJson = await parseRes.json();
+      const html = parseJson.parse?.text?.['*'] || '';
+      if (!html) return null;
+
+      const cleaned = html
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<table[\s\S]*?<\/table>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\[\d+\]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      BOOK_TEXT_CACHE.set(cleanBook, cleaned);
+      return cleaned;
+    } catch (err) {
+      logger.debug('[characterImageService] getBookWikipediaText failed:', err);
+      return null;
+    } finally {
+      IN_FLIGHT_BOOK_TEXT.delete(cleanBook);
+    }
+  })();
+
+  IN_FLIGHT_BOOK_TEXT.set(cleanBook, promise);
+  return promise;
+}
+
+/**
+ * Extracts specific sentences from the book's Wikipedia article that mention the character.
+ * e.g. Miss Nelly -> "A woman's jewels are stolen and d'Andrèzy courts Miss Nelly..."
+ */
+function extractCharacterMentionsFromBookText(
+  name: string,
+  bookText: string,
+  maxSentences = 3
+): string | undefined {
+  if (!bookText || !name || name.length < 2) return undefined;
+
+  const rawSentences = bookText.split(/(?<=[.!?])\s+(?=[A-Z0-9"“'‘])/);
+  const nameLower = name.toLowerCase();
+  const nameTokens = nameLower.split(/\s+/).filter((t) => t.length >= 3);
+
+  const matches: { priority: number; text: string }[] = [];
+
+  for (const s of rawSentences) {
+    const cleanS = s.trim();
+    if (cleanS.length < 25 || cleanS.length > 350) continue;
+    const sLower = cleanS.toLowerCase();
+
+    // Skip publication/metadata sentences
+    if (
+      sLower.includes('first published') ||
+      sLower.includes('short stories published') ||
+      sLower.includes('is a collection of') ||
+      sLower.includes('isbn') ||
+      sLower.includes('table of contents')
+    ) {
+      continue;
+    }
+
+    // Exact full name match has highest priority
+    if (sLower.includes(nameLower)) {
+      matches.push({ priority: 10, text: cleanS });
+    } else if (nameTokens.some((t) => sLower.includes(t))) {
+      matches.push({ priority: 5, text: cleanS });
+    }
+  }
+
+  if (matches.length === 0) return undefined;
+
+  matches.sort((a, b) => b.priority - a.priority);
+  const selected = matches.slice(0, maxSentences).map((m) => m.text);
+  return selected.join(' ');
+}
+
+/**
  * Score a Wikipedia page candidate for relevance to the queried character and book
  */
 function scoreWikipediaPage(p: any, cleanName: string, bookTitle?: string): number {
@@ -635,9 +1002,9 @@ function scoreWikipediaPage(p: any, cleanName: string, bookTitle?: string): numb
     score += 70;
   }
 
-  // 2. Thumbnail presence (fair-use character posters/photos)
-  if (p.thumbnail?.source) {
-    score += 50;
+  // 2. Heavy PENALTY if title is the book itself, because this article is about the book, NOT the character!
+  if (lowerBook && (title === lowerBook || title.includes(lowerBook)) && !title.includes(lowerName)) {
+    score -= 100;
   }
 
   // 3. Fictional character indicators in extract
@@ -651,20 +1018,19 @@ function scoreWikipediaPage(p: any, cleanName: string, bookTitle?: string): numb
     score += 40;
   }
 
-  // 4. Book title / franchise match in extract
-  if (lowerBook) {
+  // 4. Book title match in extract (only bonus if title is already character-related)
+  if (lowerBook && score > 0) {
     const bookKeywords = lowerBook
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
       .filter((w) => w.length >= 4);
     for (const kw of bookKeywords) {
-      if (extract.includes(kw)) score += 20;
-      if (title.includes(kw)) score += 15;
+      if (extract.includes(kw)) score += 15;
     }
   }
 
   // 5. Penalties for non-character pages
-  if (title.includes('controversy') || title.includes('discography') || title.includes('soundtrack')) {
+  if (title.includes('controversy') || title.includes('discography') || title.includes('soundtrack') || title.includes('1001 children')) {
     score -= 200;
   }
   if (extract.includes('may refer to:') || extract.includes('can refer to:')) {
@@ -723,8 +1089,13 @@ async function queryWikipediaGeneratorSearch(
 
     if (!best || best.score < 30) return null;
 
-    const thumb = best.page.thumbnail?.source || null;
-    const extract = cleanWikipediaExtract(best.page.extract);
+    // Check if the page is genuinely a character page
+    const isChar = isCharacterArticle(best.page.title, characterName);
+    const isCover = isBookCoverImage(best.page.thumbnail?.source, best.page.title, bookContext);
+
+    // CRITICAL: A thumbnail is ONLY a character's face if the page is about the character and NOT a book cover!
+    const thumb = isChar && !isCover ? (best.page.thumbnail?.source || null) : null;
+    const extract = isChar ? cleanWikipediaExtract(best.page.extract) : undefined;
 
     if (!thumb && !extract) return null;
 
@@ -739,7 +1110,7 @@ async function queryWikipediaGeneratorSearch(
   }
 }
 
-async function queryWikipediaExactTitles(name: string): Promise<CharacterPortrait | null> {
+async function queryWikipediaExactTitles(name: string, bookTitle?: string): Promise<CharacterPortrait | null> {
   try {
     const titles = `${encodeURIComponent(name)}|${encodeURIComponent(name + ' (character)')}`;
     const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${titles}&prop=pageimages|extracts&exintro=1&explaintext=1&piprop=thumbnail&pithumbsize=600&pilicense=any&format=json&origin=*&redirects=1`;
@@ -749,8 +1120,15 @@ async function queryWikipediaExactTitles(name: string): Promise<CharacterPortrai
     const pages = Object.values(json.query?.pages || {}) as any[];
     for (const p of pages) {
       if (p.missing !== undefined || p.pageid < 0) continue;
-      const thumb = p.thumbnail?.source || null;
+      const isChar = isCharacterArticle(p.title, name);
+      if (!isChar) continue;
+
       const extract = cleanWikipediaExtract(p.extract);
+      if (extract?.includes('may refer to:') || extract?.includes('can refer to:')) continue;
+
+      const isCover = isBookCoverImage(p.thumbnail?.source, p.title, bookTitle);
+      const thumb = !isCover ? (p.thumbnail?.source || null) : null;
+
       if (thumb || extract) {
         return {
           imageUrl: thumb,
@@ -771,7 +1149,8 @@ async function queryWikipediaExactTitles(name: string): Promise<CharacterPortrai
 async function queryWikipediaCharacter(
   name: string,
   rawName: string,
-  bookTitle?: string
+  bookTitle?: string,
+  introductionLine?: string
 ): Promise<CharacterPortrait | null> {
   const cleanBook = cleanBookTitle(bookTitle);
   const cleanNameLower = name.toLowerCase();
@@ -819,9 +1198,37 @@ async function queryWikipediaCharacter(
   }
 
   // 3. Fallback: Query exact character titles on Wikipedia
-  const exactRes = await queryWikipediaExactTitles(name);
+  const exactRes = await queryWikipediaExactTitles(name, bookTitle);
   if (exactRes?.imageUrl || exactRes?.description) {
     return exactRes;
+  }
+
+  // 4. Secondary Characters: Extract mentions from the Book's Wikipedia Article text!
+  // E.g. "Miss Nelly", "Varin", "Daspry" in "Arsène Lupin, Gentleman Burglar"
+  if (cleanBook) {
+    const bookText = await getBookWikipediaText(cleanBook);
+    if (bookText) {
+      const mentions =
+        extractCharacterMentionsFromBookText(name, bookText) ||
+        (rawName !== name ? extractCharacterMentionsFromBookText(rawName, bookText) : undefined);
+
+      if (mentions) {
+        return {
+          imageUrl: null, // CRITICAL: Never assign the book cover to secondary characters!
+          source: 'wikipedia',
+          description: mentions,
+        };
+      }
+    }
+  }
+
+  // 5. In-novel introduction line fallback
+  if (introductionLine && introductionLine.trim().length > 15) {
+    return {
+      imageUrl: null,
+      source: 'wikipedia',
+      description: introductionLine.trim(),
+    };
   }
 
   return null;
@@ -867,7 +1274,7 @@ async function fetchCharacterPortraitInternal(
 
     // 3. Wikipedia Fallback for Manga
     if (!result?.imageUrl || !result?.description) {
-      const wiki = await queryWikipediaCharacter(cleanName, rawName, bookTitle);
+      const wiki = await queryWikipediaCharacter(cleanName, rawName, bookTitle, introductionLine);
       if (wiki) {
         if (!result) {
           result = wiki;
@@ -879,18 +1286,41 @@ async function fetchCharacterPortraitInternal(
     }
   } else {
     // ─────────────── NOVELS / BOOKS / WESTERN LITERATURE ───────────────
-    // 1. Wikipedia FIRST (Checks Adaptation Cast Map, direct search, and exact titles)
-    result = await queryWikipediaCharacter(cleanName, rawName, bookTitle);
+    // 1. Franchise Fandom FIRST when a dedicated literary universe is detected
+    // (e.g. Harry Potter, Baker Street / Sherlock Holmes, Percy Jackson, Lupin, LOTR, Dune, Hunger Games)
+    if (franchise) {
+      result = await queryFandom(cleanName, franchise);
+      if (!result && cleanName !== rawName) {
+        result = await queryFandom(rawName, franchise);
+      }
+    }
 
-    // 2. Franchise Fandom (e.g. Harry Potter, Lord of the Rings, Dune, Hunger Games)
-    if ((!result?.imageUrl || !result?.description) && franchise) {
-      const fandom = await queryFandom(cleanName, franchise);
-      if (fandom) {
+    // 2. Wikipedia Comprehensive Pipeline (Cast Map -> Character Pages -> Book Mentions -> Intro snippet)
+    if (!result?.imageUrl || !result?.description) {
+      const wiki = await queryWikipediaCharacter(cleanName, rawName, bookTitle, introductionLine);
+      if (wiki) {
         if (!result) {
-          result = fandom;
+          result = wiki;
         } else {
-          if (!result.imageUrl && fandom.imageUrl) result.imageUrl = fandom.imageUrl;
-          if (!result.description && fandom.description) result.description = fandom.description;
+          if (!result.imageUrl && wiki.imageUrl) result.imageUrl = wiki.imageUrl;
+          if (!result.description && wiki.description) result.description = wiki.description;
+        }
+      }
+    }
+
+    // 3. Dynamic Fandom Check for book titles without hardcoded franchise
+    if ((!result?.imageUrl || !result?.description) && bookTitle && !franchise) {
+      const cleanBook = cleanBookTitle(bookTitle);
+      const bookSlug = cleanBook.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (bookSlug.length >= 4 && bookSlug.length <= 25) {
+        const dynamicFandom = await queryFandom(cleanName, bookSlug);
+        if (dynamicFandom) {
+          if (!result) {
+            result = dynamicFandom;
+          } else {
+            if (!result.imageUrl && dynamicFandom.imageUrl) result.imageUrl = dynamicFandom.imageUrl;
+            if (!result.description && dynamicFandom.description) result.description = dynamicFandom.description;
+          }
         }
       }
     }

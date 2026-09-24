@@ -173,31 +173,70 @@ function checkHumanCues(sentence: string, name: string): boolean {
   return patterns.some((p) => p.test(sentence));
 }
 
+// In-memory cache for character networks to prevent redundant scans across renders
+const networkMemoryCache = new Map<number, CharacterNetworkData>();
+
 /**
- * Scan chapters of a book to discover and index authentic characters.
- * Enforces the Mid-Sentence Capitalization rule to strictly exclude sentence-starting words (Not, Whoa, Stop, Listen).
+ * Helper to escape special regex characters
  */
-export async function scanBookCharacters(
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Scan and return full character network graph data (nodes + interaction edges).
+ * This is the primary, authoritative character and relationship scanning pipeline.
+ */
+export async function scanBookCharacterNetwork(
   bookId: number,
   totalChapters: number,
   onProgress?: (progress: number) => void
-): Promise<TrackedCharacter[]> {
-  // Bumped cache key to v11 to automatically flush stale characters and quotes
-  const cacheKey = `shiori-characters-v11-${bookId}`;
+): Promise<CharacterNetworkData> {
+  // 1. Fast in-memory cache check
+  if (networkMemoryCache.has(bookId)) {
+    const mem = networkMemoryCache.get(bookId)!;
+    if (mem.characters.length > 0 && (mem.edges.length > 0 || mem.characters.length < 2)) {
+      if (onProgress) onProgress(100);
+      return mem;
+    }
+  }
+
+  // 2. Persistent storage cache check (v12 to flush stale 0-edge poison)
+  const networkCacheKey = `shiori-char-network-v12-${bookId}`;
   try {
-    const cached = localStorage.getItem(cacheKey);
+    const cached = localStorage.getItem(networkCacheKey);
     if (cached) {
       const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (
+        parsed &&
+        Array.isArray(parsed.characters) &&
+        parsed.characters.length > 0 &&
+        Array.isArray(parsed.edges) &&
+        (parsed.edges.length > 0 || parsed.characters.length < 2)
+      ) {
+        networkMemoryCache.set(bookId, parsed);
+        if (onProgress) onProgress(100);
+        return parsed as CharacterNetworkData;
       }
     }
   } catch {
     // Cache miss, proceed to scan
   }
 
-  // Regex specifically capturing MID-SENTENCE capitalized proper nouns (preceded by lowercase letter, comma, semicolon, dash, colon)
-  // This physically excludes words capitalized only at sentence/dialogue beginnings (e.g. "Not", "Whoa", "Stop", "Listen")
+  // 3. Resolve true chapter count if totalChapters is unset or 1
+  let resolvedChapters = totalChapters;
+  if (!resolvedChapters || resolvedChapters <= 1) {
+    try {
+      const count = await api.getBookChapterCount(bookId);
+      if (count && count > 1) {
+        resolvedChapters = count;
+      }
+    } catch {
+      // Fallback to provided totalChapters
+    }
+  }
+
+  // Regex specifically capturing MID-SENTENCE capitalized proper nouns
   const midSentenceNameRegex = /(?:[a-z,;:\-—]\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b/g;
 
   // Regex for honorific-prefixed names anywhere (e.g. "Captain Tashigi", "Dr. Watson")
@@ -211,8 +250,8 @@ export async function scanBookCharacters(
     chapters: Set<number>;
   }>();
 
-  // Scan up to first 25 chapters for speed and relevance
-  const chaptersToScan = Math.min(totalChapters, 25);
+  // Scan up to first 30 chapters for depth and relationship coverage
+  const chaptersToScan = Math.max(1, Math.min(resolvedChapters || 1, 30));
 
   // Store structured paragraphs for scene and co-occurrence extraction
   const chapterParagraphs: { chapIdx: number; paragraphs: string[] }[] = [];
@@ -234,6 +273,19 @@ export async function scanBookCharacters(
         }
       });
 
+      // Fallback for HTML/EPUB using <div> blocks without child block tags
+      if (paragraphs.length === 0) {
+        doc.querySelectorAll('div, section').forEach((el) => {
+          if (!el.querySelector('p, div, blockquote, ul, ol')) {
+            const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+            if (text.length >= 20) {
+              paragraphs.push(text);
+            }
+          }
+        });
+      }
+
+      // Final fallback: split on multiple newlines
       if (paragraphs.length === 0) {
         const rawText = doc.body.textContent || '';
         const lines = rawText.split(/(?:\r?\n\s*){2,}|\s{4,}/);
@@ -262,8 +314,8 @@ export async function scanBookCharacters(
 
         // Verify that single-word candidates aren't just common lowercase vocabulary
         if (parts.length === 1) {
-          const lowerCount = (plain.match(new RegExp(`\\b${lower}\\b`, 'g')) || []).length;
-          const capsCount = (plain.match(new RegExp(`\\b${rawName}\\b`, 'g')) || []).length;
+          const lowerCount = (plain.match(new RegExp(`\\b${escapeRegex(lower)}\\b`, 'g')) || []).length;
+          const capsCount = (plain.match(new RegExp(`\\b${escapeRegex(rawName)}\\b`, 'g')) || []).length;
           if (lowerCount > capsCount) continue;
         }
 
@@ -325,7 +377,7 @@ export async function scanBookCharacters(
     }
 
     if (onProgress) {
-      onProgress(Math.round(((chapIdx + 1) / chaptersToScan) * 80));
+      onProgress(Math.round(((chapIdx + 1) / chaptersToScan) * 75));
     }
   }
 
@@ -390,16 +442,37 @@ export async function scanBookCharacters(
     sampleQuotes: CharacterInteractionQuote[];
   }>();
 
+  // Track token frequency across characters to safely match unique vs shared tokens
+  const tokenFreq = new Map<string, number>();
+
   const charTokensList = topCharacters.map((c) => {
-    const lowerName = c.name.toLowerCase();
-    const tokens = lowerName
+    const rawClean = c.name
       .replace(/^(mr|mrs|ms|miss|dr|lord|lady|sir|captain|professor)\.?\s+/i, '')
+      .trim();
+
+    // Distinct tokens (e.g. "Ron", "Weasley", "Harry", "Potter", "Law", "Luffy")
+    const tokens = rawClean
       .split(/\s+/)
-      .filter((t) => t.length >= 4 && !COMMON_NON_NAMES.has(t) && !PRONOUNS.has(t));
+      .map((t) => t.trim())
+      .filter((t) => {
+        const lower = t.toLowerCase();
+        return (
+          t.length >= 2 &&
+          !COMMON_NON_NAMES.has(lower) &&
+          !PRONOUNS.has(lower) &&
+          !CALENDAR_WORDS.has(lower) &&
+          !OBJECT_OR_LOCATION_SUFFIXES.has(lower)
+        );
+      });
+
+    for (const t of tokens) {
+      const lower = t.toLowerCase();
+      tokenFreq.set(lower, (tokenFreq.get(lower) || 0) + 1);
+    }
 
     return {
       name: c.name,
-      lowerName,
+      lowerName: c.name.toLowerCase(),
       tokens,
     };
   });
@@ -411,23 +484,44 @@ export async function scanBookCharacters(
       const pText = paragraphs[pIdx];
       const pLower = pText.toLowerCase();
 
-      const foundChars: string[] = [];
+      const foundChars = new Set<string>();
+
       for (const ct of charTokensList) {
+        // 1. Direct full name match
         if (pLower.includes(ct.lowerName)) {
-          foundChars.push(ct.name);
+          foundChars.add(ct.name);
           continue;
         }
-        if (ct.tokens.some((token) => new RegExp(`\\b${token}\\b`, 'i').test(pLower))) {
-          foundChars.push(ct.name);
+
+        // 2. Token match with word boundary
+        for (const token of ct.tokens) {
+          const lowerToken = token.toLowerCase();
+          const freq = tokenFreq.get(lowerToken) || 1;
+
+          // If token is unique across all characters, word-boundary match in paragraph
+          if (freq === 1) {
+            const tokenRegex = new RegExp(`\\b${escapeRegex(lowerToken)}\\b`, 'i');
+            if (tokenRegex.test(pText)) {
+              foundChars.add(ct.name);
+              break;
+            }
+          } else {
+            // If token is shared (e.g. family surname like "Potter"), require full name match
+            const fullRegex = new RegExp(`\\b${escapeRegex(ct.lowerName)}\\b`, 'i');
+            if (fullRegex.test(pLower)) {
+              foundChars.add(ct.name);
+              break;
+            }
+          }
         }
       }
 
-      if (foundChars.length > 0) {
-        pAppearances.push({ pIdx, chars: foundChars, text: pText });
+      if (foundChars.size > 0) {
+        pAppearances.push({ pIdx, chars: Array.from(foundChars), text: pText });
       }
     }
 
-    // 1. Direct Same-Paragraph Interactions (Weight +2)
+    // 1. Direct Same-Paragraph Interactions (Weight +3)
     for (const app of pAppearances) {
       if (app.chars.length >= 2) {
         for (let i = 0; i < app.chars.length; i++) {
@@ -442,13 +536,13 @@ export async function scanBookCharacters(
               edge = {
                 source: src,
                 target: tgt,
-                weight: 2,
+                weight: 3,
                 chapters: new Set([chapIdx]),
                 sampleQuotes: [],
               };
               edgeMap.set(pairKey, edge);
             } else {
-              edge.weight += 2;
+              edge.weight += 3;
               edge.chapters.add(chapIdx);
             }
 
@@ -504,6 +598,30 @@ export async function scanBookCharacters(
     }
   }
 
+  // 3. Fallback: Chapter Co-presence (if few or no direct paragraph interactions found)
+  if (edgeMap.size < 5 && topCharacters.length >= 2) {
+    for (let i = 0; i < topCharacters.length; i++) {
+      for (let j = i + 1; j < topCharacters.length; j++) {
+        const charA = topCharacters[i];
+        const charB = topCharacters[j];
+        const sharedChaps = charA.chapters.filter((ch) => charB.chapters.includes(ch));
+        if (sharedChaps.length >= 1) {
+          const [src, tgt] = charA.name.localeCompare(charB.name) < 0 ? [charA.name, charB.name] : [charB.name, charA.name];
+          const pairKey = `${src}:::${tgt}`;
+          if (!edgeMap.has(pairKey)) {
+            edgeMap.set(pairKey, {
+              source: src,
+              target: tgt,
+              weight: sharedChaps.length,
+              chapters: new Set(sharedChaps),
+              sampleQuotes: [],
+            });
+          }
+        }
+      }
+    }
+  }
+
   const edges: CharacterInteractionEdge[] = Array.from(edgeMap.values()).map((e) => ({
     source: e.source,
     target: e.target,
@@ -519,58 +637,43 @@ export async function scanBookCharacters(
     edges,
   };
 
+  // Cache in-memory for instant reuse
+  networkMemoryCache.set(bookId, networkData);
+
+  // Cache persistently to localStorage with quota-safe cleanup
   try {
-    localStorage.setItem(cacheKey, JSON.stringify(topCharacters));
-    localStorage.setItem(`shiori-char-network-v4-${bookId}`, JSON.stringify(networkData));
+    localStorage.setItem(networkCacheKey, JSON.stringify(networkData));
   } catch {
-    // Ignore quota errors
+    try {
+      // Clear legacy/stale character caches to free space
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('shiori-characters-') || k.startsWith('shiori-char-network-'))) {
+          localStorage.removeItem(k);
+        }
+      }
+      localStorage.setItem(networkCacheKey, JSON.stringify(networkData));
+    } catch {
+      // In-memory cache continues to serve the current session smoothly
+    }
   }
 
   if (onProgress) {
     onProgress(100);
   }
 
-  return topCharacters;
+  return networkData;
 }
 
 /**
- * Scan and return full character network graph data (nodes + interaction edges)
+ * Scan chapters of a book to discover and index authentic characters.
+ * Delegates directly to scanBookCharacterNetwork to ensure characters and edges stay 100% in sync.
  */
-export async function scanBookCharacterNetwork(
+export async function scanBookCharacters(
   bookId: number,
   totalChapters: number,
   onProgress?: (progress: number) => void
-): Promise<CharacterNetworkData> {
-  const networkCacheKey = `shiori-char-network-v4-${bookId}`;
-  try {
-    const cached = localStorage.getItem(networkCacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (
-        parsed &&
-        Array.isArray(parsed.characters) &&
-        parsed.characters.length > 0 &&
-        Array.isArray(parsed.edges) &&
-        (parsed.edges.length > 0 || parsed.characters.length < 2)
-      ) {
-        if (onProgress) onProgress(100);
-        return parsed as CharacterNetworkData;
-      }
-    }
-  } catch {
-    // Cache miss, proceed to scan
-  }
-
-  // scanBookCharacters populates the network cache
-  const characters = await scanBookCharacters(bookId, totalChapters, onProgress);
-  try {
-    const cached = localStorage.getItem(networkCacheKey);
-    if (cached) {
-      return JSON.parse(cached) as CharacterNetworkData;
-    }
-  } catch {
-    // Ignore
-  }
-
-  return { characters, edges: [] };
+): Promise<TrackedCharacter[]> {
+  const network = await scanBookCharacterNetwork(bookId, totalChapters, onProgress);
+  return network.characters;
 }

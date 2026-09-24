@@ -39,7 +39,7 @@ export function ReaderTooltip({
             boxShadow: `0 8px 24px ${themeColors['--shadow'] || 'rgba(0,0,0,0.12)'}`,
           }}
           className={cn(
-            "z-[120] overflow-hidden rounded-xl border px-3 py-1.5 text-xs font-semibold select-none pointer-events-none transition-all duration-150 backdrop-blur-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1.5 data-[side=left]:slide-in-from-right-1.5 data-[side=right]:slide-in-from-left-1.5 data-[side=top]:slide-in-from-bottom-1.5",
+            "z-[2100000] overflow-hidden rounded-xl border px-3 py-1.5 text-xs font-semibold select-none pointer-events-none transition-all duration-150 backdrop-blur-xl animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-1.5 data-[side=left]:slide-in-from-right-1.5 data-[side=right]:slide-in-from-left-1.5 data-[side=top]:slide-in-from-bottom-1.5",
             className
           )}
         >

@@ -1,3 +1,14 @@
+# Release Notes (v1.0.15)
+
+## Character Network & Relationship Web
+
+- **Fix Missing Relationships & 0 Interactions on New Books** — Unified the character network scanning engine (`scanBookCharacterNetwork`) into a single-pass authoritative pipeline. Fixed cache desynchronization where characters loaded without interaction edges, and added an in-memory session cache alongside quota-safe localStorage persistence.
+- **Expanded Character Token & Name Matching** — Enhanced character token matching to recognize 2–3 letter names (Ron, Tom, Ned, Jon, Sam, Law, Ace) with word boundary safety and surname disambiguation, resolving missed dialogue and paragraph co-occurrences.
+- **Multi-Format Paragraph Extraction** — Extended DOM paragraph parser to support `<div>` and `<section>` text blocks in Calibre and converted EPUBs, plus chapter co-presence fallback ensuring relationships are never blank.
+- **Smart Spoiler Guard Default** — When opening a new book or on Chapter 1, the network graph defaults to full-book relationships so alliances and connections are immediately visible, with 1-click "Show All" and "Sync Ch." toggle controls.
+- **Ultra-Smooth 0.1s Staggered GPU Animations** — Added hardware-accelerated animations across expanded scenes, shared quotes, character relationship cards, and directory modals using cubic-bezier easing `[0.16, 1, 0.3, 1]`.
+- **High-Definition Poster Export & Native File Dialog** — Replaced DOM SVG export with a 2.8K off-screen canvas exporter with theme-aware styling and native OS file picker save dialog.
+
 # Release Notes (v1.0.10)
 
 ## Build & CI Fixes

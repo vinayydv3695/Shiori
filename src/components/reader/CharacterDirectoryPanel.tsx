@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Users, Sparkles, Loader2, BookOpen, Maximize2, X, Network, List } from 'lucide-react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { Search, Users, Sparkles, Loader2, BookOpen, Maximize2, X, Network, List, FileText } from 'lucide-react';
 import { scanBookCharacters, scanBookCharacterNetwork, type TrackedCharacter, type CharacterNetworkData } from '@/lib/characterTracker';
 import { useCharacterPortrait, type CharacterPortrait } from '@/lib/characterImageService';
 import { CharacterNetworkGraph } from './CharacterNetworkGraph';
@@ -28,6 +28,7 @@ interface CharacterDirectoryPanelProps {
 interface CharacterDetailModalProps {
   char: TrackedCharacter;
   portrait: CharacterPortrait;
+  bookTitle?: string;
   onClose: () => void;
   onNavigateToFirstMention: (chapterIndex: number, characterName: string) => void;
   aiEnabled: boolean;
@@ -73,13 +74,99 @@ export function formatDescriptionToPoints(description?: string): string[] {
   return [text];
 }
 
+const modalSectionContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1, // 0.1s stagger between sections
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const modalSectionItemVariants: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.28,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
+  },
+};
+
+const detailsListVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1, // 0.1s stagger between points
+      delayChildren: 0.08,
+    },
+  },
+};
+
+const detailPointVariants: Variants = {
+  hidden: { opacity: 0, x: -8 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 0.25,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
+  },
+};
+
+const directoryCardsContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const directoryCardItemVariants: Variants = {
+  hidden: { opacity: 0, y: 10, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.26,
+      ease: [0.16, 1, 0.3, 1] as const,
+    },
+  },
+};
+
 function CharacterDetailModal({
   char,
-  portrait,
+  portrait: initialPortrait,
+  bookTitle,
   onClose,
   onNavigateToFirstMention,
   aiEnabled,
 }: CharacterDetailModalProps) {
+  const { portrait: fetchedPortrait, isLoading: isPortraitLoading } = useCharacterPortrait(
+    char.name,
+    char.firstMention?.sentenceSnippet,
+    bookTitle
+  );
+
+  const portrait = useMemo(() => {
+    return {
+      imageUrl: initialPortrait?.imageUrl || fetchedPortrait?.imageUrl || null,
+      nativeName: initialPortrait?.nativeName || fetchedPortrait?.nativeName,
+      source: initialPortrait?.source || fetchedPortrait?.source,
+      description: initialPortrait?.description || fetchedPortrait?.description,
+    };
+  }, [initialPortrait, fetchedPortrait]);
+
   const [aiRecapLoading, setAiRecapLoading] = useState(false);
   const [aiRecap, setAiRecap] = useState<string | null>(null);
   const [modalAspectRatio, setModalAspectRatio] = useState<number | null>(null);
@@ -133,7 +220,7 @@ function CharacterDetailModal({
       ref={modalRef}
       data-reader-theme={readerTheme}
       style={themeVars}
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/65 backdrop-blur-sm"
+      className="fixed inset-0 z-[2000000] flex items-center justify-center p-4 sm:p-6 bg-black/65 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
@@ -169,45 +256,52 @@ function CharacterDetailModal({
           </ReaderTooltip>
         </div>
 
-        {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {/* Scrollable Content Body with 0.1s Staggered Smooth Entrance */}
+        <motion.div
+          variants={modalSectionContainerVariants}
+          initial="hidden"
+          animate="visible"
+          className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
+        >
           {/* Full Portrait Stage (Adaptive Box Sized to Picture Layout, NO CUTOFF) */}
-          {portrait.imageUrl ? (
-            <div className="flex justify-center w-full my-1">
-              <div
-                className="relative rounded-2xl bg-gradient-to-b from-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-secondary))] to-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] flex items-center justify-center p-3 shadow-inner overflow-hidden transition-all duration-300"
-                style={{
-                  maxHeight: '315px',
-                  width: modalAspectRatio
-                    ? `${Math.min(380, Math.max(160, Math.round(290 * Math.max(0.42, Math.min(1.4, modalAspectRatio)))))}px`
-                    : '220px',
-                }}
-              >
-                <img
-                  src={portrait.imageUrl}
-                  alt={char.name}
-                  referrerPolicy="no-referrer"
-                  onLoad={(e) => {
-                    const { naturalWidth, naturalHeight } = e.currentTarget;
-                    if (naturalWidth && naturalHeight) {
-                      setModalAspectRatio(naturalWidth / naturalHeight);
-                    }
+          <motion.div variants={modalSectionItemVariants}>
+            {portrait.imageUrl ? (
+              <div className="flex justify-center w-full my-1">
+                <div
+                  className="relative rounded-2xl bg-gradient-to-b from-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-secondary))] to-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] flex items-center justify-center p-3 shadow-inner overflow-hidden transition-all duration-300"
+                  style={{
+                    maxHeight: '315px',
+                    width: modalAspectRatio
+                      ? `${Math.min(380, Math.max(160, Math.round(290 * Math.max(0.42, Math.min(1.4, modalAspectRatio)))))}px`
+                      : '220px',
                   }}
-                  className="max-h-[290px] w-auto max-w-full object-contain mx-auto drop-shadow-lg select-none"
-                />
+                >
+                  <img
+                    src={portrait.imageUrl}
+                    alt={char.name}
+                    referrerPolicy="no-referrer"
+                    onLoad={(e) => {
+                      const { naturalWidth, naturalHeight } = e.currentTarget;
+                      if (naturalWidth && naturalHeight) {
+                        setModalAspectRatio(naturalWidth / naturalHeight);
+                      }
+                    }}
+                    className="max-h-[290px] w-auto max-w-full object-contain mx-auto drop-shadow-lg select-none"
+                  />
+                </div>
               </div>
-            </div>
-          ) : (
-            <div
-              className="w-full h-32 rounded-2xl flex items-center justify-center text-3xl font-serif font-black select-none text-[var(--text-primary)] shadow-inner"
-              style={{ background: char.avatarColor }}
-            >
-              {char.name.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+            ) : (
+              <div
+                className="w-full h-32 rounded-2xl flex items-center justify-center text-3xl font-serif font-black select-none text-[var(--text-primary)] shadow-inner"
+                style={{ background: char.avatarColor }}
+              >
+                {char.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+          </motion.div>
 
           {/* Names and Statistics */}
-          <div className="space-y-2">
+          <motion.div variants={modalSectionItemVariants} className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-2xl font-bold font-serif text-[var(--text-primary)] my-0 tracking-tight">
                 {char.name}
@@ -229,13 +323,13 @@ function CharacterDetailModal({
                 First in <strong className="text-[var(--text-primary)] font-semibold">Ch. {char.firstMention.chapterIndex + 1}</strong>
               </span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Description / Biography in Points */}
-          <div className="space-y-2 pt-1">
+          <motion.div variants={modalSectionItemVariants} className="space-y-2 pt-1">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
-                <Sparkles size={13} className="text-[var(--ui-focus)]" />
+                <FileText size={13} className="text-[var(--ui-focus)]" />
                 Key Details & Overview
               </h4>
               {points.length > 1 && (
@@ -247,17 +341,28 @@ function CharacterDetailModal({
 
             {points.length > 0 ? (
               <div className="p-4 rounded-2xl bg-[color-mix(in_srgb,var(--bg-secondary)_75%,var(--bg-elevated))] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] shadow-2xs">
-                <ul className="space-y-3">
+                <motion.ul
+                  variants={detailsListVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="space-y-3"
+                >
                   {points.map((point, idx) => (
-                    <li
+                    <motion.li
                       key={idx}
+                      variants={detailPointVariants}
                       className="flex items-start gap-2.5 text-[12.5px] leading-relaxed text-[var(--text-primary)] font-sans"
                     >
                       <span className="w-1.5 h-1.5 rounded-full bg-[var(--ui-focus)] shrink-0 mt-2 ring-3 ring-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)]" />
                       <span className="flex-1">{point}</span>
-                    </li>
+                    </motion.li>
                   ))}
-                </ul>
+                </motion.ul>
+              </div>
+            ) : isPortraitLoading ? (
+              <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] text-xs text-[var(--text-secondary)] flex items-center justify-center gap-2">
+                <Loader2 size={13} className="animate-spin text-[var(--ui-focus)]" />
+                <span>Fetching character details & dossier...</span>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] text-xs text-[var(--text-tertiary)] italic flex items-center justify-between gap-2">
@@ -275,21 +380,24 @@ function CharacterDetailModal({
                 )}
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* AI Memory Recall (if triggered) */}
           {aiRecap && (
-            <div className="p-3.5 rounded-2xl bg-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-elevated))] border border-[var(--ui-focus)] text-xs leading-relaxed text-[var(--text-primary)] font-serif italic space-y-1.5 shadow-xs">
+            <motion.div
+              variants={modalSectionItemVariants}
+              className="p-3.5 rounded-2xl bg-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-elevated))] border border-[var(--ui-focus)] text-xs leading-relaxed text-[var(--text-primary)] font-serif italic space-y-1.5 shadow-xs"
+            >
               <div className="flex items-center gap-1.5 text-[var(--ui-focus)] font-bold font-sans not-italic text-[11px]">
                 <Sparkles size={12} /> AI Memory Recall:
               </div>
               <p className="my-0 leading-relaxed">{aiRecap}</p>
-            </div>
+            </motion.div>
           )}
 
           {/* Book Introduction Quote */}
           {char.firstMention?.sentenceSnippet && (
-            <div className="space-y-1.5 pt-1">
+            <motion.div variants={modalSectionItemVariants} className="space-y-1.5 pt-1">
               <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
                 <BookOpen size={12} className="text-[var(--ui-focus)]" />
                 First Mention in Book
@@ -297,9 +405,9 @@ function CharacterDetailModal({
               <div className="relative p-3.5 rounded-2xl bg-[color-mix(in_srgb,var(--bg-secondary)_70%,var(--bg-elevated))] border-l-4 border-[var(--ui-focus)] border-y border-r border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] text-xs leading-relaxed text-[var(--text-primary)] font-serif italic shadow-2xs">
                 “{char.firstMention.sentenceSnippet.replace(/^[\s"“'‘]+|[\s"”'’]+$/g, '')}”
               </div>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
 
         {/* Footer Actions */}
         <div className="px-5 py-3.5 shrink-0 border-t border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_50%,var(--bg-elevated))] flex items-center justify-between gap-3">
@@ -382,8 +490,10 @@ function CharacterItem({
   return (
     <motion.div
       key={char.name}
+      variants={directoryCardItemVariants}
+      whileHover={{ y: -2, scale: 1.008 }}
+      whileTap={{ scale: 0.992 }}
       className="group p-3 rounded-2xl bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] hover:border-[color-mix(in_srgb,var(--ui-focus)_60%,transparent)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_3%,var(--bg-elevated))] transition-all shadow-2xs space-y-2.5"
-      whileHover={{ y: -1 }}
     >
       <div className="flex items-start justify-between gap-2.5">
         <div className="flex items-center gap-3 min-w-0">
@@ -733,7 +843,12 @@ export function CharacterDirectoryPanel({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2.5 pb-4">
+            <motion.div
+              variants={directoryCardsContainerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 gap-2.5 pb-4"
+            >
               {filteredCharacters.map((char) => (
                 <CharacterItem
                   key={char.name}
@@ -746,7 +861,7 @@ export function CharacterDirectoryPanel({
                   onOpenDetail={(c, p) => setSelectedDetail({ char: c, portrait: p })}
                 />
               ))}
-            </div>
+            </motion.div>
           )}
         </>
       )}
@@ -757,8 +872,12 @@ export function CharacterDirectoryPanel({
           <CharacterDetailModal
             char={selectedDetail.char}
             portrait={selectedDetail.portrait}
+            bookTitle={bookTitle}
             onClose={() => setSelectedDetail(null)}
-            onNavigateToFirstMention={onNavigateToFirstMention}
+            onNavigateToFirstMention={(chapIdx, charName) => {
+              setIsGraphFullscreen(false);
+              onNavigateToFirstMention(chapIdx, charName);
+            }}
             aiEnabled={aiEnabled}
           />
         )}

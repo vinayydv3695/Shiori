@@ -6,6 +6,7 @@ pub mod commands;
 pub mod conversion;
 pub mod db;
 pub mod error;
+pub mod extensions;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod espeak_stubs;
 pub mod models;

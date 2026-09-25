@@ -88,6 +88,10 @@ urlencoding = "2.1"             # URL encoding for API queries
 scraper = "0.20"
 url = "2.5"                     # URL parsing (cloudflare module)
 
+# WASM extension runtime (Phase 1: headless host + JSON ABI)
+# Pure-Rust interpreter (no JIT/dlopen — safe on Android/iOS App Store builds).
+wasmi = "0.36"
+
 # Image processing & cover generation
 image = { version = "0.25", features = ["webp"] }
 imageproc = "0.24"              # Image manipulation
@@ -178,6 +182,7 @@ custom-protocol = ["tauri/custom-protocol"]
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wat = "=1.243.0"                  # WAT->wasm in tests (exact pin: 1.244+ needs MSRV 1.81+; MSRV 1.76 here, fits repo 1.80)
 wiremock = "0.6.5"
 filetime = "0.2"
 

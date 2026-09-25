@@ -57,6 +57,7 @@ import { useActionLogStore, buildActionLogText, ACTION_LOG_MIN_DOWNLOAD_MS } fro
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSourceStore } from '../../store/sourceStore'
 import { SourceManager } from './SourceManager'
+import { ExtensionsSection } from './ExtensionsSection'
 import { OnlineCacheSettings } from './OnlineCacheSettings'
 import { AppTooltip } from '@/components/ui/tooltip'
 import { TorboxSettings } from './TorboxSettings'
@@ -2562,6 +2563,9 @@ const CommunityPluginsSettings = ({
         <SettingSection title="Online Sources" description="Enable or disable online providers used by online sections">
           <SourceManager />
         </SettingSection>
+      )}
+      {isSectionVisible('Extensions', ['Extensions', 'WASM', 'Install from file', 'Repository']) && (
+        <ExtensionsSection />
       )}
       {isSectionVisible('Online Cache', ['Online Cache', 'Cache', 'Storage']) && (
         <SettingSection title="Online Cache" description="Disk space used by online browsing — bounded and auto-cleaned">

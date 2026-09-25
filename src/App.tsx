@@ -26,6 +26,7 @@ import { initLowMemoryHandler } from "./lib/lowMemory"
 import { useDiscordRPCUpdater } from "./hooks/useDiscordRPCUpdater"
 import { useOnlineSearchStore } from "./store/onlineSearchStore"
 import { useShelfStore } from "./store/shelfStore"
+import { useSourceStore } from "./store/sourceStore"
 import { AndroidSplashScreen } from "./components/ui/AndroidSplashScreen"
 import { SwipeGestureHandler } from "./components/layout/SwipeGestureHandler"
 import { useBackButton } from "./hooks/useBackButton"
@@ -139,6 +140,11 @@ function App() {
 
   // ── Initialization ──
   useEffect(() => { void initializeOnboarding() }, [initializeOnboarding])
+
+  // Merge dynamically installed WASM extension sources into the source store.
+  useEffect(() => {
+    void useSourceStore.getState().syncRegistrySources()
+  }, [])
 
   useEffect(() => {
     loadInitialBooks()

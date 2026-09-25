@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { logger } from '@/lib/logger';
 import { pluginApi } from '@/lib/pluginSources';
 import { isAndroid } from '@/lib/tauri';
 
@@ -180,6 +181,8 @@ const DEFAULT_SOURCES: SourceConfig[] = [
   },
 ];
 
+const DEFAULT_SOURCE_IDS = new Set(DEFAULT_SOURCES.map((source) => source.id));
+
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {
   books: 'gutenberg',
   manga: isAndroid ? 'mangafire' : 'mangadex',
@@ -233,6 +236,7 @@ interface SourceStore {
   getPrimarySource: (kind: SourceKind) => SourceConfig | undefined;
   isSourceEnabled: (id: string) => boolean;
   toggleSource: (id: string) => void;
+  syncRegistrySources: () => Promise<void>;
   setPrimarySource: (kind: SourceKind, id: string) => void;
   setPreferredDebridProvider: (provider: DebridProviderPreference) => void;
 }
@@ -340,6 +344,52 @@ export const useSourceStore = create<SourceStore>()(
         set(() => ({
           preferredDebridProvider: provider,
         })),
+      syncRegistrySources: async () => {
+        let metas;
+        try {
+          metas = await pluginApi.listSources();
+        } catch (err) {
+          logger.warn('[source] registry sync failed', err);
+          return;
+        }
+
+        const metaById = new Map(metas.map((meta) => [meta.id, meta]));
+
+        // Keep known sources (fill metadata + mark implemented) and drop
+        // uninstalled extension entries; bundled defaults are never removed.
+        const nextSources = get().sources
+          .map((source) => {
+            const meta = metaById.get(source.id);
+            if (!meta) {
+              return DEFAULT_SOURCE_IDS.has(source.id) ? source : null;
+            }
+            return {
+              ...source,
+              enabled: source.enabled,
+              implemented: true,
+              name: source.name || meta.name,
+              website: source.website || meta.base_url || undefined,
+            };
+          })
+          .filter((source): source is SourceConfig => source !== null);
+
+        // Append registry sources that are not present yet.
+        for (const meta of metas) {
+          if (nextSources.some((source) => source.id === meta.id)) continue;
+          nextSources.push({
+            id: meta.id,
+            name: meta.name,
+            kind: meta.content_type === 'Manga' ? 'manga' : 'books',
+            enabled: true,
+            description: '',
+            status: 'active',
+            implemented: true,
+            website: meta.base_url || undefined,
+          });
+        }
+
+        set({ sources: nextSources });
+      },
 
     }),
     {

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { extensionsApi, type ExtensionInfo, type RepoEntry } from '@/lib/extensions';
 import { getErrorMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { useSourceStore } from '@/store/sourceStore';
 
 interface ExtensionsStore {
   installed: ExtensionInfo[];
@@ -29,6 +30,14 @@ function toError(context: string, err: unknown): string {
 async function refreshInstalled(set: (partial: Partial<ExtensionsStore>) => void): Promise<void> {
   const installed = await extensionsApi.list();
   set({ installed });
+}
+
+async function syncRegistrySources(): Promise<void> {
+  try {
+    await useSourceStore.getState().syncRegistrySources();
+  } catch (err) {
+    logger.warn('[extensions] source registry sync failed', err);
+  }
 }
 
 export const useExtensionsStore = create<ExtensionsStore>((set) => ({
@@ -64,6 +73,7 @@ export const useExtensionsStore = create<ExtensionsStore>((set) => ({
       set({ actionId: '__local__', error: null });
       await extensionsApi.installLocal(wasmPath);
       await refreshInstalled(set);
+      await syncRegistrySources();
       set({ actionId: null });
     } catch (err) {
       set({ actionId: null, error: toError('[extensions] local install failed', err) });
@@ -75,6 +85,7 @@ export const useExtensionsStore = create<ExtensionsStore>((set) => ({
       set({ actionId: id, error: null });
       await extensionsApi.installFromRepo(id);
       await refreshInstalled(set);
+      await syncRegistrySources();
       set({ actionId: null });
     } catch (err) {
       set({ actionId: null, error: toError(`[extensions] install "${id}" failed`, err) });
@@ -86,6 +97,7 @@ export const useExtensionsStore = create<ExtensionsStore>((set) => ({
       set({ actionId: id, error: null });
       await extensionsApi.remove(id);
       await refreshInstalled(set);
+      await syncRegistrySources();
       set({ actionId: null });
     } catch (err) {
       set({ actionId: null, error: toError(`[extensions] remove "${id}" failed`, err) });
@@ -97,6 +109,7 @@ export const useExtensionsStore = create<ExtensionsStore>((set) => ({
       set({ actionId: id, error: null });
       await extensionsApi.setEnabled(id, enabled);
       await refreshInstalled(set);
+      await syncRegistrySources();
       set({ actionId: null });
     } catch (err) {
       set({ actionId: null, error: toError(`[extensions] toggle "${id}" failed`, err) });
@@ -118,6 +131,7 @@ export const useExtensionsStore = create<ExtensionsStore>((set) => ({
       set({ actionId: id, error: null });
       await extensionsApi.update(id);
       await refreshInstalled(set);
+      await syncRegistrySources();
       set({ actionId: null });
     } catch (err) {
       set({ actionId: null, error: toError(`[extensions] update "${id}" failed`, err) });

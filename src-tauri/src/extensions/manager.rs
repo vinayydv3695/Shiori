@@ -77,6 +77,43 @@ impl From<&InstalledExtension> for ExtensionInfo {
     }
 }
 
+/// Parses the optional `permissions` object from an extension's raw `meta`
+/// response (`data` payload, before it is deserialized into [`SourceMeta`]).
+/// The wasm is untrusted, so the accepted contract is narrow: `hosts` must
+/// be an array of bare hostnames (`"a.com"`, …). Any entry that is empty or
+/// contains `/`, `:`, or whitespace is dropped with a warning; survivors are
+/// normalized to `https://host` — the manifest's canonical form, which
+/// [`ExtensionManifest::validate`] requires. A missing or malformed
+/// `permissions` object yields deny-all (the safe default).
+pub fn permissions_from_meta(value: &serde_json::Value) -> ExtensionPermissions {
+    let Some(hosts) = value
+        .get("permissions")
+        .and_then(|p| p.get("hosts"))
+        .and_then(|h| h.as_array())
+    else {
+        return ExtensionPermissions::default();
+    };
+
+    let mut out: Vec<String> = Vec::new();
+    for host in hosts {
+        let Some(raw) = host.as_str() else {
+            log::warn!("extension meta permissions: ignoring non-string host entry {host}");
+            continue;
+        };
+        let bare = raw.trim();
+        if bare.is_empty()
+            || bare.contains('/')
+            || bare.contains(':')
+            || bare.contains(char::is_whitespace)
+        {
+            log::warn!("extension meta permissions: ignoring invalid host entry {raw:?}");
+            continue;
+        }
+        out.push(format!("https://{bare}"));
+    }
+    ExtensionPermissions { hosts: out }
+}
+
 /// Local extension installation directory manager.
 #[derive(Debug)]
 pub struct ExtensionManager {
@@ -188,6 +225,18 @@ impl ExtensionManager {
     /// registers it as enabled. Fails with `Invoke("already installed: …")`
     /// when the id is taken (upgrades are Phase 3).
     pub fn install_from_file(&mut self, wasm_path: &Path) -> ExtResult<ExtensionInfo> {
+        self.install_from_file_with_hosts(wasm_path, None)
+    }
+
+    /// Like [`install_from_file`](Self::install_from_file), but `hosts`
+    /// (from the trusted repo index) overrides the permissions the wasm
+    /// declares in its `meta` response. `None` falls back to the wasm's own
+    /// (filtered) meta permissions.
+    pub fn install_from_file_with_hosts(
+        &mut self,
+        wasm_path: &Path,
+        hosts: Option<&[String]>,
+    ) -> ExtResult<ExtensionInfo> {
         let bytes = fs::read(wasm_path).map_err(|e| {
             ExtensionError::Load(format!("read {}: {e}", wasm_path.display()))
         })?;
@@ -195,9 +244,19 @@ impl ExtensionManager {
         // Live instance first: parse/link/instantiate + fuel/memory limits run
         // before anything is trusted from the module.
         let mut inst = ExtensionInstance::new(&bytes, HostOptions::default())?;
+        // Raw meta value captured *before* deserialization: the wasm may carry
+        // a `permissions` object that `SourceMeta` itself does not model.
         let data = inst.raw_invoke(Method::Meta, json!({}))?;
         let meta: SourceMeta = super::abi::meta_from_value(&data)?;
-        let manifest = ExtensionManifest::from_meta(&meta);
+        let permissions = match hosts {
+            // Index override wins: the index is trusted, the wasm is not.
+            Some(h) => ExtensionPermissions { hosts: h.to_vec() },
+            None => permissions_from_meta(&data),
+        };
+        let manifest = ExtensionManifest {
+            permissions,
+            ..ExtensionManifest::from_meta(&meta)
+        };
         manifest.validate()?;
 
         let id = manifest.id.clone();
@@ -432,5 +491,76 @@ mod tests {
             m.get("hello.test").unwrap().kv_path,
             root.join("hello.test").join("storage.json")
         );
+    }
+
+    #[test]
+    fn permissions_from_meta_parses_bare_hosts_and_normalizes_scheme() {
+        let v = json!({
+            "permissions": {
+                "hosts": ["api.example.com", "example.org"]
+            }
+        });
+        let p = permissions_from_meta(&v);
+        assert_eq!(p.hosts, ["https://api.example.com", "https://example.org"]);
+    }
+
+    #[test]
+    fn permissions_from_meta_missing_or_malformed_is_deny_all() {
+        // No permissions object at all.
+        assert!(permissions_from_meta(&json!({})).hosts.is_empty());
+        // Permissions without hosts.
+        assert!(permissions_from_meta(&json!({"permissions": {}})).hosts.is_empty());
+        // Hosts not an array.
+        assert!(permissions_from_meta(&json!({"permissions": {"hosts": "a.com"}})).hosts.is_empty());
+        // Entries that are not strings.
+        assert!(permissions_from_meta(&json!({"permissions": {"hosts": [1, null]}})).hosts.is_empty());
+    }
+
+    #[test]
+    fn permissions_from_meta_filters_malformed_entries() {
+        let v = json!({
+            "permissions": {
+                "hosts": [
+                    "api.example.com", // valid → kept
+                    "",                // empty → dropped
+                    "   ",             // whitespace-only → dropped
+                    "https://x.com",   // scheme (':', '/') → dropped
+                    "a.com/path",      // '/' → dropped
+                    "a.com:8080",      // ':' → dropped
+                    "a b.com",         // space → dropped
+                    "exa\nmple.com"    // newline → dropped
+                ]
+            }
+        });
+        let p = permissions_from_meta(&v);
+        assert_eq!(p.hosts, ["https://api.example.com"], "only valid bare hosts survive");
+    }
+
+    #[test]
+    fn install_from_file_keeps_deny_all_when_meta_has_no_permissions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wasm_file = tmp.path().join("hello.wasm");
+        fs::write(&wasm_file, test_wasm::hello()).unwrap();
+
+        let mut m = ExtensionManager::new(tmp.path().join("exts"));
+        let info = m.install_from_file(&wasm_file).unwrap();
+        assert!(
+            info.permissions.hosts.is_empty(),
+            "wasm meta without permissions must stay deny-all"
+        );
+    }
+
+    #[test]
+    fn install_from_file_with_hosts_applies_override() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wasm_file = tmp.path().join("hello.wasm");
+        fs::write(&wasm_file, test_wasm::hello()).unwrap();
+
+        let mut m = ExtensionManager::new(tmp.path().join("exts"));
+        let hosts = vec!["https://index.example.test".to_string()];
+        let info = m
+            .install_from_file_with_hosts(&wasm_file, Some(&hosts))
+            .unwrap();
+        assert_eq!(info.permissions.hosts, hosts, "index override wins over wasm meta");
     }
 }

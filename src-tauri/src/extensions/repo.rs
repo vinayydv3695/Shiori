@@ -25,7 +25,7 @@ use super::{ExtResult, ExtensionError, ExtensionInfo, ExtensionManager};
 /// Default repository index URL. Placeholder: points at a hand-maintained
 /// GitHub Pages index until the real publishing pipeline exists. All commands
 /// accept a `repo_url` override.
-pub const DEFAULT_REPO_URL: &str = "https://vinayydv3695.github.io/shiori-extensions/index.json";
+pub const DEFAULT_REPO_URL: &str = "https://raw.githubusercontent.com/vinayydv3695/shiori-extensions/main/index.json";
 
 /// Cap on the index JSON document, bytes.
 const MAX_INDEX_BYTES: u64 = 2 * 1024 * 1024;
@@ -60,6 +60,12 @@ pub struct RepoEntry {
     /// install when present.
     pub sha256: Option<String>,
     pub content_type: ContentType,
+    /// Optional http-fetch allowlist (scheme-full `https://…` entries, the
+    /// manifest's canonical form). When present it overrides whatever the
+    /// wasm declares in its `meta` response — the index is trusted, the wasm
+    /// is not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosts: Option<Vec<String>>,
 }
 
 /// Shared repo http client: 15s timeout, rustls (the crate's reqwest build
@@ -157,6 +163,17 @@ pub async fn download_extension(entry: &RepoEntry) -> ExtResult<Vec<u8>> {
 /// The temp file is cleaned up on every path (drop of the named temp file),
 /// including install errors.
 pub fn install_from_bytes(manager: &mut ExtensionManager, bytes: &[u8]) -> ExtResult<ExtensionInfo> {
+    install_from_bytes_with_hosts(manager, bytes, None)
+}
+
+/// Like [`install_from_bytes`], but with a trusted index-provided `hosts`
+/// override for the new install's permissions (preferred over the wasm's own
+/// `meta` permissions).
+pub fn install_from_bytes_with_hosts(
+    manager: &mut ExtensionManager,
+    bytes: &[u8],
+    hosts: Option<&[String]>,
+) -> ExtResult<ExtensionInfo> {
     let mut tmp = tempfile::NamedTempFile::new().map_err(|e| {
         ExtensionError::Load(format!("create temp file: {e}"))
     })?;
@@ -164,7 +181,7 @@ pub fn install_from_bytes(manager: &mut ExtensionManager, bytes: &[u8]) -> ExtRe
         .map_err(|e| ExtensionError::Load(format!("write temp file: {e}")))?;
     tmp.flush()
         .map_err(|e| ExtensionError::Load(format!("write temp file: {e}")))?;
-    manager.install_from_file(tmp.path())
+    manager.install_from_file_with_hosts(tmp.path(), hosts)
 }
 
 /// The repo entry for an installed extension when the repo advertises a
@@ -244,6 +261,7 @@ mod tests {
                 nsfw: false,
                 sha256: None,
                 content_type: ContentType::Book,
+                hosts: None,
             }],
         }
     }
@@ -350,6 +368,67 @@ mod tests {
         let mut index = repo_with("9.9.9");
         index.extensions[0].id = "other.id".into();
         assert!(find_update(&installed("1.0.0"), &index).is_none());
+    }
+
+    #[test]
+    fn repo_entry_parses_hosts_and_defaults_when_absent() {
+        // With `hosts`.
+        let with_hosts: RepoEntry =
+            serde_json::from_str(r#"{
+                "id": "a.b", "name": "A", "version": "1.0.0",
+                "downloadUrl": "https://example.test/a.wasm", "nsfw": false,
+                "contentType": "book",
+                "hosts": ["https://api.example.test", "https://cdn.example.test"]
+            }"#)
+            .expect("entry with hosts parses");
+        assert_eq!(
+            with_hosts.hosts.as_deref(),
+            Some(&["https://api.example.test".to_string(), "https://cdn.example.test".to_string()][..])
+        );
+
+        // Without `hosts` → None (not an empty vec) via `#[serde(default)]`.
+        let without_hosts: RepoEntry = serde_json::from_str(r#"{
+            "id": "a.b", "name": "A", "version": "1.0.0",
+            "downloadUrl": "https://example.test/a.wasm", "nsfw": false,
+            "contentType": "book"
+        }"#)
+        .expect("entry without hosts parses");
+        assert!(without_hosts.hosts.is_none());
+
+        // Empty array deserializes as Some([]) — indistinguishable from
+        // "deny all", which is exactly what an empty allowlist means.
+        let empty_hosts: RepoEntry = serde_json::from_str(r#"{
+            "id": "a.b", "name": "A", "version": "1.0.0",
+            "downloadUrl": "https://example.test/a.wasm", "nsfw": false,
+            "contentType": "book", "hosts": []
+        }"#)
+        .expect("entry with empty hosts parses");
+        assert_eq!(empty_hosts.hosts, Some(vec![]));
+    }
+
+    #[test]
+    fn install_from_bytes_hosts_override_wins_over_wasm_meta() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wasm = test_wasm::hello();
+
+        // With the index override → the trusted index wins (hello's meta
+        // declares no permissions at all, so a deny-all fallback would prove
+        // the override path is what applied).
+        let mut m = ExtensionManager::new(tmp.path().join("exts"));
+        let hosts = vec!["https://api.example.test".to_string()];
+        let info =
+            install_from_bytes_with_hosts(&mut m, &wasm, Some(&hosts)).expect("installs with hosts");
+        assert_eq!(info.permissions.hosts, hosts);
+        assert_eq!(
+            m.get("hello.test").unwrap().manifest.permissions.hosts,
+            hosts,
+            "override must be persisted in the manifest"
+        );
+
+        // Without the override → falls back to wasm meta → deny-all.
+        let mut m2 = ExtensionManager::new(tmp.path().join("exts2"));
+        let info2 = install_from_bytes(&mut m2, &wasm).expect("installs without hosts");
+        assert!(info2.permissions.hosts.is_empty());
     }
 
     #[tokio::test]

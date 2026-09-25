@@ -125,7 +125,7 @@ pub async fn extension_install_from_repo(
 
     let info = {
         let mut manager = state.extensions.write().await;
-        repo::install_from_bytes(&mut manager, &bytes)?
+        repo::install_from_bytes_with_hosts(&mut manager, &bytes, entry.hosts.as_deref())?
     };
 
     if info.enabled {
@@ -182,7 +182,7 @@ pub async fn extension_update(
     let info = {
         let mut manager = state.extensions.write().await;
         manager.remove(&id)?;
-        let mut info = repo::install_from_bytes(&mut manager, &bytes)?;
+        let mut info = repo::install_from_bytes_with_hosts(&mut manager, &bytes, entry.hosts.as_deref())?;
         if info.enabled != was_enabled {
             manager.set_enabled(&id, was_enabled)?;
             info.enabled = was_enabled;

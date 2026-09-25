@@ -100,3 +100,22 @@ Per-phase: worker(s) → reviewer → commit. `cargo check` only (no `cargo buil
 1. Reference migration target: simplest registry source (proposed) vs RSS adapter (task's suggestion) — RSS is a poor trait fit today.
 2. Repo index URL (GitHub Pages) — placeholder constant + settings override until you host one.
 3. Signature scheme for extensions in v1 (proposed: sha256-only; ed25519 later).
+
+## Phase 5 note (Phase 5B: reference WASM extension)
+
+**Dual-path registration semantics.** Compiled-in sources register first; enabled WASM
+`WasmSource` entries register afterwards in the same `SourceRegistry` (id = the extension's
+`meta.id`). Because a registry key can hold only one source:
+
+- A wasm extension whose id **equals** a compiled-in id **shadows** the compiled-in source
+  for the rest of that session (host-side: `WasmSource` is a distinct `Source` object, so
+  `as_any` downcasts to a compiled-in type stay invalid for it — expected, same as any
+  dynamic source).
+- Disabling or removing that wasm source does **not** restore the compiled-in one until the
+  app restarts (the compiled-in entry was displaced at registration time, not deleted).
+- Accepted v1 limitation: the reference `torrents-csv-extension` uses a **distinct** id
+  (`torrents_csv_wasm`) precisely to keep the compiled-in `torrents-csv` reachable during
+  the parity phase; shadowing semantics kick in for later same-id migrations.
+
+**Build note.** The reference extension's `.wasm` is produced offline by
+`scripts/build-extension.sh` (not by CI, per §8.2) and shipped/installed from file.

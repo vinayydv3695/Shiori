@@ -38,28 +38,48 @@ const timeoutMs   = parseInt(timeoutArg || '120', 10) * 1000;
 // ─── Find system Chrome ───────────────────────────────────────────────────────
 
 const CHROME_CANDIDATES = [
+  // Google Chrome
   '/usr/bin/google-chrome-stable',
   '/usr/bin/google-chrome',
   '/usr/bin/google-chrome-beta',
   '/opt/google/chrome/google-chrome',
+  // Chromium
   '/usr/bin/chromium',
   '/usr/bin/chromium-browser',
   '/snap/bin/chromium',
+  // Brave
+  '/usr/bin/brave-browser',
+  '/usr/bin/brave-browser-stable',
+  '/usr/bin/brave',
+  '/usr/bin/brave-origin-beta',
+  '/opt/brave.com/brave/brave',
+  '/snap/bin/brave',
+  // macOS
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Chromium.app/Contents/MacOS/Chromium',
 ];
 
+// Cheap sanity check: the candidate must actually run and print a version.
+function isRunnable(p) {
+  try {
+    execSync(`"${p}" --version`, { encoding: 'utf8', timeout: 5000, stdio: 'ignore' });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function findSystemChrome() {
   for (const p of CHROME_CANDIDATES) {
-    if (existsSync(p)) {
+    if (existsSync(p) && isRunnable(p)) {
       console.error(`[solver] Using: ${p}`);
       return p;
     }
   }
-  for (const cmd of ['google-chrome-stable', 'google-chrome', 'chromium', 'chromium-browser']) {
+  for (const cmd of ['google-chrome-stable', 'google-chrome', 'chromium', 'chromium-browser', 'brave-browser', 'brave']) {
     try {
       const p = execSync(`which ${cmd} 2>/dev/null`, { encoding: 'utf8' }).trim();
-      if (p) { console.error(`[solver] Using (PATH): ${p}`); return p; }
+      if (p && existsSync(p) && isRunnable(p)) { console.error(`[solver] Using (PATH): ${p}`); return p; }
     } catch (_) { /* skip */ }
   }
   console.error('[solver] WARNING: No system Chrome found — bundled Chromium may not pass CF Turnstile');

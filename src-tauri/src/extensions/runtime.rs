@@ -61,6 +61,11 @@ pub struct HostOptions {
     pub max_response_bytes: usize,
     /// Hosts the extension is permitted to fetch from (empty = http disabled).
     pub http_allowlist: Vec<String>,
+    /// Per-request timeout override for `host_http_fetch`. `None` (the
+    /// production default) keeps the 15 s
+    /// [`crate::extensions::host::HTTP_TIMEOUT`]; tests shrink it to prove
+    /// the fetch-timeout guard.
+    pub http_timeout: Option<Duration>,
     /// Extension id; sent as the `Shiori-Extension/<id>` http UA header.
     pub extension_id: String,
     /// Phase 2A: per-extension file-backed KV path (`storage.json`). `None`
@@ -76,6 +81,7 @@ impl Default for HostOptions {
             timeout: DEFAULT_TIMEOUT,
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
             http_allowlist: Vec::new(),
+            http_timeout: None,
             extension_id: "unknown".into(),
             kv_path: None,
         }
@@ -113,6 +119,7 @@ impl ExtensionInstance {
             http_allowlist: opts.http_allowlist,
             kv_path: opts.kv_path.clone(),
             extension_id: opts.extension_id.clone(),
+            http_timeout: opts.http_timeout,
             http_client: None,
         };
         if let Some(path) = opts.kv_path.as_deref() {

@@ -31,8 +31,10 @@
 //! Enforced rules: `https` scheme only, unless the allowlist entry for the
 //! host itself starts with `http://`; method ∈ {GET, POST}; the URL host
 //! must match an allowlist entry exactly or as a subdomain (suffix) of it;
-//! empty allowlist = deny all; 15 s timeout; 8 MiB response-body cap; at
-//! most 5 redirects; UA `Shiori-Extension/<extension-id>`. Response headers
+//! empty allowlist = deny all; 15 s timeout (production default, overridable
+//! per instance via `HostOptions.http_timeout` — a test-only knob); 8 MiB
+//! response-body cap; at most 5 redirects; UA
+//! `Shiori-Extension/<extension-id>`. Response headers
 //! are forwarded with lowercased names and string values only (non-UTF-8
 //! values are dropped). Redirect targets are **not** re-checked against the
 //! allowlist. The fetch is synchronous from the host function's point of
@@ -108,6 +110,11 @@ pub struct HostEnv {
     pub kv_path: Option<std::path::PathBuf>,
     /// Extension id; used for the `Shiori-Extension/<id>` UA header.
     pub extension_id: String,
+    /// Per-request timeout for `host_http_fetch`; `None` keeps the 15 s
+    /// production default ([`HTTP_TIMEOUT`]). Fed from
+    /// [`HostOptions`](crate::extensions::runtime::HostOptions)
+    /// (`http_timeout`); only tests set it.
+    pub http_timeout: Option<Duration>,
     /// Lazily-built per-instance `reqwest::Client` (rustls, no cookie jar,
     /// at most [`HTTP_MAX_REDIRECTS`] redirects). `None` until the first
     /// fetch, so instances that never fetch pay nothing to build it.
@@ -330,7 +337,7 @@ fn host_http_fetch_impl(caller: &mut Caller<'_, InstanceState>, req_ptr: i32, re
         Err(e) => return return_error(caller, "http", &e),
     };
     let ext_id = caller.data().env.extension_id.clone();
-    let envelope = match fetch_sync(&client, &parsed, &url, &ext_id) {
+    let envelope = match fetch_sync(&client, &parsed, &url, &ext_id, caller.data().env.http_timeout) {
         Ok(outcome) => {
             let headers = outcome
                 .headers
@@ -450,18 +457,21 @@ fn instance_client(caller: &mut Caller<'_, InstanceState>) -> Result<reqwest::Cl
 /// The synchronous entry the host function calls: bridges to async reqwest
 /// via [`block_on`]. Never called from an async context (wasmi host calls
 /// are synchronous; they may originate inside `Source::*` async methods that
-/// run on Tauri's multi-thread runtime — see [`block_on`]).
+/// run on Tauri's multi-thread runtime — see [`block_on`]). `http_timeout`
+/// overrides the production [`HTTP_TIMEOUT`] (test-only; `None` = default).
 fn fetch_sync(
     client: &reqwest::Client,
     req: &FetchRequest,
     url: &Url,
     extension_id: &str,
+    http_timeout: Option<Duration>,
 ) -> Result<FetchOutcome, String> {
     block_on(fetch_async(
         client.clone(),
         req.clone(),
         url.clone(),
         extension_id.to_string(),
+        http_timeout,
     ))?
 }
 
@@ -478,12 +488,15 @@ async fn fetch_async(
     req: FetchRequest,
     url: Url,
     extension_id: String,
+    http_timeout: Option<Duration>,
 ) -> Result<FetchOutcome, String> {
+    // Test-only override; production keeps the 15 s [`HTTP_TIMEOUT`].
+    let timeout = http_timeout.unwrap_or(HTTP_TIMEOUT);
     let method = match req.method.as_str() {
         "POST" => reqwest::Method::POST,
         _ => reqwest::Method::GET,
     };
-    let mut builder = client.request(method, url).timeout(HTTP_TIMEOUT);
+    let mut builder = client.request(method, url).timeout(timeout);
     for (name, value) in &req.headers {
         builder = builder.header(name.as_str(), value.as_str());
     }
@@ -495,7 +508,7 @@ async fn fetch_async(
     if let Some(body) = &req.body {
         builder = builder.body(body.clone());
     }
-    let resp = builder.send().await.map_err(map_reqwest_error)?;
+    let resp = builder.send().await.map_err(|e| map_reqwest_error(e, timeout))?;
 
     // Early reject when the server advertises an over-cap body.
     if let Some(len) = resp
@@ -514,7 +527,7 @@ async fn fetch_async(
 
     let mut body = Vec::new();
     let mut resp = resp;
-    while let Some(chunk) = resp.chunk().await.map_err(map_reqwest_error)? {
+    while let Some(chunk) = resp.chunk().await.map_err(|e| map_reqwest_error(e, timeout))? {
         if body.len().saturating_add(chunk.len()) > HTTP_MAX_RESPONSE_BYTES {
             return Err(format!(
                 "response body exceeds the {}-byte cap",
@@ -543,10 +556,11 @@ async fn fetch_async(
 }
 
 /// Maps a `reqwest` failure onto a human-readable message (transport,
-/// timeout, redirect cap, body read).
-fn map_reqwest_error(e: reqwest::Error) -> String {
+/// timeout, redirect cap, body read). `timeout` is the effective per-request
+/// timeout (default or test override) so the message names what was applied.
+fn map_reqwest_error(e: reqwest::Error, timeout: Duration) -> String {
     if e.is_timeout() {
-        format!("request timed out after {HTTP_TIMEOUT:?}")
+        format!("request timed out after {timeout:?}")
     } else if e.is_connect() {
         format!("connection failed: {e}")
     } else if e.is_redirect() {
@@ -833,6 +847,7 @@ mod tests {
     use crate::extensions::abi::Method;
     use crate::extensions::runtime::{ExtensionInstance, HostOptions};
     use crate::extensions::test_wasm;
+    use crate::extensions::ExtensionError;
     use serde_json::json;
 
     fn opts() -> HostOptions {
@@ -1085,5 +1100,78 @@ mod tests {
             )
             .expect("allowlisted POST succeeds");
         assert_eq!(data["status"], 201);
+    }
+
+    // -- hardening (Phase 6) --------------------------------------------------
+
+    /// The fetch path honors the test-only `HostOptions.http_timeout`
+    /// override: a wiremock response delayed past the override must surface
+    /// as the standard timeout error envelope, and the call must return well
+    /// short of the production 15 s default. The production default itself is
+    /// untouched (`HostOptions::default().http_timeout == None`).
+    #[tokio::test(flavor = "multi_thread")]
+    async fn host_http_fetch_respects_timeout_override() {
+        use wiremock::matchers::method as http_method;
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(http_method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(3)))
+            .mount(&server)
+            .await;
+
+        let mut inst = ExtensionInstance::new(
+            &test_wasm::http_fetch_dynamic(),
+            HostOptions {
+                extension_id: "wiremock.test".into(),
+                http_allowlist: vec!["http://127.0.0.1".into()],
+                http_timeout: Some(Duration::from_secs(1)),
+                ..HostOptions::default()
+            },
+        )
+        .expect("http module loads");
+        let addr = server.address().to_string();
+
+        let started = std::time::Instant::now();
+        let err = inst
+            .raw_invoke(
+                Method::Meta,
+                json!({ "url": format!("http://{addr}/slow"), "method": "GET" }),
+            )
+            .expect_err("a 3s-delayed response must time out under the 1s override");
+        // The failure travels the standard error envelope: host kind `http`,
+        // message naming the (effective) timeout.
+        let msg = err.to_string();
+        assert!(msg.contains("http:"), "kind must be http, got: {msg}");
+        assert!(
+            msg.contains("timed out after 1s"),
+            "message must name the timeout, got: {msg}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "override must cut the call short (took {:?})",
+            started.elapsed()
+        );
+    }
+
+    /// Crash isolation: an instance that trapped once keeps answering with a
+    /// clean error on subsequent calls. A trap must never panic or wedge the
+    /// instance — and by extension never take the app down with it.
+    #[test]
+    fn trapped_instance_errors_on_follow_up_calls() {
+        let mut inst =
+            ExtensionInstance::new(&test_wasm::traps(), opts()).expect("trapping module loads");
+        // `traps()` hits `unreachable` on every invoke: the first call errors
+        // and the second call on the same instance must error too — not
+        // panic, not hang.
+        for round in 0..2 {
+            let err = inst
+                .raw_invoke(Method::Meta, json!({}))
+                .expect_err("a trap must surface as an Err, never a panic");
+            assert!(
+                matches!(err, ExtensionError::Invoke(_)),
+                "round {round}: expected Invoke error, got {err:?}"
+            );
+        }
     }
 }

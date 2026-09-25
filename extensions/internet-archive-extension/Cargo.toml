@@ -1,0 +1,39 @@
+# internet-archive-extension — Internet Archive (books/media) WASM extension.
+#
+# Implemented against the host ABI in `src-tauri/src/extensions/{abi,runtime,host}.rs`:
+# exports `memory`/`alloc(i32)->i32`/`invoke(i32,i32)->i32`, JSON envelopes
+# over length-prefixed linear memory, and only the `shiori.*` host imports
+# that the host actually registers (network goes through `host_http_fetch`).
+#
+# Copied from the Phase 5B reference `torrents-csv-extension` and adapted;
+# the ABI plumbing is untouched. Standalone crate on purpose: the empty
+# `[workspace]` table below keeps it out of any parent workspace, so
+# `cargo check/build` here never touches the app. Build for
+# `wasm32-unknown-unknown` via the manifest path directly.
+
+[package]
+name = "internet-archive-extension"
+version = "0.1.0"
+edition = "2021"
+description = "Shiori WASM source — Internet Archive advancedsearch (books/media)"
+license = "MIT"
+
+[lib]
+name = "internet_archive_extension"
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# No reqwest / scraper / regex: all HTTP goes through host functions, all JSON
+# parsing is local (serde_json) so the module stays lean for wasm32.
+
+[profile.release]
+# WASM guests have no unwinder; abort on the (should-never-happen) panic.
+panic = "abort"
+# Reference module: size matters more than peak speed.
+opt-level = "s"
+lto = true
+
+[workspace]

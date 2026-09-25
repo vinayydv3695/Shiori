@@ -1,0 +1,40 @@
+# mangadex-extension — MangaDex WASM source extension.
+#
+# Implements the host ABI in `src-tauri/src/extensions/{abi,runtime,host}.rs`:
+# exports `memory`/`alloc(i32)->i32`/`invoke(i32,i32)->i32`, JSON envelopes
+# over length-prefixed linear memory, and only the `shiori.*` host imports
+# that the host actually registers (network goes through `host_http_fetch`).
+#
+# Copied from `extensions/torrents-csv-extension/` (the reference ABI
+# implementation); only the source logic and meta differ.
+#
+# Standalone crate on purpose: the empty `[workspace]` table below keeps it
+# out of any parent workspace, so `cargo check/build` here never touches the
+# app. Build for `wasm32-unknown-unknown` via scripts/build-extension.sh.
+
+[package]
+name = "mangadex-extension"
+version = "0.1.0"
+edition = "2021"
+description = "Shiori WASM source — MangaDex manga search/feed/pages via the MangaDex v5 API"
+license = "MIT"
+
+[lib]
+name = "mangadex_extension"
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# No reqwest / scraper / regex: all HTTP goes through host functions, all
+# JSON parsing is local (serde_json) so the module stays lean for wasm32.
+
+[profile.release]
+# WASM guests have no unwinder; abort on the (should-never-happen) panic.
+panic = "abort"
+# Size matters more than peak speed.
+opt-level = "s"
+lto = true
+
+[workspace]

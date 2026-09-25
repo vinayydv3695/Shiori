@@ -1,8 +1,10 @@
-//! torrents-csv-extension — Phase 5B reference WASM extension.
+//! mangadex-extension — MangaDex (manga, full source) WASM extension.
 //!
-//! A port of the compiled-in `src-tauri/src/sources/torrent_csv.rs` to the
-//! extension ABI defined in `src-tauri/src/extensions/abi.rs` and served by
-//! the wasmi host in `src-tauri/src/extensions/host.rs`.
+//! Adapted from the reference ABI implementation in
+//! `extensions/torrents-csv-extension/` (which mirrors
+//! `src-tauri/src/extensions/abi.rs` and the wasmi host in
+//! `src-tauri/src/extensions/host.rs`). Only the source logic and meta
+//! differ; the wire plumbing is copied verbatim.
 //!
 //! Wire protocol (must match abi.rs / runtime.rs EXACTLY):
 //! - Exports: `memory`, `alloc(len: i32) -> i32`, `invoke(req_ptr: i32,
@@ -22,30 +24,33 @@
 use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
-// Constants (mirroring torrent_csv.rs as closely as the ABI allows).
+// Constants.
 // ---------------------------------------------------------------------------
 
-const TORRENTS_CSV_URL: &str = "https://torrents-csv.com/service/search";
-/// Compiled-in id is `torrents-csv`; this WASM build is a distinct source so
-/// the dual-path registration (wasm shadows same-id compiled-in only when ids
-/// match) leaves both callable.
-const SOURCE_ID: &str = "torrents_csv_wasm";
-const SOURCE_NAME: &str = "Torrents CSV (WASM reference)";
+const API_BASE_URL: &str = "https://api.mangadex.org";
+const COVERS_BASE_URL: &str = "https://uploads.mangadex.org";
+const SOURCE_ID: &str = "mangadex_wasm";
+const SOURCE_NAME: &str = "MangaDex (WASM)";
 const SOURCE_VERSION: &str = "1.0.0";
 
 /// Fixed per-request size sent to the API. The ABI's `search` params carry
-/// only `{ "query", "page" }` (see `abi::SearchParams` / runtime.rs
-/// `invoke_search`), so — exactly like the compiled-in `search`, which calls
-/// `search_internal(query, 20)` — we default to 20. If a `limit` key is
-/// present in the params (forward compatibility), it is honored up to
-/// [`MAX_LIMIT`].
+/// only `{ "query", "page" }`, so — exactly like the reference extension —
+/// we default to 20. If a `limit` key is present in the params (forward
+/// compatibility), it is honored up to [`MAX_LIMIT`].
 const DEFAULT_LIMIT: u64 = 20;
-/// Hard cap: the task mandates request limit ≤ 100 for this source.
+/// Hard cap: keeps the request limit ≤ 100 and response sizes bounded.
 const MAX_LIMIT: u64 = 100;
+/// Feed fetch limit; response is additionally capped at [`CHAPTER_CAP`].
+const FEED_LIMIT: u64 = 100;
+/// Hard cap on chapters returned to the host.
+const CHAPTER_CAP: usize = 200;
+/// Description length cap (~300 chars) for search results.
+const DESCRIPTION_CAP: usize = 300;
 
-/// KV response-cache for the API body, keyed `search:<page>:<query>:<limit>`.
-/// Defaults to OFF so behavior matches the compiled-in source (which always
-/// fetches); flip to `true` to demo the `host_kv_get`/`host_kv_set` pattern.
+/// KV response-cache for the API body. Defaults to OFF so behavior matches
+/// the reference source (always fetches); flip to `true` to demo the
+/// `host_kv_get`/`host_kv_set` pattern.
+#[allow(dead_code)] // kept as reference, same as the template extension.
 const KV_CACHE_ENABLED: bool = false;
 
 // ---------------------------------------------------------------------------
@@ -212,7 +217,7 @@ fn dispatch(req: &str) -> String {
     match method {
         "meta" => meta(),
         "search" => search(&params),
-        "browse" => browse(),
+        "browse" => browse(&params),
         "chapters" => chapters(&params),
         "pages" => pages(&params),
         "health" => health(),
@@ -224,32 +229,28 @@ fn dispatch(req: &str) -> String {
 // Methods — each returns the JSON envelope string.
 // ---------------------------------------------------------------------------
 
-/// Mirrors the compiled-in `TorrentCsvSource::meta`, with the WASM-distinct
-/// id/name. `contentType` is identical (`book`).
+/// Source metadata. `permissions.hosts` declares the only hosts the source
+/// will ever fetch from — the host uses it to gate `host_http_fetch`.
 fn meta() -> String {
     ok(json!({
         "id": SOURCE_ID,
         "name": SOURCE_NAME,
-        "baseUrl": TORRENTS_CSV_URL,
+        "baseUrl": API_BASE_URL,
         "version": SOURCE_VERSION,
-        "contentType": "book",
+        "contentType": "manga",
         "supportsSearch": true,
         "supportsDownload": true,
         "requiresApiKey": false,
         "nsfw": false,
         "permissions": {
-            "hosts": ["torrents-csv.com"],
+            "hosts": ["api.mangadex.org", "uploads.mangadex.org"]
         },
     }))
 }
 
-/// `GET {TORRENTS_CSV_URL}?q=<query>&size=<limit>` via `host_http_fetch`, then
-/// map `{ "torrents": [...] }` → `SearchResult`s (id = infohash, title = name,
-/// extra = magnet/sizeBytes/seeders + infohash, sourceId = our meta id).
-///
-/// Limit: the ABI sends only query+page, so the API `size` defaults to
-/// [`DEFAULT_LIMIT`] (20 — identical to the compiled-in `search`); an
-/// optional `limit` in params is clamped to [`MAX_LIMIT`] (100).
+/// `GET {API_BASE_URL}/manga?title=<enc>&limit=<limit>&offset=<page*limit>
+/// &includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive`
+/// via `host_http_fetch`, then map `{ data: [...] }` → `SearchResult`s.
 fn search(params: &Value) -> String {
     let Some(query) = params.get("query").and_then(Value::as_str) else {
         return err_envelope("input", "search requires params.query");
@@ -261,122 +262,225 @@ fn search(params: &Value) -> String {
         .and_then(Value::as_u64)
         .map(|l| l.clamp(1, MAX_LIMIT))
         .unwrap_or(DEFAULT_LIMIT);
+    let offset = page.saturating_mul(limit);
 
-    let cache_key = format!("search:{page}:{query}:{limit}");
-    if KV_CACHE_ENABLED {
-        if let Some(cached) = kv_get(&cache_key) {
-            log(2, &format!("{SOURCE_ID}: kv cache hit {cache_key}"));
-            return cached;
-        }
-    }
-
-    // Same URL shape as the compiled-in `search_internal`
-    // (`?q=<enc>&size=<limit>`), percent-encoded the same way.
-    let url = format!("{TORRENTS_CSV_URL}?q={}&size={}", encode(query), limit);
+    let url = format!(
+        "{API_BASE_URL}/manga?title={}&limit={limit}&offset={offset}\
+         &includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive",
+        encode(query)
+    );
     match http_get(&url) {
         Err(e) => {
-            log(0, &format!("{SOURCE_ID}: fetch failed: {e}"));
+            log(0, &format!("{SOURCE_ID}: search fetch failed: {e}"));
             err_envelope("http", &e)
         }
-        Ok(body) => {
-            let parsed: Value = match serde_json::from_str(&body) {
-                Ok(v) => v,
-                Err(e) => {
-                    let msg = format!("failed to parse TorrentsCsv response: {e}");
-                    log(0, &format!("{SOURCE_ID}: {msg}"));
-                    return err_envelope("http", &msg);
-                }
-            };
-            let torrents = parsed.get("torrents").and_then(Value::as_array);
-            let mut results: Vec<Value> = Vec::new();
-            for t in torrents.unwrap_or(&Vec::new()) {
-                // The compiled-in serde structs require `infohash` + `name`;
-                // a missing one there fails the whole response the same way.
-                let (Some(infohash), Some(name)) = (
-                    t.get("infohash").and_then(Value::as_str),
-                    t.get("name").and_then(Value::as_str),
-                ) else {
-                    return err_envelope(
-                        "http",
-                        "failed to parse TorrentsCsv response: torrent entry missing infohash or name",
-                    );
-                };
-
-                let mut extra = serde_json::Map::new();
-                extra.insert(
-                    "magnet".to_string(),
-                    Value::String(format!(
-                        "magnet:?xt=urn:btih:{infohash}&dn={}",
-                        encode(name)
-                    )),
-                );
-                extra.insert("infohash".to_string(), Value::String(infohash.to_string()));
-                if let Some(size) = t.get("size_bytes").and_then(Value::as_u64) {
-                    // camelCase key, string value — as the host SearchResult
-                    // `extra: HashMap<String,String>` expects.
-                    extra.insert("sizeBytes".to_string(), Value::String(size.to_string()));
-                }
-                if let Some(seeders) = t.get("seeders").and_then(Value::as_u64) {
-                    extra.insert("seeders".to_string(), Value::String(seeders.to_string()));
-                }
-
-                results.push(json!({
-                    "id": infohash,
-                    "title": name,
-                    "coverUrl": null,
-                    "description": null,
-                    "sourceId": SOURCE_ID,
-                    "extra": Value::Object(extra),
-                }));
-            }
-
-            if KV_CACHE_ENABLED {
-                let cached = ok(Value::Array(results.clone()));
-                if kv_set(&cache_key, &cached) {
-                    log(2, &format!("{SOURCE_ID}: kv cache set {cache_key}"));
-                }
-            }
-            ok(Value::Array(results))
-        }
+        Ok(body) => browse_results(&body),
     }
 }
 
-/// The compiled-in `Source` default returns an unsupported-feature error for
-/// browse; mirror that as the standard error envelope.
-fn browse() -> String {
-    err_envelope("unsupported", "Browse is not supported by this source")
+/// `GET {API_BASE_URL}/manga?limit=<limit>&offset=<offset>
+/// &contentRating[]=safe&contentRating[]=suggestive&includes[]=cover_art
+/// &order[followedCount]=desc` — popular-manga listing. `params.mode` is
+/// accepted and ignored (unknown modes degrade gracefully to the same feed).
+fn browse(params: &Value) -> String {
+    let page = params.get("page").and_then(Value::as_u64).unwrap_or(0);
+    let limit = params
+        .get("limit")
+        .and_then(Value::as_u64)
+        .map(|l| l.clamp(1, MAX_LIMIT))
+        .unwrap_or(DEFAULT_LIMIT);
+    let offset = page.saturating_mul(limit);
+
+    let url = format!(
+        "{API_BASE_URL}/manga?limit={limit}&offset={offset}\
+         &contentRating[]=safe&contentRating[]=suggestive&includes[]=cover_art\
+         &order[followedCount]=desc"
+    );
+    match http_get(&url) {
+        Err(e) => {
+            log(0, &format!("{SOURCE_ID}: browse fetch failed: {e}"));
+            err_envelope("http", &e)
+        }
+        Ok(body) => browse_results(&body),
+    }
 }
 
-/// Compiled-in `get_chapters`: one synthetic "Download Links" chapter.
+/// Shared mapper for the search/browse `/manga` responses.
+fn browse_results(body: &str) -> String {
+    let parsed: Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(e) => {
+            let msg = format!("failed to parse MangaDex response: {e}");
+            log(0, &format!("{SOURCE_ID}: {msg}"));
+            return err_envelope("http", &msg);
+        }
+    };
+    let entries = parsed.get("data").and_then(Value::as_array);
+    let mut results: Vec<Value> = Vec::new();
+    for entry in entries.unwrap_or(&Vec::new()) {
+        let Some(id) = entry.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let attributes = entry.get("attributes");
+        let title = attributes
+            .and_then(|a| a.get("title"))
+            .and_then(Value::as_object)
+            .map(title_of)
+            .unwrap_or_default();
+        if title.is_empty() {
+            continue;
+        }
+        let description = attributes
+            .and_then(|a| a.get("description"))
+            .and_then(Value::as_object)
+            .map(description_of)
+            .unwrap_or_default();
+        let cover_url = cover_url_of(entry, id);
+
+        let mut extra = serde_json::Map::new();
+        if let Some(status) =
+            attributes.and_then(|a| a.get("status")).and_then(Value::as_str)
+        {
+            extra.insert("status".to_string(), Value::String(status.to_string()));
+        }
+        if let Some(year) = attributes.and_then(|a| a.get("year")) {
+            if year.is_number() {
+                extra.insert("year".to_string(), Value::String(year.to_string()));
+            }
+        }
+
+        results.push(json!({
+            "id": id,
+            "title": title,
+            "coverUrl": cover_url,
+            "description": description,
+            "sourceId": SOURCE_ID,
+            "extra": Value::Object(extra),
+        }));
+    }
+    ok(Value::Array(results))
+}
+
+/// `GET {API_BASE_URL}/manga/<contentId>/feed?translatedLanguage[]=en
+/// &order[chapter]=asc&limit=100&includes[]=scanlation_group` → `Chapter`s in
+/// server (ascending) order, capped at [`CHAPTER_CAP`].
 fn chapters(params: &Value) -> String {
     let Some(content_id) = params.get("contentId").and_then(Value::as_str) else {
         return err_envelope("input", "chapters requires params.contentId");
     };
-    ok(json!([{
-        "id": content_id,
-        "title": "Download Links",
-        "number": 1.0,
-        "volume": null,
-        "uploadedAt": null,
-        "sourceId": SOURCE_ID,
-        "contentId": content_id,
-    }]))
+    let Some(content_id) = sanitize_id(content_id) else {
+        return err_envelope("input", "invalid contentId");
+    };
+    let url = format!(
+        "{API_BASE_URL}/manga/{content_id}/feed?translatedLanguage[]=en\
+         &order[chapter]=asc&limit={FEED_LIMIT}&includes[]=scanlation_group"
+    );
+    let body = match http_get(&url) {
+        Err(e) => {
+            log(0, &format!("{SOURCE_ID}: feed fetch failed: {e}"));
+            return err_envelope("http", &e);
+        }
+        Ok(b) => b,
+    };
+    let parsed: Value = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            let msg = format!("failed to parse MangaDex feed response: {e}");
+            log(0, &format!("{SOURCE_ID}: {msg}"));
+            return err_envelope("http", &msg);
+        }
+    };
+    let entries = parsed.get("data").and_then(Value::as_array);
+    let mut chapters: Vec<Value> = Vec::new();
+    for entry in entries.unwrap_or(&Vec::new()).iter().take(CHAPTER_CAP) {
+        let Some(id) = entry.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let attributes = entry.get("attributes");
+        let chapter_str = attributes
+            .and_then(|a| a.get("chapter"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let number = chapter_str.parse::<f32>().unwrap_or(0.0);
+        let title = attributes.and_then(|a| a.get("title")).and_then(Value::as_str);
+        let chapter_title = match title {
+            Some(t) if !t.is_empty() => {
+                format!("Chapter {chapter_str} - {t}")
+            }
+            _ => format!("Chapter {chapter_str}"),
+        };
+        let volume = attributes
+            .and_then(|a| a.get("volume"))
+            .and_then(Value::as_str)
+            .map(|v| json!(v));
+        let uploaded_at = attributes
+            .and_then(|a| a.get("publishAt"))
+            .and_then(Value::as_str)
+            .map(|p| json!(p));
+
+        chapters.push(json!({
+            "id": id,
+            "title": chapter_title,
+            "number": number,
+            "volume": volume.unwrap_or(Value::Null),
+            "uploadedAt": uploaded_at.unwrap_or(Value::Null),
+            "sourceId": SOURCE_ID,
+            "contentId": content_id,
+        }));
+    }
+    ok(Value::Array(chapters))
 }
 
-/// Compiled-in `get_pages`: one page whose URL is the raw magnet (prefixed
-/// `magnet|` per the compiled-in convention). `chapter_id` is the infohash.
+/// `GET {API_BASE_URL}/at-home/server/<chapterId>` → `Page`s
+/// `{ index, url: "<baseUrl>/data/<hash>/<file>" }` in order.
 fn pages(params: &Value) -> String {
     let Some(chapter_id) = params.get("chapterId").and_then(Value::as_str) else {
         return err_envelope("input", "pages requires params.chapterId");
     };
-    ok(json!([{
-        "index": 0,
-        "url": format!("magnet|magnet:?xt=urn:btih:{chapter_id}"),
-    }]))
+    let Some(chapter_id) = sanitize_id(chapter_id) else {
+        return err_envelope("input", "invalid chapterId");
+    };
+    let url = format!("{API_BASE_URL}/at-home/server/{chapter_id}");
+    let body = match http_get(&url) {
+        Err(e) => {
+            log(0, &format!("{SOURCE_ID}: page server fetch failed: {e}"));
+            return err_envelope("http", &e);
+        }
+        Ok(b) => b,
+    };
+    let parsed: Value = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            let msg = format!("failed to parse MangaDex page server response: {e}");
+            log(0, &format!("{SOURCE_ID}: {msg}"));
+            return err_envelope("http", &msg);
+        }
+    };
+    let Some(base_url) = parsed.get("baseUrl").and_then(Value::as_str) else {
+        return err_envelope("http", "MangaDex page server response missing baseUrl");
+    };
+    let chapter = parsed.get("chapter");
+    let Some(hash) = chapter.and_then(|c| c.get("hash")).and_then(Value::as_str) else {
+        return err_envelope("http", "MangaDex page server response missing chapter.hash");
+    };
+    let files = chapter
+        .and_then(|c| c.get("data"))
+        .and_then(Value::as_array);
+    let mut pages: Vec<Value> = Vec::new();
+    let empty: Vec<Value> = Vec::new();
+    for (i, file) in files.unwrap_or(&empty).iter().enumerate() {
+        let Some(file) = file.as_str() else {
+            continue;
+        };
+        pages.push(json!({
+            "index": i,
+            "url": format!("{base_url}/data/{hash}/{file}"),
+        }));
+    }
+    ok(Value::Array(pages))
 }
 
-/// Compiled-in `TorrentCsvSource` inherits the trait default (always
-/// Available). Here: `Available` when a trivial host call succeeds.
+/// Available when a trivial host call succeeds.
 fn health() -> String {
     // `host_now_ms` is a pure host call that cannot fail; on any i64 it
     // returns, the source is considered available.
@@ -384,6 +488,70 @@ fn health() -> String {
         ok(json!("available"))
     } else {
         err_envelope("health", "clock unavailable")
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MangaDex response helpers.
+// ---------------------------------------------------------------------------
+
+/// Best `title` value: `en` when present, else the first non-empty value.
+fn title_of(title: &serde_json::Map<String, Value>) -> String {
+    if let Some(en) = title.get("en").and_then(Value::as_str) {
+        if !en.is_empty() {
+            return en.to_string();
+        }
+    }
+    title
+        .values()
+        .find_map(|v| v.as_str().filter(|s| !s.is_empty()))
+        .map(|s| s.to_string())
+        .unwrap_or_default()
+}
+
+/// `description.en`, truncated to ~300 chars.
+fn description_of(description: &serde_json::Map<String, Value>) -> String {
+    description
+        .get("en")
+        .and_then(Value::as_str)
+        .map(|s| s.chars().take(DESCRIPTION_CAP).collect::<String>())
+        .unwrap_or_default()
+}
+
+/// `https://uploads.mangadex.org/covers/<id>/<fileName>.256.jpg` when a
+/// `cover_art` relationship with a `fileName` exists, else `null`.
+fn cover_url_of(entry: &Value, id: &str) -> Value {
+    let Some(relationships) = entry.get("relationships").and_then(Value::as_array) else {
+        return Value::Null;
+    };
+    for rel in relationships {
+        let is_cover = rel.get("type").and_then(Value::as_str) == Some("cover_art");
+        let Some(file_name) = rel
+            .get("attributes")
+            .and_then(|a| a.get("fileName"))
+            .and_then(Value::as_str)
+        else {
+            continue;
+        };
+        if !is_cover || file_name.is_empty() {
+            continue;
+        }
+        return json!(format!("{COVERS_BASE_URL}/covers/{id}/{file_name}.256.jpg"));
+    }
+    Value::Null
+}
+
+/// Restricts a path-interpolated id to `[A-Za-z0-9-]` (MangaDex ids are
+/// UUIDs) so hostile params can't smuggle query segments into the URL.
+fn sanitize_id(id: &str) -> Option<&str> {
+    if !id.is_empty()
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    {
+        Some(id)
+    } else {
+        None
     }
 }
 
@@ -436,7 +604,7 @@ fn http_get(url: &str) -> Result<String, String> {
     }
     let status = status_value.and_then(|v| v.as_u64()).unwrap_or(0);
     if status != 200 {
-        return Err(format!("TorrentsCsv returned status {status}"));
+        return Err(format!("MangaDex returned status {status}"));
     }
     match value.get("data").map(body).flatten() {
         Some(body) => Ok(body),

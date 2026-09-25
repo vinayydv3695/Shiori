@@ -1,8 +1,10 @@
-//! torrents-csv-extension — Phase 5B reference WASM extension.
+//! internet-archive-extension — Internet Archive (books/media) WASM extension.
 //!
-//! A port of the compiled-in `src-tauri/src/sources/torrent_csv.rs` to the
-//! extension ABI defined in `src-tauri/src/extensions/abi.rs` and served by
-//! the wasmi host in `src-tauri/src/extensions/host.rs`.
+//! Implemented against the extension ABI defined in
+//! `src-tauri/src/extensions/abi.rs` and served by the wasmi host in
+//! `src-tauri/src/extensions/host.rs`. Wire protocol copied verbatim from the
+//! Phase 5B reference crate (`torrents-csv-extension`) — only the source
+//! itself differs.
 //!
 //! Wire protocol (must match abi.rs / runtime.rs EXACTLY):
 //! - Exports: `memory`, `alloc(len: i32) -> i32`, `invoke(req_ptr: i32,
@@ -15,6 +17,10 @@
 //!   `json_get`) use the *same* length-prefix + envelope convention, and the
 //!   returned pointer lives in this module's own `alloc` region.
 //!
+//! New contract: `meta` advertises `permissions.hosts` (the http-fetch
+//! allowlist the host reads) — here `["archive.org"]`, since every request
+//! stays on the archive.org family (`advancedsearch.php` + `services/img`).
+//!
 //! Safety: the guest never panics on untrusted input (no `unwrap()`/`expect()`
 //! on parsed data) and every memory read/write is bounds-checked against the
 //! bump region.
@@ -22,15 +28,15 @@
 use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
-// Constants (mirroring torrent_csv.rs as closely as the ABI allows).
+// Constants.
 // ---------------------------------------------------------------------------
 
-const TORRENTS_CSV_URL: &str = "https://torrents-csv.com/service/search";
-/// Compiled-in id is `torrents-csv`; this WASM build is a distinct source so
-/// the dual-path registration (wasm shadows same-id compiled-in only when ids
-/// match) leaves both callable.
-const SOURCE_ID: &str = "torrents_csv_wasm";
-const SOURCE_NAME: &str = "Torrents CSV (WASM reference)";
+const BASE_URL: &str = "https://archive.org";
+/// Compiled-in ids on this host use the `_wasm` suffix convention; this WASM
+/// build is a distinct source (dual-path registration shadows only same-id
+/// compiled-in sources).
+const SOURCE_ID: &str = "internet_archive_wasm";
+const SOURCE_NAME: &str = "Internet Archive (WASM)";
 const SOURCE_VERSION: &str = "1.0.0";
 
 /// Fixed per-request size sent to the API. The ABI's `search` params carry
@@ -43,9 +49,13 @@ const DEFAULT_LIMIT: u64 = 20;
 /// Hard cap: the task mandates request limit ≤ 100 for this source.
 const MAX_LIMIT: u64 = 100;
 
+/// Books-first policy: when enabled, every search clause gets
+/// ` AND mediatype:(texts)` appended so Internet Archive returns texts only.
+const BOOKS_ONLY_FILTER: bool = true;
+
 /// KV response-cache for the API body, keyed `search:<page>:<query>:<limit>`.
-/// Defaults to OFF so behavior matches the compiled-in source (which always
-/// fetches); flip to `true` to demo the `host_kv_get`/`host_kv_set` pattern.
+/// Defaults to OFF so behavior is a plain fetch; flip to `true` to demo the
+/// `host_kv_get`/`host_kv_set` pattern.
 const KV_CACHE_ENABLED: bool = false;
 
 // ---------------------------------------------------------------------------
@@ -213,8 +223,8 @@ fn dispatch(req: &str) -> String {
         "meta" => meta(),
         "search" => search(&params),
         "browse" => browse(),
-        "chapters" => chapters(&params),
-        "pages" => pages(&params),
+        "chapters" => chapters(),
+        "pages" => pages(),
         "health" => health(),
         other => err_envelope("method", &format!("unknown method: {other}")),
     }
@@ -224,32 +234,34 @@ fn dispatch(req: &str) -> String {
 // Methods — each returns the JSON envelope string.
 // ---------------------------------------------------------------------------
 
-/// Mirrors the compiled-in `TorrentCsvSource::meta`, with the WASM-distinct
-/// id/name. `contentType` is identical (`book`).
+/// `meta`: identity plus the Phase 5B+ permission contract. The host derives
+/// the install manifest from this and reads `permissions.hosts` as the
+/// http-fetch allowlist — `archive.org` covers both `advancedsearch.php` and
+/// the `services/img` cover endpoint.
 fn meta() -> String {
     ok(json!({
         "id": SOURCE_ID,
         "name": SOURCE_NAME,
-        "baseUrl": TORRENTS_CSV_URL,
+        "baseUrl": BASE_URL,
         "version": SOURCE_VERSION,
         "contentType": "book",
         "supportsSearch": true,
-        "supportsDownload": true,
+        "supportsDownload": false,
         "requiresApiKey": false,
         "nsfw": false,
-        "permissions": {
-            "hosts": ["torrents-csv.com"],
-        },
+        "permissions": { "hosts": ["archive.org"] },
     }))
 }
 
-/// `GET {TORRENTS_CSV_URL}?q=<query>&size=<limit>` via `host_http_fetch`, then
-/// map `{ "torrents": [...] }` → `SearchResult`s (id = infohash, title = name,
-/// extra = magnet/sizeBytes/seeders + infohash, sourceId = our meta id).
+/// `GET https://archive.org/advancedsearch.php?q=<enc>&fl[]=…&rows=<limit>&page=<page+1>&output=json`
+/// via `host_http_fetch`, then map `response.docs` → `SearchResult`s.
 ///
-/// Limit: the ABI sends only query+page, so the API `size` defaults to
-/// [`DEFAULT_LIMIT`] (20 — identical to the compiled-in `search`); an
-/// optional `limit` in params is clamped to [`MAX_LIMIT`] (100).
+/// With [`BOOKS_ONLY_FILTER`] (default), the search clause gains
+/// ` AND mediatype:(texts)` so the archive only returns texts.
+///
+/// Limit: the ABI sends only query+page, so `rows` defaults to
+/// [`DEFAULT_LIMIT`] (20); an optional `limit` in params is clamped to
+/// [`MAX_LIMIT`] (100).
 fn search(params: &Value) -> String {
     let Some(query) = params.get("query").and_then(Value::as_str) else {
         return err_envelope("input", "search requires params.query");
@@ -270,9 +282,17 @@ fn search(params: &Value) -> String {
         }
     }
 
-    // Same URL shape as the compiled-in `search_internal`
-    // (`?q=<enc>&size=<limit>`), percent-encoded the same way.
-    let url = format!("{TORRENTS_CSV_URL}?q={}&size={}", encode(query), limit);
+    let clause = if BOOKS_ONLY_FILTER {
+        format!("{query} AND mediatype:(texts)")
+    } else {
+        query.to_string()
+    };
+    let url = format!(
+        "{BASE_URL}/advancedsearch.php?q={}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=year&fl[]=mediatype&fl[]=downloads&rows={}&page={}&output=json",
+        encode(&clause),
+        limit,
+        page + 1
+    );
     match http_get(&url) {
         Err(e) => {
             log(0, &format!("{SOURCE_ID}: fetch failed: {e}"));
@@ -282,49 +302,61 @@ fn search(params: &Value) -> String {
             let parsed: Value = match serde_json::from_str(&body) {
                 Ok(v) => v,
                 Err(e) => {
-                    let msg = format!("failed to parse TorrentsCsv response: {e}");
+                    let msg = format!("failed to parse Internet Archive response: {e}");
                     log(0, &format!("{SOURCE_ID}: {msg}"));
                     return err_envelope("http", &msg);
                 }
             };
-            let torrents = parsed.get("torrents").and_then(Value::as_array);
+            let response = parsed.get("response");
+            let docs = response
+                .and_then(|r| r.get("docs"))
+                .and_then(Value::as_array);
             let mut results: Vec<Value> = Vec::new();
-            for t in torrents.unwrap_or(&Vec::new()) {
-                // The compiled-in serde structs require `infohash` + `name`;
-                // a missing one there fails the whole response the same way.
-                let (Some(infohash), Some(name)) = (
-                    t.get("infohash").and_then(Value::as_str),
-                    t.get("name").and_then(Value::as_str),
-                ) else {
-                    return err_envelope(
-                        "http",
-                        "failed to parse TorrentsCsv response: torrent entry missing infohash or name",
-                    );
+            for doc in docs.unwrap_or(&Vec::new()) {
+                // Identifier is the primary key; entries without one are
+                // skipped (the API always supplies it, but stay defensive).
+                let Some(identifier) = doc.get("identifier").and_then(Value::as_str) else {
+                    continue;
                 };
 
+                let title = doc
+                    .get("title")
+                    .and_then(Value::as_str)
+                    .unwrap_or(identifier)
+                    .to_string();
+
+                // `extra` values MUST be strings per the host SearchResult
+                // `HashMap<String,String>`; tolerate string or number JSON.
+                let creator = doc.get("creator").and_then(stringish);
+                let year = doc.get("year").and_then(stringish);
+                let mediatype = doc.get("mediatype").and_then(stringish);
+                let downloads = doc.get("downloads").and_then(stringish);
+
+                let description = mediatype.as_ref().map(|m| match &year {
+                    Some(y) => format!("{m} · {y}"),
+                    None => m.clone(),
+                });
+
                 let mut extra = serde_json::Map::new();
-                extra.insert(
-                    "magnet".to_string(),
-                    Value::String(format!(
-                        "magnet:?xt=urn:btih:{infohash}&dn={}",
-                        encode(name)
-                    )),
-                );
-                extra.insert("infohash".to_string(), Value::String(infohash.to_string()));
-                if let Some(size) = t.get("size_bytes").and_then(Value::as_u64) {
-                    // camelCase key, string value — as the host SearchResult
-                    // `extra: HashMap<String,String>` expects.
-                    extra.insert("sizeBytes".to_string(), Value::String(size.to_string()));
+                extra.insert("identifier".to_string(), Value::String(identifier.to_string()));
+                if let Some(c) = creator {
+                    extra.insert("creator".to_string(), Value::String(c));
                 }
-                if let Some(seeders) = t.get("seeders").and_then(Value::as_u64) {
-                    extra.insert("seeders".to_string(), Value::String(seeders.to_string()));
+                if let Some(y) = year {
+                    extra.insert("year".to_string(), Value::String(y));
+                }
+                if let Some(m) = mediatype {
+                    extra.insert("mediatype".to_string(), Value::String(m));
+                }
+                if let Some(d) = downloads {
+                    extra.insert("downloads".to_string(), Value::String(d));
                 }
 
                 results.push(json!({
-                    "id": infohash,
-                    "title": name,
-                    "coverUrl": null,
-                    "description": null,
+                    "id": identifier,
+                    "title": title,
+                    "coverUrl": format!("{BASE_URL}/services/img/{identifier}"),
+                    "description": description,
                     "sourceId": SOURCE_ID,
                     "extra": Value::Object(extra),
                 }));
@@ -347,36 +379,19 @@ fn browse() -> String {
     err_envelope("unsupported", "Browse is not supported by this source")
 }
 
-/// Compiled-in `get_chapters`: one synthetic "Download Links" chapter.
-fn chapters(params: &Value) -> String {
-    let Some(content_id) = params.get("contentId").and_then(Value::as_str) else {
-        return err_envelope("input", "chapters requires params.contentId");
-    };
-    ok(json!([{
-        "id": content_id,
-        "title": "Download Links",
-        "number": 1.0,
-        "volume": null,
-        "uploadedAt": null,
-        "sourceId": SOURCE_ID,
-        "contentId": content_id,
-    }]))
+/// No chapter model for Internet Archive items yet — mirror the strong-flow
+/// default of an empty list.
+fn chapters() -> String {
+    ok(json!([]))
 }
 
-/// Compiled-in `get_pages`: one page whose URL is the raw magnet (prefixed
-/// `magnet|` per the compiled-in convention). `chapter_id` is the infohash.
-fn pages(params: &Value) -> String {
-    let Some(chapter_id) = params.get("chapterId").and_then(Value::as_str) else {
-        return err_envelope("input", "pages requires params.chapterId");
-    };
-    ok(json!([{
-        "index": 0,
-        "url": format!("magnet|magnet:?xt=urn:btih:{chapter_id}"),
-    }]))
+/// No page model either — same empty-list default.
+fn pages() -> String {
+    ok(json!([]))
 }
 
-/// Compiled-in `TorrentCsvSource` inherits the trait default (always
-/// Available). Here: `Available` when a trivial host call succeeds.
+/// Compiled-in sources inherit the trait default (always Available). Here:
+/// `Available` when a trivial host call succeeds.
 fn health() -> String {
     // `host_now_ms` is a pure host call that cannot fail; on any i64 it
     // returns, the source is considered available.
@@ -436,7 +451,7 @@ fn http_get(url: &str) -> Result<String, String> {
     }
     let status = status_value.and_then(|v| v.as_u64()).unwrap_or(0);
     if status != 200 {
-        return Err(format!("TorrentsCsv returned status {status}"));
+        return Err(format!("Internet Archive returned status {status}"));
     }
     match value.get("data").map(body).flatten() {
         Some(body) => Ok(body),
@@ -513,6 +528,19 @@ fn log(level: i32, message: &str) {
 // Envelope / buffer plumbing.
 // ---------------------------------------------------------------------------
 
+/// Coerces a JSON value into a display string (String passes through, Number
+/// and Bool are stringified). Used for `extra` fields that the host
+/// `SearchResult` requires as strings. Never returns `None` for a present
+/// scalar; arrays/objects are ignored.
+fn stringish(v: &Value) -> Option<String> {
+    match v {
+        Value::String(s) => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    }
+}
+
 /// Reads a host-returned buffer: 4-byte LE u32 length + JSON payload.
 fn read_length_prefixed(ptr: i32) -> Option<Vec<u8>> {
     if ptr < 0 {
@@ -554,9 +582,9 @@ fn err_envelope(kind: &str, message: &str) -> String {
         })
 }
 
-/// Percent-encodes a string the way `urlencoding::encode` does in the
-/// compiled-in source: unreserved bytes pass through, every other UTF-8 byte
-/// becomes `%XX` (space → `%20`, not `+`).
+/// Percent-encodes a string the way `urlencoding::encode` does: unreserved
+/// bytes pass through, every other UTF-8 byte becomes `%XX` (space → `%20`,
+/// not `+`).
 fn encode(input: &str) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut out = String::with_capacity(input.len());

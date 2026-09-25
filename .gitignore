@@ -59,3 +59,5 @@ flatpak/shared-modules
 src-tauri/gen/schemas/
 pnpm-lock.yaml
 extensions/torrents-csv-extension/target
+extensions/*/target
+extensions/*/*/target

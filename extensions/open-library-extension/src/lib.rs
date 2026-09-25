@@ -1,6 +1,6 @@
-//! torrents-csv-extension — Phase 5B reference WASM extension.
+//! open-library-extension — Shiori WASM source for Open Library book search.
 //!
-//! A port of the compiled-in `src-tauri/src/sources/torrent_csv.rs` to the
+//! A copy of the reference `extensions/torrents-csv-extension` adapted to the
 //! extension ABI defined in `src-tauri/src/extensions/abi.rs` and served by
 //! the wasmi host in `src-tauri/src/extensions/host.rs`.
 //!
@@ -22,30 +22,33 @@
 use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
-// Constants (mirroring torrent_csv.rs as closely as the ABI allows).
+// Constants.
 // ---------------------------------------------------------------------------
 
-const TORRENTS_CSV_URL: &str = "https://torrents-csv.com/service/search";
-/// Compiled-in id is `torrents-csv`; this WASM build is a distinct source so
-/// the dual-path registration (wasm shadows same-id compiled-in only when ids
-/// match) leaves both callable.
-const SOURCE_ID: &str = "torrents_csv_wasm";
-const SOURCE_NAME: &str = "Torrents CSV (WASM reference)";
+const OPEN_LIBRARY_URL: &str = "https://openlibrary.org";
+const SEARCH_URL: &str = "https://openlibrary.org/search.json";
+/// Cover images live on the sibling host `covers.openlibrary.org`, which the
+/// host HTTP allowlist must therefore also include (see `permissions` in
+/// `meta()`).
+const COVERS_URL: &str = "https://covers.openlibrary.org";
+
+/// Registered as-is by the host; distinct from any compiled-in source id.
+const SOURCE_ID: &str = "open_library_wasm";
+const SOURCE_NAME: &str = "Open Library (WASM)";
 const SOURCE_VERSION: &str = "1.0.0";
 
 /// Fixed per-request size sent to the API. The ABI's `search` params carry
-/// only `{ "query", "page" }` (see `abi::SearchParams` / runtime.rs
-/// `invoke_search`), so — exactly like the compiled-in `search`, which calls
-/// `search_internal(query, 20)` — we default to 20. If a `limit` key is
-/// present in the params (forward compatibility), it is honored up to
+/// `{ "query", "page" }`; the Open Library API has no page concept in the
+/// search.json endpoint we use, so we default to 20 results. If a `limit` key
+/// is present in the params (forward compatibility), it is honored up to
 /// [`MAX_LIMIT`].
 const DEFAULT_LIMIT: u64 = 20;
 /// Hard cap: the task mandates request limit ≤ 100 for this source.
 const MAX_LIMIT: u64 = 100;
 
 /// KV response-cache for the API body, keyed `search:<page>:<query>:<limit>`.
-/// Defaults to OFF so behavior matches the compiled-in source (which always
-/// fetches); flip to `true` to demo the `host_kv_get`/`host_kv_set` pattern.
+/// Defaults to OFF so behavior matches the compiled-in sources (which always
+/// fetch); flip to `true` to demo the `host_kv_get`/`host_kv_set` pattern.
 const KV_CACHE_ENABLED: bool = false;
 
 // ---------------------------------------------------------------------------
@@ -224,32 +227,34 @@ fn dispatch(req: &str) -> String {
 // Methods — each returns the JSON envelope string.
 // ---------------------------------------------------------------------------
 
-/// Mirrors the compiled-in `TorrentCsvSource::meta`, with the WASM-distinct
-/// id/name. `contentType` is identical (`book`).
+/// Source metadata. `permissions.hosts` is the new contract field: the host
+/// reads it on install to populate its HTTP allowlist. Hosts are bare
+/// hostnames; `https` is implied.
 fn meta() -> String {
     ok(json!({
         "id": SOURCE_ID,
         "name": SOURCE_NAME,
-        "baseUrl": TORRENTS_CSV_URL,
+        "baseUrl": OPEN_LIBRARY_URL,
         "version": SOURCE_VERSION,
         "contentType": "book",
         "supportsSearch": true,
-        "supportsDownload": true,
+        "supportsDownload": false,
         "requiresApiKey": false,
         "nsfw": false,
         "permissions": {
-            "hosts": ["torrents-csv.com"],
+            "hosts": ["openlibrary.org", "covers.openlibrary.org"],
         },
     }))
 }
 
-/// `GET {TORRENTS_CSV_URL}?q=<query>&size=<limit>` via `host_http_fetch`, then
-/// map `{ "torrents": [...] }` → `SearchResult`s (id = infohash, title = name,
-/// extra = magnet/sizeBytes/seeders + infohash, sourceId = our meta id).
+/// `GET {SEARCH_URL}?q=<query>&limit=<limit>` via `host_http_fetch`, then map
+/// `{ "docs": [...] }` → `SearchResult`s (id = doc key, title = title,
+/// coverUrl from `cover_i`, extra = key/firstPublishYear/editionCount,
+/// sourceId = our meta id).
 ///
-/// Limit: the ABI sends only query+page, so the API `size` defaults to
-/// [`DEFAULT_LIMIT`] (20 — identical to the compiled-in `search`); an
-/// optional `limit` in params is clamped to [`MAX_LIMIT`] (100).
+/// Limit: the ABI sends only query+page, so the API `limit` defaults to
+/// [`DEFAULT_LIMIT`] (20); an optional `limit` in params is clamped to
+/// [`MAX_LIMIT`] (100).
 fn search(params: &Value) -> String {
     let Some(query) = params.get("query").and_then(Value::as_str) else {
         return err_envelope("input", "search requires params.query");
@@ -270,9 +275,7 @@ fn search(params: &Value) -> String {
         }
     }
 
-    // Same URL shape as the compiled-in `search_internal`
-    // (`?q=<enc>&size=<limit>`), percent-encoded the same way.
-    let url = format!("{TORRENTS_CSV_URL}?q={}&size={}", encode(query), limit);
+    let url = format!("{SEARCH_URL}?q={}&limit={}", encode(query), limit);
     match http_get(&url) {
         Err(e) => {
             log(0, &format!("{SOURCE_ID}: fetch failed: {e}"));
@@ -282,49 +285,49 @@ fn search(params: &Value) -> String {
             let parsed: Value = match serde_json::from_str(&body) {
                 Ok(v) => v,
                 Err(e) => {
-                    let msg = format!("failed to parse TorrentsCsv response: {e}");
+                    let msg = format!("failed to parse Open Library response: {e}");
                     log(0, &format!("{SOURCE_ID}: {msg}"));
                     return err_envelope("http", &msg);
                 }
             };
-            let torrents = parsed.get("torrents").and_then(Value::as_array);
+            let docs = parsed.get("docs").and_then(Value::as_array);
             let mut results: Vec<Value> = Vec::new();
-            for t in torrents.unwrap_or(&Vec::new()) {
-                // The compiled-in serde structs require `infohash` + `name`;
-                // a missing one there fails the whole response the same way.
-                let (Some(infohash), Some(name)) = (
-                    t.get("infohash").and_then(Value::as_str),
-                    t.get("name").and_then(Value::as_str),
-                ) else {
-                    return err_envelope(
-                        "http",
-                        "failed to parse TorrentsCsv response: torrent entry missing infohash or name",
-                    );
+            for doc in docs.unwrap_or(&Vec::new()) {
+                // Skip docs with no title rather than failing the response —
+                // they are common in the Open Library index.
+                let Some(title) = doc.get("title").and_then(Value::as_str) else {
+                    continue;
+                };
+                let Some(key) = doc.get("key").and_then(Value::as_str) else {
+                    continue;
                 };
 
+                // cover_i → canonical cover URL; -M = medium (~180px).
+                let cover_url = doc
+                    .get("cover_i")
+                    .and_then(Value::as_u64)
+                    .map(|cover_i| format!("{COVERS_URL}/b/id/{cover_i}-M.jpg"));
+                // first_publish_year → human description.
+                let description = doc
+                    .get("first_publish_year")
+                    .and_then(Value::as_u64)
+                    .map(|year| format!("First published {year}"));
+
+                // All `extra` values MUST be strings (host SearchResult).
                 let mut extra = serde_json::Map::new();
-                extra.insert(
-                    "magnet".to_string(),
-                    Value::String(format!(
-                        "magnet:?xt=urn:btih:{infohash}&dn={}",
-                        encode(name)
-                    )),
-                );
-                extra.insert("infohash".to_string(), Value::String(infohash.to_string()));
-                if let Some(size) = t.get("size_bytes").and_then(Value::as_u64) {
-                    // camelCase key, string value — as the host SearchResult
-                    // `extra: HashMap<String,String>` expects.
-                    extra.insert("sizeBytes".to_string(), Value::String(size.to_string()));
+                extra.insert("key".to_string(), Value::String(key.to_string()));
+                if let Some(year) = doc.get("first_publish_year").and_then(Value::as_u64) {
+                    extra.insert("firstPublishYear".to_string(), Value::String(year.to_string()));
                 }
-                if let Some(seeders) = t.get("seeders").and_then(Value::as_u64) {
-                    extra.insert("seeders".to_string(), Value::String(seeders.to_string()));
+                if let Some(count) = doc.get("edition_count").and_then(Value::as_u64) {
+                    extra.insert("editionCount".to_string(), Value::String(count.to_string()));
                 }
 
                 results.push(json!({
-                    "id": infohash,
-                    "title": name,
-                    "coverUrl": null,
-                    "description": null,
+                    "id": key,
+                    "title": title,
+                    "coverUrl": cover_url,
+                    "description": description,
                     "sourceId": SOURCE_ID,
                     "extra": Value::Object(extra),
                 }));
@@ -347,36 +350,19 @@ fn browse() -> String {
     err_envelope("unsupported", "Browse is not supported by this source")
 }
 
-/// Compiled-in `get_chapters`: one synthetic "Download Links" chapter.
-fn chapters(params: &Value) -> String {
-    let Some(content_id) = params.get("contentId").and_then(Value::as_str) else {
-        return err_envelope("input", "chapters requires params.contentId");
-    };
-    ok(json!([{
-        "id": content_id,
-        "title": "Download Links",
-        "number": 1.0,
-        "volume": null,
-        "uploadedAt": null,
-        "sourceId": SOURCE_ID,
-        "contentId": content_id,
-    }]))
+/// Open Library has no chapter model — books are single-file downloads at
+/// most. Mirror the template's minimal behavior: empty array.
+fn chapters(_params: &Value) -> String {
+    ok(Value::Array(Vec::new()))
 }
 
-/// Compiled-in `get_pages`: one page whose URL is the raw magnet (prefixed
-/// `magnet|` per the compiled-in convention). `chapter_id` is the infohash.
-fn pages(params: &Value) -> String {
-    let Some(chapter_id) = params.get("chapterId").and_then(Value::as_str) else {
-        return err_envelope("input", "pages requires params.chapterId");
-    };
-    ok(json!([{
-        "index": 0,
-        "url": format!("magnet|magnet:?xt=urn:btih:{chapter_id}"),
-    }]))
+/// No page model either — Open Library exposes books, not serialized pages.
+/// Mirror the template's minimal behavior: empty array.
+fn pages(_params: &Value) -> String {
+    ok(Value::Array(Vec::new()))
 }
 
-/// Compiled-in `TorrentCsvSource` inherits the trait default (always
-/// Available). Here: `Available` when a trivial host call succeeds.
+/// Available when a trivial host call succeeds.
 fn health() -> String {
     // `host_now_ms` is a pure host call that cannot fail; on any i64 it
     // returns, the source is considered available.
@@ -436,7 +422,7 @@ fn http_get(url: &str) -> Result<String, String> {
     }
     let status = status_value.and_then(|v| v.as_u64()).unwrap_or(0);
     if status != 200 {
-        return Err(format!("TorrentsCsv returned status {status}"));
+        return Err(format!("Open Library returned status {status}"));
     }
     match value.get("data").map(body).flatten() {
         Some(body) => Ok(body),

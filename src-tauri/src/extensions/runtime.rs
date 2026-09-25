@@ -61,6 +61,8 @@ pub struct HostOptions {
     pub max_response_bytes: usize,
     /// Hosts the extension is permitted to fetch from (empty = http disabled).
     pub http_allowlist: Vec<String>,
+    /// Extension id; sent as the `Shiori-Extension/<id>` http UA header.
+    pub extension_id: String,
     /// Phase 2A: per-extension file-backed KV path (`storage.json`). `None`
     /// keeps the Phase 1 in-memory-only store.
     pub kv_path: Option<PathBuf>,
@@ -74,6 +76,7 @@ impl Default for HostOptions {
             timeout: DEFAULT_TIMEOUT,
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
             http_allowlist: Vec::new(),
+            extension_id: "unknown".into(),
             kv_path: None,
         }
     }
@@ -109,6 +112,8 @@ impl ExtensionInstance {
             kv: std::collections::HashMap::new(),
             http_allowlist: opts.http_allowlist,
             kv_path: opts.kv_path.clone(),
+            extension_id: opts.extension_id.clone(),
+            http_client: None,
         };
         if let Some(path) = opts.kv_path.as_deref() {
             if let Err(e) = env.load_from(path) {
@@ -487,20 +492,28 @@ mod tests {
     }
 
     #[test]
-    fn host_http_fetch_allowlisted_but_not_implemented() {
+    fn host_http_fetch_denies_cleartext_for_https_only_allowlist() {
         let mut inst = ExtensionInstance::new(
-            &test_wasm::http_fetch(),
+            &test_wasm::http_fetch_dynamic(),
             HostOptions {
                 http_allowlist: vec!["https://api.example.com".into()],
                 ..opts()
             },
         )
         .expect("http module loads");
-        let err = inst.raw_invoke(Method::Meta, json!({})).expect_err("still not implemented");
+        // The allowlist entry is https-only: an http URL for the same host
+        // must be denied by the scheme rule, before any network is touched.
+        let err = inst
+            .raw_invoke(
+                Method::Meta,
+                json!({ "url": "http://api.example.com/items", "method": "GET" }),
+            )
+            .expect_err("cleartext must be denied");
         let msg = err.to_string();
         assert!(
-            msg.contains("http_not_implemented"),
-            "allowlisted url should reach the Phase-3 stub, got: {msg}"
+            msg.contains("http_disabled"),
+            "scheme mismatch should deny, got: {msg}"
         );
+        assert!(!msg.contains("http_not_implemented"));
     }
 }

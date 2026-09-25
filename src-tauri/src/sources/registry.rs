@@ -25,6 +25,13 @@ impl SourceRegistry {
         self.sources.insert(id, source);
     }
 
+    /// Remove a source entirely (used on extension uninstall). Absent ids are
+    /// a no-op.
+    pub fn remove(&mut self, id: &str) {
+        self.sources.remove(id);
+        self.enabled.remove(id);
+    }
+
     pub fn get(&self, id: &str) -> Option<Arc<dyn Source>> {
         self.sources.get(id).cloned()
     }

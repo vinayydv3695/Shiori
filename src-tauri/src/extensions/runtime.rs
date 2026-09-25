@@ -23,6 +23,7 @@
 //! in a `Mutex`) because [`Source`](crate::sources::Source) requires `Sync`
 //! and wasmi's `Store` is `!Sync`.
 
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use serde_json::json;
@@ -60,6 +61,9 @@ pub struct HostOptions {
     pub max_response_bytes: usize,
     /// Hosts the extension is permitted to fetch from (empty = http disabled).
     pub http_allowlist: Vec<String>,
+    /// Phase 2A: per-extension file-backed KV path (`storage.json`). `None`
+    /// keeps the Phase 1 in-memory-only store.
+    pub kv_path: Option<PathBuf>,
 }
 
 impl Default for HostOptions {
@@ -70,6 +74,7 @@ impl Default for HostOptions {
             timeout: DEFAULT_TIMEOUT,
             max_response_bytes: DEFAULT_MAX_RESPONSE_BYTES,
             http_allowlist: Vec::new(),
+            kv_path: None,
         }
     }
 }
@@ -100,15 +105,22 @@ impl ExtensionInstance {
         config.consume_fuel(true);
         let engine = Engine::new(&config);
 
+        let mut env = HostEnv {
+            kv: std::collections::HashMap::new(),
+            http_allowlist: opts.http_allowlist,
+            kv_path: opts.kv_path.clone(),
+        };
+        if let Some(path) = opts.kv_path.as_deref() {
+            if let Err(e) = env.load_from(path) {
+                log::warn!("[extension] kv storage could not be loaded from {path:?}: {e}");
+            }
+        }
         let state = InstanceState {
             limiter: StoreLimitsBuilder::new()
                 .memory_size(opts.memory_limit_bytes)
                 .trap_on_grow_failure(true)
                 .build(),
-            env: HostEnv {
-                kv: std::collections::HashMap::new(),
-                http_allowlist: opts.http_allowlist,
-            },
+            env,
         };
         let mut store = Store::new(&engine, state);
         store

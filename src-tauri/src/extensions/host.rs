@@ -29,6 +29,9 @@
 //! Phase 3). The allowlist lives on the instance state so per-source
 //! `permissions.hosts` from the manifest (Phase 2) can feed it.
 
+use std::fs;
+use std::io;
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use wasmi::{Caller, Linker, Memory, Val};
@@ -48,11 +51,55 @@ const LOG_MAX_MESSAGE_BYTES: usize = 4096;
 /// Per-instance host sidecar.
 #[derive(Debug, Default)]
 pub struct HostEnv {
-    /// Phase 1: in-memory KV. Phase 2 swaps this for the on-disk
-    /// `storage.json`, keeping the same caps.
+    /// Phase 2A: in-memory KV, optionally file-backed via
+    /// [`HostEnv::load_from`] / [`HostEnv::flush`] (`storage.json`). When
+    /// `kv_path` is `None` the store is in-memory only (Phase 1 behavior).
     pub kv: std::collections::HashMap<String, String>,
     /// Hosts permitted for `http_fetch` (empty = disabled). Exact-prefix match.
     pub http_allowlist: Vec<String>,
+    /// On-disk `storage.json` location for this extension, when file-backed.
+    pub kv_path: Option<std::path::PathBuf>,
+}
+
+impl HostEnv {
+    /// Loads the on-disk KV store at `path` into memory and points `kv_path`
+    /// at it. A missing file is a fresh empty store; a corrupt file is warned
+    /// about and reset to empty (never kills an otherwise healthy instance).
+    pub fn load_from(&mut self, path: &Path) -> Result<(), ExtensionError> {
+        self.kv_path = Some(path.to_path_buf());
+        match fs::read(path) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(ExtensionError::Kv(format!("read {path:?}: {e}"))),
+            Ok(bytes) => match serde_json::from_slice::<std::collections::HashMap<String, String>>(&bytes) {
+                Ok(map) => {
+                    self.kv = map;
+                    Ok(())
+                }
+                Err(e) => {
+                    log::warn!("extension kv storage {path:?} is corrupt ({e}); starting empty");
+                    self.kv.clear();
+                    Ok(())
+                }
+            },
+        }
+    }
+
+    /// Persists the in-memory KV to `kv_path` (atomic-ish: `.part` + rename).
+    /// No-op when this instance is in-memory only (`kv_path` unset).
+    pub fn flush(&self) -> Result<(), ExtensionError> {
+        let Some(path) = &self.kv_path else {
+            return Ok(());
+        };
+        let json = serde_json::to_string(&self.kv)
+            .map_err(|e| ExtensionError::Kv(format!("encode kv: {e}")))?;
+        let name = path.file_name().ok_or_else(|| {
+            ExtensionError::Kv("kv_path has no file name".to_string())
+        })?;
+        let part = path.with_file_name(format!("{}.part", name.to_string_lossy()));
+        fs::write(&part, json)
+            .and_then(|_| fs::rename(&part, path))
+            .map_err(|e| ExtensionError::Kv(format!("write {path:?}: {e}")))
+    }
 }
 
 /// Registers every `shiori.*` host import on the linker.
@@ -173,6 +220,11 @@ fn host_kv_set_impl(
         return 1;
     }
     caller.data_mut().env.kv.insert(key, value);
+    // Phase 2A: persist every write to the extension's `storage.json`.
+    if let Err(e) = caller.data().env.flush() {
+        log::warn!("[extension] kv flush failed: {e}");
+        return 1;
+    }
     0
 }
 

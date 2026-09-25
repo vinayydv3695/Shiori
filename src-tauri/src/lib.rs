@@ -43,6 +43,9 @@ pub struct AppState {
     db: db::Database,
     covers_dir: std::path::PathBuf,
     pub plugin_registry: Arc<tokio::sync::RwLock<sources::registry::SourceRegistry>>,
+    /// Local WASM extension manager (Phase 2B). Commands mutate this; the
+    /// setup path pre-loads installed+enabled extensions at startup.
+    pub extensions: Arc<tokio::sync::RwLock<crate::extensions::ExtensionManager>>,
     /// Shared command-layer response cache for online sources (search/browse/
     /// chapters/pages). Bounded in-memory; makes repeat lookups instant.
     pub source_response_cache: Arc<sources::cache::SourceResponseCache>,
@@ -584,6 +587,55 @@ pub fn run() {
                 log::info!("Source plugin configs loaded from store");
             });
 
+            // WASM extension manager (Phase 2B): scan app_data/extensions and
+            // register every installed + enabled extension as a Source in the
+            // plugin registry so extensions are usable immediately. This is
+            // deliberately non-fatal: a broken or incompatible extension only
+            // logs a warning and never blocks app startup (the Android
+            // black-screen lesson). Registration runs synchronously on the
+            // local registry before it is wrapped in the lock, so no lock is
+            // held across an await point.
+            let extensions_state = {
+                let root = app_dir.join("extensions");
+                let mut manager = crate::extensions::ExtensionManager::new(root);
+                match manager.load_all() {
+                    Err(e) => log::warn!("extensions: scan failed (startup continues): {e}"),
+                    Ok(infos) => {
+                        for info in infos {
+                            if !info.enabled {
+                                continue;
+                            }
+                            let Some(installed) = manager.get(&info.id) else {
+                                log::warn!(
+                                    "extensions: entry vanished during scan: {}",
+                                    info.id
+                                );
+                                continue;
+                            };
+                            let wasm_path = installed.wasm_path.clone();
+                            match commands::extensions::register_installed_extension(
+                                &mut registry,
+                                &wasm_path,
+                                &info.id,
+                            ) {
+                                Ok(()) => log::info!(
+                                    "extensions: registered {} v{} ({})",
+                                    info.id,
+                                    info.version,
+                                    wasm_path.display()
+                                ),
+                                Err(e) => log::warn!(
+                                    "extensions: failed to register {} ({}): {e}",
+                                    info.id,
+                                    wasm_path.display()
+                                ),
+                            }
+                        }
+                    }
+                }
+                Arc::new(tokio::sync::RwLock::new(manager))
+            };
+
             let plugin_registry = Arc::new(tokio::sync::RwLock::new(registry));
 
             // Initialize Discord RPC Service (Placeholder App ID)
@@ -792,6 +844,7 @@ pub fn run() {
                 db: database.clone(),
                 covers_dir: covers_dir.clone(),
                 plugin_registry: plugin_registry.clone(),
+                extensions: extensions_state.clone(),
                 source_response_cache: std::sync::Arc::new(
                     sources::cache::SourceResponseCache::new(),
                 ),

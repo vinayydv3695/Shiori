@@ -10,14 +10,23 @@
 //! - [`runtime`]    — `wasmi` engine + `ExtensionInstance` (fuel, limits,
 //!                    wall-clock guard, memory access).
 //! - [`host`]       — host functions exposed to extensions (`shiori.*` imports):
-//!                    log, clock, per-instance KV, and a Phase-3-stubbed http
-//!                    fetch that is allowlist-gated and disabled today.
+//!                    log, clock, file-backed per-instance KV, and a
+//!                    Phase-3-stubbed http fetch that is allowlist-gated and
+//!                    disabled today.
+//! - [`manifest`]   — [`ExtensionManifest`] model + host-side validation.
+//! - [`manager`]    — [`ExtensionManager`]: install/remove/enable/disable/list
+//!                    against an on-disk extensions root.
 //! - [`wasm_source`] — [`Source`] adapter over a live instance.
 
 pub mod abi;
 pub mod host;
+pub mod manager;
+pub mod manifest;
 pub mod runtime;
 pub mod wasm_source;
+
+pub use manager::{ExtensionInfo, ExtensionManager};
+pub use manifest::ExtensionManifest;
 
 #[cfg(test)]
 pub(crate) mod test_wasm;

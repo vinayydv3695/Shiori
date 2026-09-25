@@ -17,6 +17,7 @@ pub mod debrid;
 pub mod discord;
 pub mod discovery;
 pub mod doodle;
+pub mod extensions;
 pub mod folder_watch;
 pub mod manga;
 pub mod migration;
@@ -282,6 +283,10 @@ macro_rules! generate_shiori_handlers {
             commands::sources::annas_archive_send_to_torbox,
             commands::sources::anna_archive_get_config,
             commands::sources::anna_archive_set_config,
+            commands::extensions::extension_list,
+            commands::extensions::extension_install_local,
+            commands::extensions::extension_remove,
+            commands::extensions::extension_set_enabled,
             commands::debrid::debrid_resolve_and_import,
             // Torbox commands
             commands::torbox::torbox_set_api_key,

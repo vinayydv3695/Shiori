@@ -95,7 +95,26 @@ Per-phase: worker(s) → reviewer → commit. `cargo check` only (no `cargo buil
 8. **Capabilities**: host functions live in Rust, so no new Tauri capability/permission is needed; `assetProtocol` scope already covers `$APPLOCALDATA/**` for extension assets.
 9. **Persistence**: extension config can reuse the existing `sources.json` store pattern (`lib.rs:563-575`); KV storage is separate per-extension file.
 
-## 9. Open questions (need user decision before Phase 5)
+## 10. Status — COMPLETE (all phases implemented, 2026-09-25)
+
+| Phase | Status | Evidence |
+|---|---|---|
+| 0 Plan | ✅ | this file |
+| 1 Runtime + ABI + hello-world | ✅ | 13 tests, `2ee8ca15` |
+| 2 Manifest + local manager + app wiring | ✅ | 26 tests, `5c996262` |
+| 3 Repo index + install/update + sha256 | ✅ | 32 tests (wiremock), `2ecbab56` |
+| 4 Extensions UI | ✅ | tsc clean, `dd927b7a` |
+| 5A Real host functions (HTTP/HTML/JSON) | ✅ | 48 tests, `ccd8ee39` |
+| 5B Reference WASM extension (torrents-csv) | ✅ | wasm32 check 0 warnings, `1f32f7f4` |
+| 6 Author docs + hardening tests | ✅ | 50 tests, 351-line guide, `e171b3d4` |
+
+**Verification**: `cargo check` clean; `cargo test --lib extensions` 50/50 at every phase (re-run independently by the orchestrator); Phase 4: `tsc -b` clean, vitest 235 pass (4 pre-existing failures in unrelated DownloadQueuePanel/OnlineMangaDetailView tests).
+
+**Not verified locally**: Android target `cargo check` (aborts in `ring`'s build script without the NDK toolchain env that `tauri android build` sets up — pre-existing environment constraint, unrelated to wasmi, which is pure Rust). CI's Android release build covers this.
+
+**Open questions (unchanged)**: (1) reference migration choice — torrents-csv was used instead of RSS (RSS remains a poor `Source` fit; see §6); (2) repository index URL is a placeholder pending GitHub Pages hosting; (3) v1 integrity is sha256-only (ed25519 signing later); (4) dual-path shadow limitation noted in §5/Phase 5 note.
+
+## 10. Original open questions (kept for reference)
 
 1. Reference migration target: simplest registry source (proposed) vs RSS adapter (task's suggestion) — RSS is a poor trait fit today.
 2. Repo index URL (GitHub Pages) — placeholder constant + settings override until you host one.

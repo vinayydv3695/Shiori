@@ -10,7 +10,10 @@
       "nsfw": false,
       "sha256": "7b045801f694ef3ca121ea7a8f1bc39a26a130667c5feecae46f964874c941c6",
       "contentType": "manga",
-      "hosts": ["api.mangadex.org", "uploads.mangadex.org"]
+      "hosts": [
+        "https://api.mangadex.org",
+        "https://uploads.mangadex.org"
+      ]
     },
     {
       "id": "open_library_wasm",
@@ -21,7 +24,10 @@
       "nsfw": false,
       "sha256": "c68fe2c5572fa593cfedc84c3518e78250b4f50f6db095066508e674456e2ab8",
       "contentType": "book",
-      "hosts": ["openlibrary.org", "covers.openlibrary.org"]
+      "hosts": [
+        "https://openlibrary.org",
+        "https://covers.openlibrary.org"
+      ]
     },
     {
       "id": "internet_archive_wasm",
@@ -32,7 +38,9 @@
       "nsfw": false,
       "sha256": "58fb0d9c6d80a9a973da77d37a548d82310167150f3263b91dbee6740328d5f7",
       "contentType": "book",
-      "hosts": ["archive.org"]
+      "hosts": [
+        "https://archive.org"
+      ]
     },
     {
       "id": "torrents_csv_wasm",
@@ -43,7 +51,9 @@
       "nsfw": false,
       "sha256": "c5eeb87beeca80f4c6dcb2445d5a2516f0d35491168c0b5dad94aa62a77b2771",
       "contentType": "book",
-      "hosts": ["torrents-csv.com"]
+      "hosts": [
+        "https://torrents-csv.com"
+      ]
     }
   ]
 }

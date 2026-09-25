@@ -114,6 +114,39 @@ pub fn permissions_from_meta(value: &serde_json::Value) -> ExtensionPermissions 
     ExtensionPermissions { hosts: out }
 }
 
+/// Normalizes index-provided `hosts` into the manifest's canonical
+/// `https://host` form (the index is trusted, but its entries are loose).
+/// Each entry is trimmed; a leading `https://` or `http://` prefix is
+/// stripped — an `http://` entry is *upgraded* to `https://`, since
+/// [`ExtensionManifest::validate`] only accepts https; the remainder is cut
+/// at the first `/` or `:` (paths/ports dropped). Entries that still contain
+/// whitespace or yield an empty host are skipped with a warning; survivors
+/// are deduplicated preserving order.
+fn permissions_from_hosts_override(hosts: &[String]) -> ExtensionPermissions {
+    let mut out: Vec<String> = Vec::new();
+    for raw in hosts {
+        let trimmed = raw.trim();
+        let rest = trimmed
+            .strip_prefix("https://")
+            .or_else(|| trimmed.strip_prefix("http://")) // http is upgraded to https
+            .unwrap_or(trimmed);
+        if rest.chars().any(char::is_whitespace) {
+            log::warn!("extension index override: ignoring host entry with whitespace {raw:?}");
+            continue;
+        }
+        let host = rest.split(|c| c == '/' || c == ':').next().unwrap_or("");
+        if host.is_empty() {
+            log::warn!("extension index override: ignoring empty host entry {raw:?}");
+            continue;
+        }
+        let host = format!("https://{host}");
+        if !out.contains(&host) {
+            out.push(host);
+        }
+    }
+    ExtensionPermissions { hosts: out }
+}
+
 /// Local extension installation directory manager.
 #[derive(Debug)]
 pub struct ExtensionManager {
@@ -250,7 +283,7 @@ impl ExtensionManager {
         let meta: SourceMeta = super::abi::meta_from_value(&data)?;
         let permissions = match hosts {
             // Index override wins: the index is trusted, the wasm is not.
-            Some(h) => ExtensionPermissions { hosts: h.to_vec() },
+            Some(h) => permissions_from_hosts_override(h),
             None => permissions_from_meta(&data),
         };
         let manifest = ExtensionManifest {
@@ -562,5 +595,40 @@ mod tests {
             .install_from_file_with_hosts(&wasm_file, Some(&hosts))
             .unwrap();
         assert_eq!(info.permissions.hosts, hosts, "index override wins over wasm meta");
+    }
+
+    #[test]
+    fn install_from_file_with_hosts_normalizes_bare_hosts() {
+        let tmp = tempfile::tempdir().unwrap();
+        let wasm_file = tmp.path().join("hello.wasm");
+        fs::write(&wasm_file, test_wasm::hello()).unwrap();
+
+        let mut m = ExtensionManager::new(tmp.path().join("exts"));
+        let hosts = vec!["api.mangadex.org".to_string()];
+        let info = m
+            .install_from_file_with_hosts(&wasm_file, Some(&hosts))
+            .unwrap();
+        assert_eq!(
+            info.permissions.hosts,
+            vec!["https://api.mangadex.org"],
+            "bare index host is normalized to the canonical https:// form"
+        );
+    }
+
+    #[test]
+    fn permissions_from_hosts_override_normalizes_dedupes_preserves_order() {
+        let input = vec![
+            "https://x.test/path".to_string(),
+            " y.test ".to_string(),
+            "bad host".to_string(),
+            "".to_string(),
+            "http://z.test:8080".to_string(),
+        ];
+        let p = permissions_from_hosts_override(&input);
+        assert_eq!(
+            p.hosts,
+            ["https://x.test", "https://y.test", "https://z.test"],
+            "trim, scheme strip/upgrade, path/port cut, malformed dropped; order preserved"
+        );
     }
 }

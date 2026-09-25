@@ -287,6 +287,10 @@ macro_rules! generate_shiori_handlers {
             commands::extensions::extension_install_local,
             commands::extensions::extension_remove,
             commands::extensions::extension_set_enabled,
+            commands::extensions::extension_repo_list,
+            commands::extensions::extension_install_from_repo,
+            commands::extensions::extension_check_updates,
+            commands::extensions::extension_update,
             commands::debrid::debrid_resolve_and_import,
             // Torbox commands
             commands::torbox::torbox_set_api_key,

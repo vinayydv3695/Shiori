@@ -16,17 +16,21 @@
 //! - [`manifest`]   — [`ExtensionManifest`] model + host-side validation.
 //! - [`manager`]    — [`ExtensionManager`]: install/remove/enable/disable/list
 //!                    against an on-disk extensions root.
+//! - [`repo`]       — Phase 3: remote repository index (fetch/download/verify)
+//!                    + install-from-bytes + update detection.
 //! - [`wasm_source`] — [`Source`] adapter over a live instance.
 
 pub mod abi;
 pub mod host;
 pub mod manager;
 pub mod manifest;
+pub mod repo;
 pub mod runtime;
 pub mod wasm_source;
 
 pub use manager::{ExtensionInfo, ExtensionManager};
 pub use manifest::ExtensionManifest;
+pub use repo::{DEFAULT_REPO_URL, RepoEntry, RepoIndex};
 
 #[cfg(test)]
 pub(crate) mod test_wasm;

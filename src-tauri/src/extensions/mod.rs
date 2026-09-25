@@ -34,6 +34,8 @@ pub use repo::{DEFAULT_REPO_URL, RepoEntry, RepoIndex};
 
 #[cfg(test)]
 pub(crate) mod test_wasm;
+#[cfg(test)]
+mod artifact_tests;
 
 use thiserror::Error;
 

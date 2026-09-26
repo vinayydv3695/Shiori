@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   soundscapeEngine, 
@@ -111,13 +111,45 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
   const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState<number | null>(null);
 
+  // --- Pending preset-start coordination -----------------------------------
+  // The preset start is deferred by 50ms to let the preceding stopAll settle.
+  // The timeout id is tracked so it can always be cleared (replaced, stopAll'd
+  // or unmounted), and a generation token invalidates stale scheduled starts so
+  // a superseded preset can never fire hidden tracks at the engine.
+  const presetTimeoutRef = useRef<number | null>(null);
+  const presetGenRef = useRef(0);
+
+  const clearPendingPresetStart = useCallback(() => {
+    // Bump the token first so even an in-flight (already-fired) callback would
+    // still be rejected; then throw away the pending timer if one exists.
+    presetGenRef.current += 1;
+    if (presetTimeoutRef.current !== null) {
+      window.clearTimeout(presetTimeoutRef.current);
+      presetTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleStopAll = useCallback(() => {
+    // Cancelling audio must also cancel any pending preset start.
+    clearPendingPresetStart();
+    soundscapeEngine.stopAll();
+    setTracks((prev) => prev.map((t) => ({ ...t, enabled: false })));
+    setIsPlaying(false);
+    setTimerRemainingSeconds(null);
+    setSleepTimerMinutes(null);
+    setSelectedCategory('all');
+  }, [clearPendingPresetStart]);
+
   useEffect(() => {
     setMounted(true);
     return () => {
-      // Clean up audio playback when reader component unmounts
+      // Unmount: cancel every timer owned by this component, then stop all audio
+      // (the AudioContext is module-level, so an orphaned 50ms start would
+      // otherwise resume sound after the panel is gone).
+      clearPendingPresetStart();
       soundscapeEngine.stopAll();
     };
-  }, []);
+  }, [clearPendingPresetStart]);
 
   // Dynamically apply current reader theme (paper, sepia, black, dark, light) directly to the panel
   useEffect(() => {
@@ -133,26 +165,28 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
     if (el) removeReaderThemeFromElement(el);
   }, []);
 
-  // Sleep timer interval
+  // Sleep timer interval. The tick is computed purely from the closure value
+  // (re-armed on every change) and the expiry side effects run from the interval
+  // callback — never inside a setState updater, which React may invoke twice
+  // (StrictMode) and which must stay pure.
   useEffect(() => {
     if (timerRemainingSeconds === null || timerRemainingSeconds <= 0) return;
+
     const timer = setInterval(() => {
-      setTimerRemainingSeconds((prev) => {
-        if (prev === null || prev <= 1) {
-          handleStopAll();
-          useToastStore.getState().addToast({
-            title: 'Sleep Timer Ended',
-            description: 'Ambient soundscapes stopped.',
-            variant: 'info',
-          });
-          return null;
-        }
-        return prev - 1;
-      });
+      const next = timerRemainingSeconds - 1;
+      setTimerRemainingSeconds(next > 0 ? next : null);
+      if (next <= 0) {
+        handleStopAll();
+        useToastStore.getState().addToast({
+          title: 'Sleep Timer Ended',
+          description: 'Ambient soundscapes stopped.',
+          variant: 'info',
+        });
+      }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timerRemainingSeconds]);
+  }, [timerRemainingSeconds, handleStopAll]);
 
   // Active preset match check
   const activePreset = useMemo<PresetId | null>(() => {
@@ -212,23 +246,28 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
     soundscapeEngine.setMasterVolume(vol);
   };
 
-  const handleStopAll = () => {
-    soundscapeEngine.stopAll();
-    setTracks((prev) => prev.map((t) => ({ ...t, enabled: false })));
-    setIsPlaying(false);
-    setTimerRemainingSeconds(null);
-    setSleepTimerMinutes(null);
-    setSelectedCategory('all');
-  };
-
   const handleSelectPreset = (preset: PresetOption) => {
     if (activePreset === preset.id) {
+      // Deselecting the active preset: stopAll (which also cancels any pending
+      // start) is enough.
       handleStopAll();
       return;
     }
 
+    // A new preset must first cancel any pending start, then stop current audio.
     handleStopAll();
-    setTimeout(() => {
+
+    // Reserve the generation token this scheduled start must match to fire.
+    const generation = presetGenRef.current + 1;
+    presetGenRef.current = generation;
+
+    presetTimeoutRef.current = window.setTimeout(() => {
+      presetTimeoutRef.current = null;
+
+      // Stale-start guard: if the token moved on (deselect, other preset,
+      // stopAll or unmount), this callback is superseded — do not start audio.
+      if (presetGenRef.current !== generation) return;
+
       Object.entries(preset.tracks).forEach(([trackId, vol]) => {
         soundscapeEngine.startTrack(trackId as AmbientSoundType, vol);
       });

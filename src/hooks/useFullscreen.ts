@@ -46,6 +46,7 @@ export function useFullscreen() {
     if (!window.__TAURI_INTERNALS__) return
 
     const appWindow = getCurrentWindow()
+    let cancelled = false
     let unlisten: (() => void) | undefined
 
     const sync = async () => {
@@ -58,10 +59,20 @@ export function useFullscreen() {
     sync()
 
     appWindow.onResized(sync)
-      .then(u => { unlisten = u })
+      .then(u => {
+        if (cancelled) {
+          // Component unmounted before registration resolved — release immediately.
+          u()
+        } else {
+          unlisten = u
+        }
+      })
       .catch(() => { /* ignore */ })
 
-    return () => { unlisten?.() }
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
   }, [])
 
   // ── Browser: sync state from Fullscreen API events ─────────────────────

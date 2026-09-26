@@ -20,6 +20,26 @@ function isNewerVersion(current: string, latest: string) {
   return false;
 }
 
+const GITHUB_API_TIMEOUT_MS = 15_000;
+
+/**
+ * GitHub API fetch with a hard timeout so a blackholed network can't leave
+ * the update check hanging forever. Timeouts/aborts resolve to `null` (treated
+ * as "no update", logged at debug); other errors propagate to the caller.
+ */
+async function githubFetchWithTimeout(url: string): Promise<Response | null> {
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(GITHUB_API_TIMEOUT_MS) });
+  } catch (err) {
+    const name = (err as Error)?.name;
+    if (name === 'AbortError' || name === 'TimeoutError') {
+      logger.debug(`[AutoUpdate] GitHub API request timed out or aborted (${url})`);
+      return null;
+    }
+    throw err;
+  }
+}
+
 export function useAutoUpdate() {
   const { setIsChecking, setUpdateInfo, setIsUpdateDialogOpen } = useUpdateStore();
 
@@ -47,7 +67,8 @@ export function useAutoUpdate() {
         if (isAndroid) {
           // Custom Android APK check via GitHub Releases API
           logger.info('[AutoUpdate] Checking Android updates via GitHub...');
-          const response = await fetch('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
+          const response = await githubFetchWithTimeout('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
+          if (!response) return; // timed out / aborted → silently treat as no update
           if (!response.ok) throw new Error('Failed to fetch latest release');
           
           const data = await response.json();
@@ -101,8 +122,8 @@ export function useAutoUpdate() {
               if (!notes || notes.trim().length < 20) {
                 try {
                   const rawVer = update.version.replace(/^v/, '');
-                  const res = await fetch(`https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/tags/v${rawVer}`);
-                  if (res.ok) {
+                  const res = await githubFetchWithTimeout(`https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/tags/v${rawVer}`);
+                  if (res && res.ok) {
                     const data = await res.json();
                     if (data.body) notes = data.body;
                   }
@@ -128,8 +149,8 @@ export function useAutoUpdate() {
             logger.info('[AutoUpdate] Tauri plugin found no update; trying GitHub API fallback...');
             try {
               const currentVersion = await getVersion();
-              const res = await fetch('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
-              if (res.ok) {
+              const res = await githubFetchWithTimeout('https://api.github.com/repos/vinayydv3695/Shiori-releases/releases/latest');
+              if (res && res.ok) {
                 const data = await res.json();
                 if (isNewerVersion(currentVersion, data.tag_name) && mounted) {
                   setUpdateInfo({

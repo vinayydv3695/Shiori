@@ -317,7 +317,25 @@ export function MangaReader(props: MangaReaderProps) {
 
     const saveProgressTimerRef = useRef<number | null>(null);
 
+    // False once the reader unmounts. UI state writes inside flushProgressNow's async
+    // continuations are guarded with this so a close is never followed by ghost setState.
+    const mountedRef = useRef(false);
+
+    // Single-flight guards: a visibility/unmount flush must not run concurrently with
+    // one already in flight. If a flush is requested while another runs, it is queued
+    // once and re-run when the current one finishes, so the newest page's progress is
+    // never dropped (e.g. debounce fired on page N, user flips to N+1 and closes).
+    const flushInFlightRef = useRef(false);
+    const flushQueuedRef = useRef(false);
+    const flushProgressNowRef = useRef<() => Promise<void>>(async () => {});
+
     const flushProgressNow = useCallback(async () => {
+        if (flushInFlightRef.current) {
+            flushQueuedRef.current = true;
+            return;
+        }
+        flushInFlightRef.current = true;
+
         if (saveProgressTimerRef.current) {
             window.clearTimeout(saveProgressTimerRef.current);
             saveProgressTimerRef.current = null;
@@ -367,8 +385,11 @@ export function MangaReader(props: MangaReaderProps) {
                                 }
                             }
                             
-                            if (mediaId) {
+                            if (mediaId && mountedRef.current) {
                                 // Local manga usually means one file is the whole book or volume. Let's just prompt.
+                                // Order: progress persistence, AniList auto-match and the book update above run
+                                // unconditionally — they are safe after unmount and must not be lost. Only the
+                                // prompt UI is mount-guarded.
                                 setCompletionData({
                                     mediaId,
                                     title: libBook.title,
@@ -435,7 +456,9 @@ export function MangaReader(props: MangaReaderProps) {
                                 const maxChapterNum = Math.max(...onlineSource.chapters.map(c => typeof c.number === 'number' ? Math.floor(c.number) : 0));
                                 const isLastChapter = chapterNum >= maxChapterNum && chapterNum > 0;
                                 
-                                if (isLastChapter) {
+                                // Order: auto-match, book update and (non-last chapter) AniList entry sync above
+                                // run unconditionally after unmount; only the prompt UI is mount-guarded.
+                                if (isLastChapter && mountedRef.current) {
                                     setCompletionData({
                                         mediaId,
                                         title: onlineSource.contentTitle || libBook?.title || '',
@@ -465,8 +488,20 @@ export function MangaReader(props: MangaReaderProps) {
             }
         } catch (err) {
             logger.warn('[MangaReader] Failed to save reading progress:', err);
+        } finally {
+            flushInFlightRef.current = false;
+            if (flushQueuedRef.current) {
+                flushQueuedRef.current = false;
+                // Call through the ref: avoids a self-reference inside the useCallback deps.
+                void flushProgressNowRef.current();
+            }
         }
     }, []);
+
+    // Keep the latest closure callable for the single-flight requeue above.
+    useEffect(() => {
+        flushProgressNowRef.current = flushProgressNow;
+    }, [flushProgressNow]);
 
     // Save reading progress when page changes (debounced)
     useEffect(() => {
@@ -488,6 +523,15 @@ export function MangaReader(props: MangaReaderProps) {
             }
         };
     }, [currentPage, mangaTotalPages, flushProgressNow]);
+
+    // Tracks mount state: cleared in this cleanup so an unmount-triggered flush sees
+    // the reader as gone (vs. an app background) and skips only the prompt UI.
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
 
     // Ensure progress is flushed on visibility change (app backgrounded on Android)
     useEffect(() => {

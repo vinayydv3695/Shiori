@@ -17,13 +17,18 @@ export function useBookReadingTime(bookId: number) {
   }, [bookId]);
 
   useEffect(() => {
+    let mounted = true;
     const interval = setInterval(() => {
       api.getBookReadingStats(bookId).then((stats) => {
+        if (!mounted) return;
         setTotalSeconds(stats.total_seconds);
         setSessionsCount(stats.sessions_count);
       }).catch(() => {});
     }, 60_000);
-    return () => clearInterval(interval);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [bookId]);
 
   const formatTime = (seconds: number): string => {

@@ -451,6 +451,53 @@ pub fn run() {
 
             std::fs::create_dir_all(&app_dir)?;
 
+            // SECURITY (fix 3/7): the app-data dir holds credentials —
+            // sources.json (Torbox/Prowlarr API keys), cloudflare_sessions/*
+            // (cf_clearance cookies) and the Netscape `cookies` jar. Tighten
+            // the dir → 0700 and each credential file → 0600 so other local
+            // users cannot read them. Best-effort: a failed chmod only warns.
+            #[cfg(unix)]
+            {
+                crate::harden_path(&app_dir, true);
+
+                // sources.json is written by the tauri-plugin-store, whose
+                // fs::write truncates the file *in place* — so the mode set
+                // here survives every later save. Pre-create it hardened to
+                // make even the first write 0600; re-chmod for files created
+                // by older (0644) versions.
+                let sources_path = app_dir.join("sources.json");
+                if !sources_path.exists() {
+                    if let Err(e) = std::fs::write(&sources_path, b"{}\n") {
+                        log::warn!(
+                            "failed to pre-create {}: {}",
+                            sources_path.display(),
+                            e
+                        );
+                    }
+                }
+                crate::harden_path(&sources_path, false);
+
+                // Older versions also wrote CF sessions and the cookies jar
+                // with default (0644) perms — sweep them once at startup.
+                let cf_sessions_dir = app_dir.join("cloudflare_sessions");
+                if cf_sessions_dir.exists() {
+                    crate::harden_path(&cf_sessions_dir, true);
+                    if let Ok(entries) = std::fs::read_dir(&cf_sessions_dir) {
+                        for entry in entries.flatten() {
+                            let p = entry.path();
+                            if p.extension().map_or(false, |e| e == "json") {
+                                crate::harden_path(&p, false);
+                            }
+                        }
+                    }
+                }
+
+                let cookies_jar = app_dir.join("cookies");
+                if cookies_jar.exists() {
+                    crate::harden_path(&cookies_jar, false);
+                }
+            }
+
             // Workaround for Tauri updater on Linux (AppImage):
             // Set TMPDIR to the app_dir (which is on the same partition as the AppImage)
             // to prevent "Invalid cross-device link (os error 18)" during fs::rename.
@@ -1322,6 +1369,27 @@ where
         .map_err(|e| ShioriError::Other(format!("Request failed: {e}")))
 }
 
+/// SECURITY (fix 3/7): best-effort permission tightening — directories to
+/// 0700, files to 0600 — for paths that may hold credentials (source configs,
+/// Cloudflare session cookies, the Netscape cookies jar). A failed chmod is
+/// only logged, never propagated: an operation that already succeeded (e.g. a
+/// store write) must not fail because tightening did.
+#[cfg(unix)]
+pub(crate) fn harden_path(path: &std::path::Path, is_dir: bool) {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = if is_dir { 0o700 } else { 0o600 };
+    if let Err(e) =
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+    {
+        log::warn!(
+            "harden_path: failed to chmod {} to {:o}: {}",
+            path.display(),
+            mode,
+            e
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1372,6 +1440,32 @@ mod tests {
         assert!(!is_safe_url("https://foo.localhost/"));
         assert!(!is_safe_url("https://something.localhost"));
         assert!(!is_safe_url("https://internalhost"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn harden_path_sets_0700_dir_and_0600_file() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // tempdir is already private by default; loosen it first so the
+        // assertion actually proves that harden_path *tightens*.
+        let dir = tempfile::tempdir().unwrap();
+        let dir_path = dir.path().to_path_buf();
+        std::fs::set_permissions(&dir_path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        crate::harden_path(&dir_path, true);
+        assert_eq!(
+            std::fs::metadata(&dir_path).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+
+        let file_path = dir_path.join("secret.json");
+        std::fs::write(&file_path, "{}").unwrap();
+        std::fs::set_permissions(&file_path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        crate::harden_path(&file_path, false);
+        assert_eq!(
+            std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
     }
 
     #[test]

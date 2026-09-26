@@ -145,6 +145,10 @@ impl SessionStore {
         let dir = sessions_dir.into();
         std::fs::create_dir_all(&dir)
             .map_err(|e| ShioriError::Other(format!("Failed to create CF sessions dir: {}", e)))?;
+        // SECURITY (fix 3/7): the dir holds cf_clearance cookies — keep it
+        // 0700 so other local users cannot list/read sessions. Best-effort.
+        #[cfg(unix)]
+        crate::harden_path(&dir, true);
 
         Ok(Arc::new(Self {
             sessions_dir: dir,
@@ -201,6 +205,10 @@ impl SessionStore {
         std::fs::write(&path, json).map_err(|e| {
             ShioriError::Other(format!("Failed to write CF session to {path:?}: {e}"))
         })?;
+        // SECURITY (fix 3/7): session files hold cf_clearance cookies — 0600.
+        // Best-effort: a failed chmod must not fail an already-succeeded write.
+        #[cfg(unix)]
+        crate::harden_path(&path, false);
 
         self.cache.lock().put(host, session);
         Ok(())

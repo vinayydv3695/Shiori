@@ -43,6 +43,7 @@ pub fn get(account: &str) -> Result<Option<String>> {
             Ok(entry) => entry,
             Err(e) => {
                 debug!("keyring unavailable for '{account}': {e}");
+                warn_plaintext_fallback();
                 return Ok(None);
             }
         };
@@ -106,6 +107,22 @@ pub fn delete(account: &str) {
     }
 }
 
+/// Warn once per process that secrets will fall back to plaintext on-disk
+/// storage because the OS keyring is unavailable (no Secret Service daemon,
+/// headless session, ...). The fallback behaviour itself is unchanged — this
+/// only surfaces the security implication in the logs.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn warn_plaintext_fallback() {
+    use std::sync::Once;
+    static WARNED: Once = Once::new();
+    WARNED.call_once(|| {
+        log::warn!(
+            "OS keyring unavailable — secrets (Torbox/Prowlarr API keys, AniList token) \
+             will be stored unencrypted on disk"
+        );
+    });
+}
+
 /// Classify a keyring failure as "unavailable" (caller keeps legacy storage)
 /// versus a real failure worth propagating.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -119,6 +136,7 @@ fn unavailable(account: &str, e: keyring::Error) -> Result<bool> {
             | keyring::Error::Invalid(..)
     ) {
         debug!("keyring unavailable for '{account}': {e}");
+        warn_plaintext_fallback();
         return Ok(false);
     }
     Err(ShioriError::Other(format!(

@@ -5,6 +5,10 @@ import { useToast } from '../../store/toastStore';
 import { api, Shelf } from '../../lib/tauri';
 import { logger } from '@/lib/logger';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { ConfirmDialog } from '../ui/confirm-dialog';
+
+const reasonText = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
 
 interface ShelfItemProps {
   shelf: Shelf;
@@ -84,7 +88,7 @@ const ShelfItem = ({ shelf, depth, onEdit, onDelete, onAddSubshelf }: ShelfItemP
       }
      } catch (error) {
        logger.error('Failed to add book to shelf:', error);
-       toast.error('Failed to add book', 'Could not add book to shelf');
+       toast.error('Could not add book to shelf', reasonText(error, 'an unexpected error occurred'));
      }
   };
 
@@ -352,20 +356,25 @@ export const ShelfSidebar = ({ onCreateShelf, onEditShelf }: ShelfSidebarProps) 
     loadShelfs();
   }, [loadShelfs]);
 
-  const handleDelete = async (shelf: Shelf) => {
-    if (!confirm(`Delete "${shelf.name}" and all its subshelves?`)) {
-      return;
-    }
+  const [shelfToDelete, setShelfToDelete] = useState<Shelf | null>(null);
+
+  const handleDelete = (shelf: Shelf) => {
+    setShelfToDelete(shelf);
+  };
+
+  const confirmDeleteShelf = async () => {
+    const shelf = shelfToDelete;
+    if (!shelf) return;
 
     try {
       await api.deleteShelf(shelf.id!);
       await loadShelfs();
       selectShelf(null);
       toast.success('Shelf deleted', `"${shelf.name}" has been deleted`);
-     } catch (error) {
-       logger.error('Failed to delete shelf:', error);
-       toast.error('Failed to delete shelf', 'An error occurred while deleting the shelf');
-     }
+    } catch (error) {
+      logger.error('Failed to delete shelf:', error);
+      toast.error('Could not delete shelf', reasonText(error, 'an unexpected error occurred'));
+    }
   };
 
   const handleAddSubshelf = (parentId: number) => {
@@ -496,6 +505,17 @@ export const ShelfSidebar = ({ onCreateShelf, onEditShelf }: ShelfSidebarProps) 
           </div>
         ) : null}
       </div>
+
+      <ConfirmDialog
+        open={!!shelfToDelete}
+        onOpenChange={(open) => {
+          if (!open) setShelfToDelete(null);
+        }}
+        title="Delete shelf"
+        description={shelfToDelete ? `Delete "${shelfToDelete.name}" and all its subshelves?` : ''}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteShelf}
+      />
     </div>
   );
 };

@@ -8,6 +8,9 @@ import { useLibraryStore } from '../../store/libraryStore';
 import { usePreferencesStore } from '../../store/preferencesStore';
 import { Button } from '../ui/button';
 
+const reasonText = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
+
 interface DeleteBookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,11 +48,14 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
         ? `${bookIds.length} books have been removed from your library`
         : `"${bookTitle || 'Book'}" has been removed from your library`;
 
-      toast.error(isMultiple ? 'Books deleted' : 'Book deleted', message);
+      toast.success(isMultiple ? 'Books deleted' : 'Book deleted', message);
       onOpenChange(false);
     } catch (error) {
       logger.error('Failed to delete book(s):', error);
-      toast.error('Failed to delete', 'Could not remove book(s) from library');
+      toast.error(
+        isMultiple ? 'Could not delete books' : 'Could not delete book',
+        reasonText(error, 'an unexpected error occurred')
+      );
     } finally {
       setDeleting(false);
     }

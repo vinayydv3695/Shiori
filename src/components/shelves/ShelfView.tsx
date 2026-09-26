@@ -10,6 +10,10 @@ import { Loader2 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { useToast } from '../../store/toastStore';
 import { useBackButton } from '@/hooks/useBackButton';
+import { ConfirmDialog } from '../ui/confirm-dialog';
+
+const reasonText = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
 
 export interface ShelfViewProps {
   onOpenBook?: (id: number) => void;
@@ -99,10 +103,15 @@ export function ShelfView({ onOpenBook }: ShelfViewProps = {}) {
     setDialogOpen(true);
   };
 
-  const handleDeleteShelf = async (shelf: Shelf) => {
-    if (!confirm(`Delete "${shelf.name}" and all its subshelves?`)) {
-      return;
-    }
+  const [shelfToDelete, setShelfToDelete] = useState<Shelf | null>(null);
+
+  const handleDeleteShelf = (shelf: Shelf) => {
+    setShelfToDelete(shelf);
+  };
+
+  const confirmDeleteShelf = async () => {
+    const shelf = shelfToDelete;
+    if (!shelf) return;
     try {
       await api.deleteShelf(shelf.id!);
       await loadShelfs();
@@ -112,7 +121,7 @@ export function ShelfView({ onOpenBook }: ShelfViewProps = {}) {
       toast.success('Shelf deleted', `"${shelf.name}" has been deleted`);
     } catch (error) {
       logger.error('Failed to delete shelf:', error);
-      toast.error('Failed to delete shelf', 'An error occurred while deleting the shelf');
+      toast.error('Could not delete shelf', reasonText(error, 'an unexpected error occurred'));
     }
   };
 
@@ -167,6 +176,17 @@ export function ShelfView({ onOpenBook }: ShelfViewProps = {}) {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={!!shelfToDelete}
+        onOpenChange={(open) => {
+          if (!open) setShelfToDelete(null);
+        }}
+        title="Delete shelf"
+        description={shelfToDelete ? `Delete "${shelfToDelete.name}" and all its subshelves?` : ''}
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteShelf}
+      />
     </div>
   );
 }

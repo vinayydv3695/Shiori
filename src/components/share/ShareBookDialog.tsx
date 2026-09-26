@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import DOMPurify from 'dompurify';
 
 interface ShareBookDialogProps {
@@ -80,23 +81,29 @@ const ShareBookDialog: React.FC<ShareBookDialogProps> = ({ isOpen, onClose, book
       setUseMaxDownloads(false);
       setMaxDownloads(undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create share');
+      setError(err instanceof Error ? err.message : 'Could not create share');
     } finally {
       setIsCreating(false);
     }
   };
 
-  const handleRevokeShare = async (token: string) => {
-    if (confirm('Are you sure you want to revoke this share?')) {
-      try {
-        await revokeShare(token);
-        await loadShares(bookId);
-        if (activeShare?.token === token) {
-          setActiveShare(null);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to revoke share');
+  const [revokeToken, setRevokeToken] = useState<string | null>(null);
+
+  const handleRevokeShare = (token: string) => {
+    setRevokeToken(token);
+  };
+
+  const confirmRevokeShare = async () => {
+    const token = revokeToken;
+    if (!token) return;
+    try {
+      await revokeShare(token);
+      await loadShares(bookId);
+      if (activeShare?.token === token) {
+        setActiveShare(null);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not revoke share');
     }
   };
 
@@ -428,6 +435,17 @@ const ShareBookDialog: React.FC<ShareBookDialogProps> = ({ isOpen, onClose, book
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!revokeToken}
+        onOpenChange={(open) => {
+          if (!open) setRevokeToken(null);
+        }}
+        title="Revoke share"
+        description="Are you sure you want to revoke this share?"
+        confirmLabel="Revoke"
+        onConfirm={confirmRevokeShare}
+      />
     </div>
   );
 };

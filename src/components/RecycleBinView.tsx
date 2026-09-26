@@ -5,6 +5,9 @@ import { api, BookSummary } from "../lib/tauri"
 import { Button } from "./ui/button"
 import { AppTooltip } from "./ui/tooltip"
 import { useToast } from "../store/toastStore"
+
+const reasonText = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback
 import { useLibraryStore } from "../store/libraryStore"
 import { useUIStore } from "../store/uiStore"
 import { logger } from "../lib/logger"
@@ -40,8 +43,8 @@ export function RecycleBinView() {
     } catch (err) {
       logger.error("Failed to fetch trashed books", err)
       toast({
-        title: "Error",
-        description: "Failed to load recycle bin.",
+        title: "Could not load recycle bin",
+        description: reasonText(err, "an unexpected error occurred"),
         variant: "error",
       })
     } finally {
@@ -62,7 +65,7 @@ export function RecycleBinView() {
       await loadBooks()
     } catch (err) {
       logger.error("Failed to restore book", err)
-      toast({ title: "Error", description: "Failed to restore book.", variant: "error" })
+      toast({ title: "Could not restore book", description: reasonText(err, "an unexpected error occurred"), variant: "error" })
     } finally {
       setIsActioning(false)
     }
@@ -80,7 +83,7 @@ export function RecycleBinView() {
       await loadBooks()
     } catch (err) {
       logger.error("Failed to restore books", err)
-      toast({ title: "Error", description: "Failed to restore some books.", variant: "error" })
+      toast({ title: "Could not restore books", description: reasonText(err, "an unexpected error occurred"), variant: "error" })
     } finally {
       setIsActioning(false)
     }
@@ -95,7 +98,7 @@ export function RecycleBinView() {
       await fetchTrashedBooks()
     } catch (err) {
       logger.error("Failed to delete book", err)
-      toast({ title: "Error", description: "Failed to delete book permanently.", variant: "error" })
+      toast({ title: "Could not delete book permanently", description: reasonText(err, "an unexpected error occurred"), variant: "error" })
     } finally {
       setIsActioning(false)
     }
@@ -114,7 +117,7 @@ export function RecycleBinView() {
       await fetchTrashedBooks()
     } catch (err) {
       logger.error("Failed to delete books", err)
-      toast({ title: "Error", description: "Failed to delete items.", variant: "error" })
+      toast({ title: "Could not delete items", description: reasonText(err, "an unexpected error occurred"), variant: "error" })
     } finally {
       setIsActioning(false)
     }
@@ -130,7 +133,7 @@ export function RecycleBinView() {
       await fetchTrashedBooks()
     } catch (err) {
       logger.error("Failed to empty trash", err)
-      toast({ title: "Error", description: "Failed to empty recycle bin.", variant: "error" })
+      toast({ title: "Could not empty recycle bin", description: reasonText(err, "an unexpected error occurred"), variant: "error" })
     } finally {
       setIsActioning(false)
     }

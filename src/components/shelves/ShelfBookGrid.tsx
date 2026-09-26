@@ -20,6 +20,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -40,6 +41,11 @@ import { AddBooksToShelfDialog } from './AddBooksToShelfDialog';
 import { useBookOpen } from '@/hooks/useBookOpen';
 import { useToast } from '@/store/toastStore';
 import { useIsMobile } from '@/hooks/useIsMobile';
+
+type ConfirmRemove = { type: 'single'; id: number } | { type: 'batch'; count: number };
+
+const reasonText = (err: unknown, fallback: string) =>
+  err instanceof Error && err.message ? err.message : fallback;
 
 interface ShelfBookGridProps {
   shelf: Shelf;
@@ -299,6 +305,7 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
   const [selectedBookIds, setSelectedBookIds] = useState<Set<number>>(new Set());
   const [selectedBookId, setSelectedBookId] = useState<number | null>(null);
   const [isRemovingBatch, setIsRemovingBatch] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState<ConfirmRemove | null>(null);
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({});
   const [columns, setColumns] = useState(6);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -410,34 +417,41 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
     }
   };
 
-  const handleRemoveSingleBook = async (bookId: number) => {
+  const handleRemoveSingleBook = (bookId: number) => {
     if (!shelf.id) return;
-    try {
-      await api.removeBookFromShelf(shelf.id, bookId);
-      toast.success('Removed', 'Book removed from shelf.');
-      onRefreshBooks?.();
-    } catch (err) {
-      toast.error('Error', 'Failed to remove book from shelf.');
-    }
+    setConfirmRemove({ type: 'single', id: bookId });
   };
 
-  const handleBatchRemove = async () => {
+  const handleBatchRemove = () => {
     if (!shelf.id || selectedBookIds.size === 0) return;
-    if (!confirm(`Remove ${selectedBookIds.size} books from this shelf?`)) return;
+    setConfirmRemove({ type: 'batch', count: selectedBookIds.size });
+  };
 
-    setIsRemovingBatch(true);
+  const confirmRemoveBook = async () => {
+    if (!shelf.id || !confirmRemove) return;
     try {
-      for (const id of selectedBookIds) {
-        await api.removeBookFromShelf(shelf.id, id);
+      if (confirmRemove.type === 'single') {
+        await api.removeBookFromShelf(shelf.id, confirmRemove.id);
+        toast.success('Removed', 'Book removed from shelf.');
+      } else {
+        setIsRemovingBatch(true);
+        for (const id of selectedBookIds) {
+          await api.removeBookFromShelf(shelf.id, id);
+        }
+        toast.success('Removed', `${confirmRemove.count} books removed from shelf.`);
+        setSelectedBookIds(new Set());
+        setIsSelectionMode(false);
       }
-      toast.success('Removed', `${selectedBookIds.size} books removed from shelf.`);
-      setSelectedBookIds(new Set());
-      setIsSelectionMode(false);
       onRefreshBooks?.();
     } catch (err) {
-      toast.error('Error', 'Failed to remove some books.');
+      toast.error(
+        confirmRemove.type === 'single'
+          ? 'Could not remove book from shelf'
+          : 'Could not remove books from shelf',
+        reasonText(err, 'an unexpected error occurred')
+      );
     } finally {
-      setIsRemovingBatch(false);
+      if (confirmRemove.type === 'batch') setIsRemovingBatch(false);
     }
   };
 
@@ -1010,6 +1024,21 @@ export function ShelfBookGrid({ shelf, books, onBack, onRefreshBooks, onOpenBook
           </div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={!!confirmRemove}
+        onOpenChange={(open) => {
+          if (!open) setConfirmRemove(null);
+        }}
+        title={confirmRemove?.type === 'batch' ? 'Remove books from shelf' : 'Remove book from shelf'}
+        description={
+          confirmRemove?.type === 'batch'
+            ? `Remove ${confirmRemove.count} books from this shelf?`
+            : `Remove this book from "${shelf.name}"?`
+        }
+        confirmLabel="Remove"
+        onConfirm={confirmRemoveBook}
+      />
 
       <AddBooksToShelfDialog
         open={addBooksDialogOpen}

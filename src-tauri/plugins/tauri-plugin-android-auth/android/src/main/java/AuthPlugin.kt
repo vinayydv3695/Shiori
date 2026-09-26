@@ -33,6 +33,9 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
     private var pendingExpiresIn: String? = null
     private var pendingTokenType: String? = null
     private var pendingCode: String? = null
+    // OAuth `state` from the redirect (guarded by the JS provider, which owns the
+    // expected value). Forwarded verbatim to JS — no validation happens here.
+    private var pendingState: String? = null
 
     private val sharedPreferences by lazy {
         val masterKey = MasterKey.Builder(activity)
@@ -91,25 +94,29 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
                         pendingToken = accessToken
                         pendingExpiresIn = params["expires_in"] ?: ""
                         pendingTokenType = params["token_type"] ?: ""
-                        
+                        pendingState = params["state"]
+
                         val ret = JSObject()
                         ret.put("access_token", accessToken)
                         ret.put("expires_in", pendingExpiresIn)
                         ret.put("token_type", pendingTokenType)
+                        ret.put("state", pendingState)
                         trigger("oauth-token-received", ret)
                         return
                     }
                 }
                 
                 // Authorization Code Grant: code is a query parameter
-                // e.g., shiori://auth?code=...
+                // e.g., shiori://auth?code=...&state=...
                 val code = data.getQueryParameter("code")
                 if (code != null) {
                     Log.d(TAG, "Got code from query parameter (authorization code grant)")
                     pendingCode = code
-                    
+                    pendingState = data.getQueryParameter("state")
+
                     val ret = JSObject()
                     ret.put("code", code)
+                    ret.put("state", pendingState)
                     trigger("oauth-code-received", ret)
                 } else {
                     Log.w(TAG, "No access_token in fragment and no code in query. Full URI: $data")
@@ -126,17 +133,21 @@ class AuthPlugin(private val activity: Activity) : Plugin(activity) {
             ret.put("access_token", pendingToken)
             ret.put("expires_in", pendingExpiresIn)
             ret.put("token_type", pendingTokenType)
+            ret.put("state", pendingState)
             
             // Clear after reading
             pendingToken = null
             pendingExpiresIn = null
             pendingTokenType = null
+            pendingState = null
         } else if (pendingCode != null) {
             Log.d(TAG, "Returning pending code")
             ret.put("code", pendingCode)
+            ret.put("state", pendingState)
             
             // Clear after reading
             pendingCode = null
+            pendingState = null
         } else {
             Log.d(TAG, "No pending OAuth data")
         }

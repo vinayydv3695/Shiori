@@ -40,5 +40,9 @@ pub struct GetPendingOAuthDataResponse {
     pub token_type: Option<String>,
     #[serde(default)]
     pub code: Option<String>,
+    /// OAuth `state` guard echoed back from the Kotlin redirect handler.
+    /// The JS provider owns the expected value and verifies before exchanging.
+    #[serde(default)]
+    pub state: Option<String>,
 }
 

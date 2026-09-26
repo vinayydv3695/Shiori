@@ -5,8 +5,22 @@ import { toast } from '@/store/toastStore';
 const ANILIST_CLIENT_ID = '45479';
 const REDIRECT_URI = 'shiori://auth'; // Must match the Intent Filter
 
+// One-shot OAuth `state` guarding the shiori://auth redirect. The in-flight login
+// data lives session-scoped (polled back from the Kotlin plugin), so a module-level
+// variable is the matching place to hold the expected value. Generated per login
+// attempt, verified and cleared exactly once (a malicious app can fire
+// shiori://auth?code=... at us — without a matching state we must not exchange,
+// or we'd overwrite the stored AniList token).
+let pendingState: string | null = null;
+
 export class AniListAndroidProvider implements AniListAuthProvider {
     private isLoggingIn = false;
+
+    private generateState(): string {
+        const bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
 
     constructor() {
         // Check for any pending OAuth data from a previous session (e.g., app was killed and restarted)
@@ -15,18 +29,30 @@ export class AniListAndroidProvider implements AniListAuthProvider {
 
     private async processPendingAuthData(): Promise<boolean> {
         try {
-            const data = await invoke<{access_token?: string; code?: string}>('plugin:android-auth|get_pending_oauth_data');
-            if (data.access_token) {
-                await invoke('plugin:android-auth|set_secure_token', { token: data.access_token });
-                toast.success('Successfully linked AniList account');
-                window.dispatchEvent(new Event('anilist-auth-changed'));
-                return true;
-            } else if (data.code) {
-                const token = await invoke<string>('exchange_android_anilist_code', { code: data.code });
-                await invoke('plugin:android-auth|set_secure_token', { token });
-                toast.success('Successfully linked AniList account');
-                window.dispatchEvent(new Event('anilist-auth-changed'));
-                return true;
+            const data = await invoke<{access_token?: string; code?: string; state?: string}>('plugin:android-auth|get_pending_oauth_data');
+            if (data.access_token || data.code) {
+                // Verify the `state` guard before exchanging the code. Mismatch or
+                // missing state = the redirect is not the one we started (or the
+                // app was killed mid-login, losing the in-session value) → refuse.
+                if (!pendingState || data.state !== pendingState) {
+                    pendingState = null; // one-shot: never accept this callback
+                    console.error('AniList OAuth state mismatch or missing state; refusing to exchange the code.');
+                    toast.error('Login Failed', { description: 'OAuth state verification failed. Please try logging in again.' });
+                    return true; // terminal — stop polling, do NOT exchange
+                }
+                pendingState = null; // one-shot: cleared before the code is used
+                if (data.access_token) {
+                    await invoke('plugin:android-auth|set_secure_token', { token: data.access_token });
+                    toast.success('Successfully linked AniList account');
+                    window.dispatchEvent(new Event('anilist-auth-changed'));
+                    return true;
+                } else if (data.code) {
+                    const token = await invoke<string>('exchange_android_anilist_code', { code: data.code });
+                    await invoke('plugin:android-auth|set_secure_token', { token });
+                    toast.success('Successfully linked AniList account');
+                    window.dispatchEvent(new Event('anilist-auth-changed'));
+                    return true;
+                }
             }
         } catch (error) {
             console.error('Failed to process pending OAuth data:', error);
@@ -39,7 +65,11 @@ export class AniListAndroidProvider implements AniListAuthProvider {
         this.isLoggingIn = true;
 
         try {
-            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+            // Include a fresh random `state` in the authorization URL; AniList echoes
+            // it back in the shiori://auth redirect so we can verify the callback.
+            const state = this.generateState();
+            pendingState = state;
+            const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&state=${encodeURIComponent(state)}`;
 
             // Launch Custom Tab for OAuth
             await invoke('plugin:android-auth|start_oauth_login', { url: authUrl });

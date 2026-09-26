@@ -226,7 +226,7 @@ async fn handle_get_delta(
     let conn = state.db.get_connection().map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     
     // Get modified progress
-    let mut prog_stmt = conn.prepare("SELECT id, book_id, current_location, progress_percent, current_page, total_pages, last_read FROM reading_progress WHERE last_read > ?1").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let mut prog_stmt = conn.prepare("SELECT id, book_id, current_location, progress_percent, current_page, total_pages, cfi_location, last_read FROM reading_progress WHERE last_read > ?1").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     
     let prog_iter = prog_stmt.query_map(params![query.since], |row| {
         Ok(ReadingProgress {
@@ -236,8 +236,8 @@ async fn handle_get_delta(
             progress_percent: row.get(3)?,
             current_page: row.get(4)?,
             total_pages: row.get(5)?,
-            cfi_location: None, // Legacy, unused often but in struct
-            last_read: row.get(6)?,
+            cfi_location: row.get(6)?,
+            last_read: row.get(7)?,
         })
     }).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     
@@ -300,13 +300,14 @@ async fn handle_push_delta(
     for prog in payload.progress {
         // Last write wins based on last_read
         tx.execute(
-            "INSERT INTO reading_progress (book_id, current_location, progress_percent, current_page, total_pages, last_read) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            "INSERT INTO reading_progress (book_id, current_location, progress_percent, current_page, total_pages, cfi_location, last_read) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
              ON CONFLICT(book_id) DO UPDATE SET 
              current_location = CASE WHEN excluded.last_read > reading_progress.last_read THEN excluded.current_location ELSE reading_progress.current_location END,
              progress_percent = CASE WHEN excluded.last_read > reading_progress.last_read THEN excluded.progress_percent ELSE reading_progress.progress_percent END,
              current_page = CASE WHEN excluded.last_read > reading_progress.last_read THEN excluded.current_page ELSE reading_progress.current_page END,
              total_pages = CASE WHEN excluded.last_read > reading_progress.last_read THEN excluded.total_pages ELSE reading_progress.total_pages END,
+             cfi_location = CASE WHEN excluded.last_read > reading_progress.last_read THEN excluded.cfi_location ELSE reading_progress.cfi_location END,
              last_read = CASE WHEN excluded.last_read > reading_progress.last_read THEN excluded.last_read ELSE reading_progress.last_read END",
             params![
                 prog.book_id,
@@ -314,6 +315,7 @@ async fn handle_push_delta(
                 prog.progress_percent,
                 prog.current_page,
                 prog.total_pages,
+                prog.cfi_location,
                 prog.last_read
             ]
         ).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;

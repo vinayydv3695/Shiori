@@ -313,16 +313,15 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
   return (
     <Wrapper open={open} onOpenChange={onOpenChange}>
       <Portal>
-        <Overlay className="dialog-overlay fixed inset-0 z-[100] bg-black/40 backdrop-blur-md transition-all duration-300" />
+        <Overlay className="dialog-overlay fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/40 backdrop-blur-md transition-all duration-300" />
         <Content 
-          aria-describedby={undefined} 
           onOpenAutoFocus={(e: Event) => {
             if (isMobile) {
               e.preventDefault();
             }
           }}
           className={cn(
-          "z-[101] flex flex-col overflow-hidden focus:outline-none",
+          "z-[var(--z-modal)] flex flex-col overflow-hidden focus:outline-none",
           isMobile 
             ? "fixed inset-0 w-full h-full rounded-none" 
             : "fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh]",
@@ -595,10 +594,12 @@ export const SettingSection = ({
 export const SettingItem = ({
   label,
   description,
+  labelId,
   children,
 }: {
   label: string
   description?: string
+  labelId?: string
   children: React.ReactNode
 }) => {
   const isMobile = useIsMobile();
@@ -608,7 +609,7 @@ export const SettingItem = ({
     isMobile ? "py-4" : "py-3.5"
   )}>
     <div className="space-y-1 flex-1 md:pr-4">
-      <label className="text-[15px] font-medium tracking-tight text-foreground/90">{label}</label>
+      <label htmlFor={labelId} className="text-[15px] font-medium tracking-tight text-foreground/90">{label}</label>
       {description && <p className="text-[13px] text-muted-foreground/80 leading-snug">{description}</p>}
     </div>
     <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[200px]">
@@ -678,9 +679,10 @@ const ActionLogSetting = () => {
     <>
       <SettingItem
         label="Action Log"
+        labelId="setting-switch-action-log"
         description="Record a rolling 10-minute trail of your actions and how the app responded. Captures element labels and app messages only — never input values, credentials, or search text."
       >
-        <Switch checked={enabled} onChange={setEnabled} />
+        <Switch id="setting-switch-action-log" checked={enabled} onChange={setEnabled} />
       </SettingItem>
       <div className="flex flex-col md:flex-row md:items-center gap-3 px-3 md:px-4 pb-2">
         <Button
@@ -881,8 +883,8 @@ const GeneralSettings = ({
           )}
 
           {!isAndroid && isSettingVisible('Enable Window Transparency', 'Toggle transparent window background (Requires restart)', 'Appearance') && (
-            <SettingItem label="Enable Window Transparency (Requires Restart)" description="Disable this if Shiori runs slowly on Linux. Requires app restart to take effect.">
-              <Switch 
+            <SettingItem labelId="setting-switch-window-transparency" label="Enable Window Transparency (Requires Restart)" description="Disable this if Shiori runs slowly on Linux. Requires app restart to take effect.">
+              <Switch id="setting-switch-window-transparency" 
                 checked={preferences?.linuxTransparentWindow ?? true} 
                 onChange={(checked) => {
                   updateGeneralSettings({ linuxTransparentWindow: checked });
@@ -893,8 +895,8 @@ const GeneralSettings = ({
           )}
 
           {!isAndroid && isSettingVisible('Settings Transparency', 'Toggle transparent background for the settings dialog', 'Appearance') && (
-            <SettingItem label="Settings Transparency" description="Toggle transparent background for the settings dialog">
-              <Switch 
+            <SettingItem labelId="setting-switch-settings-transparency" label="Settings Transparency" description="Toggle transparent background for the settings dialog">
+              <Switch id="setting-switch-settings-transparency" 
                 checked={preferences?.transparentSettings ?? false} 
                 onChange={(checked) => updateGeneralSettings({ transparentSettings: checked })} 
               />
@@ -906,18 +908,18 @@ const GeneralSettings = ({
       {isSectionVisible('General', ['Auto-start Application', 'Discord Rich Presence', 'Primary Content Type']) && (
         <SettingSection title="General">
           {!isAndroid && isSettingVisible('Auto-start Application', 'Start Shiori when system boots', 'General') && (
-            <SettingItem label="Auto-start Application" description="Start Shiori when system boots">
-              <Switch checked={preferences.autoStart} onChange={(checked) => updateGeneralSettings({ autoStart: checked })} />
+            <SettingItem labelId="setting-switch-auto-start" label="Auto-start Application" description="Start Shiori when system boots">
+              <Switch id="setting-switch-auto-start" checked={preferences.autoStart} onChange={(checked) => updateGeneralSettings({ autoStart: checked })} />
             </SettingItem>
           )}
           {!isAndroid && isSettingVisible('Discord Rich Presence', 'Show your reading activity on Discord', 'General') && (
-            <SettingItem label="Discord Rich Presence" description="Show your reading activity on Discord">
-              <Switch checked={preferences.discordRpcEnabled ?? true} onChange={(checked) => updateGeneralSettings({ discordRpcEnabled: checked })} />
+            <SettingItem labelId="setting-switch-discord-rpc" label="Discord Rich Presence" description="Show your reading activity on Discord">
+              <Switch id="setting-switch-discord-rpc" checked={preferences.discordRpcEnabled ?? true} onChange={(checked) => updateGeneralSettings({ discordRpcEnabled: checked })} />
             </SettingItem>
           )}
           {isSettingVisible('AI Reading Assistant', 'Enable AI features including Book Copilot and Ask AI', 'General') && (
-            <SettingItem label="AI Reading Assistant" description="Enable Book Copilot sidebar and Ask AI text selection. Off by default — no network calls are made when disabled.">
-              <Switch checked={aiEnabled} onChange={setAiEnabled} aria-label="Toggle AI Reading Assistant" />
+            <SettingItem labelId="setting-switch-ai-assistant" label="AI Reading Assistant" description="Enable Book Copilot sidebar and Ask AI text selection. Off by default — no network calls are made when disabled.">
+              <Switch id="setting-switch-ai-assistant" checked={aiEnabled} onChange={setAiEnabled} />
             </SettingItem>
           )}
           {isSettingVisible('Primary Content Type', 'What type of content you prefer to read', 'General') && (
@@ -940,9 +942,11 @@ const GeneralSettings = ({
           {isSettingVisible('Filter NSFW & Adult Content', 'Hide 18+ adult content across online catalogs, manga browsing, metadata, and search results', 'General') && (
             <SettingItem
               label="Filter NSFW & Adult Content"
+              labelId="setting-switch-nsfw-filter"
               description="Hide 18+ adult content across online catalogs, manga browsing, metadata, and search results (Enabled by default)"
             >
               <Switch
+                id="setting-switch-nsfw-filter"
                 checked={!(preferences.includeNsfw ?? false)}
                 onChange={(filtered) => updateGeneralSettings({ includeNsfw: !filtered })}
               />
@@ -978,14 +982,14 @@ const GeneralSettings = ({
           }}
         >
           {!isAndroid && isSettingVisible('Auto-Scan Library Folders', 'Automatically import new books', 'Library') && (
-            <SettingItem label="Auto-Scan Library Folders" description="Automatically import new books when detected">
-              <Switch checked={preferences.autoScanEnabled ?? false} onChange={(checked) => updateGeneralSettings({ autoScanEnabled: checked })} />
+            <SettingItem labelId="setting-switch-auto-scan" label="Auto-Scan Library Folders" description="Automatically import new books when detected">
+              <Switch id="setting-switch-auto-scan" checked={preferences.autoScanEnabled ?? false} onChange={(checked) => updateGeneralSettings({ autoScanEnabled: checked })} />
             </SettingItem>
           )}
 
           {isSettingVisible('Enable Recycle Bin', 'Move deleted items to trash (kept for 7 days)', 'Library') && (
-            <SettingItem label="Enable Recycle Bin" description="Move deleted items to trash (kept for 7 days)">
-              <Switch 
+            <SettingItem labelId="setting-switch-recycle-bin" label="Enable Recycle Bin" description="Move deleted items to trash (kept for 7 days)">
+              <Switch id="setting-switch-recycle-bin" 
                 checked={preferences?.enableRecycleBin ?? false} 
                 onChange={(checked) => updateGeneralSettings({ enableRecycleBin: checked })} 
               />
@@ -1244,9 +1248,10 @@ const BookReadingSettings = ({
           {isSettingVisible('Hyphenation', 'Automatic word hyphenation', 'Reading Experience') && (
             <SettingItem
               label="Hyphenation"
+              labelId="setting-switch-hyphenation"
               description={preferences.book.hyphenation ? 'Enabled' : 'Disabled'}
             >
-              <Switch checked={preferences.book.hyphenation} onChange={(checked) => updateBookDefaults({ hyphenation: checked })} />
+              <Switch id="setting-switch-hyphenation" checked={preferences.book.hyphenation} onChange={(checked) => updateBookDefaults({ hyphenation: checked })} />
             </SettingItem>
           )}
 
@@ -1351,9 +1356,10 @@ const BookReadingSettings = ({
           {isSettingVisible('Auto-advance Chapter', 'Continue to next chapter after TTS finishes', 'Audio / TTS') && (
             <SettingItem
               label="Auto-advance Chapter"
+              labelId="setting-switch-auto-advance-chapter"
               description={(preferences.tts?.autoAdvance ?? true) ? 'Automatically go to next chapter when done' : 'Stop at end of chapter'}
             >
-              <Switch checked={preferences.tts?.autoAdvance ?? true} onChange={(checked) => updateTtsDefaults({ autoAdvance: checked })} />
+              <Switch id="setting-switch-auto-advance-chapter" checked={preferences.tts?.autoAdvance ?? true} onChange={(checked) => updateTtsDefaults({ autoAdvance: checked })} />
             </SettingItem>
           )}
 
@@ -1454,9 +1460,10 @@ const MangaReadingSettings = ({
       >
         <SettingItem
           label="Auto-Group Series Volumes"
+          labelId="setting-switch-auto-group-series"
           description={preferences.autoGroupManga ? 'Enabled - Automatically groups books and manga by series' : 'Disabled - Manual organization'}
         >
-          <Switch checked={preferences.autoGroupManga} onChange={(checked) => updateGeneralSettings({ autoGroupManga: checked })} />
+          <Switch id="setting-switch-auto-group-series" checked={preferences.autoGroupManga} onChange={(checked) => updateGeneralSettings({ autoGroupManga: checked })} />
         </SettingItem>
       </SettingSection>
 
@@ -1533,9 +1540,10 @@ const MangaReadingSettings = ({
           {isSettingVisible('Fit to Width', 'Scale images to fit width', 'Display Options') && (
             <SettingItem
               label="Fit to Width"
+              labelId="setting-switch-fit-width"
               description={preferences.manga.fitWidth ? 'Enabled' : 'Disabled'}
             >
-              <Switch checked={preferences.manga.fitWidth} onChange={(checked) => updateMangaDefaults({ fitWidth: checked })} />
+              <Switch id="setting-switch-fit-width" checked={preferences.manga.fitWidth} onChange={(checked) => updateMangaDefaults({ fitWidth: checked })} />
             </SettingItem>
           )}
 
@@ -2040,9 +2048,10 @@ const AdvancedSettings = ({
           {isSettingVisible('Enable Logging', 'Save debug logs', 'Debug') && (
             <SettingItem
               label="Enable Logging"
+              labelId="setting-switch-enable-logging"
               description="Save debug logs for troubleshooting"
             >
-              <Switch checked={preferences.debugLogging ?? false} onChange={(checked) => updateGeneralSettings({ debugLogging: checked })} />
+              <Switch id="setting-switch-enable-logging" checked={preferences.debugLogging ?? false} onChange={(checked) => updateGeneralSettings({ debugLogging: checked })} />
             </SettingItem>
           )}
         </SettingSection>
@@ -2053,9 +2062,10 @@ const AdvancedSettings = ({
           {isSettingVisible('Auto-Export Annotations', 'Automatically export annotations', 'Annotations') && (
             <SettingItem
               label="Auto-Export Annotations"
+              labelId="setting-switch-auto-export-annotations"
               description="Automatically export annotations to a folder when created or updated"
             >
-              <Switch checked={preferences.autoExportAnnotations ?? false} onChange={(checked) => updateGeneralSettings({ autoExportAnnotations: checked })} />
+              <Switch id="setting-switch-auto-export-annotations" checked={preferences.autoExportAnnotations ?? false} onChange={(checked) => updateGeneralSettings({ autoExportAnnotations: checked })} />
             </SettingItem>
           )}
 
@@ -2205,22 +2215,22 @@ const AdvancedSettings = ({
 
             <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
               <div className="space-y-0.5">
-                <label className="text-sm font-medium">Include credentials</label>
+                <label htmlFor="setting-switch-include-credentials" className="text-sm font-medium">Include credentials</label>
                 <p className="text-xs text-muted-foreground">
                   API keys, Cloudflare sessions (off by default)
                 </p>
               </div>
-              <Switch checked={includeCredentials} onChange={setIncludeCredentials} />
+              <Switch id="setting-switch-include-credentials" checked={includeCredentials} onChange={setIncludeCredentials} />
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
               <div className="space-y-0.5">
-                <label className="text-sm font-medium">Frontend settings</label>
+                <label htmlFor="setting-switch-include-frontend-settings" className="text-sm font-medium">Frontend settings</label>
                 <p className="text-xs text-muted-foreground">
                   Local UI preferences (toolbar, onboarding, window state)
                 </p>
               </div>
-              <Switch checked={includeFrontendSettings} onChange={setIncludeFrontendSettings} />
+              <Switch id="setting-switch-include-frontend-settings" checked={includeFrontendSettings} onChange={setIncludeFrontendSettings} />
             </div>
 
             <Button variant="outline" onClick={handleBackup} disabled={isBackingUp} className="w-full gap-2">
@@ -2500,14 +2510,14 @@ const AdvancedSettings = ({
       {isSectionVisible('Privacy', ['Send Analytics', 'Send Crash Reports', 'Reading History Retention', 'Clear Reading History', 'Action Log', 'Download Action Log']) && (
         <SettingSection title="Privacy & Data" description="Control your data and privacy">
           {isSettingVisible('Send Analytics', 'Anonymous usage statistics', 'Privacy') && (
-            <SettingItem label="Send Anonymous Usage Statistics" description="Help improve Shiori by sending anonymous usage data">
-              <Switch checked={preferences.sendAnalytics ?? false} onChange={(checked) => updateGeneralSettings({ sendAnalytics: checked })} />
+            <SettingItem labelId="setting-switch-send-analytics" label="Send Anonymous Usage Statistics" description="Help improve Shiori by sending anonymous usage data">
+              <Switch id="setting-switch-send-analytics" checked={preferences.sendAnalytics ?? false} onChange={(checked) => updateGeneralSettings({ sendAnalytics: checked })} />
             </SettingItem>
           )}
 
           {isSettingVisible('Send Crash Reports', 'Automatic crash reporting', 'Privacy') && (
-            <SettingItem label="Send Crash Reports" description="Automatically report crashes to help fix bugs">
-              <Switch checked={preferences.sendCrashReports ?? false} onChange={(checked) => updateGeneralSettings({ sendCrashReports: checked })} />
+            <SettingItem labelId="setting-switch-crash-reports" label="Send Crash Reports" description="Automatically report crashes to help fix bugs">
+              <Switch id="setting-switch-crash-reports" checked={preferences.sendCrashReports ?? false} onChange={(checked) => updateGeneralSettings({ sendCrashReports: checked })} />
             </SettingItem>
           )}
 

@@ -37,18 +37,6 @@ export interface AnnotationCategory {
   createdAt: string;
 }
 
-export interface ReaderSettings {
-  id?: number;
-  userId: string;
-  fontFamily: string;
-  fontSize: number;
-  lineHeight: number;
-  theme: string;
-  pageMode: 'paginated' | 'scrolled';
-  marginSize: number;
-  updatedAt: string;
-}
-
 export interface ResumeTarget {
   bookId: number;
   chapterIndex: number;
@@ -74,9 +62,6 @@ interface ReaderState {
   selectedAnnotation: Annotation | null;
   categories: AnnotationCategory[];
   
-  // Reader settings
-  settings: ReaderSettings;
-  
   // UI state
   isReaderOpen: boolean;
   showAnnotationSidebar: boolean;
@@ -96,8 +81,6 @@ interface ReaderState {
   updateAnnotation: (id: number, annotation: Partial<Annotation>) => void;
   removeAnnotation: (id: number) => void;
   selectAnnotation: (annotation: Annotation | null) => void;
-  setSettings: (settings: ReaderSettings) => void;
-  updateSettings: (settings: Partial<ReaderSettings>) => void;
   toggleAnnotationSidebar: () => void;
   toggleControls: () => void;
   startSession: (sessionId: string) => void;
@@ -120,16 +103,6 @@ export const useReaderStore = create<ReaderState>((set) => ({
   annotations: [],
   categories: [],
   selectedAnnotation: null,
-  settings: {
-    userId: 'default',
-    fontFamily: 'EB Garamond',
-    fontSize: 14,
-    lineHeight: 1.6,
-    theme: 'black',
-    pageMode: 'paginated',
-    marginSize: 2,
-    updatedAt: new Date().toISOString(),
-  },
   isReaderOpen: false,
   showAnnotationSidebar: false,
   showControls: true,
@@ -197,13 +170,6 @@ export const useReaderStore = create<ReaderState>((set) => ({
     })),
 
   selectAnnotation: (annotation) => set({ selectedAnnotation: annotation }),
-
-  setSettings: (settings) => set({ settings }),
-
-  updateSettings: (updatedSettings) =>
-    set((state) => ({
-      settings: { ...state.settings, ...updatedSettings },
-    })),
 
   toggleAnnotationSidebar: () =>
     set((state) => ({

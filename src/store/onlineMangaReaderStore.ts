@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { pluginApi, type Chapter, type Page } from '@/lib/pluginSources';
 
+// Monotonic token for chapter page loads, mirroring libraryStore.ts's requestId
+// pattern. Rapid chapter taps (chapter list / next chapter) fire overlapping
+// pluginApi.getPages() calls that can resolve out of order; a stale response
+// must never clobber the pages, currentPageIndex, or loading state of a newer
+// chapter. Each load captures a token and discards its result (success or
+// error) if a newer load has started since.
+let chapterLoadGen = 0;
+
 interface OnlineMangaReaderState {
   sourceId: string | null;
   contentId: string | null;
@@ -91,12 +99,15 @@ export const useOnlineMangaReaderStore = create<OnlineMangaReaderState>((set, ge
   },
 
   loadChapterPages: async (sourceId, contentId, chapterId) => {
+    const gen = ++chapterLoadGen;
     set({ isLoading: true, error: null });
     try {
       const pages = await pluginApi.getPages(sourceId, chapterId);
+      if (gen !== chapterLoadGen) return; // stale: a newer chapter load owns the state
       const sortedPages = pages.slice().sort((a, b) => a.index - b.index);
       set({ pages: sortedPages, currentPageIndex: 0, isLoading: false });
     } catch (err) {
+      if (gen !== chapterLoadGen) return; // stale: don't clear the newer chapter's loading state
       const message = err instanceof Error ? err.message : 'Failed to load chapter pages';
       set({ isLoading: false, error: message, pages: [] });
     }

@@ -29,6 +29,11 @@ type LoadingStage =
   | 'loading-metadata'
   | 'complete';
 
+// R2: monotonic request token. Bumped at the start of every load generation
+// (book switch, retry, "next in series") so stale in-flight loads can detect
+// they were superseded and bail before committing anything to the store.
+let loadRequestId = 0;
+
 export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   // K3-008: Fine-grained selectors — each field subscribed independently so
   // unrelated store changes (annotations, progress, settings, etc.) do NOT
@@ -42,7 +47,6 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
   const openBook      = useReaderStore(state => state.openBook);
   const setProgress   = useReaderStore(state => state.setProgress);
   const setAnnotations = useReaderStore(state => state.setAnnotations);
-  const setSettings   = useReaderStore(state => state.setSettings);
   const closeBook     = useReaderStore(state => state.closeBook);
 
   const [loadingStage, setLoadingStage] = useState<LoadingStage>('idle');
@@ -52,6 +56,10 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
 
   useEffect(() => {
     let currentStage: LoadingStage = 'idle';
+    // R2: this effect run owns one load generation. If a newer run bumps
+    // loadRequestId while this one awaits, every set*/openBook below bails so
+    // a superseded (racing) load can never snap the reader back or clobber data.
+    const requestId = ++loadRequestId;
     const updateStage = (stage: LoadingStage) => {
       currentStage = stage;
       setLoadingStage(stage);
@@ -69,9 +77,9 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
             book: any;
             progress: any;
             annotations: any;
-            settings: any;
           }>('get_reader_startup_data', { bookId }),
         ]);
+        if (requestId !== loadRequestId) return; // superseded — bail before any commit
 
         const ext = filePath.split('.').pop()?.toLowerCase() || '';
         let effectiveFormat = ext;
@@ -81,9 +89,10 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           } catch {
             effectiveFormat = 'epub';
           }
+          if (requestId !== loadRequestId) return; // superseded during format detection
         }
 
-        const { book, progress, annotations, settings } = startupData;
+        const { book, progress, annotations } = startupData;
 
         const content: ReaderContent = {
           title: book.title,
@@ -96,15 +105,21 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
           content.pages = book.page_count;
         }
 
+        if (requestId !== loadRequestId) return; // last check before committing the book
         openBook(bookId, filePath, effectiveFormat, content);
 
+        if (requestId !== loadRequestId) return; // protect progress from stale writes
         if (progress) setProgress(progress);
-        setAnnotations(annotations);
-        setSettings(settings);
 
+        if (requestId !== loadRequestId) return; // protect annotations from stale writes
+        setAnnotations(annotations);
+
+        if (requestId !== loadRequestId) return;
         updateStage('complete');
         logger.debug('[ReaderLayout] ✅ All steps complete!');
       } catch (err) {
+        // Superseded loads must not surface their (possibly stale) errors.
+        if (requestId !== loadRequestId) return;
         logger.error('[ReaderLayout] ❌ Error at stage:', currentStage, err);
         setError(parseReaderError(err));
         updateStage('idle');
@@ -113,6 +128,8 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
 
     // 90 s timeout — long enough for very large files
     const timeoutId = setTimeout(() => {
+      // The timeout belongs to this load generation; a newer load owns the stage now.
+      if (requestId !== loadRequestId) return;
       if (currentStage !== 'complete' && currentStage !== 'idle') {
         setError({
           title: 'Loading Timeout',
@@ -133,7 +150,7 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [bookId, retryCount, openBook, setAnnotations, setProgress, setSettings]);
+  }, [bookId, retryCount, openBook, setAnnotations, setProgress]);
 
   const handleClose = () => { closeBook(); onClose(); };
   const handleRetry = () => { setRetryCount(p => p + 1); setError(null); setLoadingStage('idle'); };

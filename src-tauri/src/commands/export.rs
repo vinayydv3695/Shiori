@@ -38,9 +38,11 @@ pub fn export_library(state: State<AppState>, options: ExportOptions) -> Result<
 /// The path must end in a single clean file-name segment: no NUL bytes, no
 /// `.`/`..` components (checked both via `Path::components()` and on the raw
 /// split, since `components()` normalizes away interior `.` segments), and no
-/// trailing separator. Absolute/relative paths, dot-directories (e.g. `.ssh`),
-/// any number of parent dirs, any extension, and Windows drive prefixes are
-/// allowed — parents are created by the caller.
+/// trailing separator. Absolute/relative paths, dot-directories, any number
+/// of parent dirs, any extension, and Windows drive prefixes are allowed —
+/// but the parent directory must already exist: `write_text_to_file` never
+/// creates directories, and paths under well-known sensitive home dot-dirs
+/// (`~/.ssh`, `~/.gnupg`, `~/.config`) are refused.
 fn validate_export_path(file_path: &str) -> Result<()> {
     if file_path.contains('\0') {
         return Err(crate::error::ShioriError::Validation(
@@ -94,15 +96,55 @@ pub fn write_text_to_file(file_path: String, contents: String) -> Result<()> {
 
     let path = PathBuf::from(&file_path);
 
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            std::fs::create_dir_all(parent).map_err(crate::error::ShioriError::Io)?;
+    // The parent directory must already exist. A native save dialog only
+    // ever returns a path inside an existing, user-picked directory, so we
+    // never create directories on the webview's behalf — a compromised
+    // webview could otherwise fabricate `~/.ssh`, `~/.config`, etc. out of
+    // thin air. Relative paths with no parent segment write to the cwd.
+    let parent = path.parent().filter(|p| !p.as_os_str().is_empty());
+    if let Some(parent) = parent {
+        if !parent.is_dir() {
+            return Err(crate::error::ShioriError::Validation(format!(
+                "parent directory does not exist: {}",
+                parent.display()
+            )));
         }
+    }
+
+    // Defense-in-depth for a compromised webview: refuse paths under
+    // well-known sensitive dot-dirs of the user's home (SSH keys, GPG
+    // keyrings, editor configs). Lexical check — save dialogs only produce
+    // absolute paths, and the parent-exists check above keeps this honest.
+    if is_sensitive_dest(&path) {
+        return Err(crate::error::ShioriError::Validation(
+            "refusing to write into a sensitive directory (~/.ssh, ~/.gnupg, ~/.config)"
+                .to_string(),
+        ));
     }
 
     std::fs::write(&path, contents).map_err(crate::error::ShioriError::Io)?;
 
     Ok(())
+}
+
+/// True when `path` resolves into one of the well-known sensitive
+/// dot-directories of the user's home (`~/.ssh`, `~/.gnupg`, `~/.config`).
+/// Case-insensitive so it also catches Windows spellings of those names.
+fn is_sensitive_dest(path: &Path) -> bool {
+    let Some(home) = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+    else {
+        return false;
+    };
+    let Ok(rest) = path.strip_prefix(&home) else {
+        return false;
+    };
+    matches!(
+        rest.components().next(),
+        Some(Component::Normal(seg))
+            if matches!(seg.to_string_lossy().to_ascii_lowercase().as_str(), ".ssh" | ".gnupg" | ".config")
+    )
 }
 
 #[cfg(test)]
@@ -116,9 +158,7 @@ mod validate_export_path_tests {
         assert!(validate_export_path("C:\\Users\\u\\x.txt").is_ok());
         assert!(validate_export_path("x.md").is_ok());
         assert!(validate_export_path("/tmp/sub/dir/y.json").is_ok());
-        // A save dialog may legitimately target a dot-directory like .ssh.
-        assert!(validate_export_path("/home/u/.ssh/authorized_keys").is_ok());
-        // Any number of parent dirs with a clean last segment is fine.
+        // Any number of existing parent dirs with a clean last segment is fine.
         assert!(validate_export_path("x/y").is_ok());
     }
 
@@ -166,9 +206,56 @@ mod validate_export_path_tests {
 
     #[test]
     fn command_rejects_bad_paths_before_any_fs_access() {
-        // Validation runs before create_dir_all/fs::write, so these must
-        // fail without touching the file system.
+        // Validation runs before the parent-exists check and fs::write, so
+        // these must fail without touching the file system.
         assert!(write_text_to_file("../evil.txt".to_string(), "x".to_string()).is_err());
         assert!(write_text_to_file("/tmp/evil\0.txt".to_string(), "x".to_string()).is_err());
+    }
+
+    #[test]
+    fn write_rejects_paths_whose_parent_does_not_exist() {
+        // No create_dir_all: a missing parent must fail the write.
+        let dir = std::env::temp_dir().join(format!("shiori-export-s02-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let err = write_text_to_file(
+            dir.join("x.md").to_string_lossy().into_owned(),
+            "x".to_string(),
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string().contains("parent directory does not exist"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn write_succeeds_when_parent_exists() {
+        let dir = std::env::temp_dir().join(format!("shiori-export-s02-ok-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("notes.md");
+        write_text_to_file(target.to_string_lossy().into_owned(), "hello".to_string()).unwrap();
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "hello");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sensitive_dest_detects_home_dot_dirs() {
+        let Some(home) = std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .map(PathBuf::from)
+        else {
+            return;
+        };
+        for dir in [".ssh", ".gnupg", ".config"] {
+            assert!(
+                is_sensitive_dest(&home.join(dir).join("x.txt")),
+                "{dir} should be sensitive"
+            );
+        }
+        // Case-insensitive spelling.
+        assert!(is_sensitive_dest(&home.join(".SSH").join("x.txt")));
+        // Non-sensitive controls.
+        assert!(!is_sensitive_dest(&home.join("Documents").join("x.md")));
+        assert!(!is_sensitive_dest(Path::new("/elsewhere/x.md")));
     }
 }

@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::cloudflare::{
-    browser::{solve, BrowserConfig},
+    browser::{solve, validate_solver_url, BrowserConfig},
     client::CfClient,
     session::SessionStore,
 };
@@ -100,6 +100,9 @@ pub async fn cf_solve(
     url: String,
     _headless_only: Option<bool>, // kept for frontend compat; no headless mode exists
 ) -> Result<SolveResult> {
+    // Reject non-http(s)/empty-host URLs before any browser work.
+    validate_solver_url(&url)?;
+
     let host = host_from_url(&url);
 
     let cfg = BrowserConfig::default();
@@ -281,5 +284,19 @@ mod tests {
     #[test]
     fn suggestions_all_ok() {
         assert!(build_suggestions(true, true).is_empty());
+    }
+
+    #[test]
+    fn solver_url_validation_rejects_non_web_schemes() {
+        // The browser gate: only http(s) with a non-empty host may reach Chromium.
+        assert!(super::validate_solver_url("https://example.com").is_ok());
+        assert!(super::validate_solver_url("http://example.com/path").is_ok());
+        assert!(super::validate_solver_url("file:///etc/passwd").is_err());
+        assert!(super::validate_solver_url("about:blank").is_err());
+        assert!(super::validate_solver_url("data:text/html,hi").is_err());
+        assert!(super::validate_solver_url("https://").is_err()); // empty host
+        assert!(super::validate_solver_url("not a url").is_err());
+        // Loopback/private hosts stay allowed (local testing); see helper docs.
+        assert!(super::validate_solver_url("http://127.0.0.1:8000").is_ok());
     }
 }

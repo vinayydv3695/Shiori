@@ -256,6 +256,34 @@ pub struct SolverOutput {
     pub final_url: String,
 }
 
+// ─── URL validation ────────────────────────────────────────────────────────────
+
+/// Validate a URL before handing it to the visible Chromium browser.
+///
+/// v1 rule: only `http`/`https` URLs with a non-empty host are allowed —
+/// blocks `file://`, `about:`, `data:`, `javascript:` and other non-web
+/// schemes. NOTE: internal/private-host (SSRF) blocking is intentionally
+/// NOT applied yet — loopback/private targets are sometimes needed for
+/// local testing. Blocking non-public hosts is a future hardening step
+/// (do not reject localhost here without a separate toggle).
+pub(crate) fn validate_solver_url(url: &str) -> Result<()> {
+    let parsed = url::Url::parse(url).map_err(|_| {
+        ShioriError::Validation(format!("CF solve URL is not a valid URL: {}", url))
+    })?;
+
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().map(str::is_empty).unwrap_or(true)
+    {
+        return Err(ShioriError::Validation(format!(
+            "CF solve URL must be an http:// or https:// URL with a non-empty host \
+             (got scheme '{}'): {}",
+            parsed.scheme(),
+            url
+        )));
+    }
+    Ok(())
+}
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 /// Solve the Cloudflare challenge for `url` and return the captured session.
@@ -266,6 +294,9 @@ pub struct SolverOutput {
 ///  3. Reads the JSON output from stdout.
 ///  4. Packages the result into a [`CfSession`].
 pub async fn solve(url: &str, host: &str, cfg: &BrowserConfig, #[allow(unused_variables)] app_handle: Option<&tauri::AppHandle>) -> Result<CfSession> {
+    // Gate the URL before any work — no non-http(s) or empty-host navigations.
+    validate_solver_url(url)?;
+
     log::info!("[CF Browser] Attempting visible solve for {url}");
 
     #[cfg(target_os = "android")]

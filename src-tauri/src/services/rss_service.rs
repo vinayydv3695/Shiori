@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use super::epub_builder::{EpubBuilder, EpubMetadata};
 use crate::db::Database;
+use crate::error::ShioriError;
 
 /// Upper bound for frontend-supplied LIMIT values; anything above is clamped.
 const MAX_LIMIT: i64 = 1000;
@@ -19,6 +20,37 @@ fn limit_clause(limit: Option<usize>) -> String {
     limit
         .map(|l| format!(" LIMIT {}", (l as i64).clamp(0, MAX_LIMIT)))
         .unwrap_or_default()
+}
+
+/// Validate a feed URL before it is fetched: it must parse, its scheme must
+/// be `http` or `https`, and its host must be non-empty. This permanently
+/// blocks the legacy `file://`/absolute-path local-read path and any other
+/// non-web scheme (`data:`, `about:`, `ftp:`, ...).
+fn validate_feed_url(url: &str) -> Result<()> {
+    let parsed = match url::Url::parse(url) {
+        Ok(p) => p,
+        Err(_) => {
+            return Err(ShioriError::Validation(format!(
+                "Feed URL is not a valid URL: {}",
+                url
+            ))
+            .into())
+        }
+    };
+
+    let scheme_ok = matches!(parsed.scheme(), "http" | "https");
+    let host_ok = parsed.host_str().map(|h| !h.is_empty()).unwrap_or(false);
+    if !(scheme_ok && host_ok) {
+        return Err(ShioriError::Validation(format!(
+            "Feed URL must be an http:// or https:// URL with a non-empty host \
+             (got scheme '{}', host '{}'): {}",
+            parsed.scheme(),
+            parsed.host_str().unwrap_or(""),
+            url
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 /// RSS feed metadata
@@ -345,39 +377,35 @@ impl RssService {
         Ok(results)
     }
 
-    /// Helper to fetch raw content bytes from remote URL or local path
+    /// Helper to fetch raw content bytes from a remote URL.
+    ///
+    /// Only `http`/`https` URLs with a non-empty host are accepted — the old
+    /// `file://`/absolute-path local-file read branch was removed.
     async fn fetch_raw_bytes(&self, url: &str) -> Result<Vec<u8>> {
-        if url.starts_with("file://") || std::path::Path::new(url).is_absolute() {
-            let path_str = if url.starts_with("file://") {
-                url.strip_prefix("file://").unwrap()
-            } else {
-                url
-            };
+        validate_feed_url(url)?;
 
-            let path_str = if cfg!(windows)
-                && path_str.starts_with('/')
-                && path_str.len() > 2
-                && path_str.chars().nth(2) == Some(':')
-            {
-                &path_str[1..]
-            } else {
-                path_str
-            };
-
-            std::fs::read(path_str)
-                .with_context(|| format!("Failed to read local feed file: {}", path_str))
-        } else {
-            let response = self
-                .client
-                .get(url)
-                .header(reqwest::header::ACCEPT, "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8")
-                .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
-                .send()
-                .await
-                .with_context(|| format!("HTTP request to '{}' failed", url))?;
+        let response = self
+            .client
+            .get(url)
+            .header(reqwest::header::ACCEPT, "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8")
+            .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+            .send()
+            .await
+            .with_context(|| format!("HTTP request to '{}' failed", url))?;
 
             if !response.status().is_success() {
                 return Err(anyhow::anyhow!("HTTP status {} for URL: {}", response.status(), url));
+            }
+
+            // reqwest follows redirects by default — re-validate the final URL
+            // so a redirect cannot leave http(s) for e.g. file:// or a local path.
+            if let Err(e) = validate_feed_url(response.url().as_str()) {
+                return Err(anyhow::anyhow!(
+                    "Feed URL '{}' redirected to '{}' which is not allowed: {}",
+                    url,
+                    response.url(),
+                    e
+                ));
             }
 
             let bytes = response
@@ -386,7 +414,6 @@ impl RssService {
                 .with_context(|| format!("Failed to read body from {}", url))?
                 .to_vec();
             Ok(bytes)
-        }
     }
 
     /// Extract feed URL from HTML `<link rel="alternate" type="application/rss+xml" href="...">` tags
@@ -430,7 +457,7 @@ impl RssService {
         None
     }
 
-    /// Fetch and parse feed data from URL, local file, or auto-discover from website HTML
+    /// Fetch and parse feed data from URL or auto-discover from website HTML
     async fn fetch_feed_data(&self, url: &str) -> Result<feed_rs::model::Feed> {
         let content = self.fetch_raw_bytes(url).await?;
 
@@ -442,10 +469,17 @@ impl RssService {
         // 2. If direct parse fails, check if URL returned HTML with feed auto-discovery links
         let html_str = String::from_utf8_lossy(&content[..]);
         if let Some(discovered_url) = Self::extract_feed_link_from_html(&html_str, url) {
-            if let Ok(disc_bytes) = self.fetch_raw_bytes(&discovered_url).await {
-                if let Ok(feed) = parser::parse(&disc_bytes[..]) {
-                    return Ok(feed);
+            match self.fetch_raw_bytes(&discovered_url).await {
+                Ok(disc_bytes) => {
+                    if let Ok(feed) = parser::parse(&disc_bytes[..]) {
+                        return Ok(feed);
+                    }
                 }
+                Err(e) => log::warn!(
+                    "Skipping feed-discovery candidate '{}': {}",
+                    discovered_url,
+                    e
+                ),
             }
         }
 
@@ -461,10 +495,17 @@ impl RssService {
         for suffix in &suffixes {
             let candidate = format!("{}{}", base_url, suffix);
             if candidate != url {
-                if let Ok(disc_bytes) = self.fetch_raw_bytes(&candidate).await {
-                    if let Ok(feed) = parser::parse(&disc_bytes[..]) {
-                        return Ok(feed);
+                match self.fetch_raw_bytes(&candidate).await {
+                    Ok(disc_bytes) => {
+                        if let Ok(feed) = parser::parse(&disc_bytes[..]) {
+                            return Ok(feed);
+                        }
                     }
+                    Err(e) => log::warn!(
+                        "Skipping feed-suffix fallback '{}': {}",
+                        candidate,
+                        e
+                    ),
                 }
             }
         }
@@ -944,6 +985,22 @@ mod tests {
         assert_eq!(limit_clause(Some(5000)), " LIMIT 1000");
         assert_eq!(limit_clause(Some(1000)), " LIMIT 1000");
         assert_eq!(limit_clause(Some(0)), " LIMIT 0");
+    }
+
+    #[test]
+    fn test_validate_feed_url_rejects_local_and_other_schemes() {
+        // http(s) with a non-empty host parses.
+        assert!(validate_feed_url("https://example.com/feed.xml").is_ok());
+        assert!(validate_feed_url("http://example.com/rss").is_ok());
+        // The removed file:// and absolute-path local-read path stays blocked.
+        assert!(validate_feed_url("file:///etc/shadow").is_err());
+        assert!(validate_feed_url("/etc/shadow").is_err());
+        assert!(validate_feed_url("C:\\feed.xml").is_err());
+        // Other non-web schemes and malformed/empty-host URLs are rejected.
+        assert!(validate_feed_url("ftp://example.com/feed.xml").is_err());
+        assert!(validate_feed_url("data:text/xml,<rss/>").is_err());
+        assert!(validate_feed_url("https://").is_err());
+        assert!(validate_feed_url("not a url").is_err());
     }
 
     #[test]

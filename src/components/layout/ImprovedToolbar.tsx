@@ -122,7 +122,7 @@ const SearchBar = ({ onSearch, currentDomain, value: controlledValue, placeholde
         onChange={(e) => setValue(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        placeholder={placeholder ?? `Search ${currentDomain === 'books' ? 'Books' : 'Manga'}...`}
+        placeholder={placeholder ?? `Search ${currentDomain === 'books' ? 'Books' : 'Manga & Comics'}...`}
         className="w-full h-full pl-10 pr-16 rounded-xl bg-transparent text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none caret-primary"
       />
       {internalValue ? (
@@ -213,7 +213,7 @@ export function PremiumTopbar({
                 )}
               >
                 <IconManga size={18} />
-                <span>Manga</span>
+                <span>Manga & Comics</span>
               </button>
             </div>
           </div>
@@ -231,10 +231,10 @@ export function PremiumTopbar({
                   </div>
                   <div className="flex flex-col items-start leading-none text-left">
                     <span className="text-xs font-extrabold tracking-tight">
-                      {currentDomain === 'manga_comics' ? 'Manga & Comics' : 'Books Library'}
+                      {currentDomain === 'manga_comics' ? 'Manga & Comics' : 'Library'}
                     </span>
                     <span className="text-[10px] font-semibold text-muted-foreground mt-0.5">
-                      {totalCount > 0 ? `${totalCount} ${currentDomain === 'manga_comics' ? 'Items' : 'Books'}` : 'Collection'}
+                      {totalCount > 0 ? `${totalCount} Titles` : 'Collection'}
                     </span>
                   </div>
                   <ChevronDown size={14} className="text-muted-foreground group-hover:text-foreground transition-colors ml-1" />
@@ -250,7 +250,7 @@ export function PremiumTopbar({
                   className="gap-2.5 p-2 rounded-xl cursor-pointer text-xs font-semibold"
                 >
                   <Library size={16} className="text-primary" />
-                  <span>All {currentDomain === 'manga_comics' ? 'Manga' : 'Books'}</span>
+                  <span>All {currentDomain === 'manga_comics' ? 'Manga & Comics' : 'Books'}</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem
@@ -339,7 +339,7 @@ export function PremiumTopbar({
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <span className="text-xs sm:text-sm font-bold transition-colors shiori-import-dropdown-text">Import Files</span>
-                  <span className="text-[11px] font-medium leading-snug shiori-import-dropdown-subtext">Select individual books or manga</span>
+                  <span className="text-[11px] font-medium leading-snug shiori-import-dropdown-subtext">Select individual titles</span>
                 </div>
               </DropdownMenuItem>
 

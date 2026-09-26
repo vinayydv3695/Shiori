@@ -63,7 +63,7 @@ export const BookDetailsDialog = ({
     try {
       await api.toggleBookFavorite(bookId);
       useLibraryStore.getState().toggleFavorite(bookId);
-      toast.success(isFavorite ? "Removed from Favorites" : "Added to Favorites");
+      toast.success(isFavorite ? "Removed from favorites" : "Added to favorites");
     } catch (err) {
       logger.error('Failed to toggle favorite:', err);
       toast.error("Failed to update favorite");

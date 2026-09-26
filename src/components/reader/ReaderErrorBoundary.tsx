@@ -78,7 +78,7 @@ ${error.technicalDetails ? `\nTechnical Details:\n${error.technicalDetails}` : '
                   key={index}
                   className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}
                 >
-                  <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium mt-0.5" style={{ backgroundColor: 'hsl(var(--accent))', color: 'var(--interactive-accent)' }}>
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium mt-0.5" style={{ backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' }}>
                     {index + 1}
                   </span>
                   <span>{suggestion}</span>

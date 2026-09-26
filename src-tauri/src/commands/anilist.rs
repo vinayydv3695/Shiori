@@ -3,11 +3,15 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const DESKTOP_ANILIST_CLIENT_ID: &str = "45197";
-const DESKTOP_ANILIST_CLIENT_SECRET: &str = "vXYsl7taXO0YSgpjLRp0xTWLWoHbbEsWMsbf3lLD";
+// Injected at compile time from ANILIST_DESKTOP_CLIENT_SECRET (see build.rs).
+// Must be provided via .env / CI env — never commit real values.
+const DESKTOP_ANILIST_CLIENT_SECRET: Option<&str> =
+    option_env!("ANILIST_DESKTOP_CLIENT_SECRET");
 const DESKTOP_ANILIST_REDIRECT_URI: &str = "https://shiori.local/auth";
 
 const ANDROID_ANILIST_CLIENT_ID: &str = "45479";
-const ANDROID_ANILIST_CLIENT_SECRET: &str = "eb4zstd1FYg89DbVdJ4kp0inyq76Zp46oPH5UM4d";
+const ANDROID_ANILIST_CLIENT_SECRET: Option<&str> =
+    option_env!("ANILIST_ANDROID_CLIENT_SECRET");
 const ANDROID_ANILIST_REDIRECT_URI: &str = "shiori://auth";
 
 #[derive(Serialize)]
@@ -70,9 +74,13 @@ async fn exchange_authorization_code(
 
 #[tauri::command]
 pub async fn exchange_android_anilist_code(code: String) -> Result<String, String> {
+    let client_secret = ANDROID_ANILIST_CLIENT_SECRET.ok_or_else(|| {
+        "AniList client secret not configured. Set ANILIST_ANDROID_CLIENT_SECRET in .env and rebuild."
+            .to_string()
+    })?;
     exchange_authorization_code(
         ANDROID_ANILIST_CLIENT_ID,
-        ANDROID_ANILIST_CLIENT_SECRET,
+        client_secret,
         ANDROID_ANILIST_REDIRECT_URI,
         code,
     )
@@ -81,6 +89,10 @@ pub async fn exchange_android_anilist_code(code: String) -> Result<String, Strin
 
 #[tauri::command]
 pub async fn start_anilist_login(app: AppHandle) -> Result<String, String> {
+    let desktop_client_secret = DESKTOP_ANILIST_CLIENT_SECRET.ok_or_else(|| {
+        "AniList client secret not configured. Set ANILIST_DESKTOP_CLIENT_SECRET in .env and rebuild."
+            .to_string()
+    })?;
     let auth_url_str = format!(
         "https://anilist.co/api/v2/oauth/authorize?client_id={}&redirect_uri={}&response_type=code",
         DESKTOP_ANILIST_CLIENT_ID,
@@ -133,7 +145,7 @@ pub async fn start_anilist_login(app: AppHandle) -> Result<String, String> {
                             tauri::async_runtime::spawn(async move {
                                 let res = exchange_authorization_code(
                                     DESKTOP_ANILIST_CLIENT_ID,
-                                    DESKTOP_ANILIST_CLIENT_SECRET,
+                                    desktop_client_secret,
                                     DESKTOP_ANILIST_REDIRECT_URI,
                                     c,
                                 )

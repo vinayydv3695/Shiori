@@ -966,16 +966,15 @@ pub async fn download_gutenberg_epub(
     use std::time::Duration;
     use tauri::Manager;
 
-    // No total request timeout (reqwest's `timeout()` aborts slow large
-    // downloads MID-STREAM). Use a connect timeout plus a per-chunk idle
-    // watchdog: 60s without a single chunk means a stalled connection.
+    // SSRF-guarded fetch: `guarded_get` (lib.rs) validates the URL, pins its
+    // DNS resolution and re-validates every redirect hop. The helper enforces
+    // its own 30s total request timeout, so the per-chunk idle watchdog below
+    // still catches stalls before/while data flows through the stream.
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(20))
         .build()
         .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-    let resp = client
-        .get(&url)
-        .send()
+    let resp = crate::guarded_get(&client, &url)
         .await
         .map_err(|e| {
             let msg = e.to_string();
@@ -1082,6 +1081,11 @@ pub async fn download_gutenberg_epub(
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// Browser user-agent used for libgen gateway/mirror fetches. `guarded_get_with`
+/// builds its own client (caller client settings are not carried over), so the
+/// UA is re-attached per request via the `configure` closure.
+const LIBGEN_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 #[tauri::command]
 pub async fn download_libgen_epub(
     app_handle: tauri::AppHandle,
@@ -1095,8 +1099,10 @@ pub async fn download_libgen_epub(
 
     let all_mirrors: Vec<String> = serde_json::from_str(&url).unwrap_or_else(|_| vec![url.clone()]);
 
+    // The guarded helper builds its own client (caller settings dropped), so
+    // the browser UA is re-attached per request in the `configure` closures.
     let client = reqwest::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .user_agent(LIBGEN_USER_AGENT)
         .connect_timeout(Duration::from_secs(20))
         .build()
         .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
@@ -1122,8 +1128,17 @@ pub async fn download_libgen_epub(
         .collect::<String>();
     let ext = format_ext
         .unwrap_or_else(|| "epub".to_string())
-        .replace(".", "")
-        .to_lowercase();
+        .chars()
+        .map(|c| {
+            // Neutralize path separators / drive colons from the frontend hint:
+            // only letters and digits survive the filename join below.
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
     let file_name = format!("{}.{}", safe_title.trim(), ext);
 
     let state = app_handle.state::<AppState>();
@@ -1158,7 +1173,11 @@ pub async fn download_libgen_epub(
     // Attempt 1: Try get.php from libgen.li (bypasses Cloudflare entirely)
     if let Some(md5) = extract_md5(&all_mirrors.first().cloned().unwrap_or_default()) {
         let ads_url = format!("https://libgen.li/ads.php?md5={}", md5);
-        if let Ok(ads_resp) = client.get(&ads_url).send().await {
+        if let Ok(ads_resp) = crate::guarded_get_with(&client, &ads_url, |req| {
+            req.header(reqwest::header::USER_AGENT, LIBGEN_USER_AGENT)
+        })
+        .await
+        {
             if let Ok(text) = ads_resp.text().await {
                 if let Ok(re) =
                     regex::Regex::new(r#"(?i)href=["']([^"']*get\.php\?md5=[^"']+)["']"#)
@@ -1173,7 +1192,12 @@ pub async fn download_libgen_epub(
                             format!("https://libgen.li/{}", href)
                         };
 
-                        if let Ok(file_resp) = client.get(&direct_url).send().await {
+                        if let Ok(file_resp) =
+                            crate::guarded_get_with(&client, &direct_url, |req| {
+                                req.header(reqwest::header::USER_AGENT, LIBGEN_USER_AGENT)
+                            })
+                            .await
+                        {
                             if file_resp.status().is_success() {
                                 let content_type = file_resp
                                     .headers()
@@ -1220,7 +1244,11 @@ pub async fn download_libgen_epub(
 
                 // Try direct first, then proxies
                 for fetch_url in &[mirror_url.clone(), proxy1, proxy2, proxy3] {
-                    if let Ok(resp) = client.get(fetch_url).send().await {
+                    if let Ok(resp) = crate::guarded_get_with(&client, fetch_url, |req| {
+                        req.header(reqwest::header::USER_AGENT, LIBGEN_USER_AGENT)
+                    })
+                    .await
+                    {
                         if resp.status().is_success() {
                             if let Ok(text) = resp.text().await {
                                 // 1. Try to get the very first link inside the <div id="download"> (usually the direct GET link)
@@ -1259,7 +1287,12 @@ pub async fn download_libgen_epub(
             // 2. Try to fetch the actual file from download_url. Keep every
             // successful (non-HTML) candidate — a later mid-stream failure falls
             // back to the next mirror instead of failing the whole download.
-            if let Ok(file_resp) = client.get(&download_url).send().await {
+            if let Ok(file_resp) =
+                crate::guarded_get_with(&client, &download_url, |req| {
+                    req.header(reqwest::header::USER_AGENT, LIBGEN_USER_AGENT)
+                })
+                .await
+            {
                 if file_resp.status().is_success() {
                     let content_type = file_resp
                         .headers()

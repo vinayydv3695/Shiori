@@ -468,6 +468,11 @@ pub async fn torbox_download_and_import_impl(
 /// dataset-shard torrents (e.g. `/dyn/small_file/torrents/external/libgen_rs_fic/f_21000.torrent`).
 /// Those shards contain ~1000 files named exactly `{md5}.{ext}`; we add the shard
 /// to Torbox, select ONLY the file matching the book's md5, and import it.
+/// Browser user-agent used for dataset-shard torrent fetches. `guarded_get_with`
+/// builds its own client (caller settings dropped), so the UA is re-attached
+/// per request via the `configure` closure.
+const DATASET_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 pub async fn dataset_shard_extract_and_import(
     app_handle: &tauri::AppHandle,
     service: &TorboxService,
@@ -480,10 +485,11 @@ pub async fn dataset_shard_extract_and_import(
     use std::time::Duration;
 
     let md5 = md5.trim().to_ascii_lowercase();
+    // SSRF-guarded shard fetch below (see `guarded_get_with` in lib.rs): the
+    // helper discards this client's settings, so the UA is re-attached on the
+    // request builder. Its fixed 30s timeout matches the original client.
     let http_client = match reqwest::Client::builder()
-        .user_agent(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        )
+        .user_agent(DATASET_UA)
         .timeout(Duration::from_secs(30))
         .build()
     {
@@ -512,7 +518,11 @@ pub async fn dataset_shard_extract_and_import(
         );
 
         // (a) GET the .torrent bytes — public endpoint, no auth.
-        let bytes = match http_client.get(dataset_url).send().await {
+        let bytes = match crate::guarded_get_with(&http_client, dataset_url, |req| {
+            req.header(reqwest::header::USER_AGENT, DATASET_UA)
+        })
+        .await
+        {
             Ok(resp) if resp.status().is_success() => match resp.bytes().await {
                 Ok(bytes) => bytes,
                 Err(e) => {

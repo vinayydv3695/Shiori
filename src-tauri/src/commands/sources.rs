@@ -1156,19 +1156,50 @@ fn download_blocked_message(cookie_configured: bool) -> String {
     }
 }
 
+/// Sanitize a (possibly server-supplied) filename into a single safe path
+/// component that can never escape the downloads directory:
+/// - `/`, `\`, control chars and `:` -> `-` (kills path separators, Windows
+///   drive-relative names like `C:evil.epub`, and ADS suffixes like
+///   `name:stream`);
+/// - leading/trailing dots and whitespace are collapsed so the name can never
+///   be `.` or `..` (Windows also refuses trailing dots);
+/// - Windows reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9,
+///   case-insensitive, with or without extension) get a `_` prefix;
+/// - if nothing survives, a neutral placeholder is used.
 fn sanitize_filename(name: &str) -> String {
-    name.chars()
+    let mut out: String = name
+        .chars()
         .map(|c| {
-            if c.is_control() || c == '/' || c == '\\' {
+            if c.is_control() || c == '/' || c == '\\' || c == ':' {
                 '-'
             } else {
                 c
             }
         })
-        .collect::<String>()
-        .trim()
-        .trim_end_matches(['.', ' '])
-        .to_string()
+        .collect();
+
+    // Collapse whitespace plus leading/trailing dots: the resulting name can
+    // never be `.` / `..` (and never end with a dot, which Windows refuses).
+    out = out.trim().trim_matches('.').trim().to_string();
+    if out.is_empty() {
+        out.push_str("download");
+    }
+
+    // Windows reserved device names (case-insensitive, with or without an
+    // extension) are prefixed rather than rejected so the download lands.
+    let base = out.split('.').next().unwrap_or(&out).to_ascii_uppercase();
+    let reserved = matches!(
+        base.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL"
+            | "COM1" | "COM2" | "COM3" | "COM4" | "COM5"
+            | "COM6" | "COM7" | "COM8" | "COM9"
+            | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5"
+            | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+    );
+    if reserved {
+        out.insert_str(0, "_");
+    }
+    out
 }
 
 #[tauri::command]
@@ -1378,6 +1409,20 @@ pub async fn annas_archive_download(
     };
     std::fs::create_dir_all(&downloads_dir)?;
     let dest_path = downloads_dir.join(&final_filename);
+    // Defense in depth: never write outside the downloads dir. Even though the
+    // sanitizer guarantees a single safe component, verify the resolvable
+    // parent of the final path is exactly downloads_dir, falling back to an
+    // absolute lexical comparison when the parent cannot be canonicalized.
+    let canonical_downloads = std::fs::canonicalize(&downloads_dir)
+        .map_err(|e| ShioriError::Other(format!("Failed to resolve downloads dir: {}", e)))?;
+    let parent = dest_path.parent().unwrap_or(&downloads_dir);
+    let canonical_parent = std::fs::canonicalize(parent)
+        .unwrap_or_else(|_| std::path::absolute(parent).unwrap_or_else(|_| parent.to_path_buf()));
+    if canonical_parent != canonical_downloads {
+        return Err(ShioriError::Other(
+            "Rejected download path escaping the downloads directory".to_string(),
+        ));
+    }
     std::fs::write(&dest_path, &bytes)?;
 
     Ok(dest_path.to_string_lossy().to_string())
@@ -1470,5 +1515,80 @@ mod tests {
             v["message"].as_str().unwrap().contains("Cloudflare"),
             "frontend matches on the word Cloudflare"
         );
+    }
+}
+
+#[cfg(test)]
+mod sanitize_filename_tests {
+    use super::sanitize_filename;
+
+    fn assert_safe_component(name: &str) {
+        let s = sanitize_filename(name);
+        assert!(!s.is_empty(), "{name:?} must not sanitize to empty");
+        assert!(
+            !s.contains('/') && !s.contains('\\') && !s.contains(':'),
+            "{name:?} -> {s:?} must contain no separators or colons"
+        );
+        assert_ne!(s, ".", "{name:?} must not become a single dot");
+        assert_ne!(s, "..", "{name:?} must not become `..`");
+    }
+
+    #[test]
+    fn collapses_path_traversal() {
+        assert_eq!(sanitize_filename("../../x"), "--..-x");
+        assert_eq!(sanitize_filename("..\\..\\win"), "-..-win");
+        assert_safe_component("../../x");
+    }
+
+    #[test]
+    fn neutralizes_windows_drive_and_ads_colons() {
+        assert_eq!(sanitize_filename("C:evil.epub"), "C-evil.epub");
+        assert_eq!(sanitize_filename("name:stream"), "name-stream");
+        assert_safe_component("C:evil.epub");
+    }
+
+    #[test]
+    fn prefixes_windows_reserved_names() {
+        assert_eq!(sanitize_filename("CON"), "_CON");
+        assert_eq!(sanitize_filename("con.txt"), "_con.txt");
+        assert_eq!(sanitize_filename("PRN"), "_PRN");
+        assert_eq!(sanitize_filename("AUX"), "_AUX");
+        assert_eq!(sanitize_filename("NUL.epub"), "_NUL.epub");
+        assert_eq!(sanitize_filename("COM1"), "_COM1");
+        assert_eq!(sanitize_filename("com9.fake"), "_com9.fake");
+        assert_eq!(sanitize_filename("LPT7"), "_LPT7");
+        assert_eq!(sanitize_filename("lpt3.pdf"), "_lpt3.pdf");
+        // Close-but-not-reserved names pass through untouched.
+        assert_eq!(sanitize_filename("Console.epub"), "Console.epub");
+        assert_eq!(sanitize_filename("comic.book"), "comic.book");
+        assert_eq!(sanitize_filename("COM10"), "COM10");
+    }
+
+    #[test]
+    fn dot_only_names_become_placeholders() {
+        assert_eq!(sanitize_filename(".."), "download");
+        assert_eq!(sanitize_filename("..."), "download");
+        assert_eq!(sanitize_filename(" . "), "download");
+        assert_eq!(sanitize_filename("...."), "download");
+        assert_safe_component("..");
+    }
+
+    #[test]
+    fn keeps_normal_and_unicode_names() {
+        assert_eq!(sanitize_filename("normal name.epub"), "normal name.epub");
+        assert_eq!(sanitize_filename("日本語の本.epub"), "日本語の本.epub");
+        assert_eq!(sanitize_filename("Livro – é um teste.epub"), "Livro – é um teste.epub");
+        // Trailing dot/space trimmed (Windows dislikes trailing dots).
+        assert_eq!(sanitize_filename("foo. "), "foo");
+        assert_safe_component("日本語の本.epub");
+    }
+
+    #[test]
+    fn never_returns_dot_components_for_adversarial_inputs() {
+        for input in [
+            "..", "...", ".", "../../x", "a/..", "..\\..\\win", "C:..", ". .", "..epub",
+        ] {
+            assert_safe_component(input);
+        }
     }
 }

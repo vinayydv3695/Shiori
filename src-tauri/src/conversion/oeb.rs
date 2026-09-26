@@ -170,27 +170,39 @@ fn sanitize_xhtml(html: &str) -> String {
 }
 
 /// Remove all occurrences of `<tagname ...>...</tagname>` (case-insensitive).
+///
+/// The scan is ASCII-case-insensitive and runs directly over the original
+/// `html` bytes: tag names are ASCII in practice, and comparing byte windows
+/// with `eq_ignore_ascii_case` never changes byte lengths, so every offset
+/// indexes `html` itself. (Mapping offsets from a `to_lowercase()` copy is
+/// unsafe — lowering chars like `İ`/`ẞ` changes their UTF-8 length and drifts
+/// byte offsets onto mid-character boundaries.)
 fn remove_tag_block(html: &str, tag: &str) -> String {
     let open_pat = format!("<{}", tag);
     let close_pat = format!("</{}>", tag);
+    let bytes = html.as_bytes();
     let mut result = String::with_capacity(html.len());
-    let lower = html.to_lowercase();
-    let open_lower = open_pat.to_lowercase();
-    let close_lower = close_pat.to_lowercase();
-
     let mut pos = 0;
-    while pos < html.len() {
-        if let Some(start) = lower[pos..].find(&open_lower).map(|i| i + pos) {
+
+    while pos < bytes.len() {
+        // Find the next `<tag` occurrence (case-insensitive, ASCII only).
+        if let Some(start) = bytes[pos..]
+            .windows(open_pat.len())
+            .position(|w| w.eq_ignore_ascii_case(open_pat.as_bytes()))
+            .map(|i| pos + i)
+        {
             // Copy everything before this tag
             result.push_str(&html[pos..start]);
-            // Find closing tag
-            if let Some(end_rel) = lower[start..].find(&close_lower) {
-                let close_start = start + end_rel;
-                let close_end = close_start + close_pat.len();
+            // Find the matching close tag `</tag>` after it
+            if let Some(end_rel) = bytes[start..]
+                .windows(close_pat.len())
+                .position(|w| w.eq_ignore_ascii_case(close_pat.as_bytes()))
+            {
+                let close_end = start + end_rel + close_pat.len();
                 pos = close_end;
             } else {
                 // No closing tag found — skip to end
-                pos = html.len();
+                pos = bytes.len();
             }
         } else {
             // No more of this tag
@@ -250,6 +262,31 @@ mod tests {
         let out = sanitize_xhtml(html);
         assert!(!out.contains("script"), "script tags should be removed");
         assert!(out.contains("Hello") && out.contains("World"));
+    }
+
+    #[test]
+    fn test_remove_tag_block_unicode_case_drift() {
+        // `İ` lowercases to `i̇`: 2 bytes → 3. Under a to_lowercase() scan the
+        // pre-block offset would drift past the `<`, slicing mid-char / OOB.
+        let html = "İnfo before<script>var İ = 0;</script>and after";
+        assert_eq!(remove_tag_block(html, "script"), "İnfo beforeand after");
+
+        // `ẞ` lowercases to `ß`: 3 bytes → 2.
+        let html = "Straßeẞ<script>var ẞ = 1;</script>tail";
+        assert_eq!(remove_tag_block(html, "script"), "Straßeẞtail");
+
+        // `Σ` before a letter changes when lowered; kept before the block.
+        let html = "Στα<script>drop Σ here</script>end";
+        assert_eq!(remove_tag_block(html, "script"), "Σταend");
+    }
+
+    #[test]
+    fn test_remove_tag_block_no_close_tag() {
+        // Existing behavior: an unterminated block removes the rest of the input.
+        assert_eq!(remove_tag_block("keep <script>boom", "script"), "keep ");
+
+        // Same, with non-ASCII preceding the unterminated block.
+        assert_eq!(remove_tag_block("İzmir <script>boom", "script"), "İzmir ");
     }
 
     #[test]

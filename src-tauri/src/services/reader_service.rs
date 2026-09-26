@@ -157,11 +157,16 @@ impl ReaderService {
             Some(conn.last_insert_rowid())
         };
 
-        let is_finished = progress_percent >= 95.0
-            || (current_page.is_some()
-                && total_pages.is_some()
-                && total_pages.unwrap() > 0
-                && current_page.unwrap() >= total_pages.unwrap());
+        // Completion: only at/near the actual end of the book. When page info is
+        // available we additionally require the last page to be reached; without
+        // page info (EPUB/MOBI report chapter/scroll percentages only) the 98%
+        // bar is the strictest signal available. 95%-mid-book no longer counts.
+        let last_page_reached = match (current_page, total_pages) {
+            (Some(cp), Some(tp)) => tp > 0 && cp >= tp,
+            _ => false,
+        };
+        let is_finished = progress_percent >= 98.0
+            && (total_pages.is_none() || last_page_reached);
 
         let current_status: Option<String> = conn
             .query_row(
@@ -171,13 +176,21 @@ impl ReaderService {
             )
             .ok();
 
-        // Preserve manually-set terminal/hold statuses
+        // "on_hold"/"dropped" are manual-only statuses: never auto-flipped.
+        // "completed" is preserved while progress still sits at the end of the
+        // book, but a clearly diverged progress (re-read opened at an earlier
+        // position, or a session that starts mid-book) flips it back to
+        // "reading".
         let new_status = if is_finished {
             "completed"
         } else if matches!(
             current_status.as_deref(),
             Some("completed" | "on_hold" | "dropped")
-        ) {
+        ) && progress_percent >= 95.0
+        {
+            // still at/near the end — preserve manual (or prior auto) status
+            current_status.as_deref().unwrap()
+        } else if matches!(current_status.as_deref(), Some("on_hold" | "dropped")) {
             current_status.as_deref().unwrap()
         } else if progress_percent > 0.0 {
             "reading"
@@ -477,7 +490,7 @@ impl ReaderService {
               AND (?2 IS NULL OR a.book_id = ?2)
               AND (?3 IS NULL OR a.type = ?3)
               AND (?4 IS NULL OR a.category_id = ?4)
-            ORDER BY a.created_at DESC
+            ORDER BY a.created_at DESC, a.id DESC
             LIMIT ?5 OFFSET ?6
         "#;
 
@@ -540,7 +553,7 @@ impl ReaderService {
             WHERE (?1 IS NULL OR a.book_id = ?1)
               AND (?2 IS NULL OR a.type = ?2)
               AND (?3 IS NULL OR a.category_id = ?3)
-            ORDER BY a.created_at DESC
+            ORDER BY a.created_at DESC, a.id DESC
             LIMIT ?4 OFFSET ?5
         "#;
 
@@ -734,6 +747,11 @@ impl ReaderService {
         book_id: i64,
         pages_start: Option<i32>,
     ) -> Result<ReadingSession> {
+        // Best-effort housekeeping: close sessions the app never ended (killed)
+        // so they neither accumulate nor pollute future stats. Runs on every
+        // new session start — the reader service has no other startup hook.
+        Self::cleanup_stale_sessions(conn);
+
         let id = uuid::Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
 
@@ -818,6 +836,31 @@ impl ReaderService {
         Ok(())
     }
 
+    /// Close sessions left with `ended_at IS NULL` (app killed mid-reading)
+    /// that started more than 12h ago. One statement, best-effort — failures
+    /// are logged, never propagated. `ended_at = started_at` (zero duration)
+    /// is the simplest honest value: we simply don't know how long it ran.
+    fn cleanup_stale_sessions(conn: &Connection) {
+        // started_at is stored as rfc3339; compute the cutoff in the same
+        // format so the string comparison stays lexicographically valid.
+        let cutoff = (Utc::now() - chrono::Duration::hours(12)).to_rfc3339();
+        match conn.execute(
+            "UPDATE reading_sessions
+             SET ended_at = started_at
+             WHERE ended_at IS NULL AND started_at < ?1",
+            params![cutoff],
+        ) {
+            Ok(closed) if closed > 0 => {
+                log::info!(
+                    "Closed {} stale reading session(s) (ended_at IS NULL, >12h old)",
+                    closed
+                );
+            }
+            Ok(_) => {}
+            Err(e) => log::warn!("Failed to close stale reading sessions: {}", e),
+        }
+    }
+
     /// Returns the latest `current_page` from reading_progress for a book, or None.
     fn latest_progress_page(conn: &Connection, book_id: i64) -> Result<Option<i32>> {
         let page: Option<i32> = conn
@@ -846,7 +889,7 @@ impl ReaderService {
     pub fn get_daily_reading_stats(conn: &Connection, days: i32) -> Result<Vec<DailyReadingStats>> {
         let sql = r#"
             SELECT
-                date(s.started_at) as read_date,
+                date(s.started_at, 'localtime') as read_date,
                 SUM(s.duration_seconds) as total_seconds,
                 COUNT(DISTINCT s.book_id) as books_count,
                 COUNT(*) as sessions_count,
@@ -864,9 +907,9 @@ impl ReaderService {
                     ELSE 0 END) as manga_pages_read
             FROM reading_sessions s
             JOIN books b ON b.id = s.book_id
-            WHERE s.started_at >= date('now', ?1 || ' days')
+            WHERE s.started_at >= date('now', 'localtime', ?1 || ' days')
               AND (s.duration_seconds > 0 OR COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0) > 0)
-            GROUP BY date(s.started_at)
+            GROUP BY date(s.started_at, 'localtime')
             ORDER BY read_date ASC
         "#;
 
@@ -917,7 +960,7 @@ impl ReaderService {
 
     pub fn get_reading_streak(conn: &Connection) -> Result<ReadingStreak> {
         let total_days: i32 = conn.query_row(
-            "SELECT COUNT(DISTINCT date(started_at)) FROM reading_sessions WHERE duration_seconds > 0",
+            "SELECT COUNT(DISTINCT date(started_at, 'localtime')) FROM reading_sessions WHERE duration_seconds > 0",
             [],
             |row| row.get(0),
         )?;
@@ -925,19 +968,19 @@ impl ReaderService {
         let current_streak: i32 = conn.query_row(
             r#"
             WITH RECURSIVE dates AS (
-                SELECT date('now') as d
+                SELECT date('now', 'localtime') as d
                 UNION ALL
                 SELECT date(d, '-1 day') FROM dates
                 WHERE EXISTS (
                     SELECT 1 FROM reading_sessions
-                    WHERE date(started_at) = date(dates.d, '-1 day')
+                    WHERE date(started_at, 'localtime') = date(dates.d, '-1 day')
                       AND duration_seconds > 0
                 )
             )
             SELECT COUNT(*) FROM dates
             WHERE EXISTS (
                 SELECT 1 FROM reading_sessions
-                WHERE date(started_at) = dates.d AND duration_seconds > 0
+                WHERE date(started_at, 'localtime') = dates.d AND duration_seconds > 0
             )
             "#,
             [],
@@ -947,7 +990,7 @@ impl ReaderService {
         let longest_streak: i32 = conn.query_row(
             r#"
             WITH reading_days AS (
-                SELECT DISTINCT date(started_at) as d
+                SELECT DISTINCT date(started_at, 'localtime') as d
                 FROM reading_sessions
                 WHERE duration_seconds > 0
             ),
@@ -1033,7 +1076,7 @@ impl ReaderService {
             .query_row(
                 "SELECT COALESCE(SUM(duration_seconds), 0)
                  FROM reading_sessions
-                 WHERE date(started_at) = date('now') AND duration_seconds > 0",
+                 WHERE date(started_at, 'localtime') = date('now', 'localtime') AND duration_seconds > 0",
                 [],
                 |row| row.get(0),
             )
@@ -1059,7 +1102,7 @@ impl ReaderService {
             SELECT
                 COALESCE(SUM(s.duration_seconds), 0) as total_seconds,
                 COUNT(*) as total_sessions,
-                COUNT(DISTINCT date(s.started_at)) as total_days,
+                COUNT(DISTINCT date(s.started_at, 'localtime')) as total_days,
                 COALESCE(SUM(
                     CASE WHEN NOT (COALESCE(b.domain, '') IN ('manga', 'comics', 'manga_comics') OR LOWER(COALESCE(b.file_format, '')) IN ('cbz', 'cbr', 'zip', 'rar', '7z'))
                     THEN MAX(COALESCE(s.pages_end, 0) - COALESCE(s.pages_start, 0), CASE WHEN s.duration_seconds >= 60 THEN s.duration_seconds / 120 ELSE 0 END)
@@ -1242,7 +1285,7 @@ impl ReaderService {
         // 7. Longest streak in the year
         let streak_sql = r#"
             WITH reading_days AS (
-                SELECT DISTINCT date(started_at) as d
+                SELECT DISTINCT date(started_at, 'localtime') as d
                 FROM reading_sessions
                 WHERE duration_seconds > 0 AND started_at >= ?1 AND started_at <= ?2
             ),

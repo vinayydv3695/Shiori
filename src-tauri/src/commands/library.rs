@@ -1609,12 +1609,23 @@ pub async fn import_online_manga_chapters(
             |row| row.get(0),
         ).ok();
 
+        // Fatal-vs-warn policy for optional linkage on this import path:
+        // * series linkage (below) is FATAL — the request always carries a title and the
+        //   import must not report success while silently dropping requested data.
+        // * cover_path and notes (description) are non-fatal OPTIONAL fields — a failure to
+        //   persist one is logged and the book still imports.
         let series_id = if let Some(sid) = series_id {
             if let Some(cover_url) = &series_metadata.cover_url {
-                let _ = conn.execute(
+                // WARN (optional cover on existing series)
+                if let Err(e) = conn.execute(
                     "UPDATE manga_series SET cover_path = ? WHERE id = ? AND (cover_path IS NULL OR cover_path = '')",
                     rusqlite::params![cover_url, sid],
-                );
+                ) {
+                    log::warn!(
+                        "[command::import_online_manga_chapters] failed to attach cover to manga_series id {} for '{}': {}",
+                        sid, series_metadata.title, e
+                    );
+                }
             }
             sid
         } else {
@@ -1642,7 +1653,9 @@ pub async fn import_online_manga_chapters(
                     let chapter_f64 = path_obj.chapter.as_ref().and_then(|ch| ch.parse::<f64>().ok());
                     let chapter_i32 = chapter_f64.map(|v| v as i32);
 
-                    let _ = conn.execute(
+                    // FATAL: series/anilist linkage is requested data; surface failure instead of
+                    // claiming success while dropping it.
+                    conn.execute(
                         "UPDATE books SET manga_series_id = ?, series = ?, series_index = ?, anilist_id = ? WHERE id = ?",
                         rusqlite::params![
                             series_id,
@@ -1651,13 +1664,19 @@ pub async fn import_online_manga_chapters(
                             series_metadata.anilist_id,
                             bid
                         ],
-                    );
+                    )?;
 
                     if let Some(desc) = &series_metadata.description {
-                        let _ = conn.execute(
+                        // WARN (optional description); book must still import.
+                        if let Err(e) = conn.execute(
                             "UPDATE books SET notes = ? WHERE id = ? AND (notes IS NULL OR notes = '')",
                             rusqlite::params![desc, bid],
-                        );
+                        ) {
+                            log::warn!(
+                                "[command::import_online_manga_chapters] failed to attach description to book id {} (file '{}'): {}",
+                                bid, path_obj.path, e
+                            );
+                        }
                     }
                 }
             }

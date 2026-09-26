@@ -230,6 +230,41 @@ pub struct SafPush<'a> {
     pub tree: &'a dyn saf::SafTree,
 }
 
+/// Result of the dedup lookup for an opened/imported file.
+///
+/// Trashed rows are distinguished from live ones so reopening a trashed file
+/// can restore it (R-9) instead of being swallowed as a duplicate.
+enum DedupMatch {
+    /// No matching row in `books`.
+    None,
+    /// Matched a live row — the file is already in the library (duplicate).
+    Live(i64),
+    /// Matched a row currently in the trash — reopening restores it.
+    Trashed(i64),
+}
+
+/// Find an existing `books` row matching `file_hash` (when non-empty) or
+/// `file_path`, carrying its `in_trash` flag so callers can tell duplicates
+/// from restorable trashed rows. Returns `DedupMatch::None` when no row
+/// matches.
+fn find_dedup_match(conn: &rusqlite::Connection, file_hash: &str, url: &str) -> Result<DedupMatch> {
+    use rusqlite::OptionalExtension;
+    let row: Option<(i64, bool)> = conn
+        .query_row(
+            "SELECT id, in_trash FROM books
+             WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2
+             LIMIT 1",
+            params![file_hash, url],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    Ok(match row {
+        Some((id, true)) => DedupMatch::Trashed(id),
+        Some((id, _)) => DedupMatch::Live(id),
+        None => DedupMatch::None,
+    })
+}
+
 /// Ingest one "open with" file into the managed library.
 ///
 /// Returns an [`IngestResult`] — the pipeline *never* errors for
@@ -281,21 +316,38 @@ pub fn ingest_opened_file(
     // The whole phase runs inside a closure so a hard failure (`?`) still
     // reaches best_effort_cleanup below — the earlier direct `?` exits used
     // to leak the staging file (reviewer finding, slice 3).
-    let (file_hash, exists, tombstoned) = match (|| -> Result<(String, bool, bool)> {
-        let file_hash = calculate_file_hash(source_path.to_string_lossy().as_ref())?;
+    let (file_hash, exists, tombstoned, restored) =
+        match (|| -> Result<(String, bool, bool, Option<(i64, Option<String>)>)> {
+            let file_hash = calculate_file_hash(source_path.to_string_lossy().as_ref())?;
 
-        let conn = db.get_connection()?;
-        let exists: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
-            params![file_hash, url],
-            |row| row.get(0),
-        )?;
-        let tombstoned: bool = conn.query_row(
+            let conn = db.get_connection()?;
+            // R-9: the match carries `in_trash`, so a trashed row is restored
+            // instead of being swallowed as a duplicate (mirrors the import
+            // path's restore semantics; the row's file_path already points at
+            // the managed copy, so no file work is needed).
+            let matched = find_dedup_match(&conn, &file_hash, url)?;
+            let restored = match matched {
+                DedupMatch::Trashed(id) => {
+                    library_service::restore_book(db, id)?;
+                    let title = conn
+                        .query_row(
+                            "SELECT title FROM books WHERE id = ?1",
+                            params![id],
+                            |row| row.get(0),
+                        )
+                        .ok()
+                        .flatten();
+                    Some((id, title))
+                }
+                _ => None,
+            };
+            let exists = matches!(matched, DedupMatch::Live(_));
+            let tombstoned: bool = conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM deleted_books WHERE (file_hash != '' AND file_hash = ?1) OR file_path = ?2)",
             params![file_hash, url],
             |row| row.get(0),
         )?;
-        Ok((file_hash, exists, tombstoned))
+        Ok((file_hash, exists, tombstoned, restored))
     })() {
         Ok(v) => v,
         Err(e) => {
@@ -303,6 +355,18 @@ pub fn ingest_opened_file(
             return Err(e);
         }
     };
+
+    // R-9: the file exists but sits in the trash — restore the row and
+    // report success (the import path treats this as a successful import).
+    if let Some((id, title)) = restored {
+        best_effort_cleanup(source_path, cleanup_source);
+        return Ok(IngestResult {
+            status: "imported".to_string(),
+            path: url.to_string(),
+            book_id: Some(id),
+            title,
+        });
+    }
 
     if exists {
         best_effort_cleanup(source_path, cleanup_source);
@@ -560,6 +624,59 @@ fn best_effort_cleanup(source_path: &Path, cleanup_source: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dedup_match_distinguishes_live_trashed_and_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::new(&dir.path().join("test.db")).unwrap();
+        let conn = db.get_connection().unwrap();
+
+        let insert = |hash: &str, in_trash: bool| -> (i64, String) {
+            let file_path = format!("/tmp/ingest_test-{}.epub", Uuid::new_v4());
+            conn.execute(
+                "INSERT INTO books (uuid, title, file_path, file_format, file_hash, in_trash)
+                 VALUES (?1, ?2, ?3, 'epub', ?4, ?5)",
+                params![
+                    Uuid::new_v4().to_string(),
+                    "Test Book",
+                    file_path,
+                    hash,
+                    in_trash as i64,
+                ],
+            )
+            .unwrap();
+            (conn.last_insert_rowid(), file_path)
+        };
+
+        let (live_id, live_path) = insert("hash-live", false);
+        let (trashed_id, trashed_path) = insert("hash-trashed", true);
+
+        // Live match → duplicate.
+        assert!(matches!(
+            find_dedup_match(&conn, "hash-live", "/nope").unwrap(),
+            DedupMatch::Live(id) if id == live_id
+        ));
+        // Trashed match by hash → flagged for restore.
+        assert!(matches!(
+            find_dedup_match(&conn, "hash-trashed", "/nope").unwrap(),
+            DedupMatch::Trashed(id) if id == trashed_id
+        ));
+        // Trashed match by file_path → still flagged for restore (R-9).
+        assert!(matches!(
+            find_dedup_match(&conn, "", &trashed_path).unwrap(),
+            DedupMatch::Trashed(id) if id == trashed_id
+        ));
+        // Live match by file_path → duplicate.
+        assert!(matches!(
+            find_dedup_match(&conn, "", &live_path).unwrap(),
+            DedupMatch::Live(id) if id == live_id
+        ));
+        // No match → None.
+        assert!(matches!(
+            find_dedup_match(&conn, "hash-missing", "/nope").unwrap(),
+            DedupMatch::None
+        ));
+    }
 
     #[test]
     fn candidate_name_from_fileprovider_uri() {

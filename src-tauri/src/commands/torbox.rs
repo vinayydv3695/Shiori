@@ -92,6 +92,22 @@ fn emit_local_download_progress(
     let _ = app_handle.emit("torbox:local-download-progress", payload);
 }
 
+/// Verify a completed download wrote the expected number of bytes.
+///
+/// When the server provided no expected size (`None`, e.g. chunked responses
+/// without Content-Length) the download is accepted — there is nothing to
+/// compare against. Otherwise any mismatch (short EOF or oversized body)
+/// is rejected so a truncated EPUB/CBZ never reaches the importer.
+fn verify_download_size(got: u64, expected: Option<u64>) -> Result<()> {
+    match expected {
+        Some(expected) if got != expected => Err(ShioriError::Other(format!(
+            "download incomplete: got {} of {} bytes",
+            got, expected
+        ))),
+        _ => Ok(()),
+    }
+}
+
 impl TorboxState {
     pub fn new() -> Result<Self> {
         Ok(Self {
@@ -247,14 +263,26 @@ async fn finalize_import_from_target(
         }
 
         let dest_path = downloads_dir.join(sanitize_torrent_rel_path(&filename)?);
+        // Stream into a sibling temp file (same directory) so a truncated
+        // download never lands at the final path. Only a size-verified
+        // download is atomically renamed into place below.
+        let mut part_name = dest_path.as_os_str().to_os_string();
+        part_name.push(".part");
+        let part_path = PathBuf::from(part_name);
+
         let mut last_emitted_percent: i64 = -1;
         let mut last_emitted_bytes: u64 = 0;
+        // Last Content-Length seen by the progress callback (i.e. from the
+        // response of the attempt that actually succeeded). `None` when the
+        // server sent no Content-Length.
+        let mut expected_size: Option<u64> = None;
 
         service
             .download_file_with_progress(
                 &download_url,
-                &dest_path,
+                &part_path,
                 |downloaded_bytes, total_bytes| {
+                    expected_size = total_bytes;
                     let progress = total_bytes
                         .filter(|total| *total > 0)
                         .map(|total| (downloaded_bytes as f64 / total as f64) * 100.0)
@@ -294,6 +322,34 @@ async fn finalize_import_from_target(
                 },
             )
             .await?;
+
+        // Size-verification gate: a clean-but-short EOF (server sent a
+        // Content-Length that was never fulfilled) must not import as a valid
+        // book. On mismatch, delete the .part file and bail — the caller only
+        // imports on Ok, so the partial file never enters the library.
+        let actual_bytes = std::fs::metadata(&part_path)?.len();
+        if let Err(err) = verify_download_size(actual_bytes, expected_size) {
+            let _ = std::fs::remove_file(&part_path);
+            return Err(err);
+        }
+        if expected_size.is_none() {
+            log::warn!(
+                "Torbox download '{}' sent no Content-Length; accepted {} bytes without size verification",
+                filename,
+                actual_bytes
+            );
+        }
+        if let Err(rename_err) = std::fs::rename(&part_path, &dest_path) {
+            // Windows refuses to rename over an existing file; drop a stale
+            // final path first and retry once so re-downloads still work.
+            let _ = std::fs::remove_file(&dest_path);
+            std::fs::rename(&part_path, &dest_path).map_err(|e| {
+                ShioriError::Other(format!(
+                    "Failed to finalize download '{}': {} (initial error: {})",
+                    filename, e, rename_err
+                ))
+            })?;
+        }
 
         emit_local_download_progress(
             app_handle,
@@ -987,6 +1043,19 @@ mod tests {
         // Trailing separators and '.' components collapse harmlessly
         let p = sanitize_torrent_rel_path("./vol/./ch1/").unwrap();
         assert_eq!(p, PathBuf::from("vol/ch1"));
+    }
+
+    #[test]
+    fn test_verify_download_size() {
+        // Exact match accepted.
+        assert!(verify_download_size(1234, Some(1234)).is_ok());
+        // No expected size (no Content-Length) → accepted.
+        assert!(verify_download_size(1234, None).is_ok());
+        // Empty download vs. expected size → rejected.
+        assert!(verify_download_size(0, Some(100)).is_err());
+        // Truncated (clean-but-short EOF) → rejected with got-N-of-M message.
+        let err = verify_download_size(999, Some(1000)).unwrap_err();
+        assert_eq!(err.to_string(), "download incomplete: got 999 of 1000 bytes");
     }
 
     #[test]

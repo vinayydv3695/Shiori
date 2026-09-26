@@ -2564,9 +2564,10 @@ const CommunityPluginsSettings = ({
           <SourceManager />
         </SettingSection>
       )}
-      {isSectionVisible('Extensions', ['Extensions', 'WASM', 'Install from file', 'Repository']) && (
-        <ExtensionsSection />
-      )}
+      {isSectionVisible('Extensions', ['Extensions', 'WASM', 'Install from file', 'Repository']) &&
+        (import.meta.env.DEV || import.meta.env.VITE_ENABLE_EXTENSIONS === '1') && (
+          <ExtensionsSection />
+        )}
       {isSectionVisible('Online Cache', ['Online Cache', 'Cache', 'Storage']) && (
         <SettingSection title="Online Cache" description="Disk space used by online browsing — bounded and auto-cleaned">
           <OnlineCacheSettings />

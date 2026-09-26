@@ -19,6 +19,22 @@ import { SettingSection, SettingItem } from './SettingsDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+/**
+ * Stable per-device id, generated once and persisted locally. It namespaces the
+ * remote backup file so devices never overwrite each other's snapshots.
+ */
+function getOrCreateDeviceId(): string {
+  const KEY = 'shiori-sync-device-id';
+  const existing = localStorage.getItem(KEY);
+  if (existing) return existing;
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  localStorage.setItem(KEY, id);
+  return id;
+}
+
 export function CloudSyncSection() {
   const [config, setConfig] = useState<WebDAVConfig>({
     url: '',
@@ -48,7 +64,7 @@ export function CloudSyncSection() {
     localStorage.setItem('shiori-webdav-config', JSON.stringify(config));
     useToastStore.getState().addToast({
       title: 'Credentials Saved',
-      description: 'WebDAV sync settings saved successfully.',
+      description: 'WebDAV backup settings saved successfully.',
       variant: 'success',
     });
   };
@@ -106,6 +122,9 @@ export function CloudSyncSection() {
           const prog = await api.getReadingProgress(book.id);
           if (prog) {
             progressList.push({
+              // uuid is the stable cross-device book identity (primary key);
+              // bookId is device-local and kept for backward compat.
+              uuid: book.uuid,
               bookId: book.id,
               currentPage: prog.currentPage || 0,
               progressPercent: prog.progressPercent || 0,
@@ -118,25 +137,26 @@ export function CloudSyncSection() {
       const payload: ShioriSyncPayload = {
         version: 1,
         timestamp: Date.now(),
-        deviceId: 'shiori-desktop',
+        deviceId: getOrCreateDeviceId(),
         progressList,
         bookmarks: [],
       };
 
+      // ponytail: upload-only; pull+merge keyed by uuid is the next step.
       await WebDAVClient.uploadPayload(config, payload);
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setLastSyncTime(timeStr);
       localStorage.setItem('shiori-webdav-last-sync', timeStr);
 
       useToastStore.getState().addToast({
-        title: 'Sync Complete',
-        description: `Synced ${progressList.length} reading progress entries to WebDAV.`,
+        title: 'Backup Complete',
+        description: `Uploaded ${progressList.length} reading progress entries to WebDAV.`,
         variant: 'success',
       });
     } catch (err: any) {
       useToastStore.getState().addToast({
-        title: 'Sync Failed',
-        description: err?.message || 'Failed to sync with WebDAV',
+        title: 'Backup Failed',
+        description: err?.message || 'Failed to upload backup to WebDAV',
         variant: 'error',
       });
     } finally {
@@ -148,17 +168,17 @@ export function CloudSyncSection() {
     <div className="space-y-8">
       {/* 1. Sync Status Card */}
       <SettingSection
-        title="Cross-Device Cloud Sync"
-        description="Synchronize reading progress, bookmarks, and highlights between your desktop and Android phone using Nextcloud, ownCloud, Koofr, InfiniCLOUD, or any WebDAV server."
+        title="Cloud Backup (Upload)"
+        description="Uploads this device's reading progress to your WebDAV server under a per-device file. Restoring is not automatic yet."
       >
         <div className="p-4 rounded-xl border border-border/60 bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
           <div>
             <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-green-500" />
-              End-to-End Self-Hosted Sync
+              Upload-Only Cloud Backup
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {lastSyncTime ? `Last synced today at ${lastSyncTime}` : 'No sync performed yet'}
+              {lastSyncTime ? `Last synced today at ${lastSyncTime}` : 'No backup performed yet'}
             </p>
           </div>
           <Button
@@ -168,7 +188,7 @@ export function CloudSyncSection() {
             className="gap-2 cursor-pointer text-xs shrink-0"
           >
             <RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />
-            {syncing ? 'Syncing...' : 'Sync Now'}
+            {syncing ? 'Backing up...' : 'Back Up Now'}
           </Button>
         </div>
       </SettingSection>

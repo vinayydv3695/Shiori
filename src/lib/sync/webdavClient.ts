@@ -17,6 +17,9 @@ export interface ShioriSyncPayload {
   timestamp: number;
   deviceId: string;
   progressList: Array<{
+    /** Stable book identity (same across devices) — primary merge key for future pulls. */
+    uuid: string;
+    /** Local numeric bookId — differs per device, kept for backward compat only. */
     bookId: number;
     currentPage: number;
     progressPercent: number;
@@ -44,6 +47,14 @@ function normalizeUrl(url: string, path: string): string {
   const base = url.replace(/\/$/, '');
   const cleanPath = path.replace(/^\//, '');
   return `${base}/${cleanPath}`;
+}
+
+function deviceFileName(payload: ShioriSyncPayload): string {
+  // Namespace the remote file per device so one device's upload can never
+  // clobber another device's snapshot. Legacy `shiori-sync.json` is left
+  // untouched on the server (no delete) for backward compatibility.
+  const safeDeviceId = payload.deviceId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `shiori-sync-${safeDeviceId}.json`;
 }
 
 export class WebDAVClient {
@@ -89,13 +100,15 @@ export class WebDAVClient {
   }
 
   /**
-   * Uploads sync state to WebDAV as `shiori-sync.json`.
+   * Uploads sync state to WebDAV as `shiori-sync-<deviceId>.json` — a per-device
+   * file, so devices never overwrite each other's snapshots.
+   * ponytail: upload-only; pull+merge keyed by uuid is the next step.
    */
   static async uploadPayload(config: WebDAVConfig, payload: ShioriSyncPayload): Promise<void> {
     await this.ensureFolder(config);
 
     const folder = config.syncFolder ? config.syncFolder.replace(/\/$/, '') : '';
-    const fileUrl = normalizeUrl(config.url, `${folder}/shiori-sync.json`);
+    const fileUrl = normalizeUrl(config.url, `${folder}/${deviceFileName(payload)}`);
 
     const jsonStr = JSON.stringify(payload, null, 2);
 
@@ -114,11 +127,18 @@ export class WebDAVClient {
   }
 
   /**
-   * Downloads remote `shiori-sync.json` from WebDAV.
+   * Downloads a remote sync file from WebDAV.
+   *
+   * Reserved for the future restore flow (pull + merge keyed by uuid); not
+   * currently called by the app. With `deviceId` it reads the per-device file
+   * `shiori-sync-<deviceId>.json`; without it, the legacy `shiori-sync.json`.
    */
-  static async downloadPayload(config: WebDAVConfig): Promise<ShioriSyncPayload | null> {
+  static async downloadPayload(config: WebDAVConfig, deviceId?: string): Promise<ShioriSyncPayload | null> {
     const folder = config.syncFolder ? config.syncFolder.replace(/\/$/, '') : '';
-    const fileUrl = normalizeUrl(config.url, `${folder}/shiori-sync.json`);
+    const fileName = deviceId
+      ? `shiori-sync-${deviceId.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`
+      : 'shiori-sync.json';
+    const fileUrl = normalizeUrl(config.url, `${folder}/${fileName}`);
 
     const response = await fetch(fileUrl, {
       method: 'GET',

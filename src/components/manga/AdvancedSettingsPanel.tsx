@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     useMangaUIStore,
     useMangaSettingsStore,
@@ -28,10 +28,8 @@ import {
     ZoomOut, 
     Scan, 
     Eye, 
-    Hash, 
     FileDigit,
-    Infinity,
-    Repeat 
+    Infinity as InfinityIcon,
 } from 'lucide-react';
 import { isAndroid } from '@/lib/tauri';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -81,6 +79,36 @@ export function AdvancedSettingsPanel() {
 
     const [activeTab, setActiveTab] = useState<SettingsTab>('layout');
 
+    const dialogRef = useRef<HTMLDivElement>(null);
+
+    // Focus the dialog panel when it opens
+    useEffect(() => {
+        if (isOpen) dialogRef.current?.focus();
+    }, [isOpen]);
+
+    // Trap Tab inside the dialog; Escape closes
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeSettings();
+            return;
+        }
+        if (e.key !== 'Tab' || !dialogRef.current) return;
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    };
+
     if (!isOpen) return null;
 
     const tabs: { value: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -129,6 +157,12 @@ export function AdvancedSettingsPanel() {
             }}
         >
             <div 
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Reader Settings"
+                tabIndex={-1}
+                onKeyDown={handleKeyDown}
                 className={`w-full max-w-xl max-h-[85vh] flex flex-col rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl transition-all animate-in zoom-in-95 duration-200 ${
                     isLight
                         ? 'bg-[#FAF6EC] text-[#2C1E0F] border border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/15'
@@ -428,7 +462,7 @@ export function AdvancedSettingsPanel() {
                                     <div className="flex items-center justify-between gap-4">
                                         <div className="flex items-center gap-3">
                                             <div className={`p-2 rounded-xl ${isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'}`}>
-                                                <Infinity className="w-4 h-4" />
+                                                <InfinityIcon className="w-4 h-4" />
                                             </div>
                                             <div>
                                                 <div className="text-xs font-semibold">Continuous Chapter Flow</div>

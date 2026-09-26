@@ -74,7 +74,7 @@ export function BottomNav({
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-all duration-300 active:scale-95">
+          <button aria-label="More" className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-all duration-300 active:scale-95">
             <Menu className="w-[26px] h-[26px]" />
             <span className="text-[11px] font-medium hidden sm:block">More</span>
           </button>

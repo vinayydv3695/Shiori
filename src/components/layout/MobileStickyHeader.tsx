@@ -27,12 +27,10 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
   const [searchFocused, setSearchFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Sync external changes
-  useEffect(() => {
-    if (searchQuery !== undefined && searchQuery !== internalValue) {
-      setInternalValue(searchQuery)
-    }
-  }, [searchQuery])
+  // Sync external changes (derived state: adjust during render, per React docs)
+  if (searchQuery !== undefined && searchQuery !== internalValue) {
+    setInternalValue(searchQuery)
+  }
 
   // Debounce the callback to parent
   useEffect(() => {
@@ -52,10 +50,11 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
 
   return (
     <div
-      className="sticky top-0 z-40 px-3 bg-background border-b border-border/40 pt-2 pb-3 flex flex-col gap-3 md:hidden"
+      className="sticky top-0 z-40 px-3 bg-background border-b border-border/40 pb-3 flex flex-col gap-3 md:hidden"
       style={{
         paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
-        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)'
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)'
       }}
     >
       <div className="flex items-center justify-between gap-3">
@@ -103,6 +102,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
           {!hideThemeToggle && (
             <button
               type="button"
+              aria-label="Toggle theme"
               onClick={toggleTheme}
               className="relative flex items-center justify-center h-12 w-12 rounded-ui-full border shadow-sm transition-all duration-200 touch-target bg-background text-foreground border-border hover:bg-accent flex-shrink-0"
             >

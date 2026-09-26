@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X, Keyboard, Search, Settings, BookOpen, Image as ImageIcon, Grid } from 'lucide-react'
 import { SHORTCUTS_CATALOG } from '@/lib/shortcutsCatalog'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { usePreferencesStore } from '@/store/preferencesStore'
 
@@ -42,12 +42,10 @@ export const ShortcutsDialog = ({ open, onOpenChange }: ShortcutsDialogProps) =>
 
   const tabs = ['All', ...relevantCatalog.map(c => c.title)]
 
-  // Adjust active tab if it becomes hidden
-  useEffect(() => {
-    if (activeTab !== 'All' && !tabs.includes(activeTab)) {
-      setActiveTab('All')
-    }
-  }, [tabs, activeTab])
+  // Adjust active tab if it becomes hidden (derived state: adjust during render)
+  if (activeTab !== 'All' && !tabs.includes(activeTab)) {
+    setActiveTab('All')
+  }
 
   const filteredCatalog = useMemo(() => {
     return relevantCatalog
@@ -65,8 +63,8 @@ export const ShortcutsDialog = ({ open, onOpenChange }: ShortcutsDialogProps) =>
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] z-50 w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] flex flex-col rounded-xl border border-border/50 bg-background/95 backdrop-blur-2xl shadow-2xl overflow-hidden h-[70vh] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[var(--z-modal-backdrop)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Content aria-describedby={undefined} className="dialog-content fixed left-[50%] top-[50%] z-[var(--z-modal)] w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] flex flex-col rounded-xl border border-border/50 bg-background/95 backdrop-blur-2xl shadow-2xl overflow-hidden h-[70vh] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]">
           
           {/* Header */}
           <div className="flex flex-col border-b border-border/50 shrink-0 bg-muted/20">

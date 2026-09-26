@@ -97,7 +97,7 @@ export const CommandPalette = ({
         onOpenChange={setOpen}
         label="Command Palette"
         className={cn(
-          'fixed top-[20%] left-1/2 -translate-x-1/2 z-50',
+          'fixed top-[20%] left-1/2 -translate-x-1/2 z-[var(--z-modal)]',
           'w-full max-w-2xl rounded-xl border border-border bg-background/95 backdrop-blur-xl shadow-2xl',
           'overflow-hidden transition-all',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200'
@@ -299,7 +299,7 @@ export const CommandPalette = ({
       {/* Backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-background/60 backdrop-blur-md z-40 animate-in fade-in duration-200"
+          className="fixed inset-0 bg-background/60 backdrop-blur-md z-[var(--z-modal-backdrop)] animate-in fade-in duration-200"
           onClick={() => setOpen(false)}
         />
       )}

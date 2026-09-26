@@ -9,6 +9,7 @@ pub mod shelves;
 pub mod tags;
 
 // New v2.0 commands
+pub mod ai;
 pub mod anilist;
 pub mod backup;
 pub mod conversion;
@@ -349,6 +350,10 @@ macro_rules! generate_shiori_handlers {
             commands::sync::get_sync_pairing_token,
             commands::sync::rotate_sync_pairing_token,
             commands::sync::sync_with_desktop,
+            commands::ai::ai_key_get,
+            commands::ai::ai_key_set,
+            commands::ai::ai_key_delete,
+            commands::ai::ai_key_list,
         ]
     };
 }

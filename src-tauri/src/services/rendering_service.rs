@@ -15,15 +15,37 @@ use std::sync::{Arc, Mutex};
 /// Manages book renderers and caching
 pub struct RenderingService {
     cache: Arc<BookCache>,
-    // Store active renderers per book
-    epub_renderers: Arc<Mutex<HashMap<i64, EpubAdapter>>>,
-    pdf_renderers: Arc<Mutex<HashMap<i64, PdfAdapter>>>,
-    docx_renderers: Arc<Mutex<HashMap<i64, DocxAdapter>>>,
-    mobi_renderers: Arc<Mutex<HashMap<i64, MobiAdapter>>>,
-    fb2_renderers: Arc<Mutex<HashMap<i64, Fb2ReaderAdapter>>>,
-    html_renderers: Arc<Mutex<HashMap<i64, HtmlReaderAdapter>>>,
-    txt_renderers: Arc<Mutex<HashMap<i64, TxtReaderAdapter>>>,
-    md_renderers: Arc<Mutex<HashMap<i64, MarkdownReaderAdapter>>>,
+    // Store active renderers per book. Each adapter lives behind its own
+    // `Mutex` (not cloneable — EPUB/PDF/etc. hold big file-backed state),
+    // so the per-format map lock is only ever held to clone the
+    // `Arc<Mutex<Adapter>>` handle (`take_adapter`), and a heavy parse
+    // holds just that book's lock — no longer every reader of the format.
+    epub_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<EpubAdapter>>>>>,
+    pdf_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<PdfAdapter>>>>>,
+    docx_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<DocxAdapter>>>>>,
+    mobi_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<MobiAdapter>>>>>,
+    fb2_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<Fb2ReaderAdapter>>>>>,
+    html_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<HtmlReaderAdapter>>>>>,
+    txt_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<TxtReaderAdapter>>>>>,
+    md_renderers: Arc<Mutex<HashMap<i64, Arc<Mutex<MarkdownReaderAdapter>>>>>,
+}
+
+/// Acquire a renderer mutex, recovering from poisoning.
+///
+/// `std::sync::Mutex` poisons itself if the guarded code panics; without
+/// recovery every later `.lock().unwrap()` would panic in turn and brick the
+/// format for the whole session. `into_inner()` hands back the guard, so one
+/// bad parse can only degrade that adapter, never kill it.
+fn lock_poison_ok<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Look up a book's adapter handle under a *short* map lock and drop the
+/// map guard before returning, so the heavy parse that follows runs against
+/// the book's own `Arc<Mutex<Adapter>>` and serializes only readers of that
+/// same book — not every reader of the format.
+fn take_adapter<A>(map: &Mutex<HashMap<i64, Arc<Mutex<A>>>>, book_id: i64) -> Option<Arc<Mutex<A>>> {
+    lock_poison_ok(map).get(&book_id).cloned()
 }
 
 impl RenderingService {
@@ -69,8 +91,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.epub_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.epub_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -84,8 +106,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.pdf_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.pdf_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -99,8 +121,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.docx_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.docx_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -114,8 +136,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.mobi_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.mobi_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -129,8 +151,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.fb2_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.fb2_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -144,8 +166,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.html_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.html_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -159,8 +181,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.txt_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.txt_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -174,8 +196,8 @@ impl RenderingService {
                 load_result?;
                 let metadata = adapter.get_metadata()?;
                 {
-                    let mut renderers = self.md_renderers.lock().unwrap();
-                    renderers.insert(book_id, adapter);
+                    let mut renderers = lock_poison_ok(&self.md_renderers);
+                    renderers.insert(book_id, Arc::new(Mutex::new(adapter)));
                 }
                 Ok(metadata)
             }
@@ -208,28 +230,28 @@ impl RenderingService {
 
     /// Close a book and free resources
     pub fn close_book(&self, book_id: i64) {
-        let mut epub_renderers = self.epub_renderers.lock().unwrap();
+        let mut epub_renderers = lock_poison_ok(&self.epub_renderers);
         epub_renderers.remove(&book_id);
 
-        let mut pdf_renderers = self.pdf_renderers.lock().unwrap();
+        let mut pdf_renderers = lock_poison_ok(&self.pdf_renderers);
         pdf_renderers.remove(&book_id);
 
-        let mut docx_renderers = self.docx_renderers.lock().unwrap();
+        let mut docx_renderers = lock_poison_ok(&self.docx_renderers);
         docx_renderers.remove(&book_id);
 
-        let mut mobi_renderers = self.mobi_renderers.lock().unwrap();
+        let mut mobi_renderers = lock_poison_ok(&self.mobi_renderers);
         mobi_renderers.remove(&book_id);
 
-        let mut fb2_renderers = self.fb2_renderers.lock().unwrap();
+        let mut fb2_renderers = lock_poison_ok(&self.fb2_renderers);
         fb2_renderers.remove(&book_id);
 
-        let mut html_renderers = self.html_renderers.lock().unwrap();
+        let mut html_renderers = lock_poison_ok(&self.html_renderers);
         html_renderers.remove(&book_id);
 
-        let mut txt_renderers = self.txt_renderers.lock().unwrap();
+        let mut txt_renderers = lock_poison_ok(&self.txt_renderers);
         txt_renderers.remove(&book_id);
 
-        let mut md_renderers = self.md_renderers.lock().unwrap();
+        let mut md_renderers = lock_poison_ok(&self.md_renderers);
         md_renderers.remove(&book_id);
 
         // Clear cache for this book
@@ -239,28 +261,28 @@ impl RenderingService {
     /// Returns `true` if a renderer for the book is currently open in any of
     /// the per-format renderer maps.
     pub fn is_open(&self, book_id: i64) -> bool {
-        if self.epub_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.epub_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.pdf_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.pdf_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.docx_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.docx_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.mobi_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.mobi_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.fb2_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.fb2_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.html_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.html_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.txt_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.txt_renderers).contains_key(&book_id) {
             return true;
         }
-        if self.md_renderers.lock().unwrap().contains_key(&book_id) {
+        if lock_poison_ok(&self.md_renderers).contains_key(&book_id) {
             return true;
         }
         false
@@ -313,44 +335,46 @@ impl RenderingService {
 
     /// Get table of contents for a book
     pub fn get_toc(&self, book_id: i64) -> Result<Vec<TocEntry>> {
-        // Try EPUB first
-        if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        // Try EPUB first — clone the book's `Arc<Mutex<Adapter>>` under a
+        // short map lock (dropped inside `take_adapter`), then parse under
+        // only this book's mutex, recovered via `lock_poison_ok`.
+        if let Some(adapter) = take_adapter(&self.epub_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try PDF
-        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.pdf_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try DOCX
-        if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.docx_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try MOBI
-        if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.mobi_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try FB2
-        if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.fb2_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try HTML
-        if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.html_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try TXT
-        if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.txt_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         // Try Markdown
-        if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_toc();
+        if let Some(adapter) = take_adapter(&self.md_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_toc();
         }
 
         Err(ShioriError::BookNotFound(format!(
@@ -384,86 +408,43 @@ impl RenderingService {
             });
         }
 
-        // Try to fetch from renderer - check EPUB first
-        let chapter = {
-            let epub_renderers = self.epub_renderers.lock().unwrap();
-            if let Some(adapter) = epub_renderers.get(&book_id) {
-                let result = adapter.get_chapter(chapter_index);
-                drop(epub_renderers); // Release lock before checking result
-                result?
-            } else {
-                drop(epub_renderers); // Release EPUB lock before trying PDF
-
-                // Try PDF renderer
-                let pdf_renderers = self.pdf_renderers.lock().unwrap();
-                if let Some(adapter) = pdf_renderers.get(&book_id) {
-                    let result = adapter.get_chapter(chapter_index);
-                    drop(pdf_renderers); // Release lock before checking result
-                    result?
-                } else {
-                    drop(pdf_renderers);
-
-                    // Try DOCX renderer
-                    let docx_renderers = self.docx_renderers.lock().unwrap();
-                    if let Some(adapter) = docx_renderers.get(&book_id) {
-                        let result = adapter.get_chapter(chapter_index);
-                        drop(docx_renderers);
-                        result?
-                    } else {
-                        drop(docx_renderers);
-
-                        // Try MOBI renderer
-                        let mobi_renderers = self.mobi_renderers.lock().unwrap();
-                        if let Some(adapter) = mobi_renderers.get(&book_id) {
-                            let result = adapter.get_chapter(chapter_index);
-                            drop(mobi_renderers);
-                            result?
-                        } else {
-                            drop(mobi_renderers);
-
-                            let fb2_renderers = self.fb2_renderers.lock().unwrap();
-                            if let Some(adapter) = fb2_renderers.get(&book_id) {
-                                let result = adapter.get_chapter(chapter_index);
-                                drop(fb2_renderers);
-                                result?
-                            } else {
-                                drop(fb2_renderers);
-
-                                let html_renderers = self.html_renderers.lock().unwrap();
-                                if let Some(adapter) = html_renderers.get(&book_id) {
-                                    let result = adapter.get_chapter(chapter_index);
-                                    drop(html_renderers);
-                                    result?
-                                } else {
-                                    drop(html_renderers);
-
-                                    let txt_renderers = self.txt_renderers.lock().unwrap();
-                                    if let Some(adapter) = txt_renderers.get(&book_id) {
-                                        let result = adapter.get_chapter(chapter_index);
-                                        drop(txt_renderers);
-                                        result?
-                                    } else {
-                                        drop(txt_renderers);
-
-                                        let md_renderers = self.md_renderers.lock().unwrap();
-                                        if let Some(adapter) = md_renderers.get(&book_id) {
-                                            let result = adapter.get_chapter(chapter_index);
-                                            drop(md_renderers);
-                                            result?
-                                        } else {
+        // Try to fetch from renderer — EPUB first, then the other formats.
+        // Each lookup clones the book's `Arc<Mutex<Adapter>>` handle under a
+        // short map lock and drops it before parsing (`take_adapter`), so a
+        // slow chapter parse never holds the per-format map lock; it only
+        // serializes readers of the same book under that book's own mutex.
+        let chapter = match take_adapter(&self.epub_renderers, book_id) {
+            Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+            None => match take_adapter(&self.pdf_renderers, book_id) {
+                Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+                None => match take_adapter(&self.docx_renderers, book_id) {
+                    Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+                    None => match take_adapter(&self.mobi_renderers, book_id) {
+                        Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+                        None => match take_adapter(&self.fb2_renderers, book_id) {
+                            Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+                            None => match take_adapter(&self.html_renderers, book_id) {
+                                Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+                                None => match take_adapter(&self.txt_renderers, book_id) {
+                                    Some(adapter) => lock_poison_ok(&adapter).get_chapter(chapter_index),
+                                    None => match take_adapter(&self.md_renderers, book_id) {
+                                        Some(adapter) => {
+                                            lock_poison_ok(&adapter).get_chapter(chapter_index)
+                                        }
+                                        None => {
                                             return Err(ShioriError::BookNotFound(format!(
                                                 "Book {} not opened",
                                                 book_id
-                                            )));
+                                            )))
                                         }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }?;
 
         // Cache the result
         self.cache
@@ -479,36 +460,36 @@ impl RenderingService {
 
     /// Get chapter count
     pub fn get_chapter_count(&self, book_id: i64) -> Result<usize> {
-        if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.epub_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.pdf_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.docx_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.mobi_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.fb2_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.html_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.txt_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
-        if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
-            return Ok(adapter.chapter_count());
+        if let Some(adapter) = take_adapter(&self.md_renderers, book_id) {
+            return Ok(lock_poison_ok(&adapter).chapter_count());
         }
 
         Err(ShioriError::BookNotFound(format!(
@@ -519,36 +500,36 @@ impl RenderingService {
 
     /// Search within a book
     pub fn search_book(&self, book_id: i64, query: &str) -> Result<Vec<SearchResult>> {
-        if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.epub_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.pdf_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.docx_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.mobi_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.fb2_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.html_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.txt_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
-        if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
-            return adapter.search(query);
+        if let Some(adapter) = take_adapter(&self.md_renderers, book_id) {
+            return lock_poison_ok(&adapter).search(query);
         }
 
         Err(ShioriError::BookNotFound(format!(
@@ -559,8 +540,8 @@ impl RenderingService {
 
     /// Get a resource (image, CSS, font) from an EPUB
     pub fn get_epub_resource(&self, book_id: i64, resource_path: &str) -> Result<Vec<u8>> {
-        if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_resource(resource_path);
+        if let Some(adapter) = take_adapter(&self.epub_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_resource(resource_path);
         }
 
         Err(ShioriError::BookNotFound(format!(
@@ -575,13 +556,10 @@ impl RenderingService {
         book_id: i64,
         paths: &[String],
     ) -> Vec<(String, u32, u32)> {
-        let guard = match self.epub_renderers.lock() {
-            Ok(g) => g,
-            Err(_) => return Vec::new(),
-        };
-        let Some(adapter) = guard.get(&book_id) else {
+        let Some(adapter) = take_adapter(&self.epub_renderers, book_id) else {
             return Vec::new();
         };
+        let adapter = lock_poison_ok(&adapter);
         let mut out = Vec::with_capacity(paths.len());
         for p in paths {
             let Ok(bytes) = adapter.get_resource(p) else {
@@ -617,43 +595,43 @@ impl RenderingService {
             // Only preload if not already cached
             if self.cache.get(&cache_key).is_none() {
                 // Try to fetch and cache
-                if let Some(adapter) = self.epub_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                if let Some(adapter) = take_adapter(&self.epub_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.pdf_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.docx_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.docx_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.mobi_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.mobi_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.fb2_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.fb2_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.html_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.html_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.txt_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.txt_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
-                } else if let Some(adapter) = self.md_renderers.lock().unwrap().get(&book_id) {
-                    if let Ok(chapter) = adapter.get_chapter(next_index) {
+                } else if let Some(adapter) = take_adapter(&self.md_renderers, book_id) {
+                    if let Ok(chapter) = lock_poison_ok(&adapter).get_chapter(next_index) {
                         self.cache
                             .put(cache_key, CachedContent::Html(chapter.content.clone()));
                     }
@@ -676,10 +654,10 @@ impl RenderingService {
     /// books). Sync entry point for blocking contexts; the async PDF page
     /// rasterization is offloaded via `block_in_place` where it runs.
     pub fn render_page(&self, book_id: i64, page_index: usize, scale: f32) -> Result<Vec<u8>> {
-        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
+        if let Some(adapter) = take_adapter(&self.pdf_renderers, book_id) {
             return tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current()
-                    .block_on(async { adapter.render_page(page_index, scale).await })
+                    .block_on(async { lock_poison_ok(&adapter).render_page(page_index, scale).await })
             });
         }
 
@@ -705,8 +683,8 @@ impl RenderingService {
 
     /// Get native page dimensions (width, height) at 1.0 scale
     pub fn get_page_dimensions(&self, book_id: i64, page_index: usize) -> Result<(f32, f32)> {
-        if let Some(adapter) = self.pdf_renderers.lock().unwrap().get(&book_id) {
-            return adapter.get_page_dimensions(page_index);
+        if let Some(adapter) = take_adapter(&self.pdf_renderers, book_id) {
+            return lock_poison_ok(&adapter).get_page_dimensions(page_index);
         }
 
         Err(ShioriError::BookNotFound(format!(

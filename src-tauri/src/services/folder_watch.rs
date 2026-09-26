@@ -253,12 +253,12 @@ impl FolderWatchService {
 
             let path_str = path.to_string_lossy().to_string();
 
-            if Self::file_already_imported(db, &path_str)? {
-                log::debug!("File already imported, skipping: {}", path_str);
-                continue;
-            }
-
-            log::info!("Importing new file: {}", path_str);
+            // No path-only short-circuit here: `import_single_book` resolves
+            // known paths cheaply (two EXISTS queries) and, when the file was
+            // replaced in place (size changed), refreshes the stored identity
+            // (hash/page_count/size) instead of skipping on the path alone —
+            // watched-file rescans must never leave a stale hash behind.
+            log::info!("Importing file: {}", path_str);
 
             match library_service::import_single_book(db, &path_str, covers_dir) {
                 Ok(is_duplicate) => {
@@ -288,18 +288,6 @@ impl FolderWatchService {
         SYSTEM_DIRS
             .iter()
             .any(|sys_dir| path == *sys_dir || path.starts_with(&format!("{}/", sys_dir)))
-    }
-
-    fn file_already_imported(db: &Database, path: &str) -> Result<bool> {
-        let conn = db.get_connection()?;
-        let exists: bool = conn
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM books WHERE file_path = ?1)",
-                rusqlite::params![path],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
-        Ok(exists)
     }
 }
 

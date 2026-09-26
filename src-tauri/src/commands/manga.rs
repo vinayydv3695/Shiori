@@ -6,7 +6,9 @@ use crate::AppState;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 
 /// Global manga service state
@@ -79,6 +81,171 @@ pub fn close_manga(book_id: i64, state: State<MangaState>) -> Result<()> {
     Ok(())
 }
 
+// ==================== Manga Page Disk Cache ====================
+
+/// Subdirectory under `app_local_data_dir` that holds rendered page images.
+const MANGA_PAGES_DIR_NAME: &str = "manga-pages";
+
+/// Hard cap for the on-disk page cache. After a write busts it, the oldest
+/// files (by mtime) are deleted until the cache is back under the reclaim
+/// fraction below.
+const MANGA_PAGE_CACHE_CAP_BYTES: u64 = 512 * 1024 * 1024; // 512 MB
+
+/// Evict down to this fraction of the cap so the cache responds from below
+/// instead of churning at the boundary.
+const MANGA_PAGE_CACHE_RECLAIM_PERCENT: u64 = 80;
+
+/// Maintenance (orphan sweep + cap enforcement) runs at most this often; the
+/// walk is O(cache) and must not run on every page render.
+const MANGA_PAGE_SWEEP_INTERVAL_SECS: u64 = 30;
+
+/// Resolved `manga-pages` root, registered lazily by `get_manga_page_path`
+/// (resolving it needs an `AppHandle`, which library_service does not have).
+/// Lets `prune_manga_page_cache` — the delete hook wired from the library
+/// delete path — run without an app handle; until a page has been rendered in
+/// this process the root is unknown and pruning no-ops (harmless: the cap
+/// sweep would reclaim the leftover dir later anyway).
+static MANGA_PAGES_ROOT: OnceLock<PathBuf> = OnceLock::new();
+
+/// True once per `MANGA_PAGE_SWEEP_INTERVAL_SECS` window (process-wide).
+fn manga_pages_maintenance_due() -> bool {
+    static LAST_SWEEP: OnceLock<Mutex<Instant>> = OnceLock::new();
+    let last = LAST_SWEEP.get_or_init(|| Mutex::new(Instant::now()));
+    let mut guard = last.lock().unwrap();
+    let now = Instant::now();
+    if now.duration_since(*guard) >= Duration::from_secs(MANGA_PAGE_SWEEP_INTERVAL_SECS) {
+        *guard = now;
+        true
+    } else {
+        false
+    }
+}
+
+/// Best-effort removal of one book's cached pages from `<root>/<file_hash>`.
+/// Ignores missing dirs and filesystem errors — never fatal.
+fn remove_manga_page_hash_dir(root: &Path, file_hash: &str) {
+    let dir = root.join(file_hash);
+    if dir == root || file_hash.is_empty() {
+        return;
+    }
+    if dir.is_dir() {
+        match std::fs::remove_dir_all(&dir) {
+            Ok(_) => log::info!(
+                "[manga-pages] pruned cached pages for file hash {}",
+                file_hash
+            ),
+            Err(e) => log::warn!(
+                "[manga-pages] failed to prune cached pages for {} ({:?}): {}",
+                file_hash,
+                dir,
+                e
+            ),
+        }
+    }
+}
+
+/// Remove the on-disk page cache for one book, keyed by content hash.
+///
+/// Intended to be called right after a book row is permanently deleted.
+/// TODO(D4): deletion is NOT handled in this file — `delete_manga_series` only
+/// nulls the series association and keeps the books. The one-line delete hook
+/// belongs in `src-tauri/src/services/library_service.rs` at
+/// `tombstone_or_remove_file` (it already receives the `file_hash`), i.e. call
+/// `crate::commands::manga::prune_manga_page_cache(&file_hash);` right after
+/// the tombstone/removal there — it also covers `delete_book`, `delete_books`,
+/// `permanent_delete_book` and `empty_trash`, which all funnel through
+/// `tombstone_or_remove_file`. `prune` is used by the in-file cap sweep today
+/// (see `maintain_manga_page_cache`), so the logic is live either way.
+pub(crate) fn prune_manga_page_cache(file_hash: &str) {
+    if let Some(root) = MANGA_PAGES_ROOT.get() {
+        remove_manga_page_hash_dir(root, file_hash);
+    }
+}
+
+/// Best-effort `manga-pages` maintenance, gated to at most once per
+/// `MANGA_PAGE_SWEEP_INTERVAL_SECS`:
+/// 1. Drops orphaned book dirs (content key with no matching `books` row) —
+///    this is the delete cleanup: when a book is permanently deleted its hash
+///    dir becomes dead and is removed here.
+/// 2. Removes legacy flat-layout files (`manga-<book>-<page>-<dim>.img` /
+///    `.tmp`) directly under the root — the old layout is neither produced
+///    nor read anymore.
+/// 3. If the live cache exceeds `MANGA_PAGE_CACHE_CAP_BYTES`, deletes the
+///    oldest files (by mtime) until total size is under
+///    `CAP * MANGA_PAGE_CACHE_RECLAIM_PERCENT / 100`.
+/// Never fatal; failures are logged only.
+fn maintain_manga_page_cache(root: &Path, is_key_live: impl Fn(&str) -> bool) {
+    if !manga_pages_maintenance_due() {
+        return;
+    }
+
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+
+    // (mtime_secs, bytes, path) for files kept after the sweep.
+    let mut live_files: Vec<(u64, u64, PathBuf)> = Vec::new();
+    let mut total_bytes: u64 = 0;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if !is_key_live(&name) {
+                // Deleted book (or legacy leftover): whole dir is dead.
+                prune_manga_page_cache(&name);
+                continue;
+            }
+            let Ok(inner) = std::fs::read_dir(&path) else {
+                continue;
+            };
+            for file in inner.flatten() {
+                let fp = file.path();
+                let fname = file.file_name().to_string_lossy().into_owned();
+                if fname.ends_with(".tmp") {
+                    // Stale half-written file (atomic writes rename away).
+                    let _ = std::fs::remove_file(&fp);
+                    continue;
+                }
+                if let Ok(meta) = std::fs::metadata(&fp) {
+                    let mtime = meta
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+                    total_bytes += meta.len();
+                    live_files.push((mtime, meta.len(), fp));
+                }
+            }
+        } else if name.ends_with(".img") || name.ends_with(".tmp") {
+            // Legacy flat-layout leftover under the root itself.
+            let _ = std::fs::remove_file(&path);
+        }
+    }
+
+    if total_bytes > MANGA_PAGE_CACHE_CAP_BYTES {
+        let target =
+            (MANGA_PAGE_CACHE_CAP_BYTES * MANGA_PAGE_CACHE_RECLAIM_PERCENT) / 100;
+        live_files.sort_by_key(|(mtime, _, _)| *mtime);
+        let mut now = total_bytes;
+        for (_mtime, len, fp) in live_files {
+            if now <= target {
+                break;
+            }
+            if std::fs::remove_file(&fp).is_ok() {
+                now = now.saturating_sub(len);
+            }
+        }
+        log::info!(
+            "[manga-pages] cache over cap: {:.1} MB > {} MB, evicted oldest until ~{:.1} MB",
+            total_bytes as f64 / (1024.0 * 1024.0),
+            MANGA_PAGE_CACHE_CAP_BYTES / (1024 * 1024),
+            now as f64 / (1024.0 * 1024.0)
+        );
+    }
+}
+
 #[tauri::command]
 pub async fn get_manga_page_path(
     book_id: i64,
@@ -93,17 +260,37 @@ pub async fn get_manga_page_path(
         .get_page(book_id, page_index, max_dimension)
         .await?;
 
+    // Key the disk cache by the book's *content* hash, not the SQLite rowid:
+    // rowids are recycled after deletion, so a re-imported book could hit a
+    // stale image (the size check below is not content validation). Keying by
+    // hash makes re-import collisions impossible.
+    let file_hash: Option<String> = {
+        let app_state = app.state::<crate::AppState>();
+        let conn = app_state.db.get_connection()?;
+        conn.query_row(
+            "SELECT file_hash FROM books WHERE id = ?1",
+            rusqlite::params![book_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten()
+        .filter(|h| !h.trim().is_empty())
+    };
+
     // Store pages inside the app's local data directory so the asset
     // protocol scope ($APPLOCALDATA/**) covers them (system /tmp/ is blocked).
     let base = app
         .path()
         .app_local_data_dir()
         .map_err(|e| crate::error::ShioriError::Other(e.to_string()))?;
-    let mut dir = base;
-    dir.push("manga-pages");
+    let cache_root = base.join(MANGA_PAGES_DIR_NAME);
+    let _ = MANGA_PAGES_ROOT.get_or_init(|| cache_root.clone());
+    // Fall back to book_id only when the hash is missing.
+    let book_key = file_hash.unwrap_or_else(|| book_id.to_string());
+    let dir = cache_root.join(&book_key);
     std::fs::create_dir_all(&dir).map_err(|e| crate::error::ShioriError::Io(e))?;
 
-    let filename = format!("manga-{}-{}-{}.img", book_id, page_index, max_dimension);
+    let filename = format!("{}_{}.img", page_index, max_dimension);
     let final_path = dir.join(&filename);
 
     // If file already exists with correct size, skip writing
@@ -119,6 +306,31 @@ pub async fn get_manga_page_path(
     let tmp_path = dir.join(format!("{}.tmp", filename));
     std::fs::write(&tmp_path, &bytes).map_err(|e| crate::error::ShioriError::Io(e))?;
     std::fs::rename(&tmp_path, &final_path).map_err(|e| crate::error::ShioriError::Io(e))?;
+
+    // Best-effort maintenance: prune orphaned (deleted) book dirs and keep the
+    // cache under the byte cap. Gated, non-fatal, and only hits the DB when the
+    // window has elapsed.
+    if manga_pages_maintenance_due() {
+        let app_state = app.state::<crate::AppState>();
+        let conn = app_state.db.get_connection()?;
+        maintain_manga_page_cache(&cache_root, |key| {
+            if let Ok(id) = key.parse::<i64>() {
+                conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM books WHERE id = ?1)",
+                    rusqlite::params![id],
+                    |row| row.get::<_, bool>(0),
+                )
+                .unwrap_or(true)
+            } else {
+                conn.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM books WHERE file_hash = ?1)",
+                    rusqlite::params![key],
+                    |row| row.get::<_, bool>(0),
+                )
+                .unwrap_or(true) // conservative: keep dirs on DB error
+            }
+        });
+    }
 
     Ok(final_path.to_string_lossy().into_owned())
 }

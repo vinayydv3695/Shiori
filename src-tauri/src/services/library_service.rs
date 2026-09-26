@@ -3,7 +3,7 @@ use crate::error::{Result, ShioriError};
 use crate::models::{Author, Book, ImportResult, Tag};
 use crate::services::metadata_service;
 use crate::services::online_cover;
-use crate::utils::file::{calculate_file_hash, get_file_size};
+use crate::utils::file::{file_identity, get_file_size};
 use crate::utils::validate;
 use rayon::prelude::*;
 use rusqlite::params;
@@ -563,7 +563,10 @@ pub fn delete_book(db: &Database, id: i64, app_data_dir: &Path) -> Result<()> {
         )?
     } else {
         // Permanent removal: snapshot the row before the DELETE so we can leave
-        // a tombstone (or remove the managed file) after it.
+        // a tombstone (or remove the managed file) after it. The filesystem
+        // work (managed-file removal, tombstone write) happens only AFTER the
+        // DELETE has committed — a failed commit must never delete files for a
+        // still-live row (data-fix D8).
         let row = conn.query_row(
             "SELECT file_hash, file_path, is_managed, managed_relpath FROM books WHERE id = ?1",
             params![id],
@@ -571,10 +574,10 @@ pub fn delete_book(db: &Database, id: i64, app_data_dir: &Path) -> Result<()> {
         )?;
         let tx = conn.transaction()?;
         let affected = tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
-        if affected > 0 {
-            tombstone_or_remove_file(&tx, db, app_data_dir, row, "user_delete")?;
-        }
         tx.commit()?;
+        if affected > 0 {
+            tombstone_or_remove_file(&conn, db, app_data_dir, row, "user_delete")?;
+        }
         affected
     };
 
@@ -607,6 +610,9 @@ pub fn delete_books(db: &Database, ids: Vec<i64>, app_data_dir: &Path) -> Result
 
     let tx = conn.transaction()?;
 
+    // Rows that need tombstone-writing / managed-file removal AFTER the DELETE
+    // transaction commits (filesystem work must not happen mid-transaction).
+    let mut pending_removals: Vec<TombstoneRow> = Vec::new();
     let mut deleted_count = 0;
     for id in ids {
         let rows = if enable_recycle_bin {
@@ -627,7 +633,7 @@ pub fn delete_books(db: &Database, ids: Vec<i64>, app_data_dir: &Path) -> Result
             let affected = tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
             if affected > 0 {
                 if let Some(row) = row {
-                    tombstone_or_remove_file(&tx, db, app_data_dir, row, "user_delete")?;
+                    pending_removals.push(row);
                 }
             }
             affected
@@ -644,6 +650,9 @@ pub fn delete_books(db: &Database, ids: Vec<i64>, app_data_dir: &Path) -> Result
     log::info!("[delete_books] Total rows deleted: {}", deleted_count);
     tx.commit()?;
     log::info!("[delete_books] Transaction committed successfully");
+    for row in pending_removals {
+        tombstone_or_remove_file(&conn, db, app_data_dir, row, "user_delete")?;
+    }
     Ok(())
 }
 
@@ -678,12 +687,13 @@ pub fn permanent_delete_book(db: &Database, id: i64, app_data_dir: &Path) -> Res
         "DELETE FROM books WHERE id = ?1 AND in_trash = 1",
         params![id],
     )?;
+    tx.commit()?;
     if rows_affected > 0 {
         if let Some(row) = row {
-            tombstone_or_remove_file(&tx, db, app_data_dir, row, "user_delete")?;
+            // Post-commit: tombstone / managed-file removal outside the tx.
+            tombstone_or_remove_file(&conn, db, app_data_dir, row, "user_delete")?;
         }
     }
-    tx.commit()?;
     log::info!("[permanent_delete_book] Rows affected: {}", rows_affected);
     Ok(())
 }
@@ -715,10 +725,11 @@ pub fn empty_trash(db: &Database, converted_root: &std::path::Path) -> Result<()
 
     let tx = conn.transaction()?;
     let rows_affected = tx.execute("DELETE FROM books WHERE in_trash = 1", [])?;
-    for row in rows {
-        tombstone_or_remove_file(&tx, db, app_data_dir, row, "trash_purge")?;
-    }
     tx.commit()?;
+    // Post-commit: tombstone / managed-file removal outside the tx.
+    for row in rows {
+        tombstone_or_remove_file(&conn, db, app_data_dir, row, "trash_purge")?;
+    }
     log::info!("[empty_trash] Rows affected: {}", rows_affected);
 
     let mut removed_dirs = 0usize;
@@ -795,10 +806,11 @@ pub fn clean_recycle_bin(db: &Database, app_data_dir: &Path) -> Result<()> {
         "DELETE FROM books WHERE in_trash = 1 AND deleted_at <= datetime('now', '-7 days')",
         [],
     )?;
-    for row in rows {
-        tombstone_or_remove_file(&tx, db, app_data_dir, row, "auto_purge")?;
-    }
     tx.commit()?;
+    // Post-commit: tombstone / managed-file removal outside the tx.
+    for row in rows {
+        tombstone_or_remove_file(&conn, db, app_data_dir, row, "auto_purge")?;
+    }
     log::info!("[clean_recycle_bin] Rows affected: {}", rows_affected);
     Ok(())
 }
@@ -823,6 +835,11 @@ fn read_tombstone_row(row: &rusqlite::Row) -> rusqlite::Result<TombstoneRow> {
 /// After a book row is permanently removed: managed books get their file
 /// removed from the library root; everything else leaves a tombstone in
 /// `deleted_books` so a later re-import of the same file is rejected.
+///
+/// Must be called AFTER the deleting transaction committed (a failed commit
+/// must never delete files for a still-live row). If the managed file cannot
+/// be removed, a tombstone is still written — a permanent delete must not
+/// report success while leaving an orphan on disk that could be re-imported.
 fn tombstone_or_remove_file(
     conn: &rusqlite::Connection,
     db: &Database,
@@ -832,37 +849,57 @@ fn tombstone_or_remove_file(
 ) -> Result<()> {
     let (file_hash, file_path, is_managed, managed_relpath) = row;
     if is_managed && managed_relpath.is_some() {
-        remove_managed_book_file(db, app_data_dir, is_managed, managed_relpath.as_deref());
+        let removed =
+            remove_managed_book_file(db, app_data_dir, is_managed, managed_relpath.as_deref());
+        if !removed {
+            log::warn!(
+                "[tombstone_or_remove_file] managed file removal failed for {:?}; \
+                 writing a tombstone so the orphan cannot be re-imported",
+                file_path
+            );
+            conn.execute(
+                "INSERT INTO deleted_books (file_hash, file_path, reason) VALUES (?1, ?2, ?3)",
+                params![file_hash, file_path, reason],
+            )?;
+        }
     } else {
         conn.execute(
             "INSERT INTO deleted_books (file_hash, file_path, reason) VALUES (?1, ?2, ?3)",
             params![file_hash, file_path, reason],
         )?;
     }
+    // Best-effort: the book row is permanently gone, so drop any manga page
+    // cache keyed by its content hash. Never fatal — pruning logs its own
+    // failures and no-ops when the cache root is unknown in this process.
+    if let Some(hash) = file_hash.as_deref() {
+        crate::commands::manga::prune_manga_page_cache(hash);
+    }
     Ok(())
 }
 
 /// Remove a managed book's file from the library root.
 ///
-/// Idempotent and never fatal: a missing file counts as success, and any
-/// failure (including a path that escapes the library root) is logged and
-/// skipped — the book row is already gone either way. In SAF mode (Mode B)
+/// Returns `true` when the file is no longer present locally (removed, or
+/// already missing), `false` when it could not be removed (library root
+/// unresolvable, path escaping the root, or an I/O failure) so the caller can
+/// fall back to leaving a tombstone. Idempotent and never fatal: failures are
+/// logged, and the tombstone decision is the caller's. In SAF mode (Mode B)
 /// the local mirror file is removed here and the durable copy in the user's
 /// tree is deleted best-effort through the SAF bridge; when the bridge is
 /// unavailable the tree copy lingers in the user folder (documented
-/// limitation).
+/// limitation) — the local mirror is gone either way, so that reports `true`.
 fn remove_managed_book_file(
     db: &Database,
     app_data_dir: &Path,
     is_managed: bool,
     managed_relpath: Option<&str>,
-) {
+) -> bool {
     if !is_managed {
-        return;
+        return true;
     }
-    let Some(relpath) = managed_relpath else { return };
+    let Some(relpath) = managed_relpath else { return true };
     if relpath.is_empty() {
-        return;
+        return true;
     }
 
     let root = match crate::services::library_root::resolve_library_root(db, app_data_dir) {
@@ -872,7 +909,7 @@ fn remove_managed_book_file(
                 "[remove_managed_book_file] failed to resolve library root: {}",
                 e
             );
-            return;
+            return false;
         }
     };
 
@@ -883,14 +920,14 @@ fn remove_managed_book_file(
             "[remove_managed_book_file] managed file already missing: {:?}",
             candidate
         );
-        return;
+        return true;
     };
     let Ok(root_canonical) = root.canonicalize() else {
         log::warn!(
             "[remove_managed_book_file] failed to canonicalize library root {:?}",
             root
         );
-        return;
+        return false;
     };
 
     // Path-traversal guard: never remove anything outside the library root.
@@ -899,7 +936,7 @@ fn remove_managed_book_file(
             "[remove_managed_book_file] refusing to remove path outside library root: {:?}",
             candidate
         );
-        return;
+        return false;
     }
 
     match std::fs::remove_file(&canonical) {
@@ -907,11 +944,14 @@ fn remove_managed_book_file(
             "[remove_managed_book_file] removed managed file {:?}",
             canonical
         ),
-        Err(e) => log::warn!(
-            "[remove_managed_book_file] failed to remove {:?}: {}",
-            canonical,
-            e
-        ),
+        Err(e) => {
+            log::warn!(
+                "[remove_managed_book_file] failed to remove {:?}: {}",
+                canonical,
+                e
+            );
+            return false;
+        }
     }
 
     // Mode B (SAF): also remove the durable copy from the user's tree.
@@ -942,6 +982,7 @@ fn remove_managed_book_file(
             ),
         }
     }
+    true
 }
 
 /// Forget a deletion: remove the tombstone for `file_path` (and its file hash),
@@ -950,7 +991,7 @@ pub fn clear_tombstone(db: &Database, file_path: &str, file_hash: Option<&str>) 
     let conn = db.get_connection()?;
     let computed_hash = match file_hash {
         Some(h) if !h.is_empty() => Some(h.to_string()),
-        _ => calculate_file_hash(file_path).ok(),
+        _ => file_identity(file_path).ok(),
     };
 
     match computed_hash {
@@ -1105,6 +1146,54 @@ pub fn import_books(
     Ok(result)
 }
 
+/// A known `path` is normally a cheap dedup hit — unless the file was replaced
+/// in place (same path, new bytes). The schema stores no file mtime, so staleness
+/// is detected by a size comparison; on mismatch the identity is re-derived and
+/// hash / page_count / size are refreshed so dedup and tombstones never act on a
+/// stale identity. Never deletes or re-creates the row — refresh only.
+fn refresh_stale_known_row(conn: &rusqlite::Connection, path: &str) -> Result<()> {
+    let stored_size: Option<i64> = conn
+        .query_row(
+            "SELECT file_size FROM books WHERE file_path = ?1 AND in_trash = 0",
+            params![path],
+            |row| row.get(0),
+        )
+        .ok();
+    let current_size = get_file_size(path).unwrap_or(-1);
+    // Unchanged size (or unreadable file) → nothing to refresh.
+    if current_size < 0 || stored_size == Some(current_size) {
+        return Ok(());
+    }
+
+    let Ok(hash) = file_identity(path) else {
+        log::debug!(
+            "[import_single_book] could not re-hash replaced file {}; keeping stored identity",
+            path
+        );
+        return Ok(());
+    };
+    let page_count = metadata_service::extract_from_file(path)
+        .ok()
+        .and_then(|m| m.page_count);
+    match conn.execute(
+        "UPDATE books SET file_hash = ?1, file_size = ?2, \
+         page_count = COALESCE(?3, page_count) \
+         WHERE file_path = ?4 AND in_trash = 0",
+        params![hash, current_size, page_count, path],
+    ) {
+        Ok(_) => log::debug!(
+            "[import_single_book] file replaced in place at {} — refreshed hash/page_count/size",
+            path
+        ),
+        Err(e) => log::warn!(
+            "[import_single_book] failed to refresh replaced file {}: {}",
+            path,
+            e
+        ),
+    }
+    Ok(())
+}
+
 pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Path) -> Result<bool> {
     // Cheap-first ordering: run the cheapest dedup checks BEFORE hashing and
     // metadata/cover extraction, so re-importing a known file (folder rescan,
@@ -1139,6 +1228,11 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
         |row| row.get(0),
     )?;
     if known_path {
+        // The path is already indexed — normally a cheap dedup hit. But the
+        // file may have been replaced in place since the row was written, so
+        // never short-circuit on the path alone: size changed → re-derive the
+        // identity and refresh the row (data-fix D8).
+        refresh_stale_known_row(&conn, path)?;
         return Ok(true); // Already imported — live duplicate
     }
 
@@ -1153,23 +1247,37 @@ pub fn import_single_book(db: &Database, path: &str, covers_dir: &std::path::Pat
         return Err(ShioriError::TombstonedBook(path.to_string()));
     }
 
-    // (b) Hash the file (cheap: size + first/last 8 KB sample).
-    let file_hash = calculate_file_hash(path)?;
+    // (b) Identity of the file (full sha256 ≤ 64 MB, sampled otherwise).
+    let file_hash = file_identity(path)?;
 
-    // Check if trashed by hash
-    let trashed_hash_id: Option<i64> = conn
+    // Check if trashed by hash — but only auto-restore when the stored file
+    // size matches the on-disk size, so a (now very unlikely) hash collision
+    // can never "restore" a trashed row that actually points at a different
+    // file; a mismatch falls through to be treated as a new book.
+    let trashed_hash_row: Option<(i64, Option<i64>)> = conn
         .query_row(
-            "SELECT id FROM books WHERE file_hash != '' AND file_hash = ?1 AND in_trash = 1",
+            "SELECT id, file_size FROM books WHERE file_hash != '' AND file_hash = ?1 AND in_trash = 1",
             params![file_hash],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .ok();
-    if let Some(id) = trashed_hash_id {
-        conn.execute(
-            "UPDATE books SET in_trash = 0, deleted_at = NULL, file_path = ?2 WHERE id = ?1",
-            params![id, path],
-        )?;
-        return Ok(false);
+    if let Some((id, stored_size)) = trashed_hash_row {
+        let current_size = get_file_size(path).unwrap_or(-1);
+        if stored_size == Some(current_size) {
+            conn.execute(
+                "UPDATE books SET in_trash = 0, deleted_at = NULL, file_path = ?2 WHERE id = ?1",
+                params![id, path],
+            )?;
+            return Ok(false);
+        }
+        log::debug!(
+            "[import_single_book] trashed row {} (stored size {:?}) does not match on-disk \
+             size {} for {} — not auto-restoring; treating as a new book",
+            id,
+            stored_size,
+            current_size,
+            path
+        );
     }
 
     // (c) Hash/path dedup — a moved file re-imports only if neither path nor
@@ -1542,7 +1650,7 @@ pub fn scan_and_import_folder(
                         "comics"
                     };
 
-                    let file_hash = match calculate_file_hash(&path) {
+                    let file_hash = match file_identity(&path) {
                         Ok(h) => h,
                         Err(e) => return Err((path, format!("Hash error: {}", e))),
                     };

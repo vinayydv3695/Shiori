@@ -2541,16 +2541,59 @@ fn restore_books(
             ConflictPolicy::KeepBoth => {
                 // New row, fresh id and fresh uuid. Children in the same
                 // archive still re-link to the ORIGINAL book by uuid. file_path
-                // is UNIQUE — mangle it so the copy can coexist.
+                // is UNIQUE — mangle it so the copy can coexist, and actually
+                // MATERIALIZE the copy (with a recomputed file_hash) so the row
+                // never points at a file that wasn't written. If the original
+                // file isn't there, skip the row entirely instead of restoring
+                // a phantom book.
                 let new_uuid = uuid::Uuid::new_v4().to_string();
-                let mut r = (*row).clone();
-                if let Some(fp) = r.get("file_path").and_then(|v| v.as_str()) {
-                    let short = &new_uuid[..8];
-                    r.insert(
-                        "file_path".to_string(),
-                        Value::String(format!("{fp} (restored-{short})")),
+                let short = &new_uuid[..8];
+                let Some(fp) = (*row)
+                    .get("file_path")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                else {
+                    log::warn!(
+                        "[restore] KeepBoth: book {} has no file_path; skipping duplicate copy",
+                        uuid
                     );
+                    report.skipped += 1;
+                    continue;
+                };
+                let new_path = format!("{fp} (restored-{short})");
+                match std::fs::copy(&fp, &new_path) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::warn!(
+                            "[restore] KeepBoth: skipping book {} — cannot copy '{}' to '{}': {}",
+                            uuid,
+                            fp,
+                            new_path,
+                            e
+                        );
+                        report.skipped += 1;
+                        continue;
+                    }
                 }
+                let new_hash = match crate::utils::file::file_identity(&new_path) {
+                    Ok(h) => h,
+                    Err(e) => {
+                        log::warn!(
+                            "[restore] KeepBoth: skipping book {} — cannot hash copied file '{}': {}",
+                            uuid,
+                            new_path,
+                            e
+                        );
+                        let _ = std::fs::remove_file(&new_path);
+                        report.skipped += 1;
+                        continue;
+                    }
+                };
+                let mut r = (*row).clone();
+                r.insert("file_path".to_string(), Value::String(new_path));
+                // The preserved copy's identity: recomputed on the actual file
+                // so dedup/tombstone/auto-restore logic trusts this row's hash.
+                r.insert("file_hash".to_string(), Value::String(new_hash));
                 insert_row(conn, "books", &r, &["id"], Some(&new_uuid))?;
             }
         }

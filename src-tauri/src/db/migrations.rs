@@ -233,6 +233,11 @@ impl<'a> MigrationManager<'a> {
 
     /// Ensure FTS5 table has the correct 6-column schema.
     /// If it exists with wrong columns, drop and recreate it.
+    ///
+    /// The drop + create + triggers + backfill run inside ONE transaction, so
+    /// a mid-backfill failure (disk full, concurrent write) rolls the whole
+    /// rebuild back instead of leaving a partially populated index that would
+    /// silently drop books from search.
     fn ensure_fts_schema(&self) -> Result<()> {
         // Check if books_fts exists and has the right columns
         let has_publisher: bool = {
@@ -248,8 +253,14 @@ impl<'a> MigrationManager<'a> {
         if !fts_exists || !has_publisher {
             log::info!("[Migration] Recreating FTS5 table with correct schema");
 
+            // Drop + create + triggers + backfill run inside ONE transaction
+            // (DDL is transactional in SQLite). If anything fails mid-way the
+            // tx is dropped -> ROLLBACK, so the previous index stays intact
+            // and the next startup retries cleanly.
+            let tx = self.conn.unchecked_transaction()?;
+
             // Drop old table and all triggers
-            self.conn.execute_batch(
+            tx.execute_batch(
                 r#"
                 DROP TRIGGER IF EXISTS books_fts_insert;
                 DROP TRIGGER IF EXISTS books_fts_update;
@@ -381,8 +392,18 @@ impl<'a> MigrationManager<'a> {
             "#,
             )?;
 
-            // Re-index existing books
-            self.conn.execute_batch(
+            // Re-index existing books.
+            //
+            // Deliberately keep the column-mapped backfill instead of the
+            // canonical `INSERT INTO books_fts(books_fts) VALUES('rebuild')`:
+            // this is a REGULAR (non external-content) FTS5 table fed by
+            // triggers with a custom mapping (books.notes -> description,
+            // authors/tags via junction subqueries). The `rebuild` directive
+            // only re-reads the freshly-created table's own (empty) shadow
+            // content — it can never consult `books` — so it would leave the
+            // index empty. The explicit backfill is the only way to rehydrate
+            // it, and the surrounding transaction makes it atomic.
+            if let Err(e) = tx.execute_batch(
                 r#"
                 INSERT INTO books_fts(rowid, title, authors, publisher, description, tags, isbn)
                 SELECT b.id, b.title,
@@ -397,7 +418,16 @@ impl<'a> MigrationManager<'a> {
                        b.isbn
                 FROM books b;
             "#,
-            )?;
+            ) {
+                // tx drops here -> automatic ROLLBACK: never a partial FTS.
+                log::error!(
+                    "[Migration] FTS5 backfill failed: {} — rolling back; previous index left intact, next startup retries",
+                    e
+                );
+                return Err(e);
+            }
+
+            tx.commit()?;
         }
 
         Ok(())
@@ -2907,5 +2937,149 @@ mod tests {
 
         assert_eq!(checksum1, checksum2);
         assert_eq!(checksum1.len(), 64); // SHA256 produces 64 hex chars
+    }
+
+    /// Minimal subset of the schema (see db/mod.rs initialize_schema) that the
+    /// FTS triggers and backfill read from.
+    const FTS_MINIMAL_SCHEMA: &str = r#"
+        CREATE TABLE books (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL,
+            publisher TEXT,
+            notes TEXT,
+            isbn TEXT
+        );
+        CREATE TABLE authors (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        );
+        CREATE TABLE tags (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        );
+        CREATE TABLE books_authors (
+            book_id INTEGER NOT NULL,
+            author_id INTEGER NOT NULL,
+            PRIMARY KEY (book_id, author_id)
+        );
+        CREATE TABLE books_tags (
+            book_id INTEGER NOT NULL,
+            tag_id INTEGER NOT NULL,
+            PRIMARY KEY (book_id, tag_id)
+        );
+    "#;
+
+    fn fts_match_count(conn: &Connection, term: &str) -> i32 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM books_fts WHERE books_fts MATCH ?1",
+            [term],
+            |row| row.get(0),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn ensure_fts_schema_rebuilds_empty_db() {
+        let temp_db = NamedTempFile::new().unwrap();
+        let conn = Connection::open(temp_db.path()).unwrap();
+        conn.execute_batch(FTS_MINIMAL_SCHEMA).unwrap();
+        let migrator = MigrationManager::new(&conn);
+
+        migrator.ensure_fts_schema().unwrap();
+
+        // 6-column schema was created.
+        let cols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('books_fts')")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert!(
+            cols.contains(&"publisher".to_string()),
+            "created FTS missing publisher column: {:?}",
+            cols
+        );
+
+        // Trigger-fed insert is searchable through the new index.
+        conn.execute(
+            "INSERT INTO books (id, title, publisher, notes, isbn)
+             VALUES (1, 'Atomic Habits', 'Penguin', 'deep notes', '978-1')",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO authors (id, name) VALUES (1, 'James Clear')", [])
+            .unwrap();
+        conn.execute("INSERT INTO books_authors (book_id, author_id) VALUES (1, 1)", [])
+            .unwrap();
+
+        assert_eq!(fts_match_count(&conn, "atomic"), 1);
+        let authors: String = conn
+            .query_row("SELECT authors FROM books_fts WHERE rowid = 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(authors, "James Clear");
+    }
+
+    #[test]
+    fn ensure_fts_schema_rolls_back_partial_rebuild() {
+        let temp_db = NamedTempFile::new().unwrap();
+        let conn = Connection::open(temp_db.path()).unwrap();
+        conn.execute_batch(FTS_MINIMAL_SCHEMA).unwrap();
+
+        // Simulate the pre-fix broken state: an existing, populated but
+        // publisher-less (3-column) FTS index — the same shape the guard
+        // `!fts_exists || !has_publisher` would rebuild.
+        conn.execute_batch(
+            "CREATE VIRTUAL TABLE books_fts USING fts5(title, authors, description);",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO books (id, title, publisher, notes, isbn)
+             VALUES (1, 'Atomic Habits', 'Penguin', 'deep notes', '978-1')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO books_fts(rowid, title, authors, description)
+             VALUES (1, 'Atomic Habits', 'James Clear', 'deep notes')",
+            [],
+        )
+        .unwrap();
+
+        // Sabotage the backfill: renaming a column the backfill SELECT reads
+        // (b.publisher) makes it fail mid-transaction — after the old index
+        // was already dropped and the new one created.
+        conn.execute_batch("ALTER TABLE books RENAME COLUMN publisher TO publisher_renamed;")
+            .unwrap();
+
+        let migrator = MigrationManager::new(&conn);
+        let err = migrator.ensure_fts_schema().unwrap_err();
+        assert!(
+            err.to_string().contains("publisher"),
+            "expected backfill failure, got: {:?}",
+            err
+        );
+
+        // Rollback preserved the original index with every row.
+        assert_eq!(
+            fts_match_count(&conn, "atomic"),
+            1,
+            "failed rebuild must leave the previous index intact"
+        );
+
+        // Retry after fixing the schema succeeds and rehydrates from books.
+        conn.execute_batch("ALTER TABLE books RENAME COLUMN publisher_renamed TO publisher;")
+            .unwrap();
+        migrator.ensure_fts_schema().unwrap();
+
+        let cols: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('books_fts')")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert!(cols.contains(&"publisher".to_string()));
+        assert_eq!(fts_match_count(&conn, "atomic"), 1);
     }
 }

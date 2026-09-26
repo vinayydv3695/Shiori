@@ -1535,9 +1535,13 @@ mod sanitize_filename_tests {
 
     #[test]
     fn collapses_path_traversal() {
-        assert_eq!(sanitize_filename("../../x"), "--..-x");
+        // Hardened sanitizer: traversal separators map to '-', then leading
+        // dots are trimmed so the result can never be a dot-path component.
+        assert_eq!(sanitize_filename("../../x"), "-..-x");
         assert_eq!(sanitize_filename("..\\..\\win"), "-..-win");
+        assert_eq!(sanitize_filename("a:b"), "a-b");
         assert_safe_component("../../x");
+        assert_safe_component("..\\..\\win");
     }
 
     #[test]

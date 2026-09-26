@@ -1093,7 +1093,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fetch_local_feed_data() {
+    async fn test_fetch_feed_data_rejects_file_url() {
         let temp_dir = std::env::temp_dir().join("shiori-test-local-feed");
         std::fs::create_dir_all(&temp_dir).unwrap();
 
@@ -1117,9 +1117,18 @@ mod tests {
         let file_path = temp_dir.join("test_feed.xml");
         std::fs::write(&file_path, xml_content).unwrap();
 
+        // Security fix: fetches are restricted to http(s) — a local file://
+        // URL must be rejected by validation, never read from disk.
         let url = format!("file://{}", file_path.to_string_lossy());
-        let feed = service.fetch_feed_data(&url).await.unwrap();
+        let err = service.fetch_feed_data(&url).await.unwrap_err();
+        assert!(
+            err.to_string().contains("http"),
+            "rejection must mention http(s), got: {err}"
+        );
 
+        // Parser coverage retained: the fixture is fed straight to the same
+        // feed_rs parser fetch_feed_data uses, with no URL fetch involved.
+        let feed = parser::parse(xml_content.as_bytes()).expect("fixture XML parses as RSS");
         assert_eq!(feed.title.unwrap().content, "Local Test Feed Test");
         assert_eq!(feed.entries.len(), 1);
         assert_eq!(

@@ -535,7 +535,7 @@ select {
 .premium-content-container {
   position: relative;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 2rem 1.5rem calc(84px + env(safe-area-inset-bottom, 0px));
   transition: max-width var(--transition-normal), padding var(--transition-normal);
   box-sizing: border-box;
   
@@ -676,11 +676,16 @@ select {
 }
 
 .premium-content-container--two-page .premium-chapter-content img,
-.premium-content-container--paginated .premium-chapter-content img {
-  max-height: calc(100dvh - 200px);
-  max-width: 100%;
-  object-fit: contain;
-  break-inside: avoid;
+.premium-content-container--paginated .premium-chapter-content img,
+.premium-content-container--two-page .premium-chapter-content svg,
+.premium-content-container--paginated .premium-chapter-content svg {
+  max-height: calc(100dvh - 160px) !important;
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  break-inside: avoid !important;
+  margin: 0 auto !important;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -774,14 +779,112 @@ select {
   text-underline-offset: 2px;
 }
 
+/* ────────────────────────────────────────────────────────────
+   IMAGE & SVG CONTAINMENT & CENTERING
+   Ensures book covers, full-page illustrations, and chapter images
+   fit completely inside the reader frame without vertical cutoffs.
+   ──────────────────────────────────────────────────────────── */
 .premium-chapter-content img {
   display: block;
-  max-width: 100%;
-  max-height: 80vh;
-  object-fit: contain;
+  max-width: 100% !important;
+  max-height: calc(100dvh - 160px) !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
   border-radius: var(--radius-lg);
-  margin: var(--spacing-lg) auto;
+  margin: var(--spacing-md) auto !important;
   box-shadow: var(--shadow-md);
+}
+
+.premium-chapter-content svg {
+  display: block !important;
+  max-width: 100% !important;
+  max-height: calc(100dvh - 160px) !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+  box-sizing: border-box !important;
+}
+
+.premium-chapter-content svg image {
+  object-fit: contain !important;
+  max-height: 100% !important;
+  max-width: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .premium-chapter-content img,
+  .premium-chapter-content svg {
+    max-height: calc(100dvh - 130px) !important;
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   FIRST PAGE & BOOK COVER SIZING & ALIGNMENT
+   Centers and cleanly frames standalone covers and first pages.
+   ──────────────────────────────────────────────────────────── */
+.epub-cover-wrapper,
+.premium-chapter-content:has(> .epub-cover-wrapper),
+.premium-chapter-content:has(> svg:only-child),
+.premium-chapter-content:has(> div > svg:only-child),
+.premium-chapter-content:has(> img:only-child),
+.premium-chapter-content:has(> div > img:only-child) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: calc(100dvh - 160px) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 auto !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.epub-cover-wrapper > div,
+.premium-chapter-content:has(> div > svg:only-child) > div,
+.premium-chapter-content:has(> div > img:only-child) > div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  max-height: calc(100dvh - 150px) !important;
+  max-width: 100% !important;
+  width: auto !important;
+  margin: 0 auto !important;
+}
+
+.premium-chapter-content img,
+.premium-chapter-content svg,
+.epub-cover-wrapper img,
+.epub-cover-wrapper svg {
+  max-height: calc(100dvh - 160px) !important;
+  max-width: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  margin: 0 auto !important;
+}
+
+.epub-cover-wrapper img,
+.epub-cover-wrapper svg {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16) !important;
+  border-radius: var(--radius-md, 8px) !important;
+}
+
+@media (max-width: 768px) {
+  .epub-cover-wrapper,
+  .premium-chapter-content:has(> .epub-cover-wrapper) {
+    min-height: calc(100dvh - 130px) !important;
+  }
+
+  .premium-chapter-content--first-page img,
+  .premium-chapter-content--first-page svg,
+  .epub-cover-wrapper img,
+  .epub-cover-wrapper svg {
+    max-height: calc(100dvh - 130px) !important;
+  }
 }
 
 .premium-chapter-content blockquote {
@@ -1741,6 +1844,34 @@ select {
   }
 }
 
+/* ── Scene Dialogue Spotlight & Glowing Pulse Animation ── */
+.scene-dialogue-highlight {
+  position: relative !important;
+  border-radius: 8px !important;
+  animation: sceneDialoguePulse 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  transition: background-color 0.5s ease, box-shadow 0.5s ease !important;
+  z-index: 10 !important;
+}
+
+@keyframes sceneDialoguePulse {
+  0% {
+    background-color: color-mix(in srgb, var(--ui-focus, #3b82f6) 24%, transparent) !important;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-focus, #3b82f6) 40%, transparent), 0 0 24px color-mix(in srgb, var(--ui-focus, #3b82f6) 25%, transparent) !important;
+  }
+  30% {
+    background-color: color-mix(in srgb, var(--ui-focus, #3b82f6) 20%, transparent) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-focus, #3b82f6) 30%, transparent), 0 0 18px color-mix(in srgb, var(--ui-focus, #3b82f6) 18%, transparent) !important;
+  }
+  70% {
+    background-color: color-mix(in srgb, var(--ui-focus, #3b82f6) 10%, transparent) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-focus, #3b82f6) 15%, transparent) !important;
+  }
+  100% {
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
 .premium-search-input-container {
   position: relative;
   display: flex;
@@ -1945,6 +2076,47 @@ select {
   display: none;
   width: 0;
   height: 0;
+}
+
+/* Bedtime Sleep Timer Floating Dropdown Panel */
+.premium-sleep-timer-panel {
+  color: var(--text-primary);
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -36px;
+  width: 310px;
+  max-width: calc(100vw - 28px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: 24px;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.28), 0 0 0 1px color-mix(in srgb, var(--ui-border) 80%, transparent);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  padding: 16px;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  user-select: none;
+}
+
+.premium-sleep-timer-panel::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Bedtime Night Veil Modal Card */
+.premium-night-veil-card {
+  color: var(--text-primary);
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  background: var(--bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px color-mix(in srgb, var(--ui-border) 80%, transparent);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 @media (max-width: 768px) {
@@ -3081,8 +3253,8 @@ select {
   box-sizing: border-box;
 }
 
-.text-selection-toolbar button,
-.text-selection-toolbar span,
+.text-selection-toolbar:not(.text-selection-toolbar--note-active):not(.text-selection-toolbar--card) button,
+.text-selection-toolbar:not(.text-selection-toolbar--note-active):not(.text-selection-toolbar--card) span,
 .text-selection-toolbar .text-selection-toolbar-btn,
 .text-selection-toolbar .text-selection-toolbar-android-btn {
   color: var(--text-primary, inherit) !important;
@@ -3092,14 +3264,14 @@ select {
   stroke: currentColor;
 }
 
-.text-selection-toolbar button:hover,
+.text-selection-toolbar:not(.text-selection-toolbar--note-active):not(.text-selection-toolbar--card) button:hover,
 .text-selection-toolbar .text-selection-toolbar-btn:hover,
 .text-selection-toolbar .text-selection-toolbar-android-btn:hover {
   background: var(--ui-hover, rgba(255, 255, 255, 0.1)) !important;
   color: var(--text-primary, inherit) !important;
 }
 
-.text-selection-toolbar button:active,
+.text-selection-toolbar:not(.text-selection-toolbar--note-active):not(.text-selection-toolbar--card) button:active,
 .text-selection-toolbar .text-selection-toolbar-btn:active,
 .text-selection-toolbar .text-selection-toolbar-android-btn:active {
   background: var(--ui-active, rgba(255, 255, 255, 0.15)) !important;
@@ -3250,45 +3422,79 @@ select {
 }
 
 /* Note input area */
+.text-selection-toolbar.text-selection-toolbar--note-active {
+  padding: 0 !important;
+  border-radius: 24px !important;
+  width: 480px !important;
+  max-width: min(calc(100vw - 28px), 500px) !important;
+  overflow: hidden;
+  box-shadow: 0 24px 54px -10px rgba(0, 0, 0, 0.38), 0 8px 22px -3px rgba(0, 0, 0, 0.16) !important;
+  border: 1px solid var(--ui-border) !important;
+  background: var(--bg-elevated) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+}
+
 .text-selection-toolbar-note {
-  padding: 16px;
-  min-width: 320px;
-  border-top: 1px solid var(--ui-divider, #e5e5e5);
+  padding: 18px 20px;
+  min-width: 360px;
+  max-width: 500px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 13px;
+  box-sizing: border-box;
 }
 
 .text-selection-note-input {
   width: 100%;
   padding: 12px 14px;
-  border: 1px solid var(--ui-border, rgba(0,0,0,0.12));
+  border: 1px solid color-mix(in srgb, var(--ui-border) 75%, transparent);
   border-radius: 14px;
-  background: var(--bg-secondary, rgba(0,0,0,0.03));
-  color: var(--text-primary, #1a1817);
-  font-size: 14px;
-  line-height: 1.55;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  line-height: 1.6;
   resize: none;
-  min-height: 105px;
+  min-height: 88px;
   outline: none;
   font-family: inherit;
   transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.04);
 }
 
 .text-selection-note-input::placeholder {
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-tertiary);
+  opacity: 0.8;
 }
 
 .text-selection-note-input:hover {
-  border-color: var(--text-tertiary);
+  border-color: var(--text-secondary);
 }
 
 .text-selection-note-input:focus {
-  background: var(--bg-elevated, #fff);
-  border-color: var(--ui-focus, #3b82f6);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18), inset 0 1px 2px rgba(0,0,0,0.02);
+  background: var(--bg-primary);
+  border-color: var(--ui-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-focus) 18%, transparent), inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.text-selection-toolbar-btn--save-note {
+  background: var(--ui-focus) !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px -2px color-mix(in srgb, var(--ui-focus) 45%, transparent), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.text-selection-toolbar-btn--save-note span {
+  color: #ffffff !important;
+}
+
+.text-selection-toolbar-btn--save-note:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 5px 14px -2px color-mix(in srgb, var(--ui-focus) 55%, transparent), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+.text-selection-toolbar-btn--save-note:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .text-selection-category-trigger {
@@ -3674,37 +3880,69 @@ select {
 }
 
 /* ────────────────────────────────────────────────────────────
-   READING PROGRESS INDICATOR
+   READING PROGRESS INDICATOR (Floating Frosted Capsule)
    ──────────────────────────────────────────────────────────── */
 .premium-reading-progress-indicator {
   position: absolute;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  left: calc(32px + env(safe-area-inset-left, 0px));
-  display: flex;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  left: calc(24px + env(safe-area-inset-left, 0px));
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 7px;
+  padding: 5px 13px 5px 7px;
+  background: var(--bg-elevated, #ffffff);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--ui-border, rgba(0, 0, 0, 0.1));
+  border-radius: 9999px;
+  box-shadow: 0 4px 18px -2px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
   color: var(--text-secondary, #6b7280);
-  font-weight: 500;
-  z-index: 10;
-  opacity: 0.8;
-  transition: opacity 0.3s;
-  pointer-events: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  z-index: 45;
+  pointer-events: auto !important;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.95;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.2s ease;
 }
 
 .premium-reading-progress-indicator:hover {
   opacity: 1;
+  color: var(--text-primary, #111827);
+  border-color: var(--ui-focus, #3b82f6);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.18), 0 3px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.premium-reading-progress-indicator:active {
+  transform: scale(0.96) translateY(0);
+}
+
+.premium-progress-icon-bubble {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  flex-shrink: 0;
 }
 
 .premium-progress-icon {
-  width: 16px;
-  height: 16px;
-  opacity: 0.8;
+  width: 13px;
+  height: 13px;
 }
 
 .premium-progress-separator {
-  opacity: 0.5;
-  font-size: 18px;
+  opacity: 0.4;
+  font-size: 14px;
   line-height: 1;
 }
 
@@ -3715,7 +3953,9 @@ select {
 [data-theme="black"] .premium-top-bar,
 [data-theme="black"] .premium-search-container,
 [data-theme="black"] .premium-settings-panel,
-[data-theme="black"] .premium-ambient-panel {
+[data-theme="black"] .premium-ambient-panel,
+[data-theme="black"] .premium-sleep-timer-panel,
+[data-theme="black"] .premium-night-veil-card {
   background: var(--bg-elevated) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

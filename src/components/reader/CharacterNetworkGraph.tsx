@@ -84,26 +84,23 @@ function deduplicateSampleQuotes(quotes: { chapterIndex: number; quote: string }
 }
 
 function getDistinctiveQuoteTerm(rawQuote: string, fallbackName?: string): string {
-  if (!rawQuote) return fallbackName || '';
+  if (!rawQuote?.trim()) return fallbackName || '';
   const clean = sanitizeQuote(rawQuote);
-  // Split on ellipsis or strong punctuation (. ? ! ; : — – \n) to get pure consecutive words within a single phrase
-  const clauses = clean
-    .split(/\.\.\.|\u2026|[.?!;:—–\n]+/)
-    .map((c) => c.trim())
-    .filter((c) => c.length >= 8);
-
-  for (const clause of clauses) {
-    const words = clause.replace(/[^a-zA-Z0-9\s'-]/g, '').trim().split(/\s+/).filter(Boolean);
-    if (words.length >= 3) {
-      // 4 to 6 words is the sweet spot for an exact unique match in the chapter HTML
-      const phrase = words.slice(0, Math.min(6, words.length)).join(' ');
-      if (phrase.length >= 10) {
-        return phrase;
-      }
-    }
+  // If sliding window combined snippet with ellipsis, prioritize the primary segment
+  const primarySnippet = clean.split(/\s*(?:\.\.\.|\u2026)\s*/)[0]?.trim() || clean;
+  // If there's an embedded dialogue quote section (e.g. “...” or "..." or ‘...’), that's the most distinctive!
+  const dialogueMatch = primarySnippet.match(/["“'‘]([^"”'’]{6,120})["”'’]/);
+  if (dialogueMatch && dialogueMatch[1].trim().split(/\s+/).length >= 2) {
+    return dialogueMatch[1].trim();
   }
-
-  return fallbackName || '';
+  // Extract the first coherent clause or dialogue sentence
+  const firstClause = primarySnippet.split(/[\n;—–]+/)[0]?.trim() || primarySnippet;
+  const words = firstClause.split(/\s+/).filter(Boolean);
+  if (words.length >= 3) {
+    // 5 to 10 authentic consecutive words provides a robust, unambiguous anchor
+    return words.slice(0, Math.min(10, words.length)).join(' ');
+  }
+  return primarySnippet.slice(0, 80) || fallbackName || '';
 }
 
 function getCleanDisplayName(fullName: string): string {

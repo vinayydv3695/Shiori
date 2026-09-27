@@ -162,3 +162,63 @@ describe('libraryStore request ordering', () => {
     expect(useLibraryStore.getState().hasMore).toBe(false);
   });
 });
+
+describe('matchesAdvancedFilters and countActiveFilterCriteria', () => {
+  it('correctly counts active filter criteria including isFavorite and readingStatus', async () => {
+    const { countActiveFilterCriteria, EMPTY_FILTERS } = await import('@/store/libraryStore');
+    expect(countActiveFilterCriteria(null)).toBe(0);
+    expect(countActiveFilterCriteria(EMPTY_FILTERS)).toBe(0);
+
+    expect(countActiveFilterCriteria({ ...EMPTY_FILTERS, isFavorite: true })).toBe(1);
+    expect(countActiveFilterCriteria({ ...EMPTY_FILTERS, readingStatus: ['reading'] })).toBe(1);
+    expect(countActiveFilterCriteria({ ...EMPTY_FILTERS, readingStatus: ['reading'], isFavorite: true })).toBe(2);
+  });
+
+  it('filters books by readingStatus and isFavorite correctly', async () => {
+    const { matchesAdvancedFilters, EMPTY_FILTERS } = await import('@/store/libraryStore');
+
+    const book1: Book = {
+      id: 1,
+      uuid: 'uuid-1',
+      title: 'Reading Book',
+      file_path: '/books/1.epub',
+      file_format: 'EPUB',
+      added_date: '2024-01-01',
+      reading_status: 'reading',
+      is_favorite: true,
+    };
+
+    const book2: Book = {
+      id: 2,
+      uuid: 'uuid-2',
+      title: 'Completed Book',
+      file_path: '/books/2.epub',
+      file_format: 'EPUB',
+      added_date: '2024-01-01',
+      reading_status: 'completed',
+      is_favorite: false,
+    };
+
+    const book3: Book = {
+      id: 3,
+      uuid: 'uuid-3',
+      title: 'On Hold Book',
+      file_path: '/books/3.epub',
+      file_format: 'EPUB',
+      added_date: '2024-01-01',
+      reading_status: 'on_hold',
+      is_favorite: false,
+    };
+
+    // Filter by favorites
+    expect(matchesAdvancedFilters(book1, { ...EMPTY_FILTERS, isFavorite: true })).toBe(true);
+    expect(matchesAdvancedFilters(book2, { ...EMPTY_FILTERS, isFavorite: true })).toBe(false);
+
+    // Filter by reading status
+    expect(matchesAdvancedFilters(book1, { ...EMPTY_FILTERS, readingStatus: ['reading'] })).toBe(true);
+    expect(matchesAdvancedFilters(book2, { ...EMPTY_FILTERS, readingStatus: ['reading'] })).toBe(false);
+
+    expect(matchesAdvancedFilters(book2, { ...EMPTY_FILTERS, readingStatus: ['completed'] })).toBe(true);
+    expect(matchesAdvancedFilters(book3, { ...EMPTY_FILTERS, readingStatus: ['on_hold'] })).toBe(true);
+  });
+});

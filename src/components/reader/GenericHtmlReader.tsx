@@ -26,6 +26,7 @@ import { useDoodleStore } from '@/store/doodleStore';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { waitForStableReaderLayout } from './PremiumEpubReader';
+import { scrollCanvasToSearchTerm } from '@/lib/sceneHighlight';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
@@ -272,21 +273,39 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
     const goToChapter = async (index: number, searchTerm?: string | null) => {
         if (index < 0 || index >= totalChapters) return;
+
+        // If jumping to a scene in the current chapter, scroll immediately
+        if (index === currentChapter && searchTerm?.trim()) {
+            const targetEl = contentRef.current || containerRef.current;
+            if (targetEl) {
+                scrollCanvasToSearchTerm(targetEl, searchTerm);
+            }
+        }
+
         const requestToken = ++chapterRequestRef.current;
         try {
             const chapter = await api.getBookChapter(bookId, index);
             if (requestToken !== chapterRequestRef.current) return; // stale response — discard
             setContent(chapter.content);
             setCurrentChapter(index);
-            // Scroll to top of new chapter
-            if (containerRef.current) {
+
+            // If not searching for a scene, scroll to top of new chapter
+            if (!searchTerm?.trim() && containerRef.current) {
                 containerRef.current.scrollTo({ top: 0, behavior: 'auto' });
             }
+
             if (searchTerm?.trim()) {
-                setTimeout(() => {
-                    const firstHighlight = contentRef.current?.querySelector('mark.premium-search-highlight') as HTMLElement | null;
-                    firstHighlight?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 120);
+                let attempts = 0;
+                const tryScroll = () => {
+                    const targetEl = contentRef.current || containerRef.current;
+                    if (!targetEl) return;
+                    const scrolled = scrollCanvasToSearchTerm(targetEl, searchTerm);
+                    if (!scrolled && attempts < 20) {
+                        attempts++;
+                        setTimeout(tryScroll, 50);
+                    }
+                };
+                setTimeout(tryScroll, 60);
             }
         } catch (err) {
             logger.error('[GenericHtmlReader] Error loading chapter:', err);

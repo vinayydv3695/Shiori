@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Highlighter, StickyNote, X, Volume2, ChevronDown, Copy, MoreVertical, Search, Share2, ArrowLeft, BookOpen } from '@/components/icons';
+import { Highlighter, StickyNote, X, Volume2, ChevronDown, Copy, MoreVertical, Search, Share2, ArrowLeft, BookOpen, Check } from '@/components/icons';
+import { cn } from '@/lib/utils';
 import { api, isAndroid } from '@/lib/tauri';
 import type { AnnotationCategory, DictionaryResponse, TranslationResponse } from '@/lib/tauri';
 import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
@@ -10,7 +11,8 @@ import { usePreferencesStore } from '@/store/preferencesStore';
 import { ttsEngine, TTSEngine } from '@/lib/ttsEngine';
 import { TranslationPopup } from './TranslationPopup';
 import { AICopilotPopup } from './AICopilotPopup';
-import { Brain } from 'lucide-react';
+import { ReaderTooltip } from './ReaderTooltip';
+import { Brain, Star, HelpCircle, Quote, Link2, Tag, Bookmark, Lightbulb } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
 import { useReadingSettings, READER_THEME_COLORS, applyReaderThemeToElement, removeReaderThemeFromElement } from '@/store/premiumReaderStore';
 import { hapticTick } from '@/lib/haptics';
@@ -71,6 +73,18 @@ export const DEFAULT_HIGHLIGHT_PRESETS: HighlightPreset[] = [
   { name: 'Teal', value: '#2dd4bf', defaultLabel: 'Reference' },
 ];
 
+function getCategoryIconComponent(categoryName: string, iconName?: string) {
+  const lower = categoryName.toLowerCase();
+  if (lower.includes('important') || iconName === 'star') return Star;
+  if (lower.includes('question') || iconName === 'help-circle') return HelpCircle;
+  if (lower.includes('vocab') || iconName === 'book-open') return BookOpen;
+  if (lower.includes('quote') || iconName === 'quote') return Quote;
+  if (lower.includes('reference') || iconName === 'link') return Link2;
+  if (lower.includes('idea') || lower.includes('thought') || iconName === 'lightbulb') return Lightbulb;
+  if (lower.includes('bookmark') || iconName === 'bookmark') return Bookmark;
+  return Tag;
+}
+
 /**
  * Floating toolbar that appears when the user selects text inside the reader.
  * Provides: Copy, Highlight, Add Note, Bookmark actions.
@@ -83,7 +97,6 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categories, setCategories] = useState<AnnotationCategory[]>([]);
   const [showTranslation, setShowTranslation] = useState(false);
   const [showAICopilot, setShowAICopilot] = useState(false);
@@ -313,8 +326,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const repositionToolbar = useCallback(() => {
     if (!toolbarRef.current) return;
     const isCard = showNoteInput || showTranslation || showAICopilot;
-    const actualWidth = toolbarRef.current.offsetWidth || (isCard ? 380 : (showColorPicker ? 500 : 460));
-    const actualHeight = toolbarRef.current.offsetHeight || (isCard ? 300 : (showColorPicker ? 85 : 45));
+    const actualWidth = (showNoteInput ? (toolbarRef.current.offsetWidth >= 440 ? toolbarRef.current.offsetWidth : 480) : toolbarRef.current.offsetWidth) || (showNoteInput ? 480 : (isCard ? 380 : (showColorPicker ? 500 : 460)));
+    const actualHeight = (showNoteInput ? (toolbarRef.current.offsetHeight >= 300 ? toolbarRef.current.offsetHeight : 360) : toolbarRef.current.offsetHeight) || (showNoteInput ? 360 : (isCard ? 300 : (showColorPicker ? 85 : 45)));
     const rect = selectionRectRef.current;
 
     const vpWidth = window.innerWidth;
@@ -324,7 +337,11 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     let x = 0;
     let y = 0;
 
-    if (rect) {
+    if (showNoteInput) {
+      // Center the Add Note modal directly on screen for optimal user visibility and focus
+      x = (vpWidth - actualWidth) / 2;
+      y = Math.max(safeMargin, (vpHeight - actualHeight) / 2);
+    } else if (rect) {
       x = rect.left + rect.width / 2 - actualWidth / 2;
 
       if (isCard) {
@@ -760,8 +777,30 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
   return (
     <AnimatePresence>
+      {isVisible && showNoteInput && (
+        <motion.div
+          key="text-selection-note-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-[9990] bg-black/25 dark:bg-black/45 backdrop-blur-[2.5px] pointer-events-auto select-none"
+          aria-hidden="true"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            setShowNoteInput(false);
+            setNoteText('');
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowNoteInput(false);
+            setNoteText('');
+          }}
+        />
+      )}
       {isVisible && (
         <motion.div
+          key="text-selection-toolbar-modal"
           ref={toolbarRef}
           className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showAICopilot) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showColorPicker ? 'text-selection-toolbar--highlight-active' : ''} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
           style={isAndroid ? undefined : { left: position.x, top: position.y }}
@@ -1060,25 +1099,30 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                 style={{ background: 'var(--ui-divider, var(--ui-border))', opacity: 0.35 }}
               />
 
-              {/* Minimal 1-tap color swatches — evenly spaced */}
+              {/* Minimal 1-tap color swatches — evenly spaced with theme-styled tooltips */}
               <div className="flex items-center justify-evenly gap-1.5 px-1 py-1">
                 {DEFAULT_HIGHLIGHT_PRESETS.map((c) => {
                   const currentLabel = highlightLabels[c.value] || c.defaultLabel;
                   return (
-                    <button
+                    <ReaderTooltip
                       key={c.value}
-                      type="button"
-                      className="text-selection-quick-swatch group relative w-7 h-7 rounded-full cursor-pointer flex items-center justify-center shrink-0 active:scale-90 transition-transform"
-                      style={{ backgroundColor: c.value }}
-                      onClick={() => {
-                        hapticTick();
-                        handleHighlight(c.value, currentLabel);
-                      }}
-                      title={`${c.name} • ${currentLabel}`}
-                      aria-label={`Highlight: ${currentLabel}`}
+                      content={`${c.name} • ${currentLabel}`}
+                      side="bottom"
+                      sideOffset={6}
                     >
-                      <span className="absolute inset-0 rounded-full ring-[1.5px] ring-inset ring-black/15 dark:ring-white/20 pointer-events-none group-hover:ring-black/35 transition-all" />
-                    </button>
+                      <button
+                        type="button"
+                        className="text-selection-quick-swatch group relative w-7 h-7 rounded-full cursor-pointer flex items-center justify-center shrink-0 active:scale-90 transition-transform"
+                        style={{ backgroundColor: c.value }}
+                        onClick={() => {
+                          hapticTick();
+                          handleHighlight(c.value, currentLabel);
+                        }}
+                        aria-label={`Highlight: ${currentLabel}`}
+                      >
+                        <span className="absolute inset-0 rounded-full ring-[1.5px] ring-inset ring-black/15 dark:ring-white/20 pointer-events-none group-hover:ring-black/35 transition-all" />
+                      </button>
+                    </ReaderTooltip>
                   );
                 })}
               </div>
@@ -1089,20 +1133,59 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
           {showNoteInput && (
             <motion.div
               className="text-selection-toolbar-note"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
+              {/* Card Header */}
+              <div className="flex items-center justify-between pb-2.5 border-b border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] flex items-center justify-center shrink-0 shadow-2xs">
+                    <StickyNote size={14} strokeWidth={2.4} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm tracking-tight text-[var(--text-primary)] leading-tight">
+                      Add Note
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowNoteInput(false); setNoteText(''); }}
+                  className="w-7 h-7 rounded-xl flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] transition-all cursor-pointer"
+                  aria-label="Close note"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Selected Text Quote Preview */}
+              {selectedText && (
+                <div className="relative rounded-2xl border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_3%,var(--bg-secondary))] px-3.5 py-2.5 transition-all select-none">
+                  <div className="flex items-center gap-1.5 mb-1 text-[var(--ui-focus)]">
+                    <Quote size={11} className="rotate-180 shrink-0 opacity-80" />
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                      Selected Passage
+                    </span>
+                  </div>
+                  <p className="font-serif italic text-xs leading-relaxed text-[var(--text-primary)] opacity-90 line-clamp-3 select-none">
+                    “{selectedText.trim()}”
+                  </p>
+                </div>
+              )}
+
+              {/* Textarea */}
               <textarea
                 ref={noteInputRef}
                 className="text-selection-note-input"
-                placeholder="Add a note..."
+                placeholder="Write your note, reflection, or summary..."
                 value={noteText}
                 onTouchStart={(e) => e.stopPropagation()}
                 onTouchMove={(e) => e.stopPropagation()}
                 onTouchEnd={(e) => e.stopPropagation()}
                 onChange={(e) => setNoteText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
                     handleAddNote();
                   }
@@ -1112,90 +1195,113 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                   }
                 }}
                 rows={3}
+                autoFocus
               />
-              {categories.length > 0 && (
-                <div className="relative w-full">
-                  <button
-                    type="button"
-                    className="text-selection-category-trigger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsCategoryDropdownOpen(!isCategoryDropdownOpen);
-                    }}
-                  >
-                    <span className="truncate">
-                      {selectedCategoryId
-                        ? categories.find(c => c.id === selectedCategoryId)?.name || 'Select category'
-                        : 'No category'}
-                    </span>
-                    <ChevronDown size={14} className={`opacity-70 shrink-0 transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
 
-                  <AnimatePresence>
-                    {isCategoryDropdownOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-[190]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsCategoryDropdownOpen(false);
-                          }}
-                        />
-                        <motion.div
-                          initial={{ opacity: 0, y: 4, scale: 0.97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                          transition={{ duration: 0.15, ease: 'easeOut' }}
-                          className="text-selection-category-menu"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            className={`text-selection-category-option ${!selectedCategoryId ? 'text-selection-category-option--active' : ''}`}
-                            onClick={() => {
-                              setSelectedCategoryId(undefined);
-                              setIsCategoryDropdownOpen(false);
-                            }}
-                          >
-                            No category
-                          </button>
-                          {categories.map((c) => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              className={`text-selection-category-option ${selectedCategoryId === c.id ? 'text-selection-category-option--active' : ''}`}
-                              onClick={() => {
-                                setSelectedCategoryId(c.id);
-                                setIsCategoryDropdownOpen(false);
-                              }}
-                            >
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                              <span>{c.name}</span>
-                            </button>
-                          ))}
-                        </motion.div>
-                      </>
+              {/* Category Cards (Tactile depth, SVG icons, zero horizontal scrolling) */}
+              {categories.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="text-[10.5px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider block">
+                      Category
+                    </span>
+                    {selectedCategoryId !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCategoryId(undefined)}
+                        className="text-[10.5px] font-semibold text-[var(--ui-focus)] hover:underline transition-colors cursor-pointer"
+                      >
+                        Reset to General
+                      </button>
                     )}
-                  </AnimatePresence>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      {
+                        id: undefined as number | undefined,
+                        name: 'General',
+                        Icon: StickyNote,
+                      },
+                      ...categories.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        Icon: getCategoryIconComponent(c.name, c.icon),
+                      })),
+                    ].map((cat) => {
+                      const isSelected = selectedCategoryId === cat.id;
+                      const Icon = cat.Icon;
+
+                      return (
+                        <button
+                          key={cat.name}
+                          type="button"
+                          onClick={() => setSelectedCategoryId(isSelected && cat.id !== undefined ? undefined : cat.id)}
+                          className={cn(
+                            "flex items-center gap-2 py-1.5 px-2.5 rounded-xl border text-left transition-all cursor-pointer select-none outline-none focus:outline-none",
+                            isSelected
+                              ? "bg-[var(--ui-focus)] !text-white border-transparent shadow-[0_3px_8px_-1px_rgba(0,0,0,0.2)] font-bold active:scale-98"
+                              : "border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-secondary))] text-[var(--text-primary)] hover:border-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_8%,var(--bg-secondary))] shadow-[0_2px_5px_-1px_rgba(0,0,0,0.12),0_1px_3px_-1px_rgba(0,0,0,0.06)] font-medium active:scale-98"
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "w-5 h-5 rounded-lg flex items-center justify-center shrink-0 transition-all",
+                              isSelected
+                                ? "bg-white/20 !text-white"
+                                : "bg-[color-mix(in_srgb,var(--text-primary)_7%,transparent)] text-[var(--text-secondary)] shadow-inner"
+                            )}
+                          >
+                            <Icon size={12} strokeWidth={2.4} />
+                          </div>
+
+                          <span
+                            className={cn(
+                              "text-xs truncate leading-tight flex-1 transition-colors",
+                              isSelected
+                                ? "!text-white font-bold"
+                                : "text-[var(--text-primary)]"
+                            )}
+                          >
+                            {cat.name}
+                          </span>
+
+                          {isSelected && (
+                            <Check size={11} strokeWidth={3} className="!text-white shrink-0 ml-auto" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
-              <div className="flex items-center justify-end gap-2.5 pt-1">
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all hover:bg-white/10 active:scale-95 cursor-pointer"
-                  style={{ color: 'var(--text-secondary)' }}
-                  onClick={() => { setShowNoteInput(false); setNoteText(''); }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md active:scale-95 transition-all cursor-pointer"
-                  style={{ backgroundColor: 'var(--ui-focus, #3b82f6)', color: '#ffffff' }}
-                  onClick={handleAddNote}
-                >
-                  Save
-                </button>
+
+              {/* Footer Actions */}
+              <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--ui-border)_40%,transparent)]">
+                <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-tertiary)] hidden sm:flex select-none">
+                  <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shadow-2xs">
+                    ⌘ ↵
+                  </kbd>
+                  <span>to save</span>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    type="button"
+                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] active:scale-95 transition-all cursor-pointer"
+                    onClick={() => { setShowNoteInput(false); setNoteText(''); }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="text-selection-toolbar-btn--save-note px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:shadow-none"
+                    onClick={handleAddNote}
+                    disabled={!noteText.trim()}
+                  >
+                    <Check size={13} strokeWidth={2.5} className="text-white" />
+                    <span>Save Note</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}

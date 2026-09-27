@@ -210,6 +210,11 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
         }
     }
 
+    // Filter by favorites
+    if let Some(is_fav) = query.is_favorite {
+        where_clauses.push(if is_fav { "b.is_favorite = 1".to_string() } else { "b.is_favorite = 0".to_string() });
+    }
+
     // Keyset pagination cursor (added_date sort only, K3-025 keyset). The
     // frontend resumes from the previous page's last row (its added_date +
     // id): DESC continues strictly-before the cursor, ASC strictly-after.
@@ -224,7 +229,7 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
         (&query.before_added_date, query.before_id)
     {
         let sort_is_added_date = match query.sort_by.as_deref() {
-            Some("title") | Some("pubdate") | Some("rating") | Some("author") => false,
+            Some("title") | Some("pubdate") | Some("rating") | Some("author") | Some("last_opened") | Some("last_read") | Some("last_read_date") => false,
             _ => true,
         };
         if sort_is_added_date {
@@ -304,6 +309,9 @@ pub fn build_search_query(query: &SearchQuery) -> (String, Vec<Value>, String, V
                      GROUP BY ba.book_id) am ON am.am_book_id = b.id",
                 );
                 order_clause = format!("ORDER BY am.author_name {0} NULLS LAST, b.id {0}", order_dir);
+            }
+            "last_opened" | "last_read" | "last_read_date" => {
+                order_clause = format!("ORDER BY b.last_opened {0} NULLS LAST, b.id {0}", order_dir);
             }
             "added_date" | _ => {
                 order_clause = format!("ORDER BY b.added_date {0}, b.id {0}", order_dir);

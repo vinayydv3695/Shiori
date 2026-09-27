@@ -426,7 +426,7 @@ function CharacterDetailModal({
           <button
             type="button"
             onClick={() => {
-              onNavigateToFirstMention(char.firstMention.chapterIndex, char.name);
+              onNavigateToFirstMention(char.firstMention.chapterIndex, char.firstMention.sentenceSnippet || char.name);
               onClose();
             }}
             className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[var(--ui-focus)] text-white hover:opacity-90 shadow-sm transition-all cursor-pointer flex items-center gap-2 ml-auto active:scale-98"
@@ -609,7 +609,7 @@ function CharacterItem({
       {/* Jump to first mention button */}
       <button
         type="button"
-        onClick={() => onNavigateToFirstMention(char.firstMention.chapterIndex, char.name)}
+        onClick={() => onNavigateToFirstMention(char.firstMention.chapterIndex, char.firstMention.sentenceSnippet || char.name)}
         className="w-full py-1.5 px-3 rounded-xl bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-secondary))] hover:bg-[var(--ui-focus)] hover:text-white border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] hover:border-transparent text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-between cursor-pointer shadow-2xs group/btn active:scale-98"
       >
         <span className="flex items-center gap-1.5">

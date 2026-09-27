@@ -29,12 +29,14 @@ function getBookReadStatus(book: Book) {
 
 const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   series,
+  bannerUrl,
   onFindMetadata,
   onMarkAllRead,
   onDelete,
   onOpenBook,
 }: {
   series: SeriesViewProps['series']
+  bannerUrl?: string | null
   onFindMetadata: () => void
   onMarkAllRead: () => void
   onDelete: () => void
@@ -47,35 +49,6 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
   const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
   const firstBook = sortedBooks[0] ?? series?.books[0];
   const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path);
-  const [anilistBanner, setAnilistBanner] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (series?.title) {
-      const fetchBanner = async () => {
-        try {
-          const query = `
-            query ($search: String) {
-              Media(search: $search, type: MANGA) {
-                bannerImage
-              }
-            }
-          `;
-          const res = await fetchWithRetry('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, variables: { search: series.title } })
-          });
-          const data = await res.json();
-          if (data.data?.Media?.bannerImage) {
-            setAnilistBanner(data.data.Media.bannerImage);
-          }
-        } catch {
-          // ignore banner fetch failures gracefully
-        }
-      };
-      fetchBanner();
-    }
-  }, [series?.title]);
 
   const totalPages = useMemo(() => (series?.books ?? []).reduce((acc, b) => acc + (b.page_count || 0), 0), [series?.books]);
 
@@ -92,20 +65,34 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
     : readBooks > 0
       ? 'Reading'
       : 'Planning';
-  const heroImage = coverUrl || anilistBanner;
+  const heroImage = bannerUrl || coverUrl;
 
   return (
     <div className="hidden md:block relative overflow-hidden shrink-0 border-b border-border/50 bg-card">
       {/* Hero Background Banner */}
       {heroImage && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          {/* Ambient blurred glow for deep color and rich atmosphere */}
+          <div className="absolute inset-0 overflow-hidden">
+            <img
+              src={heroImage}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover filter blur-3xl scale-125 opacity-35 dark:opacity-20 saturate-150 transition-all duration-700"
+            />
+          </div>
+
+          {/* Sharp, high-fidelity hero banner artwork */}
           <div 
-            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-30 md:opacity-40 transition-all duration-700"
+            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-85 dark:opacity-45 filter contrast-[1.05] saturate-[1.12] transition-all duration-700 [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.12)_15%,rgba(0,0,0,0.85)_45%,black_75%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.12)_15%,rgba(0,0,0,0.85)_45%,black_75%)]"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
-          {/* Smooth multi-stop directional fade without hard edges */}
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 via-40% to-card/25" />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
+
+          {/* Clean directional contrast scrim for text readability on the left */}
+          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 via-35% to-transparent [mask-image:linear-gradient(to_right,black_0%,black_35%,transparent_70%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_35%,transparent_70%)]" />
+
+          {/* Subtle bottom edge blend into dialog body */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-transparent" />
         </div>
       )}
 
@@ -220,7 +207,7 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
             </div>
 
             {/* Reading Progress Indicator (Compact & Contained) */}
-            <div className="flex-1 min-w-[200px] max-w-xs flex flex-col justify-center gap-1.5 ml-auto bg-secondary/40 backdrop-blur-xl border border-border/30 rounded-xl px-3.5 py-2 shadow-xs">
+            <div className="flex-1 min-w-[200px] max-w-xs flex flex-col justify-center gap-1.5 ml-auto bg-card/75 dark:bg-secondary/40 backdrop-blur-xl border border-border/40 rounded-xl px-3.5 py-2 shadow-xs">
               <div className="flex items-center justify-between text-[11px] font-bold">
                 <span className="text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
@@ -246,12 +233,14 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
 
 const MobileSeriesHeader = memo(function MobileSeriesHeader({
   series,
+  bannerUrl,
   onFindMetadata,
   onMarkAllRead,
   onDelete,
   onOpenBook,
 }: {
   series: SeriesViewProps['series']
+  bannerUrl?: string | null
   onFindMetadata: () => void
   onMarkAllRead: () => void
   onDelete: () => void
@@ -264,35 +253,6 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
   const sortedBooks = useMemo(() => [...(series?.books ?? [])].sort((a, b) => compareBooksNatural(a, b, 'chapter_asc')), [series?.books]);
   const firstBook = sortedBooks[0] ?? series?.books[0];
   const { coverUrl } = useCoverImage(firstBook?.id, firstBook?.cover_path);
-  const [anilistBanner, setAnilistBanner] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (series?.title) {
-      const fetchBanner = async () => {
-        try {
-          const query = `
-            query ($search: String) {
-              Media(search: $search, type: MANGA) {
-                bannerImage
-              }
-            }
-          `;
-          const res = await fetchWithRetry('https://graphql.anilist.co', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query, variables: { search: series.title } })
-          });
-          const data = await res.json();
-          if (data.data?.Media?.bannerImage) {
-            setAnilistBanner(data.data.Media.bannerImage);
-          }
-        } catch {
-          // ignore banner fetch failures gracefully
-        }
-      };
-      fetchBanner();
-    }
-  }, [series?.title]);
 
   const totalPages = useMemo(() => (series?.books ?? []).reduce((acc, b) => acc + (b.page_count || 0), 0), [series?.books]);
 
@@ -309,19 +269,32 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
     : readBooks > 0
       ? 'Reading'
       : 'Planning';
-  const heroImage = coverUrl || anilistBanner;
+  const heroImage = bannerUrl || coverUrl;
 
   return (
-    <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border/50 bg-card/60 overflow-hidden">
+    <div className="md:hidden flex flex-col relative w-full shrink-0 border-b border-border/50 bg-card overflow-hidden">
       {/* Hero Background Banner */}
       {heroImage && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+          {/* Ambient blurred glow */}
+          <div className="absolute inset-0 overflow-hidden">
+            <img
+              src={heroImage}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover filter blur-2xl scale-125 opacity-35 dark:opacity-20 saturate-150 transition-all duration-500"
+            />
+          </div>
+
+          {/* Sharp banner image */}
           <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 transition-all duration-500"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-65 dark:opacity-35 filter contrast-[1.05] saturate-[1.1] transition-all duration-500"
             style={{ backgroundImage: `url(${heroImage})` }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/80 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-card via-card/60 to-transparent" />
+
+          {/* Directional scrims ensuring mobile readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/60 via-40% to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-card/90 via-card/50 via-50% to-transparent" />
         </div>
       )}
 
@@ -425,7 +398,7 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
           </div>
 
           {/* Reading Progress Bar */}
-          <div className="bg-secondary/40 backdrop-blur-xl border border-border/30 rounded-xl px-3 py-2 shadow-xs">
+          <div className="bg-card/75 dark:bg-secondary/40 backdrop-blur-xl border border-border/40 rounded-xl px-3 py-2 shadow-xs">
             <div className="flex items-center justify-between mb-1 text-[10px] font-bold">
               <span className="text-muted-foreground uppercase tracking-wider">Progress</span>
               <span className="text-foreground">{readBooks}/{series.books.length} vols <span className="text-primary font-black">({progressPercent}%)</span></span>
@@ -535,6 +508,42 @@ export const SeriesView = memo(function SeriesView({
   const toast = useToast()
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false)
   const [metadataSeriesId, setMetadataSeriesId] = useState<number | null>(null)
+  const [anilistBanner, setAnilistBanner] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!series?.title) {
+      setAnilistBanner(null)
+      return
+    }
+    let cancelled = false
+    const fetchBanner = async () => {
+      try {
+        const cleanTitle = series.title.replace(/\s*(\(|\[).*?(\)|\])/g, '').trim() || series.title
+        const query = `
+          query ($search: String) {
+            Media(search: $search, type: MANGA) {
+              bannerImage
+            }
+          }
+        `
+        const res = await fetchWithRetry('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { search: cleanTitle } })
+        })
+        const data = await res.json()
+        if (!cancelled && data.data?.Media?.bannerImage) {
+          setAnilistBanner(data.data.Media.bannerImage)
+        }
+      } catch {
+        // ignore banner fetch failures gracefully
+      }
+    }
+    fetchBanner()
+    return () => {
+      cancelled = true
+    }
+  }, [series?.title])
 
   const density = usePreferencesStore((state) => state.preferences?.libraryDensity ?? 'comfortable')
   const coverSize = usePreferencesStore((state) => state.preferences?.coverSize ?? 'medium')
@@ -693,7 +702,7 @@ export const SeriesView = memo(function SeriesView({
         >
           <Dialog.Close asChild>
             <AppTooltip content="Close series view" side="left">
-              <button aria-label="Close series view" className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-secondary/80 hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95">
+              <button aria-label="Close series view" className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-card/80 dark:bg-secondary/80 hover:bg-card dark:hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95">
                 <X className="h-5 w-5" />
               </button>
             </AppTooltip>
@@ -703,6 +712,7 @@ export const SeriesView = memo(function SeriesView({
             <div className="flex flex-col min-h-full pb-16 md:pb-8">
             <DesktopSeriesHeader 
               series={series} 
+              bannerUrl={anilistBanner}
               onFindMetadata={handleFindSeriesMetadata}
               onDelete={handleDeleteSeries}
               onMarkAllRead={handleMarkAllRead}
@@ -710,6 +720,7 @@ export const SeriesView = memo(function SeriesView({
             />
             <MobileSeriesHeader 
               series={series} 
+              bannerUrl={anilistBanner}
               onFindMetadata={handleFindSeriesMetadata}
               onDelete={handleDeleteSeries}
               onMarkAllRead={handleMarkAllRead}

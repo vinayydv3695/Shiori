@@ -144,6 +144,7 @@ export function useLibraryFilter(searchQuery: string) {
       date_from: advanced?.dateFrom,
       date_to: dateTo,
       reading_status: advanced?.readingStatus,
+      is_favorite: advanced?.isFavorite ? true : undefined,
     };
 
     const hasCriteria = Boolean(
@@ -162,7 +163,8 @@ export function useLibraryFilter(searchQuery: string) {
       next.max_rating !== undefined ||
       next.date_from ||
       next.date_to ||
-      (next.reading_status && next.reading_status.length > 0),
+      (next.reading_status && next.reading_status.length > 0) ||
+      next.is_favorite !== undefined,
     );
 
     return hasCriteria ? next : null;

@@ -1,3 +1,13 @@
+# Release Notes (v1.0.16)
+
+## Reader Polish & Fixes
+
+- **EPUB Cover & First-Page Layout Restoration** — Fixed cover rendering across diverse EPUB schemas (including namespaced `<svg:svg>` and `<svg:image>` elements). Refined first-page layout styling so non-cover opening chapters retain full multi-column pagination without blank page collapses.
+- **Classic Ribbon Bookmark Restored** — Reinstated the clean classic corner bookmark ribbon in the premium reader.
+- **Focused Note Modal Backdrop Blur** — Added backdrop blur and centered dialog positioning on the note creation overlay for distraction-free writing.
+- **Sleep Timer & Bedtime Night Veil** — Added sleep timer controls and ambient bedtime night veil adjustments for late-night reading sessions.
+- **Clean Compiler Diagnostics** — Resolved dead code and unused field warnings in runtime extensions and ingest services.
+
 # Release Notes (v1.0.15)
 
 ## Character Network & Relationship Web

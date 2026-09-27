@@ -282,6 +282,7 @@ impl ExtensionInstance {
     // -- memory plumbing -----------------------------------------------------
 
     /// Reads `len` bytes at `ptr`, bounds-checked against linear memory.
+    #[allow(dead_code)]
     fn read_bytes(&self, ptr: i32, len: usize) -> ExtResult<Vec<u8>> {
         let start = valid_range(ptr, len, self.memory.data_size(&self.store))?;
         let mut buf = vec![0u8; len];

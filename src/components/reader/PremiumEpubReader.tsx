@@ -25,11 +25,15 @@ import { ReaderTooltip } from './ReaderTooltip';
 import { escapeHtml } from '@/lib/sanitize';
 import DOMPurify from 'dompurify';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
+import { scrollCanvasToSearchTerm, findBestMatchingBlock } from '@/lib/sceneHighlight';
 import { notifyAnnotationsChanged, onAnnotationsChanged } from '@/lib/annotationEvents';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { useToastStore } from '@/store/toastStore';
 import { ReaderTopBar } from './ReaderTopBar';
 import { ReadingProgressIndicator } from './ReadingProgressIndicator';
+import { BedtimeNightVeil } from './BedtimeNightVeil';
+import { useSleepTimerStore } from '@/store/sleepTimerStore';
+import { countWordsFromHtml } from '@/lib/readingPacing';
 import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import { ContinuousEpubView } from './ContinuousEpubView';
 import { triggerHaptic } from '@/lib/haptics';
@@ -67,9 +71,14 @@ function sanitizeChapterHtml(content: string): string {
   });
 }
 
-export function ChapterHtml({ content }: { content: string }) {
+export function ChapterHtml({ content, isFirstPage }: { content: string; isFirstPage?: boolean }) {
   const html = useMemo(() => sanitizeChapterHtml(content), [content]);
-  return <div className="premium-chapter-content" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div
+      className={`premium-chapter-content ${isFirstPage ? 'premium-chapter-content--first-page' : ''}`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
 }
 
 // Strip leading ../ and ./ (plus any fragment) from an EPUB-relative resource
@@ -236,6 +245,39 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
     return `${attr}="${rewriteResourceValue(attr, originalPath, bookId)}"`;
   });
 
+  // Step 3: Normalize SVG covers & illustrations
+  // Calibre and EPUB generators often add preserveAspectRatio="none" which distorts covers,
+  // or width="100%" / height="100%" with no constraints.
+  // Handles both standard <svg> and namespaced <svg:svg> from EPUBs.
+  processedHtml = processedHtml.replace(/<(?:svg:)?svg\b([^>]*)>/gi, (_whole, attrs) => {
+    let cleanAttrs = attrs;
+    if (/preserveAspectRatio=["']none["']/i.test(cleanAttrs)) {
+      cleanAttrs = cleanAttrs.replace(/preserveAspectRatio=["']none["']/i, 'preserveAspectRatio="xMidYMid meet"');
+    } else if (!/preserveAspectRatio=/i.test(cleanAttrs)) {
+      cleanAttrs += ' preserveAspectRatio="xMidYMid meet"';
+    }
+    if (/class=["']/i.test(cleanAttrs)) {
+      cleanAttrs = cleanAttrs.replace(/class=["']([^"']*)["']/i, 'class="$1 epub-svg-illustration"');
+    } else {
+      cleanAttrs += ' class="epub-svg-illustration"';
+    }
+    return `<svg ${cleanAttrs}>`;
+  });
+  processedHtml = processedHtml.replace(/<\/(?:svg:)?svg>/gi, '</svg>');
+  processedHtml = processedHtml.replace(/<(?:\w+:)?image\b/gi, '<image');
+  processedHtml = processedHtml.replace(/<\/(?:\w+:)?image>/gi, '</image>');
+
+  // Step 4: Tag cover pages with epub-cover-wrapper
+  const isCoverPage =
+    /<meta\s+[^>]*name=["'](?:calibre:cover|cover)["']/i.test(html) ||
+    /<title>[^<]*\bcover\b[^<]*<\/title>/i.test(html) ||
+    /\b(?:class|id)=["'][^"']*\b(?:cover|titlepage|ebookmaker-coverpage)\b[^"']*["']/i.test(html) ||
+    /\bepub:type=["'][^"']*\bcover\b[^"']*["']/i.test(html);
+
+  if (isCoverPage && !processedHtml.includes('epub-cover-wrapper')) {
+    processedHtml = `<div class="epub-cover-wrapper">${processedHtml}</div>`;
+  }
+
   return processedHtml;
 }
 
@@ -250,7 +292,7 @@ export function applySearchHighlight(html: string, searchTerm?: string | null): 
   return highlightSearchTerm(html, searchTerm);
 }
 
-// Helper function to highlight search terms in HTML (case-insensitive, preserves HTML tags)
+// Helper function to highlight search terms in HTML (case-insensitive, preserves HTML tags, punctuation-tolerant)
 function highlightSearchTerm(html: string, searchTerm: string): string {
   if (!searchTerm || !searchTerm.trim()) return html;
 
@@ -258,15 +300,34 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
 
-  // Escape special regex characters in search term
-  const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escapedTerm})`, 'gi');
+  // Extract clean alphanumeric tokens for flexible punctuation-agnostic matching
+  const words = searchTerm
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length >= 2);
+
+  // 1. Build flexible regex matching words across punctuation, smart quotes, dashes, entities
+  let regex: RegExp;
+  if (words.length >= 2) {
+    const sliceWords = words.length > 7 ? words.slice(0, 6) : words;
+    const flexPattern = sliceWords
+      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('[\\s,.:;!?"\'“”‘’—–\\-]+');
+    regex = new RegExp(`(${flexPattern})`, 'gi');
+  } else {
+    const escapedTerm = searchTerm.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    regex = new RegExp(`(${escapedTerm})`, 'gi');
+  }
+
+  let matchFound = false;
 
   // Recursive function to highlight text nodes only
   const highlightTextNodes = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent || '';
       if (regex.test(text)) {
+        matchFound = true;
         const highlightedHTML = text.replace(regex, (match) => `<mark class="search-highlight">${escapeHtml(match)}</mark>`);
         const span = document.createElement('span');
         span.innerHTML = highlightedHTML;
@@ -283,7 +344,45 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
 
   highlightTextNodes(doc.body);
 
-  // Add styles for highlighted text
+  // If exact phrase wasn't found in a single text node (e.g. broken across inline formatting),
+  // locate the best-matching paragraph block and spotlight it specifically (never across global body).
+  if (!matchFound) {
+    const bestBlock = findBestMatchingBlock(doc.body, searchTerm);
+    if (bestBlock) {
+      bestBlock.setAttribute('data-target-scene', 'true');
+      bestBlock.classList.add('scene-dialogue-highlight');
+      matchFound = true;
+
+      const significantWords = words.filter((w) => w.length >= 4 || /^[A-Z]/.test(w));
+      if (significantWords.length > 0) {
+        const altPattern = significantWords
+          .slice(0, 6)
+          .map((w) => `\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+          .join('|');
+        const altRegex = new RegExp(`(${altPattern})`, 'gi');
+
+        const highlightBlockNodes = (node: Node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent || '';
+            if (altRegex.test(text)) {
+              const highlightedHTML = text.replace(altRegex, (match) => `<mark class="search-highlight">${escapeHtml(match)}</mark>`);
+              const span = document.createElement('span');
+              span.innerHTML = highlightedHTML;
+              node.parentNode?.replaceChild(span, node);
+            }
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const tagName = (node as Element).tagName?.toLowerCase();
+            if (tagName !== 'script' && tagName !== 'style' && tagName !== 'mark') {
+              Array.from(node.childNodes).forEach(highlightBlockNodes);
+            }
+          }
+        };
+        highlightBlockNodes(bestBlock);
+      }
+    }
+  }
+
+  // Add styles for highlighted text and scene pulse glow
   const style = doc.createElement('style');
   style.textContent = `
     .search-highlight {
@@ -295,6 +394,29 @@ function highlightSearchTerm(html: string, searchTerm: string): string {
       font-weight: 500;
       display: inline;
       transition: all 0.3s ease;
+    }
+    .search-highlight--active {
+      background-color: color-mix(in srgb, #f59e0b 60%, transparent) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #f59e0b 50%, transparent), 0 0 16px color-mix(in srgb, #f59e0b 40%, transparent) !important;
+    }
+    @keyframes scenePulseGlow {
+      0% {
+        background-color: color-mix(in srgb, var(--ui-focus) 28%, transparent) !important;
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-focus) 35%, transparent) !important;
+      }
+      60% {
+        background-color: color-mix(in srgb, var(--ui-focus) 14%, transparent) !important;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-focus) 20%, transparent) !important;
+      }
+      100% {
+        background-color: transparent !important;
+        box-shadow: none !important;
+      }
+    }
+    .scene-dialogue-highlight {
+      animation: scenePulseGlow 3.5s ease-out forwards !important;
+      border-radius: 8px !important;
+      transition: background-color 0.5s ease, box-shadow 0.5s ease !important;
     }
     [data-reader-theme="dark"] .search-highlight,
     [data-reader-theme="black"] .search-highlight,
@@ -513,6 +635,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setTopBarVisible = useReaderUIStore(state => state.setTopBarVisible);
   const toggleSidebar = useReaderUIStore(state => state.toggleSidebar);
   const setScrollProgress = useReaderUIStore(state => state.setScrollProgress);
+  const scrollProgress = useReaderUIStore(state => state.scrollProgress);
   // Read the startFromBeginning flag from the global reader store.
   // This survives ReaderLayout's openBook call that would otherwise overwrite readerContent.
   const startFromBeginning = useReaderStore(state => state.startFromBeginning);
@@ -583,6 +706,30 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<string | null>(null); // NEW: Store search term for highlighting
+
+  // Word count for current chapter and book pacing calculations
+  const chapterWordCount = useMemo(() => {
+    if (!currentChapter?.content) return 0;
+    return countWordsFromHtml(currentChapter.content);
+  }, [currentChapter?.content]);
+
+  const totalBookWords = useMemo(() => {
+    const chapters = metadata?.total_chapters || 1;
+    return chapters * (chapterWordCount || 2500);
+  }, [metadata?.total_chapters, chapterWordCount]);
+
+  const chapterProgressFraction = useMemo(() => {
+    return Math.max(0, Math.min(1, (scrollProgress || 0) / 100));
+  }, [scrollProgress]);
+
+  // Notify sleep timer when chapter changes (for 'end-of-chapter' bedtime mode)
+  const prevChapterIndexRef = useRef(currentIndex);
+  useEffect(() => {
+    if (prevChapterIndexRef.current !== currentIndex) {
+      prevChapterIndexRef.current = currentIndex;
+      useSleepTimerStore.getState().notifyChapterChanged();
+    }
+  }, [currentIndex]);
 
   // Desktop power-user features: Fullscreen, cursor auto-hide, and footnote popover
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -703,6 +850,14 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // READER THEME — scoped to this container, not global <html>
   // ────────────────────────────────────────────────────────────
   const loadChapter = useCallback(async (index: number, highlightTerm?: string | null, initialScrollRatio?: number) => {
+    // If navigating to a scene within the already loaded chapter, immediately trigger scroll
+    if (index === currentIndexRef.current && canvasRef.current && highlightTerm?.trim()) {
+      const isHoriz = canvasRef.current.classList.contains('premium-reading-canvas--paginated') ||
+                      canvasRef.current.classList.contains('premium-reading-canvas--two-page') ||
+                      !continuousFlow;
+      scrollCanvasToSearchTerm(canvasRef.current, highlightTerm, { isHorizontal: isHoriz });
+    }
+
     if (chapterLoadInFlightRef.current) return;
     const requestToken = ++chapterRequestRef.current;
     chapterLoadInFlightRef.current = true;
@@ -780,8 +935,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                         !continuousFlow;
 
         const isPendingAnnotation = Boolean(useReaderUIStore.getState().pendingAnnotationId);
-        if (!isPendingAnnotation) {
-          if (initialScrollRatio !== undefined && !termToHighlight) {
+        if (!isPendingAnnotation && !termToHighlight) {
+          if (initialScrollRatio !== undefined) {
             if (isHoriz) {
               canvas.scrollLeft = initialScrollRatio * Math.max(0, canvas.scrollWidth - canvas.clientWidth);
             } else {
@@ -789,7 +944,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
             }
           } else {
             const savedPos = scrollPositionsRef.current.get(index);
-            if (savedPos && savedPos > 0 && !termToHighlight) {
+            if (savedPos && savedPos > 0) {
               if (isHoriz) {
                 canvas.scrollLeft = savedPos * Math.max(0, canvas.scrollWidth - canvas.clientWidth);
               } else {
@@ -830,39 +985,25 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
 
-      // If we have a highlight term, scroll to first highlight after content renders
+      // If we have a highlight term, scroll to matching dialogue line/block after content renders
       if (termToHighlight) {
         let attempts = 0;
         const scrollToSearch = () => {
           const canvas = canvasRef.current;
           if (!canvas) return;
-          const highlight = canvas.querySelector<HTMLElement>('.search-highlight');
-          if (highlight) {
-            const isHoriz = canvas.classList.contains('premium-reading-canvas--paginated') ||
-                            canvas.classList.contains('premium-reading-canvas--two-page') ||
-                            !continuousFlow;
-            if (isHoriz) {
-              const clientWidth = canvas.clientWidth || 1;
-              const pageIdx = Math.floor(highlight.offsetLeft / clientWidth);
-              canvas.scrollTo({ left: pageIdx * clientWidth, behavior: 'smooth' });
-            } else {
-              highlight.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-            }
+          const isHoriz = canvas.classList.contains('premium-reading-canvas--paginated') ||
+                          canvas.classList.contains('premium-reading-canvas--two-page') ||
+                          !continuousFlow;
 
-            highlight.classList.remove('search-highlight--active');
-            void highlight.offsetWidth;
-            highlight.classList.add('search-highlight--active');
-            setTimeout(() => {
-              highlight.classList.remove('search-highlight--active');
-            }, 2800);
-          } else if (attempts < 15) {
+          const scrolled = scrollCanvasToSearchTerm(canvas, termToHighlight, { isHorizontal: isHoriz });
+          if (!scrolled && attempts < 20) {
             attempts++;
-            setTimeout(scrollToSearch, 60);
+            setTimeout(scrollToSearch, 50);
           }
         };
 
         requestAnimationFrame(() => {
-          setTimeout(scrollToSearch, 40);
+          setTimeout(scrollToSearch, 30);
         });
       }
     } catch (err) {
@@ -2538,12 +2679,15 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 animationStyle={animationStyle}
                 onFlipComplete={handleFlipComplete}
                 onRendered={applyAnnotationsNow}
-                className="premium-chapter-page"
+                className={`premium-chapter-page ${currentIndex === 0 ? 'premium-chapter-page--first' : ''}`}
               />
             ) : (
               /* Standard & Two-Page spread layout */
-              <div className="premium-chapter-page" data-chapter-index={currentIndex}>
-                <ChapterHtml content={currentChapter.content} />
+              <div
+                className={`premium-chapter-page ${currentIndex === 0 ? 'premium-chapter-page--first' : ''}`}
+                data-chapter-index={currentIndex}
+              >
+                <ChapterHtml content={currentChapter.content} isFirstPage={currentIndex === 0} />
               </div>
             )}
 
@@ -2627,11 +2771,16 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         </>
       )}
 
-      {/* Reading Progress Indicator (Bottom Left) */}
+      {/* Reading Progress Indicator with dynamic Kindle-style pacing */}
       <ReadingProgressIndicator
         bookId={bookId}
         progressPercentage={progressPercentage}
         isVisible={true}
+        chapterWordCount={chapterWordCount}
+        chapterProgress={chapterProgressFraction}
+        totalChapters={metadata?.total_chapters}
+        currentChapterIndex={currentIndex}
+        totalBookWords={totalBookWords}
       />
 
       {/* Sidebar */}
@@ -2670,6 +2819,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           } : undefined}
         />
       )}
+
+      {/* Bedtime Sleep Timer Screen Dimmer & Night Veil */}
+      <BedtimeNightVeil onCloseReader={handleClose} />
     </div>
   );
 }

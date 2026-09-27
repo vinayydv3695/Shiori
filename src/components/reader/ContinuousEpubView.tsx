@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from
 import { api, isAndroid, type Annotation, type BookMetadata } from '@/lib/tauri';
 import { ChapterHtml, loadProcessedChapter } from './PremiumEpubReader';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
+import { scrollCanvasToSearchTerm } from '@/lib/sceneHighlight';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
 import { isSelectionOrNoteActive, isTouchOnSelectionOrModal } from '@/lib/selectionLock';
 import { logger } from '@/lib/logger';
@@ -261,7 +262,7 @@ export function ContinuousEpubView({
     }
   }, [chapters, initialChapterIndex, initialScrollRatio]);
 
-  // Scroll to search highlight when search term is set/updated
+  // Scroll to search highlight / dialogue line when search term is set/updated
   useEffect(() => {
     if (!searchTerm?.trim()) return;
 
@@ -274,19 +275,13 @@ export function ContinuousEpubView({
       if (!container) return;
 
       const targetChapterEl = chapterRefs.current.get(initialChapterIndex) || container;
-      const highlight = targetChapterEl.querySelector<HTMLElement>('.search-highlight');
+      const scrolled = scrollCanvasToSearchTerm(targetChapterEl, searchTerm);
 
-      if (highlight) {
-        highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        highlight.classList.remove('search-highlight--active');
-        void highlight.offsetWidth;
-        highlight.classList.add('search-highlight--active');
-        setTimeout(() => {
-          highlight.classList.remove('search-highlight--active');
-        }, 2800);
-      } else if (attempts < 15) {
+      if (scrolled) return;
+
+      if (attempts < 20) {
         attempts++;
-        setTimeout(tryScrollToSearch, 60);
+        setTimeout(tryScrollToSearch, 50);
       }
     };
 
@@ -777,10 +772,10 @@ export function ContinuousEpubView({
                   chapterRefs.current.delete(ch.index);
                 }
               }}
-              className="premium-chapter-page"
+              className={`premium-chapter-page ${ch.index === 0 ? 'premium-chapter-page--first' : ''}`}
               style={{ paddingBottom: '2rem', position: 'relative' }}
             >
-              <ChapterHtml content={ch.content} />
+              <ChapterHtml content={ch.content} isFirstPage={ch.index === 0} />
               
               {isDoodleMode && (
                 <DoodleCanvas

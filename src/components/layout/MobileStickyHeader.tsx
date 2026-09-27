@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { motion } from "framer-motion"
 import { IconBooks, IconManga, IconSearch, IconFilter } from "@/components/icons/ShioriIcons"
 import { useUIStore } from "@/store/uiStore"
 import { usePreferencesStore } from "@/store/preferencesStore"
@@ -60,40 +61,52 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
       <div className="flex items-center justify-between gap-3">
         {/* Domain Tabs */}
         {preferences?.preferredContentType === 'both' && (
-          <div className="relative flex items-center p-1 bg-muted/50 border border-border/50 rounded-ui-full h-12 flex-1 max-w-[280px] shadow-inner">
-              <div 
-                className="absolute top-1 bottom-1 rounded-ui-full bg-gradient-to-b from-primary to-primary/90 shadow-[0_2px_10px_rgba(var(--primary),0.3)] border-t border-white/20 ring-1 ring-primary/20 transition-all duration-300 ease-out z-0"
-                style={{ 
-                  left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)', 
-                  width: 'calc(50% - 6px)' 
-                }} 
-              />
-              
-              <button
-                type="button"
-                onClick={() => setCurrentDomain('books')}
-                className={cn(
-                  'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
-                  currentDomain === 'books' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
+          <div className="relative grid grid-cols-2 p-1 bg-secondary/80 dark:bg-muted/50 border border-border/60 rounded-ui-full h-11 flex-1 max-w-[280px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)] backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setCurrentDomain('books')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-ui-full transition-colors duration-200 cursor-pointer select-none',
+                currentDomain === 'books'
+                  ? 'text-primary-foreground font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {currentDomain === 'books' && (
+                <motion.div
+                  layoutId="mobile-domain-indicator"
+                  className="absolute inset-0 rounded-ui-full bg-gradient-to-b from-primary via-primary to-primary/90 shadow-[0_2px_8px_rgba(0,0,0,0.22),0_1px_3px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.25)] border-t border-white/20 ring-1 ring-primary/30 z-0"
+                  transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
                 <IconBooks size={14} />
                 <span>Books</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setCurrentDomain('manga_comics')}
-                className={cn(
-                  'relative z-10 flex items-center justify-center gap-1.5 flex-1 text-xs font-bold rounded-ui-full transition-colors duration-200',
-                  currentDomain === 'manga_comics' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentDomain('manga_comics')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-ui-full transition-colors duration-200 cursor-pointer select-none',
+                currentDomain === 'manga_comics'
+                  ? 'text-primary-foreground font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {currentDomain === 'manga_comics' && (
+                <motion.div
+                  layoutId="mobile-domain-indicator"
+                  className="absolute inset-0 rounded-ui-full bg-gradient-to-b from-primary via-primary to-primary/90 shadow-[0_2px_8px_rgba(0,0,0,0.22),0_1px_3px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.25)] border-t border-white/20 ring-1 ring-primary/30 z-0"
+                  transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5 whitespace-nowrap">
                 <IconManga size={14} />
                 <span>Manga</span>
-              </button>
-
-
+              </span>
+            </button>
           </div>
         )}
 

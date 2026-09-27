@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { logger } from '@/lib/logger'
 import { useLibraryStore } from '@/store/libraryStore'
 import type { FilterCriteria, FilterPreset, ReadingStatus } from '@/store/libraryStore'
-import { matchesAdvancedFilters, countActiveFilterCriteria } from '@/store/libraryStore'
+import { matchesAdvancedFilters, countActiveFilterCriteria, EMPTY_FILTERS } from '@/store/libraryStore'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { AppTooltip } from '@/components/ui/tooltip'
 
@@ -31,25 +31,12 @@ function savePresets(presets: FilterPreset[]) {
   }
 }
 
-const EMPTY_FILTERS: FilterCriteria = {
-  textSearch: '',
-  authors: [],
-  tags: [],
-  formats: [],
-  series: [],
-  languages: [],
-  publishers: [],
-  ratingMin: 0,
-  ratingMax: 10,
-  dateFrom: '',
-  dateTo: '',
-  readingStatus: [],
-}
-
 const READING_STATUSES: { value: ReadingStatus; label: string }[] = [
-  { value: 'planning', label: 'Planning' },
   { value: 'reading', label: 'Reading' },
   { value: 'completed', label: 'Completed' },
+  { value: 'on_hold', label: 'On Hold' },
+  { value: 'planning', label: 'Plan to Read' },
+  { value: 'dropped', label: 'Dropped' },
 ]
 
 interface AdvancedFilterDialogProps {

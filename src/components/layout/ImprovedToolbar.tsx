@@ -21,6 +21,7 @@ import {
   IconX,
 } from '@/components/icons/ShioriIcons'
 import { Layers, Filter, HelpCircle, BarChart2, Rss, FolderPlus, FolderOpen, ChevronDown, Settings, Library, History } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useTheme } from '@/hooks/useTheme'
@@ -183,37 +184,51 @@ export function PremiumTopbar({
         {preferences?.preferredContentType === 'both' ? (
           <div className="flex items-center gap-3 shrink-0">
             {/* Domain Segmented Control */}
-            <div className="relative flex items-center p-1 bg-secondary/80 border border-border/50 rounded-2xl h-11 shadow-inner">
-              <div
-                className="absolute top-1 bottom-1 rounded-xl bg-primary shadow-md shadow-primary/25 transition-all duration-300 ease-out z-0"
-                style={{
-                  left: currentDomain === 'books' ? '4px' : 'calc(50% + 2px)',
-                  width: 'calc(50% - 6px)',
-                }}
-              />
-
+            <div className="relative grid grid-cols-2 p-1 bg-secondary/80 dark:bg-muted/50 border border-border/60 rounded-2xl h-11 w-[290px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)] backdrop-blur-md">
               <button
                 type="button"
                 onClick={() => onDomainChange('books')}
                 className={cn(
-                  'relative z-10 flex items-center justify-center gap-2.5 px-6 h-full text-xs sm:text-sm font-bold rounded-xl transition-colors duration-200',
-                  currentDomain === 'books' ? 'text-primary-foreground font-extrabold' : 'text-muted-foreground hover:text-foreground'
+                  'relative z-10 flex items-center justify-center gap-2 h-full text-xs sm:text-sm font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-3',
+                  currentDomain === 'books'
+                    ? 'text-primary-foreground font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <IconBooks size={18} />
-                <span>Books</span>
+                {currentDomain === 'books' && (
+                  <motion.div
+                    layoutId="active-domain-indicator"
+                    className="absolute inset-0 rounded-xl bg-gradient-to-b from-primary via-primary to-primary/90 shadow-[0_2px_8px_rgba(0,0,0,0.22),0_1px_3px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.25)] border-t border-white/20 ring-1 ring-primary/30 z-0"
+                    transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2">
+                  <IconBooks size={18} />
+                  <span>Books</span>
+                </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onDomainChange('manga_comics')}
                 className={cn(
-                  'relative z-10 flex items-center justify-center gap-2.5 px-6 h-full text-xs sm:text-sm font-bold rounded-xl transition-colors duration-200',
-                  currentDomain === 'manga_comics' ? 'text-primary-foreground font-extrabold' : 'text-muted-foreground hover:text-foreground'
+                  'relative z-10 flex items-center justify-center gap-2 h-full text-xs sm:text-sm font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-3',
+                  currentDomain === 'manga_comics'
+                    ? 'text-primary-foreground font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <IconManga size={18} />
-                <span>Manga & Comics</span>
+                {currentDomain === 'manga_comics' && (
+                  <motion.div
+                    layoutId="active-domain-indicator"
+                    className="absolute inset-0 rounded-xl bg-gradient-to-b from-primary via-primary to-primary/90 shadow-[0_2px_8px_rgba(0,0,0,0.22),0_1px_3px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.25)] border-t border-white/20 ring-1 ring-primary/30 z-0"
+                    transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2 whitespace-nowrap">
+                  <IconManga size={18} />
+                  <span>Manga & Comics</span>
+                </span>
               </button>
             </div>
           </div>

@@ -21,7 +21,8 @@ import { SeriesCard } from "./SeriesCard";
 import { BulkActionBar } from "./BulkActionBar";
 import { BulkShelfDialog } from "./BulkShelfDialog";
 import { BatchConvertDialog } from "../conversion/BatchConvertDialog";
-import { useLibraryStore } from "@/store/libraryStore";
+import { useLibraryStore, countActiveFilterCriteria } from "@/store/libraryStore";
+import { Heart, BookOpen, CheckCircle2, PauseCircle, X, Filter } from "lucide-react";
 import type { DomainView } from "@/store/uiStore";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useGroupedLibrary, type SeriesGroup } from "@/hooks/useGroupedLibrary";
@@ -199,6 +200,8 @@ export function LibraryGrid({
   const loadMoreBooks = onLoadMoreOverride !== undefined ? onLoadMoreOverride : storeLoadMoreBooks;
 
   const toggleFavorite = useLibraryStore((state) => state.toggleFavorite);
+  const activeFilters = useLibraryStore((state) => state.activeFilters);
+  const clearFilters = useLibraryStore((state) => state.clearFilters);
   // Read preferences once at grid level — avoids N subscriptions inside each card
   const libraryDensity = usePreferencesStore(
     (state) => state.preferences?.libraryDensity,
@@ -536,6 +539,77 @@ export function LibraryGrid({
         onSearchChange={onSearchChange} 
         onOpenAdvancedFilter={onOpenAdvancedFilter}
       />
+
+      {/* ── Active Filter Chip Bar ── */}
+      {activeFilters && countActiveFilterCriteria(activeFilters) > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          className="flex items-center gap-2 px-3.5 sm:px-4 py-2 mx-3 sm:mx-4 my-1.5 rounded-2xl bg-card/85 backdrop-blur-md border border-border/70 shadow-xs shrink-0 select-none z-10"
+        >
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground shrink-0">
+            <Filter size={13} className="text-primary" />
+            <span className="hidden sm:inline">Active filter:</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {activeFilters.isFavorite && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25 text-xs font-bold shrink-0">
+                <Heart size={12} className="fill-current text-rose-500" />
+                <span>Favorites</span>
+              </span>
+            )}
+
+            {activeFilters.readingStatus?.map((status) => (
+              <span
+                key={status}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl text-xs font-bold border shrink-0",
+                  status === "reading"
+                    ? "bg-primary/15 text-primary border-primary/25"
+                    : status === "completed"
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/25"
+                    : status === "on_hold"
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/25"
+                    : "bg-muted text-muted-foreground border-border/60"
+                )}
+              >
+                {status === "reading" && <BookOpen size={12} />}
+                {status === "completed" && <CheckCircle2 size={12} />}
+                {status === "on_hold" && <PauseCircle size={12} />}
+                <span>
+                  {status === "reading"
+                    ? "Reading"
+                    : status === "completed"
+                    ? "Completed"
+                    : status === "on_hold"
+                    ? "On Hold"
+                    : status === "planning"
+                    ? "Plan to Read"
+                    : status}
+                </span>
+              </span>
+            ))}
+
+            {activeFilters.textSearch?.trim() && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl bg-secondary/80 text-foreground border border-border/60 text-xs font-medium shrink-0">
+                <span>"{activeFilters.textSearch.trim()}"</span>
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer shrink-0"
+            title="Clear active filter"
+          >
+            <X size={13} />
+            <span className="hidden sm:inline">Clear filter</span>
+          </button>
+        </motion.div>
+      )}
 
       <BulkActionBar
         visibleBookIds={visibleBookIds}

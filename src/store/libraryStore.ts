@@ -29,7 +29,7 @@ export interface FilterState {
   identifiers: string[]
 }
 
-export type ReadingStatus = 'planning' | 'reading' | 'completed';
+export type ReadingStatus = 'planning' | 'reading' | 'completed' | 'on_hold' | 'dropped';
 
 export interface FilterCriteria {
   textSearch?: string;
@@ -44,7 +44,24 @@ export interface FilterCriteria {
   dateFrom?: string;
   dateTo?: string;
   readingStatus?: ReadingStatus[];
+  isFavorite?: boolean;
 }
+
+export const EMPTY_FILTERS: FilterCriteria = {
+  textSearch: '',
+  authors: [],
+  tags: [],
+  formats: [],
+  series: [],
+  languages: [],
+  publishers: [],
+  ratingMin: 0,
+  ratingMax: 10,
+  dateFrom: '',
+  dateTo: '',
+  readingStatus: [],
+  isFavorite: false,
+};
 
 export interface FilterPreset {
   name: string;
@@ -65,6 +82,7 @@ export function countActiveFilterCriteria(filters: FilterCriteria | null): numbe
   if (filters.ratingMax !== undefined && filters.ratingMax < 5) count++
   if (filters.dateFrom || filters.dateTo) count++
   if (filters.readingStatus?.length) count++
+  if (filters.isFavorite) count++
   return count
 }
 
@@ -119,6 +137,11 @@ export function matchesAdvancedFilters(book: Book, filters: FilterCriteria): boo
   if (filters.readingStatus?.length) {
     const status = (book.reading_status ?? '') as ReadingStatus
     if (!filters.readingStatus.includes(status)) return false
+  }
+
+  if (filters.isFavorite) {
+    const isFav = book.is_favorite || (book.id != null && useLibraryStore.getState().favoriteBookIds.has(book.id));
+    if (!isFav) return false;
   }
 
   return true
@@ -246,7 +269,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         },
       };
     }),
-  clearFilters: () => set({ selectedFilters: initialFilters }),
+  clearFilters: () => set({ selectedFilters: initialFilters, activeFilters: null }),
   setFavoriteBookIds: (ids) => set({ favoriteBookIds: new Set(ids) }),
   toggleFavorite: (bookId) => set((state) => {
     const newSet = new Set(state.favoriteBookIds);

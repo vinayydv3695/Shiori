@@ -222,9 +222,9 @@ export const PageFlipEngine = memo(
         // ────────────────────────────────────────────────────────────
         if (!enabled || animationStyle === 'none') {
             return (
-                <div className={className}>
+                <div className={`${className || ''} ${chapterIndex === 0 ? 'premium-chapter-page--first' : ''}`}>
                     <div
-                        className="premium-chapter-content"
+                        className={`premium-chapter-content ${chapterIndex === 0 ? 'premium-chapter-content--first-page' : ''}`}
                         dangerouslySetInnerHTML={{ __html: safeCurrentContent }}
                     />
                 </div>
@@ -235,7 +235,7 @@ export const PageFlipEngine = memo(
         // RENDER — animated mode (Slide / Fade)
         // ────────────────────────────────────────────────────────────
         return (
-            <div className={`page-transition-container ${className || ''}`}>
+            <div className={`page-transition-container ${className || ''} ${chapterIndex === 0 ? 'premium-chapter-page--first' : ''}`}>
                 <AnimatePresence initial={false} custom={direction} mode="wait">
                     <motion.div
                         key={chapterIndex}
@@ -249,10 +249,10 @@ export const PageFlipEngine = memo(
                             isFlippingRef.current = false;
                             onRendered?.();
                         }}
-                        className="page-transition-page"
+                        className={`page-transition-page ${chapterIndex === 0 ? 'page-transition-page--first' : ''}`}
                     >
                         <div
-                            className="premium-chapter-content"
+                            className={`premium-chapter-content ${chapterIndex === 0 ? 'premium-chapter-content--first-page' : ''}`}
                             dangerouslySetInnerHTML={{ __html: safeCurrentContent }}
                         />
                     </motion.div>

@@ -212,6 +212,7 @@ export interface SearchQuery {
   date_from?: string
   date_to?: string
   reading_status?: string[]
+  is_favorite?: boolean
   sort_by?: string
   sort_order?: string
   limit?: number

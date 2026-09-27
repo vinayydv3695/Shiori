@@ -2,10 +2,12 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { ArrowLeft, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
-import { Headphones, History } from 'lucide-react';
+import { Headphones, History, Moon } from 'lucide-react';
 import { ReaderTooltip } from './ReaderTooltip';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { AmbientSoundBar } from './AmbientSoundBar';
+import { SleepTimerDialog } from './SleepTimerDialog';
+import { useSleepTimerStore } from '@/store/sleepTimerStore';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
 import { checkHiatus } from '@/lib/catchUpService';
@@ -46,7 +48,18 @@ export function ReaderTopBar({
   const [isDesktopMenuOpen, setIsDesktopMenuOpen] = React.useState(false);
   const [showAmbientBar, setShowAmbientBar] = React.useState(false);
   const [isCatchUpOpen, setIsCatchUpOpen] = React.useState(false);
+  const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
+  const sleepTimerButtonRef = React.useRef<HTMLButtonElement>(null);
+  const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
+  const sleepTimerRemaining = useSleepTimerStore(state => state.remainingSeconds);
+  const sleepTimerDuration = useSleepTimerStore(state => state.duration);
   const [savedLastRead, setSavedLastRead] = React.useState<string | undefined>(lastRead);
+
+  const sleepTimerBadge = sleepTimerRemaining !== null
+    ? `${Math.ceil(sleepTimerRemaining / 60)}m`
+    : sleepTimerDuration === 'chapter'
+    ? 'Ch'
+    : '';
 
   React.useEffect(() => {
     if (lastRead) {
@@ -68,6 +81,7 @@ export function ReaderTopBar({
       setIsMoreMenuOpen(false);
       setIsDesktopMenuOpen(false);
       setShowAmbientBar(false);
+      setIsSleepTimerOpen(false);
     }
   }, [isTopBarVisible, isSidebarOpen]);
 
@@ -153,11 +167,46 @@ export function ReaderTopBar({
                 onClick={() => {
                   setShowAmbientBar(!showAmbientBar);
                   setIsMoreMenuOpen(false);
+                  setIsSleepTimerOpen(false);
                 }}
               >
                 <Headphones className="premium-control-icon" />
               </button>
             </ReaderTooltip>
+
+            <div className="relative flex items-center">
+              <ReaderTooltip content={isSleepTimerActive ? `Sleep Timer: ${sleepTimerBadge} left` : "Bedtime Sleep Timer"}>
+                <button
+                  ref={sleepTimerButtonRef}
+                  type="button"
+                  className={`premium-control-button relative ${
+                    (isSleepTimerOpen || isSleepTimerActive) ? 'premium-control-button--active' : ''
+                  }`}
+                  aria-label="Sleep Timer"
+                  onClick={() => {
+                    setIsSleepTimerOpen(!isSleepTimerOpen);
+                    setIsMoreMenuOpen(false);
+                    setShowAmbientBar(false);
+                  }}
+                >
+                  <Moon className={`premium-control-icon transition-colors ${isSleepTimerActive ? 'text-[var(--ui-focus)]' : ''}`} />
+                  {isSleepTimerActive && (
+                    <span
+                      className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full text-[9px] font-black text-white shadow-xs pointer-events-none"
+                      style={{ background: 'var(--ui-focus, #eab308)' }}
+                    >
+                      {sleepTimerBadge}
+                    </span>
+                  )}
+                </button>
+              </ReaderTooltip>
+
+              <SleepTimerDialog
+                open={isSleepTimerOpen}
+                onClose={() => setIsSleepTimerOpen(false)}
+                buttonRef={sleepTimerButtonRef}
+              />
+            </div>
           </div>
 
           {/* More Options Dropdown */}
@@ -169,6 +218,7 @@ export function ReaderTopBar({
                 onClick={() => {
                   setIsMoreMenuOpen(!isMoreMenuOpen);
                   setShowAmbientBar(false);
+                  setIsSleepTimerOpen(false);
                 }}
               >
                 <MoreVertical className="premium-control-icon" />

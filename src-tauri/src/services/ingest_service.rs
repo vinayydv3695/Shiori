@@ -238,7 +238,7 @@ enum DedupMatch {
     /// No matching row in `books`.
     None,
     /// Matched a live row — the file is already in the library (duplicate).
-    Live(i64),
+    Live(#[allow(dead_code)] i64),
     /// Matched a row currently in the trash — reopening restores it.
     Trashed(i64),
 }

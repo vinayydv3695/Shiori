@@ -31,6 +31,7 @@ import {
   applyReaderThemeToElement, 
   removeReaderThemeFromElement 
 } from '@/store/premiumReaderStore';
+import { useSleepTimerStore, type SleepTimerDuration } from '@/store/sleepTimerStore';
 
 interface AmbientSoundBarProps {
   open: boolean;
@@ -108,8 +109,13 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
   const [masterVolume, setMasterVolume] = useState<number>(0.7);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
-  const [timerRemainingSeconds, setTimerRemainingSeconds] = useState<number | null>(null);
+  const {
+    isActive: isSleepTimerActive,
+    duration: sleepTimerDuration,
+    remainingSeconds: timerRemainingSeconds,
+    startTimer: startSleepTimer,
+    cancelTimer: cancelSleepTimer,
+  } = useSleepTimerStore();
 
   // --- Pending preset-start coordination -----------------------------------
   // The preset start is deferred by 50ms to let the preceding stopAll settle.
@@ -135,8 +141,6 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
     soundscapeEngine.stopAll();
     setTracks((prev) => prev.map((t) => ({ ...t, enabled: false })));
     setIsPlaying(false);
-    setTimerRemainingSeconds(null);
-    setSleepTimerMinutes(null);
     setSelectedCategory('all');
   }, [clearPendingPresetStart]);
 
@@ -165,28 +169,7 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
     if (el) removeReaderThemeFromElement(el);
   }, []);
 
-  // Sleep timer interval. The tick is computed purely from the closure value
-  // (re-armed on every change) and the expiry side effects run from the interval
-  // callback — never inside a setState updater, which React may invoke twice
-  // (StrictMode) and which must stay pure.
-  useEffect(() => {
-    if (timerRemainingSeconds === null || timerRemainingSeconds <= 0) return;
 
-    const timer = setInterval(() => {
-      const next = timerRemainingSeconds - 1;
-      setTimerRemainingSeconds(next > 0 ? next : null);
-      if (next <= 0) {
-        handleStopAll();
-        useToastStore.getState().addToast({
-          title: 'Sleep Timer Ended',
-          description: 'Ambient soundscapes stopped.',
-          variant: 'info',
-        });
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timerRemainingSeconds, handleStopAll]);
 
   // Active preset match check
   const activePreset = useMemo<PresetId | null>(() => {
@@ -287,19 +270,12 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
     }, 50);
   };
 
-  const handleSetTimer = (minutes: number) => {
-    setSleepTimerMinutes(minutes);
-    setTimerRemainingSeconds(minutes * 60);
-    useToastStore.getState().addToast({
-      title: 'Sleep Timer Set',
-      description: `Ambient sounds will turn off in ${minutes} minutes.`,
-      variant: 'info',
-    });
+  const handleSetTimer = (duration: SleepTimerDuration) => {
+    startSleepTimer(duration);
   };
 
   const handleCancelTimer = () => {
-    setSleepTimerMinutes(null);
-    setTimerRemainingSeconds(null);
+    cancelSleepTimer();
   };
 
   const renderIcon = (id: AmbientSoundType) => {
@@ -593,10 +569,15 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
                   <Timer size={14} className="text-[var(--text-secondary)]" />
                   <span className="text-xs font-semibold text-[var(--text-primary)]">Sleep Timer</span>
                 </div>
-                {timerRemainingSeconds ? (
+                {timerRemainingSeconds !== null ? (
                   <span className="text-xs font-bold text-[var(--ui-focus)] flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-[var(--ui-focus)] animate-pulse" />
                     {Math.floor(timerRemainingSeconds / 60)}m {timerRemainingSeconds % 60}s left
+                  </span>
+                ) : isSleepTimerActive && sleepTimerDuration === 'chapter' ? (
+                  <span className="text-xs font-bold text-[var(--ui-focus)] flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--ui-focus)] animate-pulse" />
+                    End of Chapter
                   </span>
                 ) : (
                   <span className="text-xs font-medium text-[var(--text-tertiary)]">Off</span>
@@ -604,27 +585,28 @@ export function AmbientSoundBar({ open, onClose }: AmbientSoundBarProps) {
               </div>
               <div className="flex items-center p-1 rounded-2xl bg-[color-mix(in_srgb,var(--text-primary)_8%,var(--bg-secondary))] border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] shadow-inner">
                 {[
-                  { label: 'Off', minutes: null },
-                  { label: '15m', minutes: 15 },
-                  { label: '30m', minutes: 30 },
-                  { label: '1h', minutes: 60 },
+                  { label: 'Off', duration: null },
+                  { label: '15m', duration: 15 as SleepTimerDuration },
+                  { label: '30m', duration: 30 as SleepTimerDuration },
+                  { label: '1h', duration: 60 as SleepTimerDuration },
+                  { label: 'Ch End', duration: 'chapter' as SleepTimerDuration },
                 ].map((opt) => {
-                  const isSelected = opt.minutes === null
-                    ? timerRemainingSeconds === null
-                    : sleepTimerMinutes === opt.minutes && timerRemainingSeconds !== null;
+                  const isSelected = opt.duration === null
+                    ? !isSleepTimerActive
+                    : isSleepTimerActive && sleepTimerDuration === opt.duration;
                   return (
                     <button
                       key={opt.label}
                       type="button"
                       onClick={() => {
-                        if (opt.minutes === null) {
+                        if (opt.duration === null) {
                           handleCancelTimer();
                         } else {
-                          handleSetTimer(opt.minutes);
+                          handleSetTimer(opt.duration);
                         }
                       }}
                       className={cn(
-                        "flex-1 py-1.5 px-3 rounded-xl text-xs transition-all cursor-pointer text-center font-medium select-none outline-none focus:outline-none",
+                        "flex-1 py-1.5 px-2.5 rounded-xl text-xs transition-all cursor-pointer text-center font-medium select-none outline-none focus:outline-none",
                         isSelected
                           ? "bg-[var(--ui-focus)] text-white font-bold shadow-md shadow-[color-mix(in_srgb,var(--ui-focus)_35%,transparent)] scale-[1.01]"
                           : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"

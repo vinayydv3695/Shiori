@@ -20,7 +20,8 @@ import {
 import { MobileStickyHeader } from '../layout/MobileStickyHeader'
 import { useThumbnail } from '@/hooks/useThumbnail'
 import { FeaturedContinueCard } from './FeaturedContinueCard'
-import { useLibraryStore } from '@/store/libraryStore'
+import { useLibraryStore, EMPTY_FILTERS } from '@/store/libraryStore'
+import { useShelfStore } from '@/store/shelfStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
@@ -267,7 +268,7 @@ export function HomePage({
 
       // 3. Favorites
       const favIds = Array.from(favoriteBookIds);
-      const favBooksPromises = favIds.slice(0, 30).map(id => api.getBook(id).catch(() => null));
+      const favBooksPromises = favIds.slice(0, 100).map(id => api.getBook(id).catch(() => null));
       const favsResolved = (await Promise.all(favBooksPromises)).filter(Boolean) as Book[];
       const domainFavs = favsResolved.filter(b => 
         domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
@@ -275,8 +276,8 @@ export function HomePage({
 
       // 4. Completed, On Hold & Recommended
       const [completed, onHold, recommended] = await Promise.all([
-        api.getBooksByReadingStatus('completed', 20, 0),
-        api.getBooksByReadingStatus('on_hold', 20, 0),
+        api.getBooksByReadingStatus('completed', 100, 0),
+        api.getBooksByReadingStatus('on_hold', 100, 0),
         api.getRecommendedBooks(25)
       ]);
       const domainRecommended = (recommended as unknown as Book[]).filter(b =>
@@ -371,6 +372,46 @@ export function HomePage({
     setCurrentView('library')
   }
 
+  const handleFilterCollection = (type: 'favorites' | 'reading' | 'completed' | 'on_hold') => {
+    // Clear any shelf selection so we view the global library
+    useShelfStore.getState().selectShelf(null);
+    useLibraryStore.getState().clearFilters();
+
+    switch (type) {
+      case 'favorites':
+        useLibraryStore.getState().setActiveFilters({
+          ...EMPTY_FILTERS,
+          isFavorite: true,
+        });
+        useLibraryStore.getState().setSort('added_date', 'desc');
+        break;
+      case 'reading':
+        useLibraryStore.getState().setActiveFilters({
+          ...EMPTY_FILTERS,
+          readingStatus: ['reading'],
+        });
+        useLibraryStore.getState().setSort('last_opened', 'desc');
+        break;
+      case 'completed':
+        useLibraryStore.getState().setActiveFilters({
+          ...EMPTY_FILTERS,
+          readingStatus: ['completed'],
+        });
+        useLibraryStore.getState().setSort('added_date', 'desc');
+        break;
+      case 'on_hold':
+        useLibraryStore.getState().setActiveFilters({
+          ...EMPTY_FILTERS,
+          readingStatus: ['on_hold'],
+        });
+        useLibraryStore.getState().setSort('added_date', 'desc');
+        break;
+    }
+
+    void useLibraryStore.getState().loadInitialBooks();
+    setCurrentView('library');
+  }
+
   // ── Empty state ──────────────────────────────
   if (libraryStats && libraryStats.total_books === 0 && libraryStats.total_manga === 0) {
     return (
@@ -419,46 +460,86 @@ export function HomePage({
       />
       
       {/* ── COMPACT COLLECTIONS BAR ── */}
-      <div className="flex gap-3 mb-6 overflow-x-auto p-1 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden hidden md:flex">
+      <div className="flex items-center gap-2.5 sm:gap-3 mb-6 overflow-x-auto p-1 pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {/* Favorites */}
-        <div 
-          onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
+        <motion.button 
+          type="button"
+          onClick={() => handleFilterCollection('favorites')}
+          whileHover={{ y: -1.5, scale: 1.02 }}
+          whileTap={{ y: 0.5, scale: 0.98 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 25 }}
+          className="group relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-2xl bg-card/80 hover:bg-card border border-border/70 hover:border-rose-500/40 text-muted-foreground hover:text-foreground shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_4px_16px_-4px_rgba(244,63,94,0.18)] transition-all duration-200 cursor-pointer select-none shrink-0"
         >
-          <Heart size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedFavorites.length}</span>
-          <span className="text-xs font-bold tracking-wide text-foreground">Favorites</span>
-        </div>
+          <div className="flex items-center justify-center w-6 h-6 rounded-xl bg-rose-500/10 text-rose-500 group-hover:bg-rose-500/20 group-hover:scale-110 transition-all">
+            <Heart size={14} className="fill-rose-500/20 group-hover:fill-rose-500 transition-colors" />
+          </div>
+          <span className="font-black text-xs px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/25 tabular-nums">
+            {groupedFavorites.length}
+          </span>
+          <span className="text-xs font-bold tracking-tight text-foreground/90 group-hover:text-foreground">
+            Favorites
+          </span>
+        </motion.button>
 
         {/* Reading */}
-        <div 
-          onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
+        <motion.button 
+          type="button"
+          onClick={() => handleFilterCollection('reading')}
+          whileHover={{ y: -1.5, scale: 1.02 }}
+          whileTap={{ y: 0.5, scale: 0.98 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 25 }}
+          className="group relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-2xl bg-card/80 hover:bg-card border border-border/70 hover:border-primary/40 text-muted-foreground hover:text-foreground shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_4px_16px_-4px_rgba(var(--primary),0.18)] transition-all duration-200 cursor-pointer select-none shrink-0"
         >
-          <BookOpen size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedContinueReading.length}</span>
-          <span className="text-xs font-bold tracking-wide text-foreground">Reading</span>
-        </div>
+          <div className="flex items-center justify-center w-6 h-6 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/20 group-hover:scale-110 transition-all">
+            <BookOpen size={14} />
+          </div>
+          <span className="font-black text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 tabular-nums">
+            {groupedContinueReading.length}
+          </span>
+          <span className="text-xs font-bold tracking-tight text-foreground/90 group-hover:text-foreground">
+            Reading
+          </span>
+        </motion.button>
 
         {/* Completed */}
-        <div 
-          onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
+        <motion.button 
+          type="button"
+          onClick={() => handleFilterCollection('completed')}
+          whileHover={{ y: -1.5, scale: 1.02 }}
+          whileTap={{ y: 0.5, scale: 0.98 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 25 }}
+          className="group relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-2xl bg-card/80 hover:bg-card border border-border/70 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_4px_16px_-4px_rgba(16,185,129,0.18)] transition-all duration-200 cursor-pointer select-none shrink-0"
         >
-          <CheckCircle2 size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedCompleted.length}</span>
-          <span className="text-xs font-bold tracking-wide text-foreground">Completed</span>
-        </div>
+          <div className="flex items-center justify-center w-6 h-6 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110 transition-all">
+            <CheckCircle2 size={14} />
+          </div>
+          <span className="font-black text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 tabular-nums">
+            {groupedCompleted.length}
+          </span>
+          <span className="text-xs font-bold tracking-tight text-foreground/90 group-hover:text-foreground">
+            Completed
+          </span>
+        </motion.button>
 
         {/* On Hold */}
-        <div 
-          onClick={handleViewLibrary}
-          className="group flex items-center gap-2.5 px-4 py-2 rounded-full bg-card/80 hover:bg-card border border-border/60 hover:border-primary/50 text-muted-foreground hover:text-foreground shadow-xs transition-all duration-200 hover:scale-102 active:scale-98 select-none cursor-pointer shrink-0"
+        <motion.button 
+          type="button"
+          onClick={() => handleFilterCollection('on_hold')}
+          whileHover={{ y: -1.5, scale: 1.02 }}
+          whileTap={{ y: 0.5, scale: 0.98 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 25 }}
+          className="group relative flex items-center gap-2.5 px-3.5 sm:px-4 py-2 rounded-2xl bg-card/80 hover:bg-card border border-border/70 hover:border-amber-500/40 text-muted-foreground hover:text-foreground shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_4px_16px_-4px_rgba(245,158,11,0.18)] transition-all duration-200 cursor-pointer select-none shrink-0"
         >
-          <PauseCircle size={16} className="text-primary opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all" />
-          <span className="font-extrabold text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20 tabular-nums">{groupedOnHold.length}</span>
-          <span className="text-xs font-bold tracking-wide text-foreground">On Hold</span>
-        </div>
+          <div className="flex items-center justify-center w-6 h-6 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20 group-hover:scale-110 transition-all">
+            <PauseCircle size={14} />
+          </div>
+          <span className="font-black text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 tabular-nums">
+            {groupedOnHold.length}
+          </span>
+          <span className="text-xs font-bold tracking-tight text-foreground/90 group-hover:text-foreground">
+            On Hold
+          </span>
+        </motion.button>
       </div>
 
       {/* ── ROW 1: THE "NOW" ROW ── */}

@@ -158,6 +158,7 @@ pub struct SearchQuery {
     pub date_to: Option<String>,
     pub in_trash: Option<bool>,
     pub reading_status: Option<Vec<String>>,
+    pub is_favorite: Option<bool>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
     /// Keyset pagination cursor (added_date sort only): resume strictly

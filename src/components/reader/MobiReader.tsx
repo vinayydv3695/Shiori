@@ -22,6 +22,7 @@ import { DoodleToolbar } from './DoodleToolbar';
 import { sanitizeBookContent } from '@/lib/sanitize';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { waitForStableReaderLayout } from './PremiumEpubReader';
+import { scrollCanvasToSearchTerm } from '@/lib/sceneHighlight';
 import { resolveReadingFontCss } from '@/lib/readingFonts';
 import { BookOpen, Highlighter, Search } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
@@ -118,7 +119,12 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
     }, [bookId]);
 
     // ── Chapter Loading ──
-    const loadChapter = useCallback(async (index: number, initialScrollRatio?: number) => {
+    const loadChapter = useCallback(async (index: number, initialScrollRatio?: number, searchTerm?: string | null) => {
+        // If jumping to a scene in the current chapter, scroll immediately
+        if (index === currentIndexRef.current && searchTerm?.trim() && containerRef.current) {
+            scrollCanvasToSearchTerm(containerRef.current, searchTerm);
+        }
+
         try {
             setIsLoading(true);
 
@@ -146,19 +152,25 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
 
             const attemptScroll = () => {
                 if (!containerRef.current || useReaderUIStore.getState().pendingAnnotationId) return;
+
+                if (searchTerm?.trim()) {
+                    const scrolled = scrollCanvasToSearchTerm(containerRef.current, searchTerm);
+                    if (scrolled) return;
+                }
+
                 const { scrollHeight, clientHeight } = containerRef.current;
                 
                 // If content is scrollable and we have a target ratio
-                if (scrollHeight > clientHeight && targetRatio > 0) {
+                if (scrollHeight > clientHeight && targetRatio > 0 && !searchTerm?.trim()) {
                     containerRef.current.scrollTop = targetRatio * (scrollHeight - clientHeight);
-                } else if (targetRatio === 0) {
+                } else if (targetRatio === 0 && !searchTerm?.trim()) {
                     containerRef.current.scrollTop = 0;
                 }
 
                 attempts++;
                 // On Android WebViews, layout (especially images) can take time. We retry for up to 1000ms.
-                if (attempts < 10) {
-                    setTimeout(attemptScroll, 100);
+                if (attempts < 15) {
+                    setTimeout(attemptScroll, 70);
                 }
             };
 
@@ -476,9 +488,9 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
         onNextPage: nextPage,
     });
 
-    const handleSidebarNavigate = useCallback<SidebarNavigateHandler>((chapterIndex) => {
+    const handleSidebarNavigate = useCallback<SidebarNavigateHandler>((chapterIndex, searchTerm) => {
         if (metadata && chapterIndex >= 0 && chapterIndex < metadata.total_chapters) {
-            void loadChapter(chapterIndex);
+            void loadChapter(chapterIndex, undefined, searchTerm);
         }
     }, [metadata, loadChapter]);
 

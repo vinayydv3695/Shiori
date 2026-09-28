@@ -15,7 +15,8 @@ import {
   User,
   ListCollapse,
   ArrowLeft,
-  Volume2
+  Volume2,
+  Key
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ttsEngine } from '@/lib/ttsEngine';
@@ -44,6 +45,8 @@ export function AICopilotPopup({
 
   const getActiveConfig = useAIStore((s) => s.getActiveConfig);
   const activeProvider = useAIStore((s) => s.activeProvider);
+  const apiKeys = useAIStore((s) => s.apiKeys);
+  const isConfigured = activeProvider === 'ollama' || Boolean(apiKeys[activeProvider]?.trim());
 
   // Monotonic sequence guard: every request start bumps it and aborts the
   // previous controller, so stale completions can never write state.
@@ -122,6 +125,7 @@ export function AICopilotPopup({
   };
 
   useEffect(() => {
+    if (!isConfigured) return; // no key yet — show the setup card instead of a guaranteed failure
     // Run default explanation on selection. Deferred one tick so setState
     // happens outside the effect body; the seq guard inside runAction still
     // invalidates any in-flight request.
@@ -129,6 +133,7 @@ export function AICopilotPopup({
       void runAction('explain');
     }, 0);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedText]);
 
   const handleCustomSubmit = (e: React.FormEvent) => {
@@ -264,6 +269,33 @@ export function AICopilotPopup({
 
         {/* Body Result */}
         <div className="ai-copilot-popup-body space-y-2">
+          {!isConfigured && !loading && !response && !error && (
+            <div
+              className="p-3 rounded-xl text-xs space-y-2 shadow-xs"
+              style={{
+                backgroundColor: 'var(--ui-hover)',
+                border: '1px solid var(--ui-border)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <div className="font-semibold text-[11px] text-amber-500 flex items-center gap-1">
+                <Key size={12} /> API Key Setup Required
+              </div>
+              <p className="leading-relaxed text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                Add an API key for <span className="capitalize">{activeProvider}</span> to ask AI
+                about this passage. Keys are stored on your device only.
+              </p>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="text-[11px] underline font-semibold block cursor-pointer hover:opacity-80"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Configure API Key & Model →
+              </button>
+            </div>
+          )}
+
           {loading && !response && (
             <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground text-xs">
               <Loader2 size={15} className="animate-spin text-primary" />

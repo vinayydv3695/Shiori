@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAIStore } from '@/store/aiStore';
 import type { 
   AIProvider, 
@@ -19,7 +19,8 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '@/lib/utils';
@@ -36,56 +37,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { fetchAvailableModels } from '@/lib/ai/aiClient';
+import { PROVIDER_METADATA, PROVIDER_ORDER } from '@/lib/ai/providerMeta';
 
 interface AISettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const PROVIDER_INFO: Record<AIProvider, { name: string; tag: string; description: string; keyUrl?: string }> = {
-  gemini: {
-    name: 'Google Gemini',
-    tag: 'Generous Free Tier',
-    description: 'Fast reasoning with a generous free API tier from Google AI Studio. Supports Gemini 2.5 & 2.0.',
-    keyUrl: 'https://aistudio.google.com/app/apikey',
-  },
-  opencode: {
-    name: 'OpenCode Go',
-    tag: 'Coding & Reasoning',
-    description: 'DeepSeek-V4, Kimi K2.7, GLM-5, and Qwen models via OpenCode Go subscription.',
-    keyUrl: 'https://opencode.ai',
-  },
-  groq: {
-    name: 'Groq',
-    tag: 'Ultra-Fast & Free',
-    description: 'Blazing fast inference for DeepSeek R1, Llama 3.3 and Mixtral. Free API keys available.',
-    keyUrl: 'https://console.groq.com/keys',
-  },
-  ollama: {
-    name: 'Ollama (Local LLM)',
-    tag: '100% Offline & Private',
-    description: 'Runs completely on your computer via Ollama. No internet required, zero API cost.',
-    keyUrl: 'https://ollama.com',
-  },
-  openai: {
-    name: 'OpenAI',
-    tag: 'GPT-4o & o1',
-    description: 'Industry standard for text comprehension, deep reasoning (o3-mini, o1), and literary analysis.',
-    keyUrl: 'https://platform.openai.com/api-keys',
-  },
-  deepseek: {
-    name: 'DeepSeek',
-    tag: 'Cost-Efficient & Smart',
-    description: 'Deep reasoning (DeepSeek-R1) and chat models at low cost.',
-    keyUrl: 'https://platform.deepseek.com',
-  },
-  anthropic: {
-    name: 'Anthropic Claude',
-    tag: 'Nuanced & Literary',
-    description: 'Highest quality prose analysis and thoughtful literary comprehension with Claude 3.7 & 3.5 Sonnet.',
-    keyUrl: 'https://console.anthropic.com/settings/keys',
-  },
-};
 
 export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) {
   const activeProvider = useAIStore((s) => s.activeProvider);
@@ -103,28 +60,108 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
   const setOpencodeBaseUrl = useAIStore((s) => s.setOpencodeBaseUrl);
   const customModels = useAIStore((s) => s.customModels);
   const addCustomModel = useAIStore((s) => s.addCustomModel);
+  const keyStorage = useAIStore((s) => s.keyStorage);
+  const deleteApiKey = useAIStore((s) => s.deleteApiKey);
+  const isKeyConfigured = activeProvider === 'ollama' || Boolean(apiKeys[activeProvider]?.trim());
 
   const [draftKey, setDraftKey] = useState('');
   const [showKey, setShowKey] = useState(false);
-  const [testingOllama, setTestingOllama] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [showCustomModelInput, setShowCustomModelInput] = useState(false);
   const [customModelDraft, setCustomModelDraft] = useState('');
   const [fetchedModels, setFetchedModels] = useState<Record<string, ModelOption[]>>({});
 
-  useEffect(() => {
+  // Sync draftKey when activeProvider changes — adjusted during render instead
+  // of in an effect (react-hooks/set-state-in-effect).
+  const [prevProvider, setPrevProvider] = useState(activeProvider);
+  const [prevKeys, setPrevKeys] = useState(apiKeys);
+  if (prevProvider !== activeProvider || prevKeys !== apiKeys) {
+    setPrevProvider(activeProvider);
+    setPrevKeys(apiKeys);
     setDraftKey(apiKeys[activeProvider] || '');
     setShowCustomModelInput(false);
     setCustomModelDraft('');
-  }, [activeProvider, apiKeys]);
+  }
 
-  const handleSaveApiKey = () => {
-    setApiKey(activeProvider, draftKey.trim());
+  const handleSaveApiKey = async () => {
+    const result = await setApiKey(activeProvider, draftKey.trim());
+    const name = PROVIDER_METADATA[activeProvider].name;
+    if (!result) {
+      useToastStore.getState().addToast({
+        title: 'Key Saved for This Session',
+        description: `${name} key is active, but could not be persisted to this device. It will not survive a restart.`,
+        variant: 'error',
+      });
+      return;
+    }
     useToastStore.getState().addToast({
       title: 'API Key Saved',
-      description: `Saved key for ${PROVIDER_INFO[activeProvider].name}.`,
+      description:
+        result.method === 'keyring'
+          ? `Saved key for ${name} to your OS keychain.`
+          : `Saved key for ${name}. OS keychain unavailable — stored in Shiori's app data.`,
+      variant: result.method === 'keyring' ? 'success' : 'warning',
+    });
+  };
+
+  const handleRemoveApiKey = async () => {
+    await deleteApiKey(activeProvider);
+    setDraftKey('');
+    useToastStore.getState().addToast({
+      title: 'API Key Removed',
+      description: `Removed the ${PROVIDER_METADATA[activeProvider].name} key from this device.`,
       variant: 'success',
     });
+  };
+
+  const handleTestConnection = async () => {
+    if (testingConnection) return;
+    const key = apiKeys[activeProvider] || draftKey;
+    if (activeProvider !== 'ollama' && !key?.trim()) {
+      useToastStore.getState().addToast({
+        title: 'API Key Required',
+        description: `Please enter and save your ${PROVIDER_METADATA[activeProvider].name} key first.`,
+        variant: 'error',
+      });
+      return;
+    }
+    setTestingConnection(true);
+    try {
+      if (activeProvider === 'ollama') {
+        const res = await fetch(`${ollamaBaseUrl.replace(/\/$/, '')}/api/tags`, {
+          signal: AbortSignal.timeout(4000),
+        });
+        if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+        useToastStore.getState().addToast({
+          title: 'Ollama Connected!',
+          description: 'Successfully reached local Ollama server.',
+          variant: 'success',
+        });
+        return;
+      }
+      const models = await fetchAvailableModels(
+        activeProvider,
+        key.trim(),
+        activeProvider === 'opencode' ? opencodeBaseUrl : undefined
+      );
+      useToastStore.getState().addToast({
+        title: 'Connection Verified',
+        description: `${PROVIDER_METADATA[activeProvider].name} accepted the key — ${models.length} models available.`,
+        variant: 'success',
+      });
+    } catch {
+      useToastStore.getState().addToast({
+        title: 'Connection Failed',
+        description:
+          activeProvider === 'ollama'
+            ? `Could not reach Ollama at ${ollamaBaseUrl}. Make sure 'ollama serve' is running.`
+            : `${PROVIDER_METADATA[activeProvider].name} rejected the key or is unreachable.`,
+        variant: 'error',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
   };
 
   const handleFetchModels = async () => {
@@ -132,7 +169,7 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
     if (activeProvider !== 'ollama' && !key?.trim()) {
       useToastStore.getState().addToast({
         title: 'API Key Required',
-        description: `Please enter and save your ${PROVIDER_INFO[activeProvider].name} key first.`,
+        description: `Please enter and save your ${PROVIDER_METADATA[activeProvider].name} key first.`,
         variant: 'error',
       });
       return;
@@ -149,7 +186,7 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
         setFetchedModels((prev) => ({ ...prev, [activeProvider]: models }));
         useToastStore.getState().addToast({
           title: 'Models Discovered!',
-          description: `Discovered ${models.length} available models for ${PROVIDER_INFO[activeProvider].name}.`,
+          description: `Discovered ${models.length} available models for ${PROVIDER_METADATA[activeProvider].name}.`,
           variant: 'success',
         });
       } else {
@@ -159,10 +196,10 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
           variant: 'error',
         });
       }
-    } catch (e: any) {
+    } catch (e) {
       useToastStore.getState().addToast({
         title: 'Fetch Models Failed',
-        description: e?.message || 'Could not retrieve models from provider.',
+        description: e instanceof Error ? e.message : 'Could not retrieve models from provider.',
         variant: 'error',
       });
     } finally {
@@ -183,34 +220,8 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
     });
   };
 
-  const testOllamaConnection = async () => {
-    setTestingOllama(true);
-    try {
-      const res = await fetch(`${ollamaBaseUrl.replace(/\/$/, '')}/api/tags`, {
-        signal: AbortSignal.timeout(4000),
-      });
-      if (res.ok) {
-        useToastStore.getState().addToast({
-          title: 'Ollama Connected!',
-          description: 'Successfully reached local Ollama server.',
-          variant: 'success',
-        });
-      } else {
-        throw new Error(`Server returned HTTP ${res.status}`);
-      }
-    } catch {
-      useToastStore.getState().addToast({
-        title: 'Connection Failed',
-        description: `Could not reach Ollama at ${ollamaBaseUrl}. Make sure 'ollama serve' is running.`,
-        variant: 'error',
-      });
-    } finally {
-      setTestingOllama(false);
-    }
-  };
-
-  const providers: AIProvider[] = ['gemini', 'opencode', 'groq', 'openai', 'deepseek', 'anthropic', 'ollama'];
-  const currentProviderInfo = PROVIDER_INFO[activeProvider];
+  const providers: AIProvider[] = PROVIDER_ORDER;
+  const currentProviderInfo = PROVIDER_METADATA[activeProvider];
 
   // Merge built-in models + fetched models + user-added custom models
   const baseModelList = fetchedModels[activeProvider] || PROVIDER_AVAILABLE_MODELS[activeProvider] || [];
@@ -258,7 +269,7 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
               </label>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                 {providers.map((p) => {
-                  const info = PROVIDER_INFO[p];
+                  const info = PROVIDER_METADATA[p];
                   const isSelected = activeProvider === p;
                   const hasKey = p === 'ollama' ? true : Boolean(apiKeys[p]?.trim());
                   return (
@@ -317,6 +328,26 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
                 )}
               </div>
 
+              {/* Key storage honesty banner (audit F-02 / F-06) */}
+              {keyStorage === 'fallback' && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-700 dark:text-amber-300">
+                  <Info size={13} className="shrink-0 mt-0.5" />
+                  <span>
+                    <strong>OS keychain unavailable</strong> — keys are stored in Shiori's app data and
+                    are not protected by your operating system's vault.
+                  </span>
+                </div>
+              )}
+              {keyStorage === 'memoryOnly' && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-red-500/10 border border-red-500/25 text-[11px] text-red-600 dark:text-red-400">
+                  <Info size={13} className="shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Key could not be persisted</strong> — it is active for this session only and
+                    will be lost when Shiori restarts.
+                  </span>
+                </div>
+              )}
+
               {/* API Key Input (if not Ollama) */}
               {activeProvider !== 'ollama' ? (
                 <div>
@@ -358,6 +389,30 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
                       <Save size={14} />
                       Save Key
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={testingConnection}
+                      onClick={handleTestConnection}
+                      className="gap-1.5 shrink-0 cursor-pointer text-xs"
+                      aria-label="Test connection to provider"
+                    >
+                      <RefreshCw size={13} className={testingConnection ? 'animate-spin' : ''} />
+                      {testingConnection ? 'Testing...' : 'Test'}
+                    </Button>
+                    {isKeyConfigured && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemoveApiKey}
+                        className="shrink-0 text-muted-foreground hover:text-destructive cursor-pointer text-xs px-2"
+                        aria-label="Remove API Key"
+                      >
+                        <Trash2 size={13} />
+                      </Button>
+                    )}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1.5">
                     Your key is stored strictly on your local device and never sent to any third-party server.
@@ -382,11 +437,11 @@ export function AISettingsDialog({ open, onOpenChange }: AISettingsDialogProps) 
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={testingOllama}
-                      onClick={testOllamaConnection}
+                      disabled={testingConnection}
+                      onClick={handleTestConnection}
                       className="text-xs shrink-0 cursor-pointer"
                     >
-                      {testingOllama ? 'Testing...' : 'Test Connection'}
+                      {testingConnection ? 'Testing...' : 'Test Connection'}
                     </Button>
                   </div>
                 </div>

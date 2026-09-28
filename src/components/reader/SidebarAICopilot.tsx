@@ -61,6 +61,26 @@ const STARTER_PROMPTS = [
   },
 ];
 
+/**
+ * Exact prefixes of the errors thrown by aiClient — the escaped-hatch check
+ * for rendering error bubbles. Never a substring match, so a legitimate
+ * answer containing the word "Error:" can't be painted as a failure (F-11).
+ */
+const AI_ERROR_PREFIXES = [
+  'AI Request Failed (',
+  'AI Request Stream Error:',
+  'AI request timed out',
+  'Gemini Error (',
+  'Anthropic Error (',
+  'Ollama error (',
+  'API key for',
+  'Unsupported AI provider',
+];
+
+function looksLikeAIError(content: string): boolean {
+  return AI_ERROR_PREFIXES.some((prefix) => content.startsWith(prefix));
+}
+
 export function SidebarAICopilot({
   bookId,
   bookTitle,
@@ -78,10 +98,11 @@ export function SidebarAICopilot({
   const activeProvider = useAIStore((s) => s.activeProvider);
   const apiKeys = useAIStore((s) => s.apiKeys);
   const chatHistories = useAIStore((s) => s.chatHistories);
-  const isGenerating = useAIStore((s) => s.isGenerating);
-  const currentResponse = useAIStore((s) => s.currentResponse);
+  const isGenerating = useAIStore((s) => s.generatingBookId === bookId);
+  const currentResponse = useAIStore((s) => s.streams[bookId] || '');
   const sendMessage = useAIStore((s) => s.sendMessage);
   const clearChat = useAIStore((s) => s.clearChat);
+  const abortGeneration = useAIStore((s) => s.abortGeneration);
   const lastError = useAIStore((s) => s.lastError);
   const clearError = useAIStore((s) => s.clearError);
 
@@ -341,7 +362,7 @@ export function SidebarAICopilot({
 
         {/* Message Bubbles */}
         {messages.map((msg) => {
-          const isError = msg.content.includes('Gemini Error:') || msg.content.includes('Error:');
+          const isError = looksLikeAIError(msg.content);
 
           return (
             <div
@@ -513,6 +534,22 @@ export function SidebarAICopilot({
                   <span className="text-[11px]">Thinking...</span>
                 </div>
               )}
+              <div className="mt-2 pt-1.5 border-t flex items-center justify-end" style={{ borderColor: 'var(--ui-border)' }}>
+                <button
+                  type="button"
+                  onClick={abortGeneration}
+                  className="px-2 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '1px solid var(--ui-border)',
+                    color: 'var(--text-secondary)',
+                  }}
+                  aria-label="Stop generating"
+                >
+                  <AlertCircle size={11} />
+                  <span>Stop</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

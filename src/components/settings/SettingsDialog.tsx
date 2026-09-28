@@ -290,7 +290,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   const tabs = [
     { id: 'general' as const, name: 'General', icon: Palette },
-    ...(!isAndroid ? [{ id: 'ai' as const, name: 'AI & Intelligence', icon: Brain }] : []),
+    // AI keys now persist on every platform via the keyring + DB fallback
+    // (docs/ai-audit.md F-02/F-03), so the settings tab is available on Android too.
+    { id: 'ai' as const, name: 'AI & Intelligence', icon: Brain },
     { id: 'cloud-sync' as const, name: 'Cloud & WebDAV Sync', icon: Cloud },
     { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
     { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },

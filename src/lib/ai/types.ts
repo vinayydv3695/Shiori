@@ -104,4 +104,6 @@ export interface AICompletionOptions {
   context?: ReadingContext;
   onChunk?: (chunk: string, fullText: string) => void;
   signal?: AbortSignal;
+  /** Optional cap on generated tokens; overrides the config-level default when set. */
+  maxTokens?: number;
 }

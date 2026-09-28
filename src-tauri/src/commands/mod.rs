@@ -354,6 +354,7 @@ macro_rules! generate_shiori_handlers {
             commands::ai::ai_key_set,
             commands::ai::ai_key_delete,
             commands::ai::ai_key_list,
+            commands::ai::ai_keyring_status,
         ]
     };
 }

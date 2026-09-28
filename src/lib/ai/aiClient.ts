@@ -1,15 +1,20 @@
-import type { 
-  AIProvider, 
-  AIProviderConfig, 
-  AIMessage, 
-  ReadingContext, 
+import type {
+  AIProvider,
+  AIProviderConfig,
+  AIMessage,
+  ReadingContext,
   AICompletionOptions,
   ModelOption
 } from './types';
 import { PROVIDER_AVAILABLE_MODELS } from './types';
 import { api, type SearchResult } from '@/lib/tauri';
+import { isTauri } from '@/lib/tauri';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { logger } from '@/lib/logger';
 import { useAIStore } from '@/store/aiStore';
+
+/** Default ceiling for a single AI request (includes streaming). */
+const DEFAULT_TIMEOUT_MS = 120_000;
 
 /**
  * Builds the system prompt ensuring strict anti-spoiler discipline and book awareness.
@@ -90,6 +95,59 @@ export async function retrieveLibraryContext(question: string, limit = 8): Promi
 }
 
 /**
+ * Robust fetch that routes through the Tauri Rust backend (`tauri-plugin-http`,
+ * a reqwest client) when running inside the app — this completely eliminates
+ * webview CORS rejections from AI providers (see docs/ai-audit.md F-01). Falls
+ * back to `window.fetch` in a plain browser and whenever the plugin fails.
+ */
+export async function safeFetch(url: string, init: RequestInit): Promise<Response> {
+  if (isTauri) {
+    try {
+      return await tauriFetch(url, init as unknown as Parameters<typeof tauriFetch>[1]);
+    } catch (err) {
+      logger.debug('[ai] plugin-http fetch failed, falling back to window.fetch:', err);
+    }
+  }
+  return fetch(url, init);
+}
+
+export interface ComposedSignal {
+  signal: AbortSignal;
+  /** True when the *timeout* (not the caller's signal) fired. */
+  timedOut: boolean;
+  cleanup: () => void;
+}
+
+/**
+ * Composes an optional caller AbortSignal with a hard timeout into a single
+ * AbortSignal. The caller's signal takes precedence (stop button), the timeout
+ * is a safety net so a hung provider can never spin forever (audit F-10).
+ */
+export function composeAbortSignal(parent?: AbortSignal, timeoutMs = DEFAULT_TIMEOUT_MS): ComposedSignal {
+  const controller = new AbortController();
+  const composed: ComposedSignal = {
+    signal: controller.signal,
+    timedOut: false,
+    cleanup: () => {
+      clearTimeout(timer);
+      parent?.removeEventListener('abort', onParentAbort);
+    },
+  };
+  const onParentAbort = () => controller.abort(parent?.reason);
+  const timer = setTimeout(() => {
+    composed.timedOut = true;
+    controller.abort(new DOMException('AI request timed out', 'TimeoutError'));
+  }, timeoutMs);
+
+  if (parent?.aborted) {
+    onParentAbort();
+  } else {
+    parent?.addEventListener('abort', onParentAbort, { once: true });
+  }
+  return composed;
+}
+
+/**
  * Executes a streaming or batch completion across the configured AI provider.
  */
 export async function executeAICompletion(
@@ -97,7 +155,9 @@ export async function executeAICompletion(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   options?: AICompletionOptions
 ): Promise<string> {
-  const { provider, apiKey, model, baseUrl, temperature = 0.7, maxTokens } = config;
+  const { provider, apiKey, model, baseUrl, temperature = 0.7, maxTokens: configMaxTokens } = config;
+  // Effective token cap = options override > config value > per-provider default.
+  const maxTokens = options?.maxTokens ?? configMaxTokens;
 
   if (provider !== 'ollama' && !apiKey) {
     throw new Error(`API key for ${provider.toUpperCase()} is required. Please add your key in AI Settings.`);
@@ -117,71 +177,138 @@ export async function executeAICompletion(
     ...messages,
   ];
 
-  switch (provider) {
-    case 'ollama':
-      return callOllama(baseUrl || 'http://localhost:11434', model, fullMessages, options);
+  // Compose the caller's abort signal (stop button) with a hard timeout.
+  const composed = composeAbortSignal(options?.signal);
+  const runOptions: AICompletionOptions = {
+    ...options,
+    signal: composed.signal,
+  };
 
-    case 'groq':
-      return callOpenAICompatible(
-        'https://api.groq.com/openai/v1/chat/completions',
-        apiKey!,
-        model,
-        fullMessages,
-        temperature,
-        options,
-        maxTokens,
-        'Groq'
-      );
+  try {
+    let result: string;
+    switch (provider) {
+      case 'ollama':
+        result = await callOllama(baseUrl || 'http://localhost:11434', model, fullMessages, runOptions, maxTokens);
+        break;
 
-    case 'openai':
-      return callOpenAICompatible(
-        'https://api.openai.com/v1/chat/completions',
-        apiKey!,
-        model,
-        fullMessages,
-        temperature,
-        options,
-        maxTokens,
-        'OpenAI'
-      );
+      case 'groq':
+        result = await callOpenAICompatible(
+          'https://api.groq.com/openai/v1/chat/completions',
+          apiKey!,
+          model,
+          fullMessages,
+          temperature,
+          runOptions,
+          maxTokens,
+          'Groq'
+        );
+        break;
 
-    case 'deepseek':
-      return callOpenAICompatible(
-        'https://api.deepseek.com/chat/completions',
-        apiKey!,
-        model,
-        fullMessages,
-        temperature,
-        options,
-        maxTokens,
-        'DeepSeek'
-      );
+      case 'openai':
+        result = await callOpenAICompatible(
+          'https://api.openai.com/v1/chat/completions',
+          apiKey!,
+          model,
+          fullMessages,
+          temperature,
+          runOptions,
+          maxTokens,
+          'OpenAI'
+        );
+        break;
 
-    case 'gemini':
-      return callGemini(apiKey!, model, fullMessages, temperature, options);
+      case 'deepseek':
+        result = await callOpenAICompatible(
+          'https://api.deepseek.com/chat/completions',
+          apiKey!,
+          model,
+          fullMessages,
+          temperature,
+          runOptions,
+          maxTokens,
+          'DeepSeek'
+        );
+        break;
 
-    case 'anthropic':
-      return callAnthropic(apiKey!, model, fullMessages, temperature, options, maxTokens);
+      case 'gemini':
+        result = await callGemini(apiKey!, model, fullMessages, temperature, runOptions, maxTokens);
+        break;
 
-    case 'opencode':
-      return callOpenAICompatible(
-        `${(baseUrl || 'https://opencode.ai/zen/go/v1').replace(/\/$/, '')}/chat/completions`,
-        apiKey!,
-        model,
-        fullMessages,
-        temperature,
-        options,
-        maxTokens,
-        'OpenCode'
-      );
+      case 'anthropic':
+        result = await callAnthropic(apiKey!, model, fullMessages, temperature, runOptions, maxTokens);
+        break;
 
-    default:
-      throw new Error(`Unsupported AI provider: ${provider}`);
+      case 'opencode':
+        result = await callOpenAICompatible(
+          `${(baseUrl || 'https://opencode.ai/zen/go/v1').replace(/\/$/, '')}/chat/completions`,
+          apiKey!,
+          model,
+          fullMessages,
+          temperature,
+          runOptions,
+          maxTokens,
+          'OpenCode'
+        );
+        break;
+
+      default:
+        throw new Error(`Unsupported AI provider: ${provider}`);
+    }
+
+    if (composed.timedOut) {
+      throw new Error(`AI request timed out after ${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s. Check your network or provider status.`);
+    }
+    return result;
+  } catch (err) {
+    // A timeout abort should read as a timeout, not a generic abort.
+    if (composed.timedOut && !(err instanceof Error && err.name === 'TimeoutError')) {
+      throw new Error(`AI request timed out after ${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s. Check your network or provider status.`);
+    }
+    throw err;
+  } finally {
+    composed.cleanup();
   }
 }
 
 /**
- * Standard OpenAI-compatible completions (OpenAI, Groq, DeepSeek).
+ * True for OpenAI reasoning models that reject `temperature` and `max_tokens`
+ * (they require `max_completion_tokens` instead) — audit F-04.
+ */
+function isOpenAIReasoningModel(model: string): boolean {
+  return /^o[134]\b|^o[134]-|^gpt-5/i.test(model.trim());
+}
+
+/**
+ * Builds the request body for OpenAI-compatible providers. Exported for tests.
+ */
+export function buildOpenAICompatPayload(
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  temperature: number,
+  isStreaming: boolean,
+  maxTokens?: number
+): Record<string, unknown> {
+  if (isOpenAIReasoningModel(model)) {
+    // o1/o3/o4/gpt-5: temperature unsupported, max_tokens rejected — use
+    // max_completion_tokens and let the model reason at its default effort.
+    return {
+      model,
+      messages,
+      stream: isStreaming,
+      ...(maxTokens !== undefined ? { max_completion_tokens: maxTokens } : { max_completion_tokens: 4096 }),
+    };
+  }
+  return {
+    model,
+    messages,
+    temperature,
+    stream: isStreaming,
+    ...(maxTokens !== undefined ? { max_tokens: maxTokens } : { max_tokens: 2048 }),
+  };
+}
+
+/**
+ * Standard OpenAI-compatible completions (OpenAI, Groq, DeepSeek, OpenCode).
  */
 async function callOpenAICompatible(
   endpoint: string,
@@ -195,19 +322,13 @@ async function callOpenAICompatible(
 ): Promise<string> {
   const isStreaming = Boolean(options?.onChunk);
 
-  const response = await fetch(endpoint, {
+  const response = await safeFetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      stream: isStreaming,
-      ...(maxTokens !== undefined ? { max_tokens: maxTokens } : {}),
-    }),
+    body: JSON.stringify(buildOpenAICompatPayload(model, messages, temperature, isStreaming, maxTokens)),
     signal: options?.signal,
   });
 
@@ -242,17 +363,19 @@ async function callOllama(
   baseUrl: string,
   model: string,
   messages: Array<{ role: string; content: string }>,
-  options?: AICompletionOptions
+  options?: AICompletionOptions,
+  maxTokens?: number
 ): Promise<string> {
   const endpoint = `${baseUrl.replace(/\/$/, '')}/api/chat`;
 
-  const response = await fetch(endpoint, {
+  const response = await safeFetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
       messages,
       stream: Boolean(options?.onChunk),
+      ...(maxTokens !== undefined ? { options: { num_predict: maxTokens } } : {}),
     }),
     signal: options?.signal,
   });
@@ -262,52 +385,83 @@ async function callOllama(
     throw new Error(`Ollama error (${response.status}): Is Ollama running on ${baseUrl}? ${errorText}`);
   }
 
-  if (options?.onChunk && response.body) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let accumulated = '';
-    let buffer = '';
-
-    const consumeLine = (raw: string) => {
-      const line = raw.trim();
-      if (!line) return;
-      try {
-        const parsed = JSON.parse(line);
-        const delta = parsed.message?.content || '';
-        if (delta) {
-          accumulated += delta;
-          options.onChunk?.(delta, accumulated);
-        }
-      } catch {
-        // ignore partial json
-      }
-    };
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        consumeLine(line);
-      }
-    }
-    // Flush any trailing partial line that arrived without a newline.
-    consumeLine(buffer);
-
-    if (!accumulated.trim()) {
-      throw new Error('Ollama returned an empty response');
-    }
-    return accumulated;
+  if (!options?.onChunk) {
+    const data = await response.json();
+    const content = data.message?.content || '';
+    options?.onChunk?.(content, content);
+    return content;
   }
 
-  const data = await response.json();
-  const content = data.message?.content || '';
-  options?.onChunk?.(content, content);
-  return content;
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Ollama returned no response body');
+  }
+  const decoder = new TextDecoder();
+  let accumulated = '';
+  let buffer = '';
+
+  const consumeLine = (raw: string): string | null => {
+    const line = raw.trim();
+    if (!line) return null;
+    try {
+      const parsed = JSON.parse(line);
+      if (parsed.error) {
+        throw new Error(`Ollama error: ${parsed.error}`);
+      }
+      const delta = parsed.message?.content || '';
+      if (delta) {
+        accumulated += delta;
+        options.onChunk?.(delta, accumulated);
+      }
+      return parsed.done ? 'done' : null;
+    } catch (e) {
+      if (e instanceof SyntaxError) return null; // partial json
+      throw e;
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (consumeLine(line) === 'done') {
+        // Drain mode was hit: stop reading further chunks.
+        return accumulated;
+      }
+    }
+  }
+  // Flush any trailing partial line that arrived without a newline.
+  consumeLine(buffer);
+
+  if (!accumulated.trim()) {
+    throw new Error('Ollama returned an empty response');
+  }
+  return accumulated;
+}
+
+/** Shape of a Gemini ListModels entry. */
+interface GeminiModelEntry {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  supportedGenerationMethods?: string[];
+}
+
+/** Shape of an OpenCode /models entry (string id or object). */
+type OpenCodeModel = string | { id?: string; name?: string; description?: string };
+
+/** Unified SSE frame shape across OpenAI-compatible, Gemini and Anthropic. */
+interface SSEFrame {
+  type?: string;
+  delta?: { type?: string; text?: string };
+  error?: { message?: string } | string;
+  choices?: Array<{ delta?: { content?: string }; message?: { content?: string } }>;
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
 }
 
 /**
@@ -315,14 +469,16 @@ async function callOllama(
  */
 async function discoverGeminiModel(apiKey: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+    const res = await safeFetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
       headers: { 'x-goog-api-key': apiKey },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const available = (data.models || [])
-      .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-      .map((m: any) => m.name.replace(/^models\//, ''));
+    const available = (data.models as GeminiModelEntry[] | undefined || [])
+      .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+      .map((m) => m.name?.replace(/^models\//, '') || '')
+      .filter(Boolean);
 
     // Preference order: 2.5-flash > 2.5-pro > 2.0-flash > 2.0-flash-lite > any flash > any
     const preferred = [
@@ -353,26 +509,28 @@ export async function fetchAvailableModels(
 ): Promise<ModelOption[]> {
   switch (provider) {
     case 'gemini': {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
+      const res = await safeFetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {
         headers: { 'x-goog-api-key': apiKey },
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error?.message || `Google API error (HTTP ${res.status})`);
       }
       const data = await res.json();
-      const rawModels = data.models || [];
+      const rawModels = (data.models as GeminiModelEntry[] | undefined) || [];
       const chatModels: ModelOption[] = rawModels
-        .filter((m: any) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
-        .map((m: any) => {
-          const id = m.name.replace(/^models\//, '');
+        .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map((m) => {
+          const id = m.name?.replace(/^models\//, '') || '';
           return {
             id,
             name: m.displayName || id,
             description: m.description ? m.description.slice(0, 90) + '...' : undefined,
             recommended: id === 'gemini-2.5-flash' || id === 'gemini-2.5-pro',
           };
-        });
+        })
+        .filter((m) => m.id.length > 0);
 
       return chatModels.sort((a, b) => {
         if (a.recommended && !b.recommended) return -1;
@@ -383,23 +541,26 @@ export async function fetchAvailableModels(
 
     case 'opencode': {
       const targetBase = (baseUrl || 'https://opencode.ai/zen/go/v1').replace(/\/$/, '');
-      const res = await fetch(`${targetBase}/models`, {
+      const res = await safeFetch(`${targetBase}/models`, {
         headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) {
         throw new Error(`OpenCode error (HTTP ${res.status}): could not fetch models.`);
       }
       const data = await res.json();
-      const list = Array.isArray(data) ? data : data.data || [];
-      return list.map((m: any) => {
-        const id = typeof m === 'string' ? m : m.id;
-        return {
-          id,
-          name: typeof m === 'object' && m.name ? m.name : id,
-          description: typeof m === 'object' && m.description ? m.description : undefined,
-          recommended: id.includes('deepseek-v4') || id.includes('kimi-k2.7'),
-        };
-      });
+      const list = (Array.isArray(data) ? data : data.data || []) as OpenCodeModel[];
+      return list
+        .map((m) => {
+          const id = typeof m === 'string' ? m : m.id || '';
+          return {
+            id,
+            name: typeof m === 'object' && m.name ? m.name : id,
+            description: typeof m === 'object' && m.description ? m.description : undefined,
+            recommended: id.includes('deepseek-v4') || id.includes('kimi-k2.7'),
+          };
+        })
+        .filter((m) => m.id.length > 0);
     }
 
     case 'openai':
@@ -411,15 +572,16 @@ export async function fetchAvailableModels(
         deepseek: 'https://api.deepseek.com',
       };
       const base = endpoints[provider];
-      const res = await fetch(`${base}/models`, {
+      const res = await safeFetch(`${base}/models`, {
         headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) {
         throw new Error(`${provider.toUpperCase()} error (HTTP ${res.status}): could not fetch models.`);
       }
       const data = await res.json();
-      const list = data.data || [];
-      return list.map((m: any) => ({
+      const list = (data.data || []) as Array<{ id: string }>;
+      return list.map((m) => ({
         id: m.id,
         name: m.id,
         recommended: m.id.includes('4o') || m.id.includes('llama-3.3') || m.id.includes('chat'),
@@ -428,13 +590,15 @@ export async function fetchAvailableModels(
 
     case 'ollama': {
       const base = (baseUrl || 'http://localhost:11434').replace(/\/$/, '');
-      const res = await fetch(`${base}/api/tags`);
+      const res = await safeFetch(`${base}/api/tags`, {
+        signal: AbortSignal.timeout(15_000),
+      });
       if (!res.ok) {
         throw new Error(`Ollama error (HTTP ${res.status}): could not reach ${base}`);
       }
       const data = await res.json();
-      const models = data.models || [];
-      return models.map((m: any) => ({
+      const models = (data.models || []) as Array<{ name: string; details?: { parameter_size?: string } }>;
+      return models.map((m) => ({
         id: m.name,
         name: m.name,
         description: m.details?.parameter_size ? `${m.details.parameter_size} params` : undefined,
@@ -451,7 +615,8 @@ export async function fetchAvailableModels(
 }
 
 /**
- * Google Gemini REST API with intelligent auto-discovery, 503/429/404 failover cascade, and 400 recovery.
+ * Google Gemini REST API with intelligent auto-discovery, 503/429/404 failover cascade,
+ * 400 recovery, real SSE streaming and a max-output-token cap.
  */
 async function callGemini(
   apiKey: string,
@@ -459,6 +624,7 @@ async function callGemini(
   messages: Array<{ role: string; content: string }>,
   temperature: number,
   options?: AICompletionOptions,
+  maxTokens?: number,
   retryWithFallback = true,
   triedModels: string[] = [],
   inlinedSystem = false
@@ -480,7 +646,9 @@ async function callGemini(
     'gemini-2.0-flash-lite',
   ];
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+  const isStreaming = Boolean(options?.onChunk);
+  const method = isStreaming ? 'streamGenerateContent' : 'generateContent';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:${method}?key=${apiKey}${isStreaming ? '&alt=sse' : ''}`;
 
   const systemMsg = messages.find((m) => m.role === 'system');
   const userAssistantMsgs = messages.filter((m) => m.role !== 'system');
@@ -511,6 +679,7 @@ async function callGemini(
     contents,
     generationConfig: {
       temperature,
+      maxOutputTokens: maxTokens ?? 2048,
     },
   };
 
@@ -520,9 +689,9 @@ async function callGemini(
     };
   }
 
-  const response = await fetch(url, {
+  const response = await safeFetch(url, {
     method: 'POST',
-    headers: { 
+    headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': apiKey,
     },
@@ -534,18 +703,20 @@ async function callGemini(
     const errorText = await response.text().catch(() => '');
     let cleanMessage = errorText;
     try {
-      const parsed = JSON.parse(errorText);
+      const parsed = JSON.parse(errorText) as { error?: { message?: string } };
       if (parsed?.error?.message) {
         cleanMessage = parsed.error.message;
       }
-    } catch {}
+    } catch {
+      // non-JSON error body — keep the raw text
+    }
 
     const currentTried = [...triedModels, targetModel];
 
     // 1. If 400 Bad Request and systemInstruction was used, retry once by inlining instructions into the prompt
     if (response.status === 400 && systemMsg && !inlinedSystem) {
       logger.warn(`Gemini model ${targetModel} returned 400. Retrying with inlined prompt...`);
-      return callGemini(apiKey, targetModel, messages, temperature, options, retryWithFallback, triedModels, true);
+      return callGemini(apiKey, targetModel, messages, temperature, options, maxTokens, retryWithFallback, triedModels, true);
     }
 
     // 2. If 503 (Overloaded/Service Unavailable) or 429 (Resource Exhausted) or 404 (Not Found), cascade through fallback models
@@ -555,7 +726,7 @@ async function callGemini(
         logger.warn(
           `Gemini model ${targetModel} returned HTTP ${response.status} (${response.statusText}). Automatically failing over to ${nextCandidate}...`
         );
-        return callGemini(apiKey, nextCandidate, messages, temperature, options, true, currentTried, inlinedSystem);
+        return callGemini(apiKey, nextCandidate, messages, temperature, options, maxTokens, true, currentTried, inlinedSystem);
       }
 
       // If all built-in fallback chain models tried, query ListModels for any available chat model
@@ -563,11 +734,21 @@ async function callGemini(
       const discovered = await discoverGeminiModel(apiKey);
       if (discovered && !currentTried.includes(discovered)) {
         logger.info(`Auto-discovered valid Gemini model for this key: ${discovered}. Retrying...`);
-        return callGemini(apiKey, discovered, messages, temperature, options, false, currentTried, inlinedSystem);
+        return callGemini(apiKey, discovered, messages, temperature, options, maxTokens, false, currentTried, inlinedSystem);
       }
     }
 
     throw new Error(`Gemini Error (${response.status}): ${cleanMessage || response.statusText}`);
+  }
+
+  if (isStreaming && response.body) {
+    const text = await processSSEStream(response.body, (delta) => {
+      options?.onChunk?.(delta.text, delta.full);
+    });
+    if (!text.trim()) {
+      throw new Error('Gemini returned an empty response');
+    }
+    return text;
   }
 
   const json = await response.json();
@@ -580,7 +761,7 @@ async function callGemini(
 }
 
 /**
- * Anthropic Claude Messages API.
+ * Anthropic Claude Messages API with SSE streaming.
  */
 async function callAnthropic(
   apiKey: string,
@@ -591,6 +772,7 @@ async function callAnthropic(
   maxTokens?: number
 ): Promise<string> {
   const url = 'https://api.anthropic.com/v1/messages';
+  const isStreaming = Boolean(options?.onChunk);
 
   const systemMsg = messages.find((m) => m.role === 'system');
   const userAssistantMsgs = messages
@@ -600,7 +782,7 @@ async function callAnthropic(
       content: m.content,
     }));
 
-  const response = await fetch(url, {
+  const response = await safeFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -611,8 +793,9 @@ async function callAnthropic(
       model,
       system: systemMsg?.content,
       messages: userAssistantMsgs,
-      max_tokens: maxTokens ?? 1024,
+      max_tokens: maxTokens ?? 2048,
       temperature,
+      stream: isStreaming,
     }),
     signal: options?.signal,
   });
@@ -622,25 +805,25 @@ async function callAnthropic(
     throw new Error(`Anthropic Error (${response.status}): ${errorText || response.statusText}`);
   }
 
-  const json = await response.json();
-  const text = json.content?.[0]?.text || '';
-  if (!text.trim()) {
-    throw new Error('Anthropic returned an empty response');
+  if (!isStreaming) {
+    const json = await response.json();
+    const text = json.content?.[0]?.text || '';
+    if (!text.trim()) {
+      throw new Error('Anthropic returned an empty response');
+    }
+    options?.onChunk?.(text, text);
+    return text;
   }
-  options?.onChunk?.(text, text);
-  return text;
-}
 
-/**
- * SSE processor for standard chunked responses.
- */
-async function processSSEStream(
-  stream: ReadableStream<Uint8Array>,
-  onDelta: (delta: { text: string; full: string }) => void
-): Promise<string> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
+  if (!response.body) {
+    throw new Error('Anthropic returned no response body');
+  }
+
+  // Anthropic SSE: `event: content_block_delta` / `data: {"type":"content_block_delta",...}`,
+  // `event: error` / `data: {"type":"error",...}`, terminated by `message_stop`.
   let fullText = '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
   let buffer = '';
 
   while (true) {
@@ -655,17 +838,100 @@ async function processSSEStream(
       const trimmed = line.trim();
       if (!trimmed.startsWith('data: ')) continue;
       const dataStr = trimmed.substring(6).trim();
-      if (dataStr === '[DONE]') break;
+      if (!dataStr) continue; // ping keep-alives
+      let parsed: SSEFrame;
+      try {
+        parsed = JSON.parse(dataStr) as SSEFrame;
+      } catch {
+        continue; // skip unparseable frames
+      }
+      if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta' && parsed.delta.text) {
+        fullText += parsed.delta.text;
+        options?.onChunk?.(parsed.delta.text, fullText);
+      } else if (parsed.type === 'error') {
+        const errMsg =
+          typeof parsed.error === 'string'
+            ? parsed.error
+            : parsed.error?.message || JSON.stringify(parsed.error);
+        throw new Error(`Anthropic Error: ${errMsg}`);
+      } else if (parsed.type === 'message_stop') {
+        return fullText;
+      }
+    }
+  }
+
+  if (!fullText.trim()) {
+    throw new Error('Anthropic returned an empty response');
+  }
+  return fullText;
+}
+
+/**
+ * Draws a plain-text payload out of any streamed SSE `data:` frame shape.
+ *
+ * OpenAI-compatible: `{ choices: [{ delta: { content } }] }`
+ * Gemini SSE:        `{ candidates: [{ content: { parts: [{ text }] } }] }`
+ */
+function extractSSEText(parsed: SSEFrame): string {
+  if (!parsed || typeof parsed !== 'object') return '';
+  if (Array.isArray(parsed.choices)) {
+    return parsed.choices?.[0]?.delta?.content || parsed.choices?.[0]?.message?.content || '';
+  }
+  if (Array.isArray(parsed.candidates)) {
+    return parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+  return '';
+}
+
+/**
+ * Generic SSE processor supporting OpenAI-compatible + Gemini `data:` frames.
+ * Stops at `[DONE]`, surfaces `{error}` frames as thrown errors (F-08).
+ */
+export async function processSSEStream(
+  stream: ReadableStream<Uint8Array>,
+  onDelta: (delta: { text: string; full: string }) => void
+): Promise<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let buffer = '';
+  let done = false;
+
+  while (!done) {
+    const { done: streamDone, value } = await reader.read();
+    if (streamDone) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      const dataStr = trimmed.substring(6).trim();
+      if (dataStr === '[DONE]') {
+        done = true;
+        break;
+      }
 
       try {
-        const parsed = JSON.parse(dataStr);
-        const textChunk = parsed.choices?.[0]?.delta?.content || '';
+        const parsed = JSON.parse(dataStr) as SSEFrame;
+        if (parsed?.error) {
+          // Providers can push errors mid-stream (quota, model rotated).
+          const message =
+            typeof parsed.error === 'string'
+              ? parsed.error
+              : parsed.error?.message || JSON.stringify(parsed.error);
+          throw new Error(`AI Request Stream Error: ${message}`);
+        }
+        const textChunk = extractSSEText(parsed);
         if (textChunk) {
           fullText += textChunk;
           onDelta({ text: textChunk, full: fullText });
         }
-      } catch {
-        // Skip unparseable lines
+      } catch (e) {
+        if (e instanceof SyntaxError) continue; // partial frame
+        throw e;
       }
     }
   }
@@ -744,5 +1010,10 @@ Excerpt:
 ${chapterExcerpt.slice(0, 4500)}
 """`;
 
-  return executeAICompletion(config, [{ role: 'user', content: prompt }], options);
+  return executeAICompletion(config, [{ role: 'user', content: prompt }], {
+    ...options,
+    maxTokens: options?.maxTokens ?? 2048,
+  });
 }
+
+export type { AIMessage };

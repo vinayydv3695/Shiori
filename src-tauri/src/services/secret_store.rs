@@ -137,11 +137,28 @@ fn unavailable(account: &str, e: keyring::Error) -> Result<bool> {
     ) {
         debug!("keyring unavailable for '{account}': {e}");
         warn_plaintext_fallback();
-        return Ok(false);
-    }
+        return Ok(false);    }
     Err(ShioriError::Other(format!(
         "keyring failure for '{account}': {e}"
     )))
+}
+
+/// Whether the OS keyring is currently usable by this app.
+///
+/// Approximated by probing construction of a keyring entry: on platforms
+/// without a keyring backend (Android/iOS) this is always `false`, and on
+/// desktop it is `false` when no default store can be found (headless
+/// session, no Secret Service daemon, locked wallet).
+pub fn available() -> bool {
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        return false;
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        keyring::Entry::new(SERVICE, "io.github.vinayydv3695.shiori.probe").is_ok()
+    }
 }
 
 #[cfg(test)]

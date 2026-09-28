@@ -171,6 +171,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 49 {
             self.run_in_savepoint("v49", |mgr| mgr.migrate_to_v49())?;
         }
+        if current_version < 50 {
+            self.run_in_savepoint("v50", |mgr| mgr.migrate_to_v50())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2905,6 +2908,30 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v49_books_authors_book_order");
         self.record_migration(49, "books_authors_book_order", &hash)?;
+        Ok(())
+    }
+
+    /// v50: AI provider API-key plaintext fallback table.
+    ///
+    /// Mirrors the `user_preferences` credential-fallback pattern: when the OS
+    /// keyring is unavailable (Linux without Secret Service, locked wallet,
+    /// Android/iOS where the keyring is compiled out) the AI keys are kept here
+    /// so they survive restarts. The keyring remains the preferred store and
+    /// clears this row on successful writes.
+    fn migrate_to_v50(&self) -> Result<()> {
+        log::info!("[Migration] Applying v50: ai_keys fallback table");
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS ai_keys (
+                provider TEXT PRIMARY KEY,
+                key TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v50_ai_keys_fallback");
+        self.record_migration(50, "ai_keys_fallback", &hash)?;
         Ok(())
     }
 }

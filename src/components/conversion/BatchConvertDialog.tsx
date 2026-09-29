@@ -16,7 +16,7 @@
  *
  * Failures are collected per-book and surfaced in the dialog summary.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, FileOutput, Loader2, CheckCircle2, XCircle, Clock, MinusCircle } from 'lucide-react';
 import type { Book } from '@/lib/tauri';
@@ -147,6 +147,10 @@ export function BatchConvertDialog({ open, onOpenChange, books }: BatchConvertDi
         // 1. Convert (non-destructive — original file untouched).
         const result = await api.convertBook(item.bookId);
         const newPath = result.new_path;
+        const report = (result as { report?: unknown }).report as
+          | import('./ConversionJobTracker').ConversionReport
+          | null
+          | undefined;
 
         // 2. Import the converted EPUB into the library.
         await api.importBooks([newPath]);
@@ -158,7 +162,7 @@ export function BatchConvertDialog({ open, onOpenChange, books }: BatchConvertDi
         await useLibraryStore.getState().loadInitialBooks();
 
         done += 1;
-        updateItems((prev) => markDone(prev, item.bookId));
+        updateItems((prev) => markDone(prev, item.bookId, report));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         logger.error(`[BatchConvert] Failed to convert book ${item.bookId} (${item.title}):`, err);
@@ -265,6 +269,9 @@ export function BatchConvertDialog({ open, onOpenChange, books }: BatchConvertDi
                     >
                       <span className={cn(meta.className, 'shrink-0')}>{meta.icon}</span>
                       <div className="flex flex-col min-w-0 flex-1">
+                        {item.status === 'done' && item.report && (
+                          <BatchRowReport report={item.report} />
+                        )}
                         <span className="text-sm font-medium text-foreground truncate" title={item.title}>
                           {item.title}
                         </span>
@@ -336,3 +343,32 @@ export function BatchConvertDialog({ open, onOpenChange, books }: BatchConvertDi
 }
 
 export default BatchConvertDialog;
+
+
+/** Per-row conversion report details (fallback mode + warnings + confidence). */
+const BatchRowReport: React.FC<{ report: import('./ConversionJobTracker').ConversionReport }> = ({
+  report,
+}) => {
+  const [open, setOpen] = React.useState(false);
+  const items = report.warnings ?? [];
+  if (items.length === 0 && !report.fallback_used) return null;
+  return (
+    <div className="mt-1 -mb-0.5">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-[11px] text-muted-foreground flex items-center gap-1 hover:text-foreground"
+      >
+        <span>⚠ {report.fallback_used ?? `${items.length} note${items.length > 1 ? 's' : ''}`}</span>
+        <span>{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <ul className="text-[11px] text-muted-foreground list-disc list-inside pl-2 mt-1 space-y-0.5">
+          {report.fallback_used && <li>Fallback: {report.fallback_used}</li>}
+          {items.map((item, i) => (
+            <li key={i}>{item.message}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};

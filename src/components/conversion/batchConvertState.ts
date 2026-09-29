@@ -17,6 +17,8 @@ export interface BatchConvertItem {
   status: BatchItemStatus
   /** Error message, only set when status === 'failed' */
   error?: string
+  /** Structured conversion report — set when conversion succeeded. */
+  report?: import('../conversion/ConversionJobTracker').ConversionReport | null
 }
 
 export interface BatchConvertSummary {
@@ -72,8 +74,12 @@ export function markConverting(items: BatchConvertItem[], bookId: number): Batch
   return updateItem(items, bookId, { status: 'converting', error: undefined })
 }
 
-export function markDone(items: BatchConvertItem[], bookId: number): BatchConvertItem[] {
-  return updateItem(items, bookId, { status: 'done', error: undefined })
+export function markDone(
+  items: BatchConvertItem[],
+  bookId: number,
+  report?: BatchConvertItem['report'],
+): BatchConvertItem[] {
+  return updateItem(items, bookId, { status: 'done', error: undefined, report })
 }
 
 export function markFailed(

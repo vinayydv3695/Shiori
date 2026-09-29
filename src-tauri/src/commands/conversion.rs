@@ -251,6 +251,8 @@ pub struct ConvertAndReplaceResult {
     pub new_format: String,
     pub title: String,
     pub cover_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<serde_json::Value>,
 }
 
 /// Synchronously convert a book to EPUB using the built-in conversion engine,
@@ -290,6 +292,7 @@ pub async fn convert_and_replace_book(
         return Ok(ConvertAndReplaceResult {
             new_path: file_path,
             new_format: "epub".to_string(),
+            report: None,
             title,
             cover_path,
         });
@@ -347,6 +350,7 @@ pub async fn convert_and_replace_book(
     )
     .await;
 
+    let conversion_report = convert_result.as_ref().ok().and_then(|r| r.clone());
     if let Err(e) = convert_result {
         // Cleanup on failure — remove incomplete output if it exists
         let _ = tokio::fs::remove_file(&target).await;
@@ -444,6 +448,7 @@ pub async fn convert_and_replace_book(
     Ok(ConvertAndReplaceResult {
         new_path: new_path_str,
         new_format: "epub".to_string(),
+        report: conversion_report,
         title,
         cover_path,
     })

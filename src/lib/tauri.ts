@@ -793,6 +793,16 @@ const mockBooks: Book[] = [
   },
 ]
 
+/** Structured conversion report carried on convert responses (mirrors backend conversion/report.rs). */
+export interface ConversionReportPayload {
+  warnings?: { level: string; code: string; message: string }[]
+  heuristics_used?: string[]
+  fallback_used?: string | null
+  confidence?: number
+  chapter_count?: number
+  toc_entries?: number
+}
+
 export const api = {
   // Library operations
   async getBooks(limit: number = 50, offset: number = 0): Promise<BookSummary[]> {
@@ -2099,7 +2109,7 @@ export const api = {
   // Auto-Convert on Open (legacy destructive path — kept for backend compat, no UI calls it)
   async convertAndReplaceBook(
     bookId: number
-  ): Promise<{ new_path: string; new_format: string; title: string; cover_path: string | null }> {
+  ): Promise<{ new_path: string; new_format: string; title: string; cover_path: string | null; report?: ConversionReportPayload | null }> {
     return invoke("convert_and_replace_book", { bookId })
   },
 
@@ -2112,7 +2122,7 @@ export const api = {
    */
   async convertBook(
     bookId: number
-  ): Promise<{ new_path: string; new_format: string }> {
+  ): Promise<{ new_path: string; new_format: string; report?: ConversionReportPayload | null }> {
     return invoke("convert_book", { bookId })
   },
 

@@ -1421,7 +1421,7 @@ fn rcdom_walk_for_text(html: &str, blocks: &[&str], out: &mut String) {
         target_format: &str,
         db: Option<&Database>,
         progress_cb: Option<std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>>,
-    ) -> FormatResult<()> {
+    ) -> FormatResult<Option<serde_json::Value>> {
         let dummy_cancelled = DashSet::new();
         let dummy_job_id = "direct";
         let mut report_out: Option<serde_json::Value> = None;
@@ -1436,7 +1436,8 @@ fn rcdom_walk_for_text(html: &str, blocks: &[&str], out: &mut String) {
             progress_cb,
             &mut report_out,
         )
-        .await
+        .await?;
+        Ok(report_out)
     }
 }
 

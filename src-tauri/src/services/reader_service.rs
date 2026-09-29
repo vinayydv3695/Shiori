@@ -1621,6 +1621,8 @@ pub fn resolve_book_open_path(db: &Database, book_id: i64) -> Result<BookOpenPat
 pub struct ConvertResult {
     pub new_path: String,
     pub new_format: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<serde_json::Value>,
 }
 
 /// Explicit "convert to EPUB" — user-triggered only.
@@ -1711,6 +1713,7 @@ pub async fn convert_book_to_epub(
         progress_cb,
     )
     .await;
+    let conversion_report = convert_result.as_ref().ok().and_then(|r| r.clone());
 
     if let Err(e) = convert_result {
         // Cleanup on failure — remove incomplete output if it exists
@@ -1735,5 +1738,6 @@ pub async fn convert_book_to_epub(
     Ok(ConvertResult {
         new_path: target.to_string_lossy().to_string(),
         new_format: "epub".to_string(),
+        report: conversion_report,
     })
 }

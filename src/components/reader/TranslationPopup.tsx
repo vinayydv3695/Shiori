@@ -68,7 +68,7 @@ export function TranslationPopup({
     setCopied(true);
     useToastStore.getState().addToast({
       title: 'Copied to clipboard',
-      variant: 'default',
+      variant: 'info',
       duration: 1500,
     });
     setTimeout(() => setCopied(false), 2000);

@@ -19,7 +19,14 @@ Rule: nothing here is repeated in later rounds. New entries append with date + p
 - **R1-M3 DOWNGRADED by measurement:** groupBooksBySeries = 2.1 ms at 2,050 books (series_index short-circuits the regex). Series jank = DOM render, not sort. Do not optimize the sorter.
 - **R2 batching validated:** 200 autocommit status updates 18.8 ms vs 1.3 ms in one tx (14.5×); linkage 2.8 ms vs 0.8 ms (3.3×). Proceed with F2 batch commands.
 - **Entry chunk confirmed (visualizer):** react-markdown+unified, plugin-updater, all src/lib TTS/AI/character modules, 21 stores eager in index-*.js (1.5 MB). F5 target list set.
-- Seed DB at schema v50 (real copy). F2 migrations must append at v51+.
+- Seed DB at schema v50 (real copy); migration head in tree is v51 — F2 added v52 for the series composite index.
+
+## Commit hygiene incident (2026-09-29, F2-a)
+- `git add -A` in the F2-a commit (9fad881e) swept the concurrent session's in-flight files (TranslationPopup.tsx, conversion/epub_builder.rs, translation_service.rs, ContinuousEpubView.tsx, PremiumEpubReader.tsx, TextSelectionToolbar.tsx, premium-reader.css + untracked convert/…). No work was lost (all preserved in history), but the commit is not a clean single-purpose diff.
+- Corrective rule for all further commits: explicit paths only (`git add <paths>`), never -A. Not rewriting history — the concurrent session's work must not be disturbed.
+- TranslationPopup.tsx had a type error (`variant:'default'` not in the Toast union); fixed minimally to keep the tsc gate green (noted for the owning session).
+
+## Dead ends / rejected (do not re-propose)
 - `panic = "abort"` for size: rejected in-repo (breaks conversion panic containment). 
 - Vite `crossorigin` restoration / modulepreload polyfill: rejected in-repo (blank white screen on AUR webkit2gtk).
 - Fat LTO: OOMs 7-15 GB CI runners.

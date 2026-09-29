@@ -725,58 +725,85 @@ pub async fn download_manga_chapter_as_cbz(
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36";
     let referer = download_referer_for(&source_id);
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| ShioriError::Other(format!("Failed to build client: {}", e)))?;
+    // Shared connection pool (slice F3): built once per process instead of
+    // per chapter; reqwest::Client is Arc-backed so clones are cheap.
+    static DOWNLOAD_CLIENT: once_cell::sync::Lazy<reqwest::Client> =
+        once_cell::sync::Lazy::new(|| {
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .expect("failed to build shared download client")
+        });
 
-    for (idx, page) in pages.iter().enumerate() {
-        // SSRF guard — same check as the shiori-proxy handler in lib.rs; never
-        // fetch private/loopback hosts even if a source returns a bad URL.
-        if !crate::is_safe_url(&page.url) {
-            return Err(ShioriError::Other(format!(
-                "Refusing to download image from unsafe URL: {}",
-                page.url
-            )));
+    // Progress coalescing (slice F3): the old code emitted one IPC event per
+    // page (≈20k events for a 1000-chapter batch). Emit at most every 250 ms,
+    // plus a guaranteed final event.
+    let mut last_emit = std::time::Instant::now() - std::time::Duration::from_millis(250);
+
+    // Bounded page concurrency (slice F3): 3 pages in flight with a ~60 ms
+    // per-worker intra-page stagger instead of strictly serial pages with a
+    // 150 ms sleep each. Zip entry order does not matter — the reader sorts
+    // entries by filename (manga_service::natural_sort_key).
+    use futures::stream::StreamExt as _;
+    let page_jobs = pages.iter().cloned().enumerate().map(|(idx, page)| {
+        let referer = referer;
+        async move {
+            // SSRF guard — same check as the shiori-proxy handler in lib.rs; never
+            // fetch private/loopback hosts even if a source returns a bad URL.
+            if !crate::is_safe_url(&page.url) {
+                return Err(ShioriError::Other(format!(
+                    "Refusing to download image from unsafe URL: {}",
+                    page.url
+                )));
+            }
+
+            let mut req = DOWNLOAD_CLIENT
+                .get(&page.url)
+                .header("User-Agent", user_agent)
+                .header(
+                    "Accept",
+                    "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                )
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .header("Sec-Fetch-Dest", "image")
+                .header("Sec-Fetch-Mode", "no-cors")
+                .header("Sec-Fetch-Site", "cross-site");
+            if let Some(ref_url) = referer {
+                req = req.header("Referer", ref_url);
+            }
+
+            let response = req
+                .send()
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to fetch image: {}", e)))?;
+
+            if !response.status().is_success() {
+                return Err(ShioriError::Other(format!(
+                    "Image fetch failed with status {}",
+                    response.status()
+                )));
+            }
+
+            let bytes = response
+                .bytes()
+                .await
+                .map_err(|e| ShioriError::Other(format!("Failed to read image bytes: {}", e)))?;
+
+            let bytes_vec = bytes.to_vec();
+            let ext = crate::conversion::utils::detect_image_format(&bytes_vec)
+                .map(|(_, ext)| ext)
+                .unwrap_or("jpg");
+
+            // Politeness stagger per worker slot (keeps ≈ ≤11 req/s worst case).
+            tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+
+            Ok::<(usize, &'static str, Vec<u8>), ShioriError>((idx, ext, bytes_vec))
         }
+    });
 
-        let mut req = client
-            .get(&page.url)
-            .header("User-Agent", user_agent)
-            .header(
-                "Accept",
-                "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-            )
-            .header("Accept-Language", "en-US,en;q=0.9")
-            .header("Sec-Fetch-Dest", "image")
-            .header("Sec-Fetch-Mode", "no-cors")
-            .header("Sec-Fetch-Site", "cross-site");
-        if let Some(ref_url) = referer {
-            req = req.header("Referer", ref_url);
-        }
-
-        let response = req
-            .send()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to fetch image: {}", e)))?;
-
-        if !response.status().is_success() {
-            return Err(ShioriError::Other(format!(
-                "Image fetch failed with status {}",
-                response.status()
-            )));
-        }
-
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| ShioriError::Other(format!("Failed to read image bytes: {}", e)))?;
-
-        let bytes_vec = bytes.to_vec();
-
-        let ext = crate::conversion::utils::detect_image_format(&bytes_vec)
-            .map(|(_, ext)| ext)
-            .unwrap_or("jpg");
+    let mut stream = futures::stream::iter(page_jobs).buffer_unordered(3);
+    while let Some(job_result) = stream.next().await {
+        let (idx, ext, bytes_vec) = job_result?;
 
         let file_name = format!("{:03}.{}", idx + 1, ext);
         let opts = options.clone();
@@ -796,18 +823,18 @@ pub async fn download_manga_chapter_as_cbz(
         .map_err(|e| ShioriError::Other(format!("Task error: {}", e)))??;
 
         downloaded += 1;
-        let _ = app_handle.emit(
-            "online-manga-download-progress",
-            MangaDownloadProgress {
-                chapter_id: chapter_id.clone(),
-                chapter_title: chapter_title.clone(),
-                pages_downloaded: downloaded,
-                total_pages: total,
-            },
-        );
-
-        // Small delay to prevent rate-limiting and connection exhaustion
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        if last_emit.elapsed() >= std::time::Duration::from_millis(250) || downloaded == total {
+            last_emit = std::time::Instant::now();
+            let _ = app_handle.emit(
+                "online-manga-download-progress",
+                MangaDownloadProgress {
+                    chapter_id: chapter_id.clone(),
+                    chapter_title: chapter_title.clone(),
+                    pages_downloaded: downloaded,
+                    total_pages: total,
+                },
+            );
+        }
     }
 
     tokio::task::spawn_blocking(move || -> Result<()> {

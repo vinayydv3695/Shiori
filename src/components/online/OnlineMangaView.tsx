@@ -1262,56 +1262,71 @@ export function OnlineMangaView() {
       ),
     );
 
-    let i = 0;
-    for (const ch of selectedChapters) {
-      i++;
-      const uniqueChapterTitle = buildChapterDownloadTitle(ch);
-      const fullDisplayTitle = `${mangaTitle} - ${uniqueChapterTitle}`;
-      try {
-        useOnlineDownloadStore.getState().registerDownload(ch.id, fullDisplayTitle, 'pages');
+    // Chapter-level concurrency (slice F3): up to 2 chapters in parallel.
+    // The backend bounds page-level concurrency (3 pages/chapter); together
+    // this keeps the queue moving without flooding the source or the UI.
+    const CONCURRENT_CHAPTERS = 2;
+    let nextIndex = 0;
+    const downloadWorker = async () => {
+      while (true) {
+        const myIndex = nextIndex++;
+        if (myIndex >= selectedChapters.length) return;
+        const ch = selectedChapters[myIndex];
+        const i = myIndex + 1;
+        const uniqueChapterTitle = buildChapterDownloadTitle(ch);
+        const fullDisplayTitle = `${mangaTitle} - ${uniqueChapterTitle}`;
+        try {
+          useOnlineDownloadStore.getState().registerDownload(ch.id, fullDisplayTitle, 'pages');
 
-        setDownloadProgress({
-          chapterTitle: uniqueChapterTitle,
-          progress: 0,
-          total: 1,
-          chapterIndex: i,
-          totalChapters: selectedChapters.length,
-        });
-        setChapterDownloadStatus((prev) => ({
-          ...prev,
-          [ch.id]: "downloading",
-        }));
-        const cbzPath = await invoke<string>("download_manga_chapter_as_cbz", {
-          sourceId: effectiveSourceId,
-          mangaTitle: mangaTitle,
-          chapterId: ch.id,
-          chapterTitle: uniqueChapterTitle,
-        });
-        setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "done" }));
-        useOnlineDownloadStore.getState().setDownload(ch.id, {
-          target_id: ch.id,
-          status: 'completed',
-          downloaded_bytes: 1,
-          total_bytes: 1,
-          title: fullDisplayTitle,
-          unit: 'pages',
-        });
-        pathsToImport.push({ path: cbzPath, chapter: ch.chapter !== '?' ? ch.chapter : null });
-      } catch (err) {
-        setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "failed" }));
-        useOnlineDownloadStore.getState().setDownload(ch.id, {
-          target_id: ch.id,
-          status: 'error',
-          downloaded_bytes: 0,
-          total_bytes: 1,
-          title: fullDisplayTitle,
-          unit: 'pages',
-        });
-        const reason = getErrorMessage(err);
-        downloadFailures.push({ chapter: String(ch.chapter), reason });
-        showErrorToast(`Failed to download chapter ${ch.chapter}: ${reason}`);
+          setDownloadProgress({
+            chapterTitle: uniqueChapterTitle,
+            progress: 0,
+            total: 1,
+            chapterIndex: i,
+            totalChapters: selectedChapters.length,
+          });
+          setChapterDownloadStatus((prev) => ({
+            ...prev,
+            [ch.id]: "downloading",
+          }));
+          const cbzPath = await invoke<string>("download_manga_chapter_as_cbz", {
+            sourceId: effectiveSourceId,
+            mangaTitle: mangaTitle,
+            chapterId: ch.id,
+            chapterTitle: uniqueChapterTitle,
+          });
+          setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "done" }));
+          useOnlineDownloadStore.getState().setDownload(ch.id, {
+            target_id: ch.id,
+            status: 'completed',
+            downloaded_bytes: 1,
+            total_bytes: 1,
+            title: fullDisplayTitle,
+            unit: 'pages',
+          });
+          pathsToImport.push({ path: cbzPath, chapter: ch.chapter !== '?' ? ch.chapter : null });
+        } catch (err) {
+          setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "failed" }));
+          useOnlineDownloadStore.getState().setDownload(ch.id, {
+            target_id: ch.id,
+            status: 'error',
+            downloaded_bytes: 0,
+            total_bytes: 1,
+            title: fullDisplayTitle,
+            unit: 'pages',
+          });
+          const reason = getErrorMessage(err);
+          downloadFailures.push({ chapter: String(ch.chapter), reason });
+          showErrorToast(`Failed to download chapter ${ch.chapter}: ${reason}`);
+        }
       }
-    }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(CONCURRENT_CHAPTERS, selectedChapters.length) },
+        () => downloadWorker(),
+      ),
+    );
 
     setDownloadProgress(null);
 

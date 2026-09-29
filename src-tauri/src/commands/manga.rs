@@ -255,26 +255,34 @@ pub async fn get_manga_page_path(
     app: AppHandle,
 ) -> Result<String> {
     validate::require_positive_id(book_id, "book_id")?;
-    let bytes = state
-        .service
-        .get_page(book_id, page_index, max_dimension)
-        .await?;
 
-    // Key the disk cache by the book's *content* hash, not the SQLite rowid:
-    // rowids are recycled after deletion, so a re-imported book could hit a
-    // stale image (the size check below is not content validation). Keying by
-    // hash makes re-import collisions impossible.
-    let file_hash: Option<String> = {
-        let app_state = app.state::<crate::AppState>();
-        let conn = app_state.db.get_connection()?;
-        conn.query_row(
-            "SELECT file_hash FROM books WHERE id = ?1",
-            rusqlite::params![book_id],
-            |row| row.get::<_, Option<String>>(0),
-        )
-        .ok()
-        .flatten()
-        .filter(|h| !h.trim().is_empty())
+    // Slice F4: resolve the content hash WITHOUT a DB query per page — it is
+    // cached per file path on the service (populated on first render).
+    let service = &state.service;
+    let open_path = service.open_path(book_id);
+    let file_hash: Option<String> = match &open_path {
+        Some(path) => match service.cached_file_hash(path) {
+            Some(h) => Some(h),
+            None => {
+                let app_state = app.state::<crate::AppState>();
+                let hash: Option<String> = {
+                    let conn = app_state.db.get_connection()?;
+                    conn.query_row(
+                        "SELECT file_hash FROM books WHERE id = ?1",
+                        rusqlite::params![book_id],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .ok()
+                    .flatten()
+                    .filter(|h| !h.trim().is_empty())
+                };
+                if let Some(h) = &hash {
+                    service.cache_file_hash(path.clone(), h.clone());
+                }
+                hash
+            }
+        },
+        None => None,
     };
 
     // Store pages inside the app's local data directory so the asset
@@ -286,26 +294,40 @@ pub async fn get_manga_page_path(
     let cache_root = base.join(MANGA_PAGES_DIR_NAME);
     let _ = MANGA_PAGES_ROOT.get_or_init(|| cache_root.clone());
     // Fall back to book_id only when the hash is missing.
-    let book_key = file_hash.unwrap_or_else(|| book_id.to_string());
+    let book_key = file_hash.clone().unwrap_or_else(|| book_id.to_string());
     let dir = cache_root.join(&book_key);
-    std::fs::create_dir_all(&dir).map_err(|e| crate::error::ShioriError::Io(e))?;
 
     let filename = format!("{}_{}.img", page_index, max_dimension);
     let final_path = dir.join(&filename);
 
-    // If file already exists with correct size, skip writing
+    // Warm-disk fast path (slice F4): an existing page file is complete
+    // (writes are atomic tmp+rename), so return it without extracting the
+    // archive at all. This is what makes re-reads and preload revisits cheap.
     if final_path.exists() {
         if let Ok(meta) = std::fs::metadata(&final_path) {
-            if meta.len() == bytes.len() as u64 {
+            if meta.len() > 0 {
                 return Ok(final_path.to_string_lossy().into_owned());
             }
         }
     }
 
-    // Write atomically
+    let bytes = state
+        .service
+        .get_page(book_id, page_index, max_dimension)
+        .await?;
+
+    // Write atomically, off the async runtime (slice F4: sync fs I/O moved
+    // into spawn_blocking).
+    let final_path_str = final_path.to_string_lossy().into_owned();
     let tmp_path = dir.join(format!("{}.tmp", filename));
-    std::fs::write(&tmp_path, &bytes).map_err(|e| crate::error::ShioriError::Io(e))?;
-    std::fs::rename(&tmp_path, &final_path).map_err(|e| crate::error::ShioriError::Io(e))?;
+    tokio::task::spawn_blocking(move || -> Result<()> {
+        std::fs::create_dir_all(&dir).map_err(crate::error::ShioriError::Io)?;
+        std::fs::write(&tmp_path, &bytes).map_err(crate::error::ShioriError::Io)?;
+        std::fs::rename(&tmp_path, &final_path).map_err(crate::error::ShioriError::Io)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("page write task: {}", e)))??;
 
     // Best-effort maintenance: prune orphaned (deleted) book dirs and keep the
     // cache under the byte cap. Gated, non-fatal, and only hits the DB when the
@@ -332,7 +354,7 @@ pub async fn get_manga_page_path(
         });
     }
 
-    Ok(final_path.to_string_lossy().into_owned())
+    Ok(final_path_str)
 }
 
 // ==================== Manga Series Management Commands ====================

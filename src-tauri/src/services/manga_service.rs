@@ -5,7 +5,7 @@
 use crate::error::{Result, ShioriError};
 use std::collections::HashMap;
 use std::io::{Cursor, Read};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
 // ═══════════════════════════════════════════════════════════
@@ -26,9 +26,11 @@ pub struct MangaMetadata {
 #[allow(dead_code)]
 struct OpenManga {
     file_path: String,
-    /// Keep the original file handle open so subsequent reads can use
-    /// `try_clone()` instead of re-opening from the filesystem path.
-    file_handle: std::fs::File,
+    /// Persistent archive handle (slice F4): opened once in `open()` and reused
+    /// for every page read. The old path re-opened the file and re-parsed the
+    /// ZIP central directory for each page (and each preload). Reads briefly
+    /// lock this; the lock is never held across an await.
+    archive: Arc<Mutex<ZipArchive<std::fs::File>>>,
     sorted_pages: Vec<String>,
     page_dimensions: Vec<(u32, u32)>,
     title: String,
@@ -99,6 +101,11 @@ fn is_image_file(filename: &str) -> bool {
 pub struct MangaService {
     open_books: Mutex<HashMap<i64, OpenManga>>,
     page_cache: Mutex<HashMap<(i64, usize, u32), CachedPage>>,
+    /// file_path -> content hash (slice F4): the reader path needs the hash to
+    /// key its on-disk page cache; caching it here removes one SQLite checkout
+    /// + query per rendered page. Keyed by path (not rowid) because rowids are
+    /// recycled after deletion.
+    file_hash_cache: Mutex<HashMap<String, String>>,
     max_cache_entries: usize,
     max_cache_bytes: usize,
 }
@@ -108,6 +115,7 @@ impl MangaService {
         Self {
             open_books: Mutex::new(HashMap::new()),
             page_cache: Mutex::new(HashMap::new()),
+            file_hash_cache: Mutex::new(HashMap::new()),
             max_cache_entries: 100,
             max_cache_bytes: 200 * 1024 * 1024, // 200MB
         }
@@ -129,12 +137,7 @@ impl MangaService {
             }
         })?;
 
-        // Clone the file handle so we can store it for subsequent reads
-        let file_for_archive = file
-            .try_clone()
-            .map_err(|e| ShioriError::Other(format!("Failed to clone file handle: {}", e)))?;
-
-        let mut archive = ZipArchive::new(file_for_archive)
+        let mut archive = ZipArchive::new(file)
             .map_err(|e| ShioriError::InvalidFormat(format!("Invalid CBZ/ZIP file: {}", e)))?;
 
         // Collect and naturally sort image filenames
@@ -186,7 +189,7 @@ impl MangaService {
         // Store open manga
         let open_manga = OpenManga {
             file_path: path.to_string(),
-            file_handle: file,
+            archive: Arc::new(Mutex::new(archive)),
             sorted_pages: image_files,
             page_dimensions,
             title,
@@ -221,7 +224,9 @@ impl MangaService {
             }
         }
 
-        let (file_path, page_name) = {
+        // Resolve the persistent archive handle + page name under a short
+        // lock, then release it before doing any I/O (slice F4).
+        let (archive, page_name) = {
             let books = self.open_books.lock().unwrap();
             let manga = books
                 .get(&book_id)
@@ -235,67 +240,61 @@ impl MangaService {
                 )));
             }
 
-            // Open fresh file handle to avoid race conditions with shared file offsets
-            let file_path = manga.file_path.clone();
-            let page_name = manga.sorted_pages[page_index].clone();
-
-            (file_path, page_name)
+            (
+                Arc::clone(&manga.archive),
+                manga.sorted_pages[page_index].clone(),
+            )
         };
 
-        // Extract image bytes from ZIP (CPU intensive for large zips, use spawn_blocking)
-        let image_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-            let file = std::fs::File::open(&file_path)
-                .map_err(|e| ShioriError::Other(format!("Failed to open archive: {}", e)))?;
-            let mut archive = ZipArchive::new(file).map_err(|e| {
-                ShioriError::Other(format!("Failed to create archive from handle: {}", e))
-            })?;
-
-            let mut zip_file = archive.by_name(&page_name).map_err(|e| {
-                ShioriError::Other(format!("Page '{}' not found in archive: {}", page_name, e))
-            })?;
-
-            let mut bytes = Vec::new();
-            std::io::Read::read_to_end(&mut zip_file, &mut bytes)
-                .map_err(|e| ShioriError::Other(format!("Failed to read page: {}", e)))?;
-
-            Ok(bytes)
-        })
-        .await
-        .map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
-
-        // Optionally downscale (Also in the blocking task to avoid dropping frames)
+        // One blocking task for extract + optional resize (slice F4): the old
+        // path re-opened and re-parsed the ZIP per page and used two separate
+        // spawn_blocking hops. The archive lock is held only for the read.
         let result_bytes = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-            if max_dimension > 0 {
-                let reader = image::ImageReader::new(Cursor::new(&image_bytes))
-                    .with_guessed_format()
-                    .map_err(|e| ShioriError::Other(e.to_string()))?;
+            let image_bytes = {
+                let mut archive = archive
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                let mut zip_file = archive.by_name(&page_name).map_err(|e| {
+                    ShioriError::Other(format!("Page '{}' not found in archive: {}", page_name, e))
+                })?;
 
-                let img = reader
-                    .decode()
-                    .map_err(|e| ShioriError::Other(e.to_string()))?;
+                let mut bytes = Vec::with_capacity(zip_file.size() as usize);
+                std::io::Read::read_to_end(&mut zip_file, &mut bytes)
+                    .map_err(|e| ShioriError::Other(format!("Failed to read page: {}", e)))?;
+                bytes
+            };
 
-                let width = img.width();
-                let height = img.height();
-
-                if width <= max_dimension && height <= max_dimension {
-                    return Ok(image_bytes);
-                }
-
-                let resized = img.resize(
-                    max_dimension,
-                    max_dimension,
-                    image::imageops::FilterType::Triangle,
-                );
-
-                let mut out_bytes = Vec::new();
-                resized
-                    .write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Jpeg)
-                    .map_err(|e| ShioriError::Other(e.to_string()))?;
-
-                Ok(out_bytes)
-            } else {
-                Ok(image_bytes)
+            if max_dimension == 0 {
+                return Ok(image_bytes);
             }
+
+            let reader = image::ImageReader::new(Cursor::new(&image_bytes))
+                .with_guessed_format()
+                .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+            let img = reader
+                .decode()
+                .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+            let width = img.width();
+            let height = img.height();
+
+            if width <= max_dimension && height <= max_dimension {
+                return Ok(image_bytes);
+            }
+
+            let resized = img.resize(
+                max_dimension,
+                max_dimension,
+                image::imageops::FilterType::Triangle,
+            );
+
+            let mut out_bytes = Vec::new();
+            resized
+                .write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Jpeg)
+                .map_err(|e| ShioriError::Other(e.to_string()))?;
+
+            Ok(out_bytes)
         })
         .await
         .map_err(|e| ShioriError::Other(format!("Task Join Error: {}", e)))??;
@@ -313,19 +312,44 @@ impl MangaService {
         page_indices: &[usize],
         max_dimension: u32,
     ) -> Result<()> {
+        // Slice F4: bounded parallel preload (4 in flight). The old loop
+        // awaited page-by-page, so preloading 5 pages took 5 sequential
+        // extract+decode rounds.
+        let mut pending: Vec<usize> = Vec::new();
         for &idx in page_indices {
             let cache_key = (book_id, idx, max_dimension);
-            // Skip if already cached
-            {
-                let cache = self.page_cache.lock().unwrap();
-                if cache.contains_key(&cache_key) {
-                    continue;
-                }
+            let cached = self
+                .page_cache
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .contains_key(&cache_key);
+            if !cached {
+                pending.push(idx);
             }
-            // Load the page (which also caches it)
-            let _ = self.get_page(book_id, idx, max_dimension).await;
         }
+
+        use futures::stream::StreamExt as _;
+        let mut stream = futures::stream::iter(
+            pending
+                .into_iter()
+                .map(|idx| Self::load_page(self, book_id, idx, max_dimension)),
+        )
+        .buffer_unordered(4);
+        // Best-effort: individual failures are ignored.
+        while stream.next().await.is_some() {}
         Ok(())
+    }
+
+    /// Explicit async helper for `preload_pages`: a free-standing async fn
+    /// keeps the future's lifetimes general enough for `buffer_unordered`,
+    /// which a `|idx| self.get_page(..)` closure does not.
+    async fn load_page(
+        service: &MangaService,
+        book_id: i64,
+        page_index: usize,
+        max_dimension: u32,
+    ) -> Result<Vec<u8>> {
+        service.get_page(book_id, page_index, max_dimension).await
     }
 
     /// Get page dimensions for given indices.
@@ -335,39 +359,53 @@ impl MangaService {
         book_id: i64,
         page_indices: &[usize],
     ) -> Result<Vec<(u32, u32)>> {
-        let mut books = self.open_books.lock().unwrap();
-        let manga = books
-            .get_mut(&book_id)
-            .ok_or_else(|| ShioriError::BookNotFound(format!("Manga {} not open", book_id)))?;
-
-        // Check which pages still have placeholder dimensions and need resolving
         let placeholder = (800u32, 1200u32);
-        let needs_resolve: Vec<usize> = page_indices
-            .iter()
-            .copied()
-            .filter(|&idx| {
-                idx < manga.page_dimensions.len() && manga.page_dimensions[idx] == placeholder
-            })
-            .collect();
 
-        if !needs_resolve.is_empty() {
-            // Open fresh file handle for dimension reading to avoid concurrent access issues
-            let file_path = manga.file_path.clone();
-            if let Ok(file) = std::fs::File::open(&file_path) {
-                if let Ok(mut archive) = ZipArchive::new(file) {
-                    for &idx in &needs_resolve {
-                        if idx < manga.sorted_pages.len() {
-                            let page_name = &manga.sorted_pages[idx];
-                            if let Some(dims) = Self::read_image_dimensions(&mut archive, page_name)
-                            {
-                                manga.page_dimensions[idx] = dims;
-                            }
+        // Slice F4: do NOT decode image headers while holding the open_books
+        // lock. Collect what needs resolving under the lock, release it, then
+        // decode under the (short-lived) archive lock and store results after.
+        let (archive, to_resolve) = {
+            let books = self.open_books.lock().unwrap();
+            let manga = books
+                .get(&book_id)
+                .ok_or_else(|| ShioriError::BookNotFound(format!("Manga {} not open", book_id)))?;
+            let to_resolve: Vec<(usize, String)> = page_indices
+                .iter()
+                .copied()
+                .filter(|&idx| {
+                    idx < manga.page_dimensions.len() && manga.page_dimensions[idx] == placeholder
+                })
+                .filter_map(|idx| manga.sorted_pages.get(idx).map(|name| (idx, name.clone())))
+                .collect();
+            (Arc::clone(&manga.archive), to_resolve)
+        };
+
+        if !to_resolve.is_empty() {
+            let mut resolved: Vec<(usize, (u32, u32))> = Vec::new();
+            {
+                let mut guard = archive.lock().unwrap_or_else(|e| e.into_inner());
+                for (idx, name) in &to_resolve {
+                    if let Some(dims) = Self::read_image_dimensions(&mut guard, name) {
+                        resolved.push((*idx, dims));
+                    }
+                }
+            }
+            if !resolved.is_empty() {
+                let mut books = self.open_books.lock().unwrap();
+                if let Some(manga) = books.get_mut(&book_id) {
+                    for (idx, dims) in resolved {
+                        if idx < manga.page_dimensions.len() {
+                            manga.page_dimensions[idx] = dims;
                         }
                     }
                 }
             }
         }
 
+        let books = self.open_books.lock().unwrap();
+        let manga = books
+            .get(&book_id)
+            .ok_or_else(|| ShioriError::BookNotFound(format!("Manga {} not open", book_id)))?;
         let mut dims = Vec::with_capacity(page_indices.len());
         for &idx in page_indices {
             if idx < manga.page_dimensions.len() {
@@ -391,6 +429,34 @@ impl MangaService {
         cache.retain(|key, _| key.0 != book_id);
 
         println!("[MangaService] Manga {} closed", book_id);
+    }
+
+    /// Filesystem path of an open manga (None when the book isn't open).
+    /// Lets `get_manga_page_path` key its disk cache by content hash without
+    /// a per-page DB query (slice F4).
+    pub fn open_path(&self, book_id: i64) -> Option<String> {
+        let books = self.open_books.lock().unwrap_or_else(|e| e.into_inner());
+        books.get(&book_id).map(|m| m.file_path.clone())
+    }
+
+    /// Cached content hash for a book path (slice F4).
+    pub fn cached_file_hash(&self, path: &str) -> Option<String> {
+        self.file_hash_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(path)
+            .cloned()
+    }
+
+    /// Cache a content hash for a book path. Bounded: cleared (not evicted
+    /// one-by-one) once it exceeds 512 entries — the cache only needs to cover
+    /// currently-open books and a little history.
+    pub fn cache_file_hash(&self, path: String, hash: String) {
+        let mut cache = self.file_hash_cache.lock().unwrap_or_else(|e| e.into_inner());
+        if cache.len() > 512 {
+            cache.clear();
+        }
+        cache.insert(path, hash);
     }
 
     // ─── Private helpers ───────────────────────────────────

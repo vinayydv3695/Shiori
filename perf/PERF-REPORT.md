@@ -47,12 +47,16 @@ Secondary (measured or verified, lower impact): HomePage ≤100 individual `getB
 ## 4. Not fixed / risks / follow-ups
 
 **Not fixed (with reasons):**
-- **GUI-level metrics** (cold-start ms, scroll FPS, page-turn wall-clock in the running app): this harness has no reliable headless Tauri session; component-level proxies were used instead. Run `perf/BASELINE`-style traces on a dev desktop before shipping 1.0.17.
-- **EPUB base64 asset inlining** (recon R4-H3): still needs verification in `renderer.rs`; the concurrent session owns active reader changes — coordinate before touching.
-- **react-markdown / TTS / AI / anilist code in the 1.5 MB entry**: verified present via built-chunk literals, but the eager import chain wasn't isolated within budget. Next step: fix the visualizer JSON parsing or use `vite --debug` chunk graph, then lazy the owning components.
-- **Download cancel/resume**: not implemented; queue is fire-and-forget. Cooperative-cancel design (DashMap of AtomicBool per chapter) is straightforward but was out of budget.
-- **RSS scheduler gating / app-hidden pause bridge**: left as-is; the resident JobScheduler cost is tiny, and gating on "≥1 feed" risks silently disabling the scheduler when a feed is added later.
-- **Font subsetting (844 KB)**, **Android per-ABI splits**, **`opt-level` experiment**, **`espeak-ng-data` size**: unmeasured/unaddressed this round.
+- **GUI-level metrics** (scroll FPS, page-turn wall-clock in the running app): still no scriptable reader driver in this harness. **Cold start is now measured** (session 2): window shell 83–110 ms, first non-blank content 0.58–0.80 s on desktop (XWayland) — budget met. Scroll FPS / page-turn remain open.
+- **Idle CPU burn (NEW, session 2):** release build idles at ~98–101 % CPU in one `WebKitWebProcess` on Home (native Wayland and XWayland; covers loading fine). Prime suspect `Layout.tsx:457-459` (three viewport-sized blur-[120/150px] blobs with infinite `animate-ambient(-slow)`). Needs the disable-then-re-measure A/B; idle/battery budget otherwise **failed**. See DECISIONS §session 2.
+- **EPUB base64 asset inlining** (recon R4-H3): **verified resolved** — `processEpubHtml` rewrites resources to `shiori-epub://` URLs (CSS inlined with rewritten `url()`s); no base64 path remains. Stale `lowMemory.ts` comment corrected.
+- **react-markdown / TTS / AI / anilist code in the entry chunk**: the A2 entry split (1480 → 837 KB) resolved the eager chain; budgets tightened to 900 KB entry / 7000 KB dist.
+- **Download cancel/resume**: implemented (F9). Follow-ups #4 (desktop cancel UI), #5 (stale `.parts` sweep), #2 (protocol round-trip test) landed in session 2.
+- **RSS scheduler gating**: app-hidden pause bridge implemented (session 2, #7) via `BackgroundGate` (desktop focus / mobile suspend / tray); the daily EPUB job intentionally stays ungated (no missed-occurrence replay).
+- **Font subsetting**: measured — 721.6 KB woff2 + 9.4 KB css; only Inter (40.7 KB) is used outside the reader; reader families are lazy and must stay full for arbitrary book scripts. Deliberately no subsetting (size-only, zero cold-start effect).
+- **Android per-ABI splits**: already in CI (`--split-per-abi`, arm64-v8a + armeabi-v7a only, R8+shrink). Measured APK size still open (needs a device/AVD or a CI run).
+- **`opt-level` experiment**: baseline measured (`z`: 59.4 MiB bin, 18m14s build, reopen 8.43 ms vs persistent 535 µs); the `s` variant build was **aborted at 100 % disk** — rerun on a host with ≥8 GB free:
+  `cargo build --release --bin shiori --config 'profile.release.opt-level="s"'`
 - **v52 index**: kept for the plan improvement; not a timing win at 1,100 rows.
 
 **Risks to double-check:**
@@ -64,11 +68,11 @@ Secondary (measured or verified, lower impact): HomePage ≤100 individual `getB
 **Migration notes:** v52 is additive and idempotent (`CREATE INDEX IF NOT EXISTS`), SAVEPOINT-wrapped by the migration runner. Rollback: `DROP INDEX idx_books_manga_series_idx;` and remove the v52 row from `schema_migrations`. No data change.
 
 **Recommended follow-ups (priority order):**
-1. GUI trace pass on desktop + Android (cold start, 1000-chapter series open, scroll, page turn) to close the unmeasured budgets.
-2. Entry-chunk split (react-markdown/TTS/updater) with correct visualizer parsing.
-3. Download cancel + resume manifest (`<chapter>.part` + resume).
-4. Android release APK size + per-ABI splits measurement.
-5. EPUB renderer asset protocol check (coordinate with reader owner).
+1. **Idle CPU burn** — attribute via the disable-`animate-ambient` blobs A/B and fix; ~100 % of one core at idle fails the battery budget on every platform (session 2 finding).
+2. GUI trace pass continuation: scroll FPS + page-turn on desktop and Android (device/emulator).
+3. `opt-level` `s` vs `z` A/B on a machine with ≥8 GB free disk (baseline already recorded).
+4. Android release APK size per ABI (device/AVD or CI artifact).
+5. `espeak-ng-data` size review (still unmeasured).
 
 ## 5. How to re-run
 See `perf/AFTER.md` §Re-run everything (seed → SQL bench → budgets → vitest → cargo tests → bundle build → bundle budget). Regression guards: `tests/perf/grouping.perf.test.ts`, `perf/bench/assert_budgets.py`, `perf/bench/bundle_budget.sh`, plus existing EXPLAIN-PLAN tests in `search_service.rs`.

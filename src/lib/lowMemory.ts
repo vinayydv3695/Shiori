@@ -4,7 +4,9 @@ import { api } from '@/lib/tauri';
  * Android low-memory handler (wired from MainActivity.onLowMemory via a
  * `shiori-low-memory` window event). Purges the largest cached structures so
  * the process survives OS memory pressure instead of being killed:
- * - processed chapter HTML (base64 PNG/font inlined — the biggest JS buffer)
+ * - processed chapter HTML (the biggest JS string: inlined CSS + rewritten
+ *   shiori-epub:// resource URLs — images/fonts are not base64-inlined and
+ *   load lazily through the custom protocol)
  * - proxied online image blob URLs (revoked)
  * - Rust renderer cache (open books' cached chapter strings)
  *

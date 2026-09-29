@@ -489,7 +489,9 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
           .map((b) => b.id as number)
         if (onScreen.length === 0) return // nothing visible changed: skip
         try {
-          const fresh = await Promise.all(onScreen.map((id) => api.getBook(id)))
+          // One batched IPC (slice F1/F2-a) instead of N getBook round-trips.
+          // Result order is arbitrary; the patch below is keyed by id.
+          const fresh = await api.getBooksByIds(onScreen)
           set((state) => {
             const freshById = new Map<number, Book>()
             for (const book of fresh) {

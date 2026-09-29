@@ -1,4 +1,5 @@
 import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
@@ -19,12 +20,37 @@ import { Input } from '@/components/ui/input'
 import { AppTooltip } from '@/components/ui/tooltip'
 import { api, type Book } from '@/lib/tauri'
 import { useToast } from '@/store/toastStore'
-import { useLibraryStore } from '@/store/libraryStore'
 import { EditorialSeriesCover } from './SeriesCard'
 import { compareBooksNatural, parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
 
 function getBookReadStatus(book: Book) {
   return book.reading_status || 'planning';
+}
+
+/** Map the lean backend `SeriesBookItem` to the `Book` shape the cards render.
+ * Deliberately no authors/tags (slice F1/F2-a) — series cards do not show
+ * them, and hydrating 1000 rows of them is pure IPC weight. */
+function leanToBook(item: import('@/lib/tauri').SeriesBookItem): Book {
+  return {
+    id: item.id,
+    uuid: `lean-${item.id}`,
+    title: item.title,
+    sort_title: item.sort_title ?? null,
+    series: undefined,
+    series_index: item.series_index ?? null,
+    cover_path: item.cover_path ?? null,
+    reading_status: item.reading_status,
+    page_count: item.page_count ?? null,
+    last_opened: item.last_opened ?? null,
+    file_format: item.file_format,
+    file_path: item.file_path,
+    added_date: item.added_date,
+    modified_date: item.added_date,
+    language: 'eng',
+    is_favorite: false,
+    authors: [],
+    tags: [],
+  } as unknown as Book;
 }
 
 const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
@@ -547,10 +573,57 @@ export const SeriesView = memo(function SeriesView({
 
   const density = usePreferencesStore((state) => state.preferences?.libraryDensity ?? 'comfortable')
   const coverSize = usePreferencesStore((state) => state.preferences?.coverSize ?? 'medium')
-  const bookRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
-  const unreadCount = useMemo(() => (series?.books ?? []).filter(b => getBookReadStatus(b) !== 'completed').length, [series?.books]);
-  const readCount = useMemo(() => (series?.books ?? []).length - unreadCount, [series?.books, unreadCount]);
+  // ── Virtualization (slice F1) ────────────────────────────────────────
+  // The old render mapped every volume to a DOM card: a 1000-chapter series
+  // mounted 1000 cards (plus covers forced visible) in one frame. Now only
+  // visible rows + small overscan mount.
+  const scrollViewportRef = useRef<HTMLDivElement>(null)
+  const [columns, setColumns] = useState(4)
+  const [highlightId, setHighlightId] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const el = scrollViewportRef.current
+    if (!el) return
+    let raf = 0
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width
+      if (!width) return
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        setColumns(width < 520 ? 2 : width < 768 ? 3 : width < 1024 ? 4 : width < 1280 ? 5 : 6)
+      })
+    })
+    observer.observe(el)
+    return () => { cancelAnimationFrame(raf); observer.disconnect() }
+  }, [isOpen])
+
+  // Lean series fetch (slice F1/F2-a): the prop only carries books already
+  // loaded in the library window. Fetch the full series as lightweight rows
+  // on open (one IPC, ~100 KB for 1100 chapters); fall back to the prop when
+  // the series text matches no DB rows (client-side title-extraction groups).
+  const [leanBooks, setLeanBooks] = useState<Book[] | null>(null)
+  useEffect(() => {
+    if (!isOpen || !series?.title) { setLeanBooks(null); return }
+    let cancelled = false
+    api.getSeriesBooksByName(series.title)
+      .then((items) => { if (!cancelled && items.length > 0) setLeanBooks(items.map(leanToBook)) })
+      .catch(() => { /* keep prop fallback */ })
+    return () => { cancelled = true }
+  }, [isOpen, series?.title])
+
+  const sourceBooks = useMemo(
+    () => (leanBooks && leanBooks.length > 0 ? leanBooks : (series?.books ?? [])),
+    [leanBooks, series],
+  )
+  const effectiveSeries = useMemo<NonNullable<import('./types').SeriesViewProps['series']>>(
+    () => ({ ...(series as NonNullable<typeof series>), books: sourceBooks, bookCount: sourceBooks.length }),
+    [series, sourceBooks],
+  )
+
+  const unreadCount = useMemo(() => sourceBooks.filter(b => getBookReadStatus(b) !== 'completed').length, [sourceBooks]);
+  const readCount = useMemo(() => sourceBooks.length - unreadCount, [sourceBooks, unreadCount]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -570,21 +643,18 @@ export const SeriesView = memo(function SeriesView({
     if (!jumpInput) return;
     const targetChapter = parseFloat(jumpInput);
     if (isNaN(targetChapter)) return;
-    
-    const targetBook = processedBooks.find(b => {
-      const idx = parseVolumeOrChapterNumber(b);
-      return idx === targetChapter;
-    });
 
-    if (targetBook && targetBook.id) {
-      const el = bookRefs.current.get(targetBook.id);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
-        setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'rounded-lg');
-        }, 2000);
-      }
+    const targetIndex = processedBooks.findIndex(b => parseVolumeOrChapterNumber(b) === targetChapter);
+    const targetBook = targetIndex >= 0 ? processedBooks[targetIndex] : undefined;
+
+    if (targetBook && targetBook.id != null) {
+      // Virtualized list: scroll the containing row into view and flash the
+      // card (the old code scrolled a ref — refs only exist for mounted rows
+      // now, and 1000-entry ref maps are exactly what we removed).
+      const rowIndex = viewMode === 'grid' ? Math.floor(targetIndex / columns) : targetIndex;
+      rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' });
+      setHighlightId(targetBook.id);
+      window.setTimeout(() => setHighlightId(null), 2000);
       setJumpInput('');
     } else {
       toast.error('Not Found', `Volume/Chapter ${targetChapter} is not in this series or is filtered out.`);
@@ -593,7 +663,7 @@ export const SeriesView = memo(function SeriesView({
 
   const processedBooks = useMemo(() => {
     if (!series) return [];
-    let result = [...series.books];
+    let result = [...sourceBooks];
     if (searchQuery) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(b => {
@@ -617,7 +687,22 @@ export const SeriesView = memo(function SeriesView({
       return 0;
     });
     return result;
-  }, [series, searchQuery, filterStatus, sortOrder]);
+  }, [series, sourceBooks, searchQuery, filterStatus, sortOrder]);
+
+  // Virtualizer (slice F1): grid rows chunk `processedBooks` into `columns`
+  // cells each; list mode is one row per book. `measureElement` handles the
+  // real card height so estimates only affect the initial frame.
+  const gridRowHeight = coverSize === 'small' ? 236 : coverSize === 'large' ? 372 : 300
+  const rowCount = viewMode === 'grid'
+    ? Math.ceil(processedBooks.length / columns)
+    : processedBooks.length
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => scrollViewportRef.current,
+    estimateSize: () => (viewMode === 'grid' ? gridRowHeight : 96),
+    overscan: 3,
+  })
+  const virtualRows = rowVirtualizer.getVirtualItems()
 
   if (!series) return null;
 
@@ -650,14 +735,13 @@ export const SeriesView = memo(function SeriesView({
 
   const handleDeleteSeries = async () => {
     try {
-      const list = await api.getMangaSeriesList(1000, 0);
-      const targetSeries = list.find(s => s.title.toLowerCase() === series.title.toLowerCase());
-      
+      const targetSeries = await api.getMangaSeriesByTitle(series.title);
+
       if (targetSeries && targetSeries.id !== undefined) {
           await api.deleteMangaSeries(targetSeries.id);
       }
 
-      const bookIds = series.books.map(b => b.id).filter((id): id is number => id !== undefined);
+      const bookIds = effectiveSeries.books.map(b => b.id).filter((id): id is number => id !== undefined);
       if (bookIds.length > 0) {
           await api.deleteBooks(bookIds);
       }
@@ -672,12 +756,16 @@ export const SeriesView = memo(function SeriesView({
 
   const handleMarkAllRead = async () => {
     try {
-      for (const book of series.books) {
-        if (book.id && getBookReadStatus(book) !== 'completed') {
-          await api.updateReadingStatus(book.id, 'completed');
-        }
+      // Slice F1/F2-a: one batch IPC + one DB transaction. Was: one awaited
+      // IPC per book (1000 round-trips for a 1000-chapter series) + full
+      // library refetch. The backend emits `book-updated`, which patches the
+      // store in place, so no refetch is needed.
+      const ids = effectiveSeries.books
+        .filter(b => b.id != null && getBookReadStatus(b) !== 'completed')
+        .map(b => b.id as number);
+      if (ids.length > 0) {
+        await api.updateReadingStatusBatch(ids, 'completed');
       }
-      await useLibraryStore.getState().loadInitialBooks();
       toast.success('Updated', 'All volumes marked as completed.');
     } catch (err) {
       logger.error(err);
@@ -708,10 +796,10 @@ export const SeriesView = memo(function SeriesView({
             </AppTooltip>
           </Dialog.Close>
           
-          <ScrollArea className="flex-1 bg-background/50">
+          <ScrollArea className="flex-1 bg-background/50" viewportRef={scrollViewportRef}>
             <div className="flex flex-col min-h-full pb-16 md:pb-8">
             <DesktopSeriesHeader 
-              series={series} 
+              series={effectiveSeries} 
               bannerUrl={anilistBanner}
               onFindMetadata={handleFindSeriesMetadata}
               onDelete={handleDeleteSeries}
@@ -719,7 +807,7 @@ export const SeriesView = memo(function SeriesView({
               onOpenBook={onOpenBook}
             />
             <MobileSeriesHeader 
-              series={series} 
+              series={effectiveSeries} 
               bannerUrl={anilistBanner}
               onFindMetadata={handleFindSeriesMetadata}
               onDelete={handleDeleteSeries}
@@ -899,59 +987,85 @@ export const SeriesView = memo(function SeriesView({
                     </Button>
                   )}
                 </div>
-              ) : viewMode === 'grid' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4.5">
-                  {processedBooks.map((book, idx) => {
-                    const volNum = book.series_index ?? parseVolumeOrChapterNumber(book);
+              ) : (
+                <div
+                  className="relative w-full"
+                  style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+                >
+                  {virtualRows.map((virtualRow) => {
+                    if (viewMode === 'grid') {
+                      const start = virtualRow.index * columns
+                      const rowBooks = processedBooks.slice(start, start + columns)
+                      return (
+                        <div
+                          key={virtualRow.key}
+                          ref={(el) => { if (el) rowVirtualizer.measureElement(el); }}
+                          data-index={virtualRow.index}
+                          className="absolute left-0 top-0 w-full grid gap-3 sm:gap-4.5"
+                          style={{
+                            transform: `translateY(${virtualRow.start}px)`,
+                            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                          }}
+                        >
+                          {rowBooks.map((book, iInRow) => {
+                            const volNum = book.series_index ?? parseVolumeOrChapterNumber(book);
+                            const globalIdx = start + iInRow
+                            return (
+                              <div
+                                key={book.id ?? book.uuid}
+                                className={cn(
+                                  "relative group transition-all duration-300",
+                                  highlightId === book.id && "ring-2 ring-primary ring-offset-2 rounded-lg",
+                                )}
+                              >
+                                <PremiumBookCard
+                                  book={book}
+                                  isSelected={selectedBookIds?.has(book.id!) ?? false}
+                                  onSelect={onSelectBook}
+                                  onOpen={onOpenBook}
+                                  onViewDetails={onViewDetailsBook}
+                                  onEdit={onEditBook}
+                                  onDelete={onDeleteBook}
+                                  isFavorited={favoritedBookIds?.has(book.id!) ?? false}
+                                  onFavorite={onFavoriteBook}
+                                  animationDelay={Math.min(globalIdx, 15) * 20}
+                                  coverSize={coverSize}
+                                  forceVisible={true}
+                                />
+                                {getBookReadStatus(book) === 'completed' && (
+                                  <div className="absolute -top-1.5 -right-1.5 z-10 bg-green-500 rounded-full p-1 shadow-md shadow-green-500/20 animate-in zoom-in">
+                                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                                  </div>
+                                )}
+                                {volNum !== null && volNum !== undefined && (
+                                  <div className="absolute top-2 left-2 z-10 bg-background/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-black border border-border/50 shadow-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                                    VOL {volNum}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    const book = processedBooks[virtualRow.index];
                     return (
                       <div
-                        key={book.id ?? book.uuid}
-                        ref={(el) => { if (book.id && el) bookRefs.current.set(book.id, el); }}
-                        className="relative group transition-all duration-300"
+                        key={virtualRow.key}
+                        ref={(el) => { if (el) rowVirtualizer.measureElement(el); }}
+                        data-index={virtualRow.index}
+                        className="absolute left-0 top-0 w-full pb-2.5"
+                        style={{ transform: `translateY(${virtualRow.start}px)` }}
                       >
-                        <PremiumBookCard
+                        <ListBookCard
                           book={book}
                           isSelected={selectedBookIds?.has(book.id!) ?? false}
                           onSelect={onSelectBook}
                           onOpen={onOpenBook}
-                          onViewDetails={onViewDetailsBook}
-                          onEdit={onEditBook}
-                          onDelete={onDeleteBook}
-                          isFavorited={favoritedBookIds?.has(book.id!) ?? false}
-                          onFavorite={onFavoriteBook}
-                          animationDelay={idx * 20}
-                          coverSize={coverSize}
-                          forceVisible={true}
                         />
-                        {getBookReadStatus(book) === 'completed' && (
-                          <div className="absolute -top-1.5 -right-1.5 z-10 bg-green-500 rounded-full p-1 shadow-md shadow-green-500/20 animate-in zoom-in">
-                            <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                          </div>
-                        )}
-                        {volNum !== null && volNum !== undefined && (
-                          <div className="absolute top-2 left-2 z-10 bg-background/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-black border border-border/50 shadow-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                            VOL {volNum}
-                          </div>
-                        )}
                       </div>
                     );
                   })}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  {processedBooks.map((book) => (
-                    <div
-                      key={book.id ?? book.uuid}
-                      ref={(el) => { if (book.id && el) bookRefs.current.set(book.id, el); }}
-                    >
-                      <ListBookCard
-                        book={book}
-                        isSelected={selectedBookIds?.has(book.id!) ?? false}
-                        onSelect={onSelectBook}
-                        onOpen={onOpenBook}
-                      />
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -962,7 +1076,7 @@ export const SeriesView = memo(function SeriesView({
             <MetadataSearchDialog
               open={metadataDialogOpen}
               onOpenChange={setMetadataDialogOpen}
-              bookIds={series.books.map((b) => b.id!).filter(Boolean)}
+              bookIds={effectiveSeries.books.map((b) => b.id!).filter(Boolean)}
               bookTitle={series.title}
               isManga={true}
               isbn={null}

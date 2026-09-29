@@ -266,10 +266,11 @@ export function HomePage({
         return dateB - dateA
       });
 
-      // 3. Favorites
+      // 3. Favorites — one batched IPC (slice F1/F2-a); was up to 100 getBook calls.
       const favIds = Array.from(favoriteBookIds);
-      const favBooksPromises = favIds.slice(0, 100).map(id => api.getBook(id).catch(() => null));
-      const favsResolved = (await Promise.all(favBooksPromises)).filter(Boolean) as Book[];
+      const favsResolved = favIds.length > 0
+        ? (await api.getBooksByIds(favIds.slice(0, 100)).catch(() => [])) as Book[]
+        : [];
       const domainFavs = favsResolved.filter(b => 
         domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
       );

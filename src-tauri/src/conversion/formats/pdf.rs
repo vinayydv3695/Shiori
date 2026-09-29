@@ -170,10 +170,19 @@ fn parse_with_geometry(
     book.description = description;
     book.cover_image = cover;
     for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        // The line splitter XML-escapes everything; restore the structural
+        // table tokens the geometry pass emitted (cell content stays escaped).
+        let html = ch_body
+            .replace("&lt;table&gt;", "<table>")
+            .replace("&lt;/table&gt;", "</table>")
+            .replace("&lt;tr&gt;", "<tr>")
+            .replace("&lt;/tr&gt;", "</tr>")
+            .replace("&lt;td&gt;", "<td>")
+            .replace("&lt;/td&gt;", "</td>");
         book.chapters.push(OebChapter {
             id: format!("chapter_{:03}", i + 1),
             title: Some(ch_title),
-            html: ch_body,
+            html,
         });
     }
     book.report.note_heuristic("pdf-geometry-reflow");

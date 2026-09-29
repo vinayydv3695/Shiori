@@ -643,6 +643,21 @@ pub struct MangaDownloadProgress {
 /// Per-source Referer header, kept in lockstep with the shiori-proxy referer
 /// map in lib.rs — the backend downloader must authenticate against the same
 /// hotlink-protected image hosts as the UI's image proxy.
+/// Best-effort writable destination for downloaded chapter CBZs.
+///
+/// Slice F8: the old fallback was `PathBuf::from(".")` — the process working
+/// directory, which is not a writable location on Android and unpredictable
+/// on desktop. Preference order: app local data dir (`<app-local>/downloads`) —
+/// always writable, covered by the asset-protocol scope for later reading —
+/// then the OS temp dir.
+fn fallback_download_dir(app_handle: &tauri::AppHandle) -> std::path::PathBuf {
+    app_handle
+        .path()
+        .app_local_data_dir()
+        .map(|p| p.join("downloads"))
+        .unwrap_or_else(|_| std::env::temp_dir())
+}
+
 fn download_referer_for(source_id: &str) -> Option<&'static str> {
     match source_id {
         "toongod" => Some("https://www.toongod.org/"),
@@ -683,25 +698,13 @@ pub async fn download_manga_chapter_as_cbz(
             if !path_str.is_empty() && !path_str.starts_with("content://") {
                 std::path::PathBuf::from(path_str).join("Online Manga")
             } else {
-                app_handle
-                    .path()
-                    .download_dir()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("."))
-                    .join("Shiori Downloads")
+                fallback_download_dir(&app_handle)
             }
         } else {
-            app_handle
-                .path()
-                .download_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("."))
-                .join("Shiori Downloads")
+            fallback_download_dir(&app_handle)
         }
     } else {
-        app_handle
-            .path()
-            .download_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .join("Shiori Downloads")
+        fallback_download_dir(&app_handle)
     };
 
     tokio::fs::create_dir_all(&downloads_dir).await?;

@@ -1,0 +1,23 @@
+/*
+ * Android low-effects mode (slice F8).
+ *
+ * backdrop-filter forces an offscreen compositing pass for every frame the
+ * surface moves under — a known jank source on Android WebView GPUs with
+ * large scroll surfaces (series dialogs, reader chrome, cards). The app
+ * already sets `html.is-android` (App.tsx) and disables Framer Motion
+ * animations platform-wide; this file removes the CSS blur layer too.
+ *
+ * Scoped to `html.is-android`, so desktop rendering is untouched. Visual
+ * fidelity trade-off is deliberate and documented in perf/PERF-REPORT.md.
+ */
+html.is-android [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Multi-layer shadows on long lists are also expensive to rasterise on weak
+ * GPUs; flatten the heaviest one used by dialog content while keeping the
+ * border-based separation. */
+html.is-android .shadow-2xl {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35) !important;
+}

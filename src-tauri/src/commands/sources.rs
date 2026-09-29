@@ -658,6 +658,22 @@ fn fallback_download_dir(app_handle: &tauri::AppHandle) -> std::path::PathBuf {
         .unwrap_or_else(|_| std::env::temp_dir())
 }
 
+/// Removes a download's cancel registration on every exit path — success,
+/// error and panic (slice F9). Without this, a failed download would leave a
+/// flag in `ActiveDownloads::cancel_flags` that a future cancel could target.
+struct DownloadCancelGuard {
+    app: tauri::AppHandle,
+    chapter_id: String,
+}
+
+impl Drop for DownloadCancelGuard {
+    fn drop(&mut self) {
+        if let Some(state) = self.app.try_state::<crate::ActiveDownloads>() {
+            state.unregister_cancel(&self.chapter_id);
+        }
+    }
+}
+
 fn download_referer_for(source_id: &str) -> Option<&'static str> {
     match source_id {
         "toongod" => Some("https://www.toongod.org/"),
@@ -717,13 +733,30 @@ pub async fn download_manga_chapter_as_cbz(
     let filename = format!("{} - {}.cbz", safe_manga, safe_chap);
     let cbz_path = downloads_dir.join(&filename);
 
-    let file = std::fs::File::create(&cbz_path)?;
-    let mut zip = zip::ZipWriter::new(file);
-    let options =
-        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    // Slice F9: pages land in a per-chapter parts directory first
+    // (`<name>.cbz.parts/NNNN.bin`, 1-based). Presence of a part file means
+    // the page is downloaded, so an interrupted or cancelled chapter resumes
+    // from its parts; the CBZ is assembled — and atomically renamed into
+    // place — only once every part exists.
+    let parts_dir = cbz_path.with_extension("cbz.parts");
+    tokio::fs::create_dir_all(&parts_dir).await?;
 
-    let mut downloaded = 0;
+    // Cooperative cancellation (slice F9): the flag is removed on every exit
+    // path via the drop guard, so cancel requests never target dead entries.
+    let cancel_flag = app_handle
+        .state::<crate::ActiveDownloads>()
+        .register_cancel(&chapter_id);
+    let _cancel_guard = DownloadCancelGuard {
+        app: app_handle.clone(),
+        chapter_id: chapter_id.clone(),
+    };
+
     let total = pages.len();
+    // Resume: only pages without a part file need fetching.
+    let pending: Vec<usize> = (0..total)
+        .filter(|&idx| !parts_dir.join(format!("{:04}.bin", idx + 1)).exists())
+        .collect();
+    let mut downloaded = total - pending.len();
 
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36";
     let referer = download_referer_for(&source_id);
@@ -748,9 +781,17 @@ pub async fn download_manga_chapter_as_cbz(
     // 150 ms sleep each. Zip entry order does not matter — the reader sorts
     // entries by filename (manga_service::natural_sort_key).
     use futures::stream::StreamExt as _;
-    let page_jobs = pages.iter().cloned().enumerate().map(|(idx, page)| {
+    let page_jobs = pending.into_iter().map(|idx| {
+        let page = pages[idx].clone();
         let referer = referer;
+        let cancel = std::sync::Arc::clone(&cancel_flag);
         async move {
+            // Cooperative cancel (slice F9): checked before the request and
+            // again after the body arrives; parts are kept for resume.
+            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err(ShioriError::Other("download cancelled".to_string()));
+            }
+
             // SSRF guard — same check as the shiori-proxy handler in lib.rs; never
             // fetch private/loopback hosts even if a source returns a bad URL.
             if !crate::is_safe_url(&page.url) {
@@ -792,38 +833,29 @@ pub async fn download_manga_chapter_as_cbz(
                 .await
                 .map_err(|e| ShioriError::Other(format!("Failed to read image bytes: {}", e)))?;
 
+            if cancel.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err(ShioriError::Other("download cancelled".to_string()));
+            }
+
             let bytes_vec = bytes.to_vec();
-            let ext = crate::conversion::utils::detect_image_format(&bytes_vec)
-                .map(|(_, ext)| ext)
-                .unwrap_or("jpg");
 
             // Politeness stagger per worker slot (keeps ≈ ≤11 req/s worst case).
             tokio::time::sleep(std::time::Duration::from_millis(60)).await;
 
-            Ok::<(usize, &'static str, Vec<u8>), ShioriError>((idx, ext, bytes_vec))
+            // The image extension is derived from the bytes at assembly time.
+            Ok::<(usize, Vec<u8>), ShioriError>((idx, bytes_vec))
         }
     });
 
     let mut stream = futures::stream::iter(page_jobs).buffer_unordered(3);
     while let Some(job_result) = stream.next().await {
-        let (idx, ext, bytes_vec) = job_result?;
+        let (idx, bytes_vec) = job_result?;
 
-        let file_name = format!("{:03}.{}", idx + 1, ext);
-        let opts = options.clone();
-
-        // Use spawn_blocking for zip writing since it's synchronous IO
-        let mut zip_clone = zip;
-        zip = tokio::task::spawn_blocking(move || -> Result<zip::ZipWriter<std::fs::File>> {
-            zip_clone
-                .start_file(file_name, opts)
-                .map_err(|e| ShioriError::Other(format!("Zip error: {}", e)))?;
-            zip_clone
-                .write_all(&bytes_vec)
-                .map_err(|e| ShioriError::Other(format!("Write error: {}", e)))?;
-            Ok(zip_clone)
-        })
-        .await
-        .map_err(|e| ShioriError::Other(format!("Task error: {}", e)))??;
+        // Persist the page as its part file (presence = downloaded/resume key).
+        let part_path = parts_dir.join(format!("{:04}.bin", idx + 1));
+        tokio::fs::write(&part_path, &bytes_vec)
+            .await
+            .map_err(|e| ShioriError::Other(format!("Failed to write page part: {}", e)))?;
 
         downloaded += 1;
         if last_emit.elapsed() >= std::time::Duration::from_millis(250) || downloaded == total {
@@ -840,14 +872,57 @@ pub async fn download_manga_chapter_as_cbz(
         }
     }
 
+    // Assemble the CBZ from the parts in page order (sync zip IO off-runtime).
+    let cbz_path_for_zip = cbz_path.clone();
+    let parts_dir_for_zip = parts_dir.clone();
+    let total_pages = total;
     tokio::task::spawn_blocking(move || -> Result<()> {
+        let tmp_path = cbz_path_for_zip.with_extension("cbz.tmp");
+        let file = std::fs::File::create(&tmp_path)
+            .map_err(|e| ShioriError::Other(format!("Failed to create cbz: {}", e)))?;
+        let mut zip = zip::ZipWriter::new(file);
+        let opts = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+
+        for idx in 0..total_pages {
+            let part = parts_dir_for_zip.join(format!("{:04}.bin", idx + 1));
+            let bytes = std::fs::read(&part).map_err(|e| {
+                ShioriError::Other(format!("Missing page part {}: {}", part.display(), e))
+            })?;
+            let ext = crate::conversion::utils::detect_image_format(&bytes)
+                .map(|(_, ext)| ext)
+                .unwrap_or("jpg");
+            zip.start_file(format!("{:03}.{}", idx + 1, ext), opts)
+                .map_err(|e| ShioriError::Other(format!("Zip error: {}", e)))?;
+            zip.write_all(&bytes)
+                .map_err(|e| ShioriError::Other(format!("Write error: {}", e)))?;
+        }
+
         zip.finish()
             .map_err(|e| ShioriError::Other(format!("Failed to finish zip: {}", e)))?;
+        std::fs::rename(&tmp_path, &cbz_path_for_zip)
+            .map_err(|e| ShioriError::Other(format!("Failed to finalize cbz: {}", e)))?;
         Ok(())
     })
     .await
     .map_err(|e| ShioriError::Other(format!("Task error: {}", e)))??;
+
+    // Parts are removed only after the CBZ is safely renamed into place.
+    let _ = tokio::fs::remove_dir_all(&parts_dir).await;
+
     Ok(cbz_path.to_string_lossy().to_string())
+}
+
+/// Cancel an in-flight online-manga chapter download (slice F9). Returns
+/// `true` when a running download consumed the flag. Partial pages stay in
+/// the chapter's `.parts` directory, so re-running the download resumes.
+#[tauri::command]
+pub fn cancel_manga_chapter_download(
+    chapter_id: String,
+    state: State<'_, crate::ActiveDownloads>,
+) -> Result<bool> {
+    crate::utils::validate::require_non_empty(&chapter_id, "chapter_id")?;
+    Ok(state.request_cancel(&chapter_id))
 }
 
 // ─── Anna's Archive downloads & config ────────────────────────────────────────

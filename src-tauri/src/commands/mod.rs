@@ -208,6 +208,7 @@ macro_rules! generate_shiori_handlers {
             commands::manga::get_manga_page,
             commands::manga::get_manga_page_path,
             commands::manga::preload_manga_pages,
+            commands::sources::cancel_manga_chapter_download,
             commands::manga::get_manga_page_dimensions,
             commands::manga::close_manga,
             commands::manga::get_manga_series_list,

@@ -1413,6 +1413,12 @@ export const api = {
     return invoke("get_books_by_ids", { ids })
   },
 
+  /** Cancel an in-flight chapter download (slice F9). Partial pages are kept
+   * on disk, so re-running the download resumes instead of re-fetching. */
+  async cancelMangaChapterDownload(chapterId: string): Promise<boolean> {
+    return invoke("cancel_manga_chapter_download", { chapterId })
+  },
+
   async getBooksByReadingStatus(status: string, limit: number = 50, offset: number = 0): Promise<Book[]> {
     return invoke("get_books_by_reading_status", { status, limit, offset })
   },

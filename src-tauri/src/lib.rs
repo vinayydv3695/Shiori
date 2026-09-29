@@ -68,6 +68,12 @@ pub struct MetadataState {
 
 pub struct ActiveDownloads {
     pub count: std::sync::atomic::AtomicUsize,
+    /// Cooperative cancel flags for in-flight chapter downloads, keyed by
+    /// chapter id (slice F9). `cancel_manga_chapter_download` sets a flag;
+    /// the download loop checks it between pages and keeps its partial
+    /// `.parts` files so a retry resumes instead of re-fetching.
+    pub cancel_flags:
+        dashmap::DashMap<String, std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 pub struct ActiveDownloadGuard {
@@ -91,6 +97,33 @@ impl ActiveDownloads {
             // Unsafely extend the lifetime of the state for the guard.
             // This is safe because the state is managed by Tauri and lives for the 'static app duration.
             count: unsafe { std::mem::transmute(state) },
+        }
+    }
+
+    /// Register an in-flight download and hand back its cancel flag (slice F9).
+    pub fn register_cancel(
+        &self,
+        chapter_id: &str,
+    ) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
+        let flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.cancel_flags
+            .insert(chapter_id.to_string(), std::sync::Arc::clone(&flag));
+        flag
+    }
+
+    /// Remove the registration when a download ends (success, error or panic).
+    pub fn unregister_cancel(&self, chapter_id: &str) {
+        self.cancel_flags.remove(chapter_id);
+    }
+
+    /// Set the cancel flag for an in-flight download. Returns false when no
+    /// such download is registered.
+    pub fn request_cancel(&self, chapter_id: &str) -> bool {
+        if let Some(flag) = self.cancel_flags.get(chapter_id) {
+            flag.store(true, std::sync::atomic::Ordering::SeqCst);
+            true
+        } else {
+            false
         }
     }
 }
@@ -884,6 +917,7 @@ pub fn run() {
 
             app.manage(ActiveDownloads {
                 count: std::sync::atomic::AtomicUsize::new(0),
+                cancel_flags: dashmap::DashMap::new(),
             });
 
             let source_disk_cache = std::sync::Arc::new(

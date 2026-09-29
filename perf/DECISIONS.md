@@ -46,6 +46,11 @@ Rule: nothing here is repeated in later rounds. New entries append with date + p
 - Visualizer JSON parsing abandoned as unreliable here; the static import-graph tool is the supported method (`node perf/tools/eager-graph.mjs <pattern>`). Keep imports static→dynamic parity in mind: tree-shaking is NOT modelled.
 - **Pass B (download cancel + `.part` resume) briefed, not implemented:** full contract + anchors in `perf/slices/F9-download-cancel-resume.md`. Attempting the backend rewrite with the remaining context would have risked correctness (mission rule 9) — execute it as the next session's first slice.
 
+## Pass F9 decisions (download cancel + resume, 2026-09-29)
+- **Implemented.** Cancel registry: `ActiveDownloads::cancel_flags` (DashMap chapter_id → Arc<AtomicBool>), drop guard removes registrations on every exit path; loop checks the flag before request and after body (error sentinel: exact message `download cancelled`, frontend matches `includes('cancel')`). Resume: `<cbz>.cbz.parts/NNNN.bin` (presence = page done), CBZ assembled in index order to `<cbz>.cbz.tmp` then renamed; parts removed only after rename. Frontend: `cancelled` status + dock "Cancel" affordance + info toast (not an error).
+- **Full `cargo test --lib` not re-run this session** (shared target dir held by the concurrent session's `cargo test --test convert_probe`); `CARGO_INCREMENTAL=0 cargo check --lib` finished clean (0 errors). Re-run the suite before release. `cargo check` also required `CARGO_INCREMENTAL=0` once because the shared incremental cache was corrupted by two concurrent cargo processes.
+- Test contract updated: downloading rows are no longer disabled — `MangaDownloadDock.test.tsx` now asserts click-to-cancel (16/16 pass); `countChapterStatuses` gains `cancelled`.
+
 ## Measurement protocol (Phase 1 forward)
 - Every optimization needs before/after numbers in the commit message + `perf/BASELINE.md` comparison.
 - Benchmark harness must run the *identical* seed dataset for before/after (seed tool spec in RECON-SUMMARY → Agent B).

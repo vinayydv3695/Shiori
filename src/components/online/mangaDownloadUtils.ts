@@ -5,7 +5,8 @@ export type ChapterDownloadStatus =
   | "queued"
   | "downloading"
   | "done"
-  | "failed";
+  | "failed"
+  | "cancelled";
 export type ChapterDownloadStatusMap = Record<string, ChapterDownloadStatus>;
 
 export interface VolumeGroup {
@@ -131,8 +132,9 @@ export function countChapterStatuses(status: ChapterDownloadStatusMap): {
   downloading: number;
   done: number;
   failed: number;
+  cancelled: number;
 } {
-  const counts = { queued: 0, downloading: 0, done: 0, failed: 0 };
+  const counts = { queued: 0, downloading: 0, done: 0, failed: 0, cancelled: 0 };
   for (const s of Object.values(status)) counts[s]++;
   return counts;
 }

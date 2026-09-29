@@ -14,6 +14,8 @@ interface MangaDownloadDockProps {
   status: ChapterDownloadStatusMap;
   onDownloadChapter: (chapter: UnifiedChapter) => void;
   onDownloadAll: () => void;
+  /** Cancel an in-flight download (slice F9); partial pages are kept for resume. */
+  onCancelChapter: (chapter: UnifiedChapter) => void;
 }
 
 /**
@@ -27,6 +29,7 @@ export function MangaDownloadDock({
   status,
   onDownloadChapter,
   onDownloadAll,
+  onCancelChapter,
 }: MangaDownloadDockProps) {
   const [open, setOpen] = useState(false);
   const counts = useMemo(() => countChapterStatuses(status), [status]);
@@ -54,13 +57,16 @@ export function MangaDownloadDock({
                   <button
                     type="button"
                     data-status={chStatus ?? "idle"}
-                    aria-label={`Download ${chapterDisplayLabel(ch)}`}
-                    disabled={isDownloading}
-                    onClick={() => onDownloadChapter(ch)}
-                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium text-foreground/90 hover:bg-secondary transition-colors disabled:opacity-60 disabled:pointer-events-none"
+                    aria-label={isDownloading ? `Cancel download of ${chapterDisplayLabel(ch)}` : `Download ${chapterDisplayLabel(ch)}`}
+                    onClick={() => (isDownloading ? onCancelChapter(ch) : onDownloadChapter(ch))}
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-left text-xs font-medium text-foreground/90 hover:bg-secondary transition-colors"
                   >
                     <span className="truncate">{chapterDisplayLabel(ch)}</span>
-                    <ChapterDownloadStatusIcon status={chStatus} />
+                    {isDownloading ? (
+                      <span className="text-[10px] text-destructive font-bold shrink-0">Cancel</span>
+                    ) : (
+                      <ChapterDownloadStatusIcon status={chStatus} />
+                    )}
                   </button>
                 </li>
               );

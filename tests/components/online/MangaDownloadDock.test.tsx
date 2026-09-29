@@ -78,6 +78,7 @@ describe('countChapterStatuses', () => {
       downloading: 1,
       done: 2,
       failed: 1,
+      cancelled: 0,
     });
   });
 
@@ -87,6 +88,7 @@ describe('countChapterStatuses', () => {
       downloading: 0,
       done: 0,
       failed: 0,
+      cancelled: 0,
     });
   });
 });
@@ -184,12 +186,14 @@ describe('MangaDownloadDock', () => {
       chapter({ id: 'b', chapter: '2', title: 'Second' }),
       chapter({ id: 'c', chapter: '3', title: 'Third' }),
     ];
+    const onCancelChapter = vi.fn();
     render(
       <MangaDownloadDock
         chapters={chapters}
         status={{ a: 'done', b: 'failed', c: 'downloading' }}
         onDownloadChapter={vi.fn()}
         onDownloadAll={vi.fn()}
+        onCancelChapter={onCancelChapter}
       />
     );
 
@@ -207,10 +211,13 @@ describe('MangaDownloadDock', () => {
       'data-status',
       'downloading'
     );
-    // Downloading rows are disabled to avoid concurrent downloads
-    expect(
-      screen.getByRole('button', { name: /download .*3: third/i })
-    ).toBeDisabled();
+    // Slice F9: a downloading row is no longer disabled — clicking it cancels
+    // the download (partial pages are kept for resume).
+    const downloadingRow = screen.getByRole('button', { name: /cancel download of .*3: third/i });
+    expect(downloadingRow).not.toBeDisabled();
+    fireEvent.click(downloadingRow);
+    expect(onCancelChapter).toHaveBeenCalledTimes(1);
+    expect(onCancelChapter.mock.calls[0][0].id).toBe('c');
   });
 
   it('shows the overall "X/Y chapters done" line once chapters finish', () => {

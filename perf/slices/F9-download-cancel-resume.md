@@ -1,6 +1,11 @@
-# Slice F9 — download cancel + `.part` resume (worker/designer brief, not yet implemented)
+# Slice F9 — download cancel + `.part` resume (IMPLEMENTED 2026-09-29)
 
-Status: **briefed, not implemented.** Pass A (entry-chunk split, `f2af086e`) consumed the remaining budget; this brief exists so the next session executes without re-recon. All anchors verified 2026-09-29.
+Status: **implemented.** Gates: `cargo check --lib` clean (0 errors; full `cargo test --lib` not re-run in-session — target dir was held by the concurrent session, documented in DECISIONS); `tsc -b` clean; `MangaDownloadDock` tests 16/16; `tests/components/online` = pre-existing baseline (4 fails, all pre-existing).
+
+**Deviations from the brief (loud):**
+- Assembly reads parts in page order and derives the zip-entry extension from the bytes at assembly time (the brief's step 3 derived it at download time; the download job now returns `(idx, bytes)` only).
+- The cancel command is a free function in `commands/sources.rs` using `State<'_, crate::ActiveDownloads>`; registration lives next to `preload_manga_pages` in `commands/mod.rs` (no new state type).
+- Progress events: `downloaded` is initialised to the number of already-present parts, so the final event still fires when a resumed run completes; a fully-resumed (no pending pages) run emits no intermediate events.
 
 ## Goal / contract
 Per-chapter cooperative cancellation and cross-restart resume for online-manga CBZ downloads, without changing the happy path's output (same CBZ path, same zip entry names).

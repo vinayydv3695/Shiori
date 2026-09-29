@@ -1239,6 +1239,14 @@ export function OnlineMangaView() {
     }
   };
 
+  const handleCancelChapterDownload = async (chapterId: string) => {
+    try {
+      await api.cancelMangaChapterDownload(chapterId);
+    } catch {
+      // Best-effort: the download may have already finished between render and click.
+    }
+  };
+
   const handleDownloadChapters = async (selectedChapters: UnifiedChapter[], seriesMetadata?: any) => {
     if (selectedChapters.length === 0) return;
     const manga = selectedManga || selectedPluginManga;
@@ -1306,7 +1314,9 @@ export function OnlineMangaView() {
           });
           pathsToImport.push({ path: cbzPath, chapter: ch.chapter !== '?' ? ch.chapter : null });
         } catch (err) {
-          setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: "failed" }));
+          const reason = getErrorMessage(err);
+          const cancelled = reason.toLowerCase().includes('cancel');
+          setChapterDownloadStatus((prev) => ({ ...prev, [ch.id]: cancelled ? "cancelled" : "failed" }));
           useOnlineDownloadStore.getState().setDownload(ch.id, {
             target_id: ch.id,
             status: 'error',
@@ -1315,9 +1325,14 @@ export function OnlineMangaView() {
             title: fullDisplayTitle,
             unit: 'pages',
           });
-          const reason = getErrorMessage(err);
-          downloadFailures.push({ chapter: String(ch.chapter), reason });
-          showErrorToast(`Failed to download chapter ${ch.chapter}: ${reason}`);
+          if (cancelled) {
+            // Slice F9: cancellation is not a failure — partial pages remain in
+            // the chapter's .parts dir and the next run resumes from them.
+            showInfoToast(`Chapter ${ch.chapter} cancelled`, 'Partial pages kept — download again to resume.');
+          } else {
+            downloadFailures.push({ chapter: String(ch.chapter), reason });
+            showErrorToast(`Failed to download chapter ${ch.chapter}: ${reason}`);
+          }
         }
       }
     };
@@ -1530,6 +1545,7 @@ export function OnlineMangaView() {
             chapters={unifiedChapters}
             status={chapterDownloadStatus}
             onDownloadChapter={(ch) => void handleDownloadChapters([ch])}
+            onCancelChapter={(ch) => void handleCancelChapterDownload(ch.id)}
             onDownloadAll={() => setDownloadOptionsOpen(true)}
           />
         )}

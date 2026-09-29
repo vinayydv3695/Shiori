@@ -689,6 +689,61 @@ fn download_referer_for(source_id: &str) -> Option<&'static str> {
     }
 }
 
+/// Path of the part file for page `idx` (0-based): `<parts_dir>/NNNN.bin`,
+/// 1-based zero-padded to 4 (slice F9 resume protocol).
+fn part_path_for(parts_dir: &std::path::Path, idx: usize) -> std::path::PathBuf {
+    parts_dir.join(format!("{:04}.bin", idx + 1))
+}
+
+/// 0-based indices of pages whose part file is still missing — i.e. the pages a
+/// resumed download still has to fetch. Pure so the resume protocol is
+/// testable without network (F9 follow-up #2).
+fn pending_page_indices(parts_dir: &std::path::Path, total: usize) -> Vec<usize> {
+    (0..total)
+        .filter(|&idx| !part_path_for(parts_dir, idx).exists())
+        .collect()
+}
+
+/// Assemble `<cbz>` from the downloaded parts in page order (sync zip IO, call
+/// from `spawn_blocking`). Writes `<cbz>.tmp`, renames it into place, then
+/// removes the parts directory — so parts survive every cancel/error path and
+/// are dropped only once the CBZ is safely on disk. Returns `Err` when any part
+/// is missing (the CBZ is then left untouched).
+fn assemble_cbz_from_parts(
+    parts_dir: &std::path::Path,
+    total_pages: usize,
+    cbz_path: &std::path::Path,
+) -> Result<()> {
+    let tmp_path = cbz_path.with_extension("cbz.tmp");
+    let file = std::fs::File::create(&tmp_path)
+        .map_err(|e| ShioriError::Other(format!("Failed to create cbz: {}", e)))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let opts = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Stored);
+
+    for idx in 0..total_pages {
+        let part = part_path_for(parts_dir, idx);
+        let bytes = std::fs::read(&part).map_err(|e| {
+            ShioriError::Other(format!("Missing page part {}: {}", part.display(), e))
+        })?;
+        let ext = crate::conversion::utils::detect_image_format(&bytes)
+            .map(|(_, ext)| ext)
+            .unwrap_or("jpg");
+        zip.start_file(format!("{:03}.{}", idx + 1, ext), opts)
+            .map_err(|e| ShioriError::Other(format!("Zip error: {}", e)))?;
+        zip.write_all(&bytes)
+            .map_err(|e| ShioriError::Other(format!("Write error: {}", e)))?;
+    }
+
+    zip.finish()
+        .map_err(|e| ShioriError::Other(format!("Failed to finish zip: {}", e)))?;
+    std::fs::rename(&tmp_path, cbz_path)
+        .map_err(|e| ShioriError::Other(format!("Failed to finalize cbz: {}", e)))?;
+    // Parts are removed only after the CBZ is safely renamed into place.
+    let _ = std::fs::remove_dir_all(parts_dir);
+    Ok(())
+}
+
 /// Abandoned `.parts` directories (cancelled downloads the user never resumed)
 /// are removed at the start of the next chapter download. Kept parts are the
 /// resume protocol (slice F9), so the threshold is deliberately generous.
@@ -814,9 +869,7 @@ pub async fn download_manga_chapter_as_cbz(
 
     let total = pages.len();
     // Resume: only pages without a part file need fetching.
-    let pending: Vec<usize> = (0..total)
-        .filter(|&idx| !parts_dir.join(format!("{:04}.bin", idx + 1)).exists())
-        .collect();
+    let pending = pending_page_indices(&parts_dir, total);
     let mut downloaded = total - pending.len();
 
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36";
@@ -913,7 +966,7 @@ pub async fn download_manga_chapter_as_cbz(
         let (idx, bytes_vec) = job_result?;
 
         // Persist the page as its part file (presence = downloaded/resume key).
-        let part_path = parts_dir.join(format!("{:04}.bin", idx + 1));
+        let part_path = part_path_for(&parts_dir, idx);
         tokio::fs::write(&part_path, &bytes_vec)
             .await
             .map_err(|e| ShioriError::Other(format!("Failed to write page part: {}", e)))?;
@@ -936,40 +989,11 @@ pub async fn download_manga_chapter_as_cbz(
     // Assemble the CBZ from the parts in page order (sync zip IO off-runtime).
     let cbz_path_for_zip = cbz_path.clone();
     let parts_dir_for_zip = parts_dir.clone();
-    let total_pages = total;
-    tokio::task::spawn_blocking(move || -> Result<()> {
-        let tmp_path = cbz_path_for_zip.with_extension("cbz.tmp");
-        let file = std::fs::File::create(&tmp_path)
-            .map_err(|e| ShioriError::Other(format!("Failed to create cbz: {}", e)))?;
-        let mut zip = zip::ZipWriter::new(file);
-        let opts = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Stored);
-
-        for idx in 0..total_pages {
-            let part = parts_dir_for_zip.join(format!("{:04}.bin", idx + 1));
-            let bytes = std::fs::read(&part).map_err(|e| {
-                ShioriError::Other(format!("Missing page part {}: {}", part.display(), e))
-            })?;
-            let ext = crate::conversion::utils::detect_image_format(&bytes)
-                .map(|(_, ext)| ext)
-                .unwrap_or("jpg");
-            zip.start_file(format!("{:03}.{}", idx + 1, ext), opts)
-                .map_err(|e| ShioriError::Other(format!("Zip error: {}", e)))?;
-            zip.write_all(&bytes)
-                .map_err(|e| ShioriError::Other(format!("Write error: {}", e)))?;
-        }
-
-        zip.finish()
-            .map_err(|e| ShioriError::Other(format!("Failed to finish zip: {}", e)))?;
-        std::fs::rename(&tmp_path, &cbz_path_for_zip)
-            .map_err(|e| ShioriError::Other(format!("Failed to finalize cbz: {}", e)))?;
-        Ok(())
+    tokio::task::spawn_blocking(move || {
+        assemble_cbz_from_parts(&parts_dir_for_zip, total, &cbz_path_for_zip)
     })
     .await
     .map_err(|e| ShioriError::Other(format!("Task error: {}", e)))??;
-
-    // Parts are removed only after the CBZ is safely renamed into place.
-    let _ = tokio::fs::remove_dir_all(&parts_dir).await;
 
     Ok(cbz_path.to_string_lossy().to_string())
 }
@@ -1802,5 +1826,105 @@ mod sweep_stale_parts_tests {
         let missing = root.path().join("nope");
         let keep = missing.join("Keep.cbz.parts");
         sweep_stale_parts(&missing, &keep, SystemTime::now()); // must not panic
+    }
+}
+
+#[cfg(test)]
+mod parts_protocol_tests {
+    use super::{assemble_cbz_from_parts, part_path_for, pending_page_indices};
+    use std::io::Read as _;
+
+    /// Minimal magic-byte pages: assembly only sniffs the format prefix.
+    fn page_bytes(ext: &str, marker: u8) -> Vec<u8> {
+        match ext {
+            "jpg" => vec![0xFF, 0xD8, 0xFF, marker],
+            "png" => vec![0x89, b'P', b'N', b'G', marker],
+            "gif" => vec![b'G', b'I', b'F', b'8', marker],
+            _ => vec![b'X', b'X', b'X', b'X', marker],
+        }
+    }
+
+    fn read_cbz_entries(path: &std::path::Path) -> Vec<(String, Vec<u8>)> {
+        let file = std::fs::File::open(path).unwrap();
+        let mut zip = zip::ZipArchive::new(file).unwrap();
+        (0..zip.len())
+            .map(|i| {
+                let mut entry = zip.by_index(i).unwrap();
+                let name = entry.name().to_string();
+                let mut bytes = Vec::new();
+                entry.read_to_end(&mut bytes).unwrap();
+                (name, bytes)
+            })
+            .collect()
+    }
+
+    /// F9 follow-up #2: the cancel → retry → assembly round trip, network-free.
+    #[test]
+    fn cancel_retry_assembly_round_trip() {
+        let root = tempfile::tempdir().unwrap();
+        let parts_dir = root.path().join("Bench Piece - Chapter 1.cbz.parts");
+        let cbz_path = root.path().join("Bench Piece - Chapter 1.cbz");
+        std::fs::create_dir(&parts_dir).unwrap();
+
+        let pages = [
+            page_bytes("jpg", 1),
+            page_bytes("png", 2),
+            page_bytes("jpg", 3),
+            page_bytes("gif", 4),
+            page_bytes("jpg", 5),
+            page_bytes("unknown", 6),
+        ];
+        let total = pages.len();
+
+        // First run: pages 0-1 land, then the user cancels. Parts are kept and
+        // only the missing pages are pending for the retry.
+        for idx in [0usize, 1] {
+            std::fs::write(part_path_for(&parts_dir, idx), &pages[idx]).unwrap();
+        }
+        assert_eq!(pending_page_indices(&parts_dir, total), vec![2, 3, 4, 5]);
+
+        // Cancellation never assembles. A partial assembly attempt must fail
+        // without producing a CBZ or destroying the resume data.
+        assert!(assemble_cbz_from_parts(&parts_dir, total, &cbz_path).is_err());
+        assert!(!cbz_path.exists());
+        assert!(parts_dir.exists());
+
+        // Retry: exactly the pending pages are fetched and stored as parts.
+        for idx in pending_page_indices(&parts_dir, total) {
+            std::fs::write(part_path_for(&parts_dir, idx), &pages[idx]).unwrap();
+        }
+        assert!(pending_page_indices(&parts_dir, total).is_empty());
+
+        // Assembly: page order, sniffed extensions (unknown → jpg), byte
+        // round-trip, and the parts dir retired afterwards.
+        assemble_cbz_from_parts(&parts_dir, total, &cbz_path).unwrap();
+        assert!(!parts_dir.exists());
+
+        let entries = read_cbz_entries(&cbz_path);
+        let expected = [
+            "001.jpg", "002.png", "003.jpg", "004.gif", "005.jpg", "006.jpg",
+        ];
+        assert_eq!(entries.len(), total);
+        for (i, (name, bytes)) in entries.iter().enumerate() {
+            assert_eq!(name, expected[i], "entry {i} name");
+            assert_eq!(bytes, &pages[i], "entry {name} content");
+        }
+    }
+
+    #[test]
+    fn pending_indices_ignore_extra_and_out_of_order_parts() {
+        let root = tempfile::tempdir().unwrap();
+        let parts_dir = root.path().join("X.cbz.parts");
+        std::fs::create_dir(&parts_dir).unwrap();
+        // Page 3 written first, page 1 later; page 5 is beyond `total`.
+        std::fs::write(part_path_for(&parts_dir, 2), b"p3").unwrap();
+        std::fs::write(part_path_for(&parts_dir, 0), b"p1").unwrap();
+        std::fs::write(part_path_for(&parts_dir, 4), b"p5").unwrap();
+        assert_eq!(pending_page_indices(&parts_dir, 3), vec![1]);
+        // Missing parts dir ⇒ every page is pending (fresh start, not an error).
+        assert_eq!(
+            pending_page_indices(&root.path().join("missing"), 2),
+            vec![0, 1]
+        );
     }
 }

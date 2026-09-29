@@ -486,13 +486,24 @@ fn node_to_html(node: &Fb2Node, binary_map: &HashMap<String, (String, Vec<u8>)>)
 // HELPERS
 // ──────────────────────────────────────────────────────────────────────────
 
+/// Decompression bomb guard: never inflate beyond MAX_FB2_DECOMPRESSED (the
+/// corpus stays far below; real books are ≤ a few MB).
+const MAX_FB2_DECOMPRESSED: u64 = 512 * 1024 * 1024;
+
 fn decompress_gzip(data: &[u8]) -> Result<Vec<u8>, ConversionError> {
     use std::io::Read;
     let mut decoder = flate2::read::GzDecoder::new(data);
     let mut result = Vec::new();
     decoder
+        .by_ref()
+        .take(MAX_FB2_DECOMPRESSED + 1)
         .read_to_end(&mut result)
         .map_err(|e| ConversionError::Other(format!("Gzip decompression failed: {}", e)))?;
+    if result.len() as u64 > MAX_FB2_DECOMPRESSED {
+        return Err(ConversionError::Other(
+            "FB2 decompression exceeded the size limit".to_string(),
+        ));
+    }
     Ok(result)
 }
 
@@ -507,6 +518,11 @@ fn extract_fb2_from_zip(data: &[u8]) -> Result<Vec<u8>, ConversionError> {
             .map_err(|e| ConversionError::Other(format!("ZIP file read failed: {}", e)))?;
         let name = file.name().to_lowercase();
         if name.ends_with(".fb2") {
+            if file.size() > MAX_FB2_DECOMPRESSED {
+                return Err(ConversionError::Other(
+                    "FB2 zip member exceeds the size limit".to_string(),
+                ));
+            }
             let mut buf = Vec::new();
             std::io::Read::read_to_end(&mut file, &mut buf)
                 .map_err(|e| ConversionError::Other(format!("ZIP file read failed: {}", e)))?;

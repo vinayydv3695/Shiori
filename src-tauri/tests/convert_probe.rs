@@ -37,7 +37,7 @@ fn discover() -> Vec<PathBuf> {
         if matches!(
             ext.as_str(),
             "txt" | "epub" | "pdf" | "fb2" | "fbz" | "mobi" | "azw3" | "docx" | "html"
-                | "htm" | "xhtml" | "md" | "markdown" | "rtf" | "gz" | "zip"
+                | "htm" | "xhtml" | "md" | "markdown" | "rtf" | "gz" | "zip" | "cbz" | "cbr"
         ) {
             files.push(p.to_path_buf());
         }
@@ -83,4 +83,28 @@ async fn convert_entire_corpus() {
     for (ext, (ok, fail)) in &summary {
         println!("  {:8} ok={} fail={}", ext, ok, fail);
     }
+}
+/// Hostile-input smoke test (Phase 3 fuzz gate): every malformed input must
+/// fail with a clean error or a bounded success — never a hang or a panic.
+#[tokio::test(flavor = "multi_thread")]
+async fn hostile_inputs_do_not_break_the_pipeline() {
+    let edge = std::path::Path::new(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../convert/corpus/src/edge"),
+    );
+    let mut failures = Vec::new();
+    for entry in std::fs::read_dir(edge).unwrap().flatten() {
+        let p = entry.path();
+        let start = std::time::Instant::now();
+        let result = convert_to_epub_new(&p, None, None).await;
+        let elapsed = start.elapsed();
+        let verdict = match &result {
+            Ok(_) => "ok",
+            Err(_) => "clean-error",
+        };
+        println!("HOSTILE {:30} -> {verdict} in {:?}", p.file_name().unwrap().to_string_lossy(), elapsed);
+        if elapsed > std::time::Duration::from_secs(20) {
+            failures.push(format!("{}: hung for {:?}", p.display(), elapsed));
+        }
+    }
+    assert!(failures.is_empty(), "hostile inputs hung: {failures:?}");
 }

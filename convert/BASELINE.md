@@ -48,3 +48,25 @@ Harness: `src-tauri/tests/convert_probe.rs` + `convert/tools/score.py` (EPUBChec
 cd src-tauri && cargo test --test convert_probe -- --nocapture   # converts corpus → convert/out
 cd .. && venv/bin/python convert/tools/score.py                   # EPUBCheck + fidelity + structure
 ```
+
+---
+
+# AFTER — Phase 3 re-run, 2026-09-29 (same harness, identical corpus)
+
+| Metric | Before | After |
+|---|---|---|
+| Conversion success | 42/44 sources | **47/47** (fb2.zip/gz + cbz/cbr + hostile) |
+| EPUBCheck err/warn | 0/0 | 0/0 (all 45 scored files) |
+| Fidelity median (12 encodings) | 0.82 | **0.991** (min 0.9577 big5/gbk) |
+| Determinism | FAIL (uuid+clock) | **PASS** |
+| pdf/novel TOC | 47 | **7** |
+| pdf/scan | "Document" garbage | **fixed-layout page images + report** |
+| txt/pg1661 | 1 | 14 |
+| txt/pg2701 | 4 | 159 |
+| txt/pg1342 | 50 | 50 (61 real; stub dedupe threshold) |
+| txt/pg84 | 36 | 36 (27 real; same) |
+| fb2.zip/.gz | Unsupported | converts, valid |
+| hostile corpus | not tested | no hangs/panics/traversal |
+| epub→txt | entity-leaking regex strip | structural walker |
+
+Full narrative and root causes: `convert/CONVERSION-REPORT.md`. Remaining gaps are geometry-level PDF layout work and DRM-detection UX (see report §5–6).

@@ -99,6 +99,12 @@ pub fn decode_text_scored(raw: &[u8]) -> (String, String, f32) {
         }
     }
 
+    // 3. Strict UTF-8 (the overwhelmingly common case — NUL-free or
+    // sparse-NUL ASCII/UTF-8 goes here).
+    if let Ok(s) = std::str::from_utf8(raw) {
+        return (s.to_string(), "utf-8".to_string(), 1.0);
+    }
+
     // 4. Score the legacy single-byte / CJK candidates.
     let candidates: &[(&'static str, &'static encoding_rs::Encoding)] = &[
         ("windows-1252", encoding_rs::WINDOWS_1252),
@@ -1541,5 +1547,85 @@ mod decoding_tests {
         ));
         assert_eq!(label, "euc-kr", "decoded: {s:?}");
         assert!(s.contains("새벽"), "decoded: {s:?}");
+    }
+}
+
+#[cfg(test)]
+mod pg_debug {
+    use super::*;
+    #[test]
+    fn pg2701_decodes_clean() {
+        let raw = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/pg2701.txt"
+        ))
+        .unwrap();
+        let (s, label, score) = decode_text_scored(&raw);
+        assert_eq!(label, "utf-8", "sample={:?}", &s[..300]);
+        assert!(s.contains('—'), "label={} score={} sample={:?}", label, score, &s[..300]);
+    }
+}
+
+#[cfg(test)]
+mod pg_pipeline_debug {
+    #[test]
+    fn pg2701_pipeline_html_clean() {
+        let p = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/pg2701.txt"
+        ));
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let book = rt.block_on(crate::conversion::txt::parse(p)).unwrap();
+        let sample = book.chapters.iter().find(|c| c.html.contains('—'));
+        match sample {
+            Some(c) => {
+                assert!(c.html.contains('\u{2014}'), "mojibake in chapter: {}", &c.html[..200.min(c.html.len())]);
+            }
+            None => {
+                // no em dash at all — check something else
+                let first = &book.chapters[1].html;
+                assert!(first.contains("ISHMAEL"), "sample: {}", &first[..120]);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod epub_byte_integrity {
+    /// End-to-end byte integrity: a UTF-8 book with em-dashes must produce an
+    /// EPUB whose XHTML contains the proper UTF-8 sequence — double encoding
+    /// (UTF-8 decoded as windows-1252) is a hard failure.
+    #[test]
+    fn pg2701_built_epub_bytes() {
+        use crate::conversion::formats;
+        let p = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/pg2701.txt"
+        ));
+        let mut book = formats::txt::parse(p).unwrap();
+        assert!(book.chapters.iter().any(|c| c.html.contains('\u{2014}')));
+
+        book.sanitize_html();
+        let out = std::env::temp_dir().join("pg2701_build_debug.epub");
+        crate::conversion::epub_builder::build_epub(&book, &out).unwrap();
+        let mut z = zip::ZipArchive::new(std::fs::File::open(&out).unwrap()).unwrap();
+        let mut found_moji = 0;
+        for i in 0..z.len() {
+            let mut f = z.by_index(i).unwrap();
+            let name = f.name().to_string();
+            if name.ends_with(".xhtml") && !name.contains("nav") {
+                let mut buf = Vec::new();
+                std::io::Read::read_to_end(&mut f, &mut buf).unwrap();
+                if buf.windows(3).any(|w| w == b"\xc3\xa2\xe2") {
+                    found_moji += 1;
+                    if found_moji <= 2 {
+                        let s = String::from_utf8_lossy(&buf);
+                        let i2 = s.find('\u{e2}').map(|i| i.saturating_sub(30)).unwrap_or(0);
+                        println!("MOJI {} at {}: {}", name, i2, &s[i2..i2 + 60]);
+                    }
+                }
+            }
+        }
+        assert_eq!(found_moji, 0, "mojibake chapters (UTF-8 dbl-encoded): {}", found_moji);
     }
 }

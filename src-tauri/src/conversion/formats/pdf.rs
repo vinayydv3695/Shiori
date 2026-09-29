@@ -55,7 +55,15 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
                     "[PDF→EPUB] pdf-extract parse failed ({}), falling back to pdftohtml pipeline",
                     pdf_extract_err
                 );
-                crate::conversion::pdf::parse(&path_buf, None).await
+                // Sanity door: NEVER surface garbage (legacy lopdf path could
+                // yield junk words like "Document" for scans). If the
+                // fallback yields something degenerate, turn it into an
+                // honest error instead of a garbage EPUB.
+                match crate::conversion::pdf::parse(&path_buf, None).await {
+                    Ok(book) if book_plausible(&book) => Ok(book),
+                    Ok(_) => Err(ConversionError::EmptyContent),
+                    Err(e) => Err(e),
+                }
             }
         }
     })?
@@ -77,11 +85,36 @@ async fn parse_with_pdf_extract(path: &Path) -> Result<OebBook, ConversionError>
             detail: e.to_string(),
         })?;
 
+    let (title, authors, description, language) = extract_book_metadata(path);
+    let cover = extract_cover_image(path);
+
     if pages.iter().all(|p| p.trim().is_empty()) {
-        return Err(ConversionError::EmptyContent);
+        // Scan / image-only PDF: fixed-layout fallback — page images plus a
+        // hidden text layer is impossible without OCR, so we emit a
+        // comic-style page-image book and let the report say so (IR-SPEC §6,
+        // mission rule "never silent garbage").
+        let mut book = OebBook::new(title);
+        book.authors = authors;
+        book.language = language;
+        book.description = description;
+        book.cover_image = cover;
+        book.report.set_fallback(
+            "fixed-layout",
+            format!(
+                "The PDF has no text layer across {} page(s); converted as page images.",
+                pages.len()
+            ),
+        );
+        attach_scan_pages(&mut book, path)?;
+        if book.images.is_empty() {
+            return Err(ConversionError::EmptyContent);
+        }
+        return Ok(book);
     }
 
-    let (title, authors, description, language) = extract_book_metadata(path);
+    // Remove running headers/footers/page numbers before chapter detection.
+    let mut pages = pages;
+    let (h, f, p) = strip_page_chrome(&mut pages);
 
     let chapters = split_pages_into_chapters(&pages);
 
@@ -89,7 +122,7 @@ async fn parse_with_pdf_extract(path: &Path) -> Result<OebBook, ConversionError>
     book.authors = authors;
     book.language = language;
     book.description = description;
-    book.cover_image = extract_cover_image(path);
+    book.cover_image = cover;
 
     for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
         book.chapters.push(OebChapter {
@@ -97,6 +130,16 @@ async fn parse_with_pdf_extract(path: &Path) -> Result<OebBook, ConversionError>
             title: Some(ch_title),
             html: ch_body,
         });
+    }
+
+    if h + f + p > 0 {
+        book.report.note_heuristic("running-header-removal");
+        book.report.info(
+            "page_chrome_removed",
+            format!(
+                "Removed {h} running-header, {f} footer and {p} page-number line(s)."
+            ),
+        );
     }
 
     Ok(book)
@@ -130,6 +173,209 @@ fn extract_book_metadata(path: &Path) -> (String, Vec<String>, Option<String>, S
         .unwrap_or_else(|| "en".to_string());
 
     (title, authors, description, language)
+}
+
+/// Extract the first raster image of every page (lopdf, file-backed) and emit
+/// comic-style full-page chapters. Memory-bounded: one image at a time.
+fn attach_scan_pages(book: &mut OebBook, path: &Path) -> Result<(), ConversionError> {
+    let doc = lopdf::Document::load(path)
+        .map_err(|e| ConversionError::ParseError { format: "PDF".to_string(), detail: e.to_string() })?;
+    let mut counter = 0u32;
+    for (page_no, object_id) in doc.get_pages() {
+        let Ok(lopdf::Object::Dictionary(page_dict)) = doc.get_object(object_id) else {
+            continue;
+        };
+        let Ok(resources) = page_dict.get(b"Resources") else {
+            continue;
+        };
+        let resources: lopdf::Object = match resources {
+            lopdf::Object::Reference(id) => doc.get_object(*id).ok().cloned(),
+            other => Some(other.clone()),
+        }
+        .unwrap_or(lopdf::Object::Null);
+        let lopdf::Object::Dictionary(resources) = resources else {
+            continue;
+        };
+        let xobj_obj = match resources.get(b"XObject") {
+            Ok(lopdf::Object::Reference(id)) => doc.get_object(*id).cloned(),
+            Ok(other) => Ok(other.clone()),
+            Err(e) => Err(e),
+        };
+        let Ok(lopdf::Object::Dictionary(xobjects)) = xobj_obj else {
+            continue;
+        };
+        let mut page_img: Option<(String, String, Vec<u8>)> = None;
+        for (_key, xobj_ref) in xobjects.iter() {
+            let id = match xobj_ref {
+                lopdf::Object::Reference(r) => *r,
+                _ => continue,
+            };
+            let Ok(lopdf::Object::Stream(stream)) = doc.get_object(id) else {
+                continue;
+            };
+            let is_image = stream
+                .dict
+                .get(b"Subtype")
+                .and_then(|o| o.as_name())
+                .map(|n| n == b"Image")
+                .unwrap_or(false);
+            if !is_image {
+                continue;
+            }
+            let data = stream.content.clone();
+            let (mime, ext) = utils::detect_image_format(&data).unwrap_or(("image/jpeg", "jpg"));
+            counter += 1;
+            let filename = format!("page_{:03}.{}", counter, ext);
+            page_img = Some((filename, mime.to_string(), data));
+            break; // first image per page is the page scan
+        }
+        if let Some((filename, mime, data)) = page_img {
+            let id = format!("page_{:03}", counter);
+            book.images.push(OebImage {
+                id: id.clone(),
+                filename: filename.clone(),
+                mime_type: mime,
+                source: crate::conversion::oeb::ImageSource::Bytes(data),
+            });
+            book.chapters.push(OebChapter {
+                id: format!("chapter_{:03}", counter),
+                title: Some(format!("Page {}", page_no)),
+                html: format!(
+                    "<div class=\"page\"><img src=\"../Images/{filename}\" alt=\"Page {page_no}\"/></div>"
+                ),
+            });
+        } else {
+            book.report
+                .warn("scan_page_no_image", format!("Page {page_no}: no raster image found."));
+        }
+    }
+    Ok(())
+}
+
+/// A book is plausible only when it carries real reading content — scans and
+/// image-only PDFs have near-empty pages and must never reach the writer as
+/// junk text.
+fn book_plausible(book: &OebBook) -> bool {
+    let total_chars: usize = book.chapters.iter().map(|c| c.html.len()).sum();
+    total_chars >= 200
+}
+
+/// Drop running headers/footers and page numbers from the per-page text
+/// (IR-SPEC §6.2/6.3). A line that repeats identically across most pages in
+/// the same band (top/bottom) is a running head; a bare integer in the
+/// bottom band is a page number. Returns the cleaned pages plus the counts
+/// removed (for the conversion report).
+pub fn strip_page_chrome(
+    pages: &mut [String],
+) -> (usize, usize, usize) {
+    use std::collections::HashMap;
+    // Rank lines by their position among the page's NON-EMPTY lines: the
+    // layout engines pad blank lines (pdf-extract emits two empties before a
+    // running head), so raw indexes are unreliable — rank 0..1 is the top
+    // band and rank (last-2..last) the bottom band.
+    let nonempty: Vec<(usize, String, bool)> = pages
+        .iter()
+        .enumerate()
+        .flat_map(|(pi, page)| {
+            let texts: Vec<String> = page
+                .lines()
+                .map(|l| l.trim())
+                .filter(|t| !t.is_empty())
+                .map(|t| t.split_whitespace().collect::<Vec<_>>().join(" "))
+                .collect();
+            let n = texts.len();
+            texts.into_iter().enumerate().filter_map(move |(rank, key)| {
+                let top = rank <= 1;
+                let bottom = n >= 3 && rank >= n.saturating_sub(2);
+                if top || bottom {
+                    Some((pi, key, bottom))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
+    // Same text on >= 60% of pages + always in the same band (top xor bottom)
+    // → repeated framing, not content.
+    let mut freq_top: HashMap<String, usize> = HashMap::new();
+    let mut freq_bottom: HashMap<String, (usize, usize)> = HashMap::new(); // (count, pages_with)
+    for (_, text, bottom) in &nonempty {
+        if *bottom {
+            let e = freq_bottom.entry(text.clone()).or_insert((0, 0));
+            e.0 += 1;
+        } else {
+            *freq_top.entry(text.clone()).or_insert(0) += 1;
+        }
+    }
+    let total = pages.len().max(1);
+    let min_share = (total * 3 / 5).max(2);
+
+    let mut headers: Vec<String> = Vec::new();
+    let mut footers: Vec<String> = Vec::new();
+    for (text, c) in &freq_top {
+        if *c >= min_share && text.chars().count() > 6 {
+            headers.push(text.clone());
+        }
+    }
+    for (text, (c, _)) in &freq_bottom {
+        if *c >= min_share {
+            footers.push(text.clone());
+        }
+    }
+    if headers.is_empty() && footers.is_empty() {
+        return (0, 0, 0);
+    }
+
+    let mut removed_header = 0usize;
+    let mut removed_footer = 0usize;
+    let mut removed_pageno = 0usize;
+    // Rebuild pages line by line with the chrome removed.
+    for page in pages.iter_mut() {
+        let lines: Vec<(String, usize)> = page
+            .lines()
+            .enumerate()
+            .map(|(li, l)| (l.to_string(), li))
+            .collect();
+        let n = lines.iter().filter(|(l, _)| !l.trim().is_empty()).count();
+        let mut kept: Vec<String> = Vec::with_capacity(lines.len());
+        for (li, (line, _raw_li)) in lines.into_iter().enumerate() {
+            let t = line.trim();
+            if t.is_empty() {
+                kept.push(line);
+                continue;
+            }
+            let rank = kept
+                .iter()
+                .filter(|k| !k.trim().is_empty())
+                .count()
+                .min(n.saturating_sub(1));
+            let top = rank <= 1;
+            let bottom = n >= 3 && rank >= n.saturating_sub(2);
+            let _ = (li, _raw_li);
+            let key: String = t.split_whitespace().collect::<Vec<_>>().join(" ");
+            if top && headers.iter().any(|x| x == &key) {
+                removed_header += 1;
+                continue;
+            }
+            if bottom && footers.iter().any(|x| x == &key) {
+                removed_footer += 1;
+                continue;
+            }
+            // Page-number footer: bare integer in the bottom band, appearing
+            // as a plausible page sequence (1..N).
+            if bottom
+                && t.bytes().all(|b| b.is_ascii_digit())
+                && t.len() <= 4
+            {
+                removed_pageno += 1;
+                continue;
+            }
+            kept.push(line);
+        }
+        *page = kept.join("\n");
+    }
+    (removed_header, removed_footer, removed_pageno)
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -547,8 +793,6 @@ fn extract_cover_image(path: &Path) -> Option<OebImage> {
     }
     None
 }
-
-#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -744,5 +988,23 @@ mod tests {
         assert_eq!(normalize_heading_title("IV"), "Chapter IV");
         assert_eq!(normalize_heading_title("Two"), "Chapter Two");
         assert_eq!(normalize_heading_title("The Briar Club"), "The Briar Club");
+    }
+}
+mod chrome_tests {
+    #[test]
+    fn strip_page_chrome_removes_running_header() {
+        let pages: Vec<String> = (1..=10)
+            .map(|i| {
+                format!(
+                    "The Test Novel — A Conversion Fixture\n\nBody text line one for page {i}.\nMore body words here.\n\n42\n"
+                )
+            })
+            .collect();
+        let mut pages = pages;
+        let (h, f, p) = super::strip_page_chrome(&mut pages);
+        assert!(h >= 1, "header not removed: {h}");
+        assert!(f + p >= 1, "page numbers not removed: {f}/{p}");
+        assert!(!pages[0].contains("A Conversion Fixture"));
+        assert!(pages[0].contains("Body text"));
     }
 }

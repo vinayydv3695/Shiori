@@ -61,3 +61,8 @@ pnpm-lock.yaml
 extensions/torrents-csv-extension/target
 extensions/*/target
 extensions/*/*/target
+
+# Conversion harness outputs / dev tooling (never ship)
+convert/out/
+convert/tools/epubcheck*
+convert/tools/*.zip

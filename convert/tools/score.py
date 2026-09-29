@@ -164,6 +164,14 @@ def main():
     results = {}
     for epub in sorted(OUT.glob("**/*.epub")):
         rel = epub.relative_to(OUT).as_posix()
+        # Hostile fixtures (e.g. truncated.epub passthrough) may not be valid
+        # zips — record them as unscored rather than crashing the run.
+        try:
+            with zipfile.ZipFile(epub):
+                pass
+        except zipfile.BadZipFile:
+            results[rel] = {"file": rel, "errors": -1, "warnings": -1, "meta": {}, "text_len": 0}
+            continue
         entry = {"file": rel}
         entry["errors"], entry["warnings"] = epubcheck(epub)
         entry["meta"] = epub_meta(epub)

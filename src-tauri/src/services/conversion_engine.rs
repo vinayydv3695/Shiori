@@ -876,23 +876,29 @@ impl ConversionEngine {
             let mut doc = EpubDoc::new(&source_clone)
                 .map_err(|e| FormatError::ConversionError(format!("Failed to open EPUB: {}", e)))?;
 
+            // Block-level element → blank-line rule (preserves paragraphs,
+            // headings, lists, quotes; suppresses table-cell boundary noise
+            // that the old regex strip could not).
+            const BLOCK: &[&str] = &[
+                "p", "div", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
+                "pre", "tr", "section", "article",
+            ];
             let mut full_text = String::new();
             while doc.go_next() {
                 if let Some((content_bytes, _mime_type)) = doc.get_current() {
                     let html = String::from_utf8_lossy(&content_bytes);
-                    let text = html
-                        .replace("<br>", "\n")
-                        .replace("<br/>", "\n")
-                        .replace("<p>", "\n")
-                        .replace("</p>", "\n");
-                    static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
-                        once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
-                    let clean = HTML_TAG_RE.replace_all(&text, "");
-                    full_text.push_str(&clean);
+                    Self::rcdom_walk_for_text(html.as_ref(), BLOCK, &mut full_text);
                     full_text.push('\n');
                 }
             }
-            std::fs::write(&target_clone, full_text.trim())?;
+            // Trim line-trailing whitespace and excess blank runs.
+            let cleaned = full_text
+                .lines()
+                .map(str::trim_end)
+                .collect::<Vec<_>>()
+                .join("\n");
+            let cleaned = cleaned.replace("\n\n\n", "\n\n");
+            std::fs::write(&target_clone, cleaned.trim())?;
             Ok(())
         })
         .await
@@ -1355,6 +1361,54 @@ impl ConversionEngine {
         log::info!("[Conversion] EPUB → PDF: {}", target.display());
         Ok(())
     }
+
+
+/// Depth-first text extraction preserving block structure (used by
+/// `epub_to_txt`). Entities are decoded by the HTML parser; heading text is
+/// emitted in its own block so chapter boundaries survive to plain text.
+fn rcdom_walk_for_text(html: &str, blocks: &[&str], out: &mut String) {
+    use markup5ever_rcdom::{Handle, NodeData, RcDom};
+    use html5ever::parse_fragment;
+    use html5ever::tendril::TendrilSink;
+    use html5ever::{local_name, namespace_url, ns, QualName};
+
+    let context = QualName::new(None, ns!(html), local_name!("div"));
+    let parser = parse_fragment(RcDom::default(), Default::default(), context, Vec::new());
+    let dom = parser.one(html);
+    fn walk(handle: &Handle, blocks: &[&str], out: &mut String) {
+        match &handle.data {
+            NodeData::Text { contents } => {
+                let t = contents.borrow();
+                if !t.trim().is_empty() {
+                    out.push_str(t.trim_end());
+                }
+            }
+            NodeData::Element { name, .. } => {
+                let tag = name.local.as_ref();
+                let needs_break = blocks.contains(&tag);
+                if needs_break && !out.is_empty() && !out.ends_with('\n') {
+                    out.push_str("\n\n");
+                } else if needs_break {
+                    out.push('\n');
+                }
+                if tag == "br" && !out.ends_with('\n') {
+                    out.push('\n');
+                }
+                for child in handle.children.borrow().iter() {
+                    walk(child, blocks, out);
+                }
+                if needs_break && !out.ends_with('\n') {
+                    out.push('\n');
+                }
+            }
+            _ => {}
+        }
+    }
+    let children: Vec<Handle> = dom.document.children.borrow().clone();
+    for child in children {
+        walk(&child, blocks, out);
+    }
+}
 
     // ── Direct (non-queued) conversion ──────────────────────────────────
 

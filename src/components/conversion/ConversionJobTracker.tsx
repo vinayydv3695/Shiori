@@ -5,6 +5,21 @@ import {
 } from 'lucide-react';
 import { useConversionStore, type ConversionJob } from '../../store/conversionStore';
 
+/** Structured per-conversion report (mirrors backend conversion/report.rs). */
+export interface ConversionReportItem {
+  level: 'info' | 'warning';
+  code: string;
+  message: string;
+}
+export interface ConversionReport {
+  warnings?: ConversionReportItem[];
+  heuristics_used?: string[];
+  fallback_used?: string | null;
+  confidence?: number;
+  chapter_count?: number;
+  toc_entries?: number;
+}
+
 type ConversionJobTrackerProps = Record<string, never>;
 
 const STATUS_CONFIG: Record<
@@ -86,6 +101,51 @@ const JobRow: React.FC<{ job: ConversionJob; onCancel: (id: string) => void }> =
         <p className="text-xs text-muted-foreground truncate" title={job.target_path}>
           → {job.target_path.split('/').pop()}
         </p>
+      )}
+
+      {/* Conversion report (IR-SPEC §4): fallback mode, warnings, confidence */}
+      {job.status === 'Completed' && job.report && <ConversionReportSummary report={job.report} />}
+    </div>
+  );
+};
+
+/**
+ * Compact plain-language summary of a conversion report: what the engine had
+ * to fall back to, warnings that matter, and a confidence score.
+ */
+const ConversionReportSummary: React.FC<{ report: ConversionReport }> = ({ report }) => {
+  const [open, setOpen] = React.useState(false);
+  const items = report.warnings ?? [];
+  const hasIssues = items.length > 0 || !!report.fallback_used;
+  if (!hasIssues) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-background/50 px-2 py-1.5 space-y-1">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between text-xs gap-2"
+      >
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+          Conversion notes{report.fallback_used ? ` · ${report.fallback_used}` : ''}
+        </span>
+        <span className="text-muted-foreground">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside">
+          {report.fallback_used && (
+            <li>
+              <span className="font-medium text-foreground">Fallback:</span> {report.fallback_used}
+            </li>
+          )}
+          {items.map((item, i) => (
+            <li key={i}>
+              <span className="font-medium">{item.level === 'warning' ? 'Warning' : 'Info'}:</span>{' '}
+              {item.message}
+            </li>
+          ))}
+          <li className="pt-0.5">Confidence: {Math.round((report.confidence ?? 1) * 100)}%</li>
+        </ul>
       )}
     </div>
   );

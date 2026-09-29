@@ -178,10 +178,11 @@ def main():
         z.writestr("synthetic_full.fb2", files["synthetic_full.fb2"])
     print("wrote", zip_path)
 
-    # gzipped raw variant
+    # gzipped raw variant (real gzip container, 1F 8B)
     gz_path = os.path.join(OUT, "synthetic_full.fb2.gz")
-    with open(gz_path, "wb") as f:
-        f.write(zlib.compress(files["synthetic_full.fb2"]))
+    import gzip as _gzip
+    with _gzip.open(gz_path, "wb") as f:
+        f.write(files["synthetic_full.fb2"])
     print("wrote", gz_path)
 
 

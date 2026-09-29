@@ -251,6 +251,7 @@ fn finalize_chapters(book: &mut OebBook) {
     }
     merged.retain(|ch| !ch.html.trim().is_empty());
     book.chapters = merged;
+    dedupe_toc_stubs(book);
     for (i, ch) in book.chapters.iter_mut().enumerate() {
         ch.id = format!("chapter_{:03}", i + 1);
     }
@@ -261,6 +262,39 @@ fn finalize_chapters(book: &mut OebBook) {
             html: "<p>&#160;</p>".to_string(),
         });
     }
+}
+
+/// A book's own table of contents produces short stub chapters bearing the
+/// same titles as the real chapters further on (Moby Dick, Frankenstein,
+/// Pride & Prejudice all have this). A stub is a chapter whose title repeats
+/// elsewhere, whose body is short, and whose twin holds real content (≥10x
+/// larger or ≥ 500 chars). The stub is dropped, the twin stays.
+fn dedupe_toc_stubs(book: &mut OebBook) {
+    use std::collections::HashMap;
+    let mut longest: HashMap<String, usize> = HashMap::new();
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for ch in &book.chapters {
+        let Some(title) = ch.title.as_deref().map(|t| t.trim().to_lowercase()) else {
+            continue;
+        };
+        let len = ch.html.len();
+        let e = longest.entry(title.clone()).or_insert(0);
+        *e = (*e).max(len);
+        *counts.entry(title).or_insert(0) += 1;
+    }
+    book.chapters.retain(|ch| {
+        let Some(title) = ch.title.as_deref().map(|t| t.trim().to_lowercase()) else {
+            return true;
+        };
+        let repeated = counts.get(&title).copied().unwrap_or(0) > 1;
+        if !repeated {
+            return true;
+        }
+        let len = ch.html.len();
+        let twins_longest = longest.get(&title).copied().unwrap_or(0);
+        let stub = len < 200 && (twins_longest >= 500 || twins_longest >= len * 10) && twins_longest != len;
+        !stub
+    });
 }
 
 // ──────────────────────────────────────────────────────────────────────────

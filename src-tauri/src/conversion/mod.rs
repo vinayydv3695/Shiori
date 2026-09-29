@@ -202,7 +202,7 @@ pub async fn convert_to_epub_into(
     let known = matches!(
         ext.as_str(),
         "epub" | "cbz" | "cbr" | "pdf" | "mobi" | "azw" | "azw3" | "prc" | "docx"
-            | "fb2" | "fbz" | "txt" | "rtf" | "html" | "htm" | "xhtml" | "md"
+            | "fb2" | "fbz" | "zip" | "gz" | "txt" | "rtf" | "html" | "htm" | "xhtml" | "md"
             | "markdown"
     );
     if !known {
@@ -332,6 +332,27 @@ pub async fn convert_to_epub_into(
             report_to_progress("Ready", 100);
             report.chapter_count = 0;
             return Ok((input_path.to_path_buf(), report));
+        }
+
+        // FB2 archives: .fb2.zip / .fb2.gz / .fbz are one format family.
+        // Sniff the container (zip PK, gzip 1F 8B) and refuse anything else
+        // so an arbitrary .zip never reaches the FB2 parser.
+        "zip" | "gz" | "fbz" => {
+            report_to_progress("Parsing FB2 archive", 10);
+            let head = std::fs::read(input_path).ok();
+            let looks_zip = head.as_deref().map(|h| h.len() >= 4 && h[..4] == [0x50, 0x4B, 0x03, 0x04]).unwrap_or(false);
+            let looks_gz = head.as_deref().map(|h| h.len() >= 2 && h[..2] == [0x1F, 0x8B]).unwrap_or(false);
+            if !looks_zip && !looks_gz {
+                return Err(ConversionError::InvalidFormat(
+                    "Not an FB2 archive (expected .zip or .gz container)".to_string(),
+                ));
+            }
+            let mut oeb = formats::fb2::parse(input_path)?;
+            report_to_progress("Building EPUB", 60);
+            oeb.sanitize_html();
+            epub_builder::build_epub_with_report(&oeb, &output_path, &build_opts, &mut report)?;
+            record_book_metrics(&oeb, &mut report);
+            merge_parser_report(&mut report, &oeb.report);
         }
 
         "cbz" => {

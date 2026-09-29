@@ -22,6 +22,8 @@ export interface ConversionJob {
   started_at: string | null;
   completed_at: string | null;
   error: string | null;
+  /** Structured conversion report — present once the job completes. */
+  report?: import('../components/conversion/ConversionJobTracker').ConversionReport | null;
 }
 
 export interface SupportedConversion {

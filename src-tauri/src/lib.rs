@@ -66,6 +66,38 @@ pub struct MetadataState {
     pub sender: tokio::sync::mpsc::Sender<MetadataJob>,
 }
 
+/// Shared pause gate for background schedulers (F9 follow-up #7). Window
+/// focus/suspend events flip it; the periodic RSS feed job checks it at entry
+/// and skips while paused. `tokio-cron-scheduler` 0.10 has no per-job pause, so
+/// gating the job body is the bridge — the resident JobScheduler itself is
+/// cheap, the 30-minute wakeups are what we want to avoid while idle.
+#[derive(Clone, Default)]
+pub struct BackgroundGate {
+    paused: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl BackgroundGate {
+    pub fn set_paused(&self, paused: bool) {
+        self.paused
+            .store(paused, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn is_paused(&self) -> bool {
+        self.paused.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// Flip the shared background gate from a window/tray handler (#7).
+/// No-op when the gate is not managed yet (early window events during setup).
+fn set_background_paused(app: &tauri::AppHandle, paused: bool) {
+    if let Some(gate) = app.try_state::<BackgroundGate>() {
+        if gate.is_paused() != paused {
+            log::debug!("Background gate: paused={}", paused);
+        }
+        gate.set_paused(paused);
+    }
+}
+
 pub struct ActiveDownloads {
     pub count: std::sync::atomic::AtomicUsize,
     /// Cooperative cancel flags for in-flight chapter downloads, keyed by
@@ -744,6 +776,7 @@ pub fn run() {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
+                                set_background_paused(app, false);
                             }
                         }
                         "quit" => {
@@ -762,6 +795,7 @@ pub fn run() {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.show();
                                 let _ = window.set_focus();
+                                set_background_paused(app, false);
                             }
                         }
                     })
@@ -1013,8 +1047,13 @@ pub fn run() {
                 Arc::new(tokio::sync::Mutex::new(None));
             app.manage(Arc::clone(&rss_scheduler));
 
+            // App-hidden pause bridge (#7): managed before the scheduler so
+            // window events that arrive during startup find it.
+            let background_gate = BackgroundGate::default();
+            app.manage(background_gate.clone());
+
             tauri::async_runtime::spawn(async move {
-                match RssScheduler::new(rss_service, true, None).await {
+                match RssScheduler::new(rss_service, true, None, background_gate).await {
                     Ok(mut scheduler) => {
                         if let Err(e) = scheduler.start().await {
                             log::error!("RSS scheduler failed to start: {}", e);
@@ -1090,14 +1129,15 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
                 if let Some(state) = window.try_state::<ActiveDownloads>() {
                     let active = state.count.load(std::sync::atomic::Ordering::SeqCst);
                     if active > 0 {
                         // Prevent the window from closing and hide it instead
                         api.prevent_close();
                         let _ = window.hide();
+                        set_background_paused(window.app_handle(), true);
                         log::info!(
                             "Window closed, but {} downloads are active. Hiding to tray.",
                             active
@@ -1105,6 +1145,20 @@ pub fn run() {
                     }
                 }
             }
+            // App-hidden pause bridge (#7). Desktop: unfocused/minimized.
+            tauri::WindowEvent::Focused(focused) => {
+                set_background_paused(window.app_handle(), !focused);
+            }
+            // Mobile: Activity onPause/onResume.
+            #[cfg(mobile)]
+            tauri::WindowEvent::Suspended => {
+                set_background_paused(window.app_handle(), true);
+            }
+            #[cfg(mobile)]
+            tauri::WindowEvent::Resumed => {
+                set_background_paused(window.app_handle(), false);
+            }
+            _ => {}
         })
         .invoke_handler(crate::generate_shiori_handlers!())
         .build(tauri::generate_context!())
@@ -1443,6 +1497,22 @@ pub(crate) fn harden_path(path: &std::path::Path, is_dir: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn background_gate_tracks_pause_state_and_shares_clones() {
+        let gate = BackgroundGate::default();
+        assert!(!gate.is_paused(), "starts unpaused");
+
+        gate.set_paused(true);
+        assert!(gate.is_paused());
+
+        // The scheduler holds a clone; flipping one must be visible to all.
+        let clone = gate.clone();
+        clone.set_paused(false);
+        assert!(!gate.is_paused());
+        gate.set_paused(true);
+        assert!(clone.is_paused());
+    }
 
     #[test]
     fn test_is_safe_url_accepts_public_urls() {

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use super::rss_service::{DailyEpubOptions, RssService};
+use crate::BackgroundGate;
 
 /// RSS feed update scheduler
 pub struct RssScheduler {
@@ -11,6 +12,9 @@ pub struct RssScheduler {
     rss_service: Arc<RssService>,
     daily_epub_enabled: bool,
     daily_epub_time: String, // Cron format: "0 0 6 * * *" = 6 AM daily
+    /// App-hidden/idle pause gate (#7): the periodic feed-update job skips
+    /// while paused instead of waking the CPU and hitting the network.
+    gate: BackgroundGate,
 }
 
 impl RssScheduler {
@@ -19,6 +23,7 @@ impl RssScheduler {
         rss_service: Arc<RssService>,
         daily_epub_enabled: bool,
         daily_epub_time: Option<String>,
+        gate: BackgroundGate,
     ) -> Result<Self> {
         let scheduler = JobScheduler::new().await?;
 
@@ -27,6 +32,7 @@ impl RssScheduler {
             rss_service,
             daily_epub_enabled,
             daily_epub_time: daily_epub_time.unwrap_or_else(|| "0 0 6 * * *".to_string()),
+            gate,
         })
     }
 
@@ -34,9 +40,18 @@ impl RssScheduler {
     pub async fn start(&mut self) -> Result<()> {
         // Job 1: Update feeds every 30 minutes
         let rss_service = Arc::clone(&self.rss_service);
+        let gate = self.gate.clone();
         let update_job = Job::new_async("0 */30 * * * *", move |_uuid, _lock| {
             let service = Arc::clone(&rss_service);
+            let gate = gate.clone();
             Box::pin(async move {
+                // App-hidden pause bridge (#7): skip the wakeup entirely while
+                // the app is suspended/unfocused. Feeds are rescheduled from
+                // their own timestamps, so nothing is lost by skipping.
+                if gate.is_paused() {
+                    info!("RSS Scheduler: app hidden — skipping feed update cycle");
+                    return;
+                }
                 info!("RSS Scheduler: Starting feed update cycle");
 
                 // Get feeds due for update
@@ -82,7 +97,13 @@ impl RssScheduler {
         self.scheduler.add(update_job).await?;
         info!("RSS Scheduler: Added feed update job (every 30 minutes)");
 
-        // Job 2: Daily EPUB generation (if enabled)
+        // Job 2: Daily EPUB generation (if enabled).
+        //
+        // Deliberately NOT behind the background gate: it is a user-visible
+        // product feature, and tokio-cron-scheduler does not replay missed
+        // occurrences — gating it would silently drop the daily digest for
+        // anyone who happens to be idle/unfocused at the scheduled time. Its
+        // wakeup cost is once per day, unlike the 30-minute feed job.
         if self.daily_epub_enabled {
             let rss_service = Arc::clone(&self.rss_service);
             let cron_schedule = self.daily_epub_time.clone();
@@ -195,7 +216,8 @@ mod tests {
         let db = Database::new(&temp_dir.join("test.db")).unwrap();
         let rss_service = Arc::new(RssService::new(db, temp_dir).unwrap());
 
-        let scheduler = RssScheduler::new(rss_service, true, None).await;
+        let scheduler =
+            RssScheduler::new(rss_service, true, None, crate::BackgroundGate::default()).await;
         assert!(scheduler.is_ok());
     }
 

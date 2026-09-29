@@ -752,6 +752,12 @@ pub fn run() {
             let cf_store_for_toongod = cf_store.clone();
             let app_handle_for_toongod = app.handle().clone();
             tauri::async_runtime::spawn(async move {
+                // Slice F5/F7: warm the Cloudflare session only after the app
+                // has painted. This work (network + cookie jar + webview
+                // machinery) used to run during setup, on the cold-start
+                // critical path, for every user — including those who never
+                // open an online source.
+                tokio::time::sleep(std::time::Duration::from_secs(8)).await;
                 match cloudflare::client::CfClient::new(
                     "https://www.toongod.org",
                     cf_store_for_toongod,
@@ -782,6 +788,10 @@ pub fn run() {
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 {
                     let manhwaread_for_rpc = manhwaread_for_cf.clone();
+                    // Slice F5/F7: hidden RPC webviews are the most expensive
+                    // startup item on desktop; defer their creation until the
+                    // app has painted (first source use stays warm in practice).
+                    tokio::time::sleep(std::time::Duration::from_secs(8)).await;
                     let rpc = match sources::browser_rpc::BrowserRpc::new(
                         "shiori-rpc-manhwaread",
                         "https://www.manhwaread.com",
@@ -809,6 +819,9 @@ pub fn run() {
             let cf_store_for_mangafire = cf_store.clone();
             let app_handle_for_mangafire = app.handle().clone();
             tauri::async_runtime::spawn(async move {
+                // Slice F5/F7: defer CF warm-up until after first paint (see
+                // the ToonGod note above).
+                tokio::time::sleep(std::time::Duration::from_secs(8)).await;
                 match cloudflare::client::CfClient::new(
                     "https://mangafire.to",
                     cf_store_for_mangafire,
@@ -835,6 +848,9 @@ pub fn run() {
                 let mangafire_for_rpc = mangafire_source.clone();
                 let app_handle_for_rpc = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
+                    // Slice F5/F7: defer the hidden MangaFire RPC webview to
+                    // post-paint (see the ManhwaRead note above).
+                    tokio::time::sleep(std::time::Duration::from_secs(8)).await;
                     let rpc = match sources::browser_rpc::BrowserRpc::new(
                         "shiori-rpc-mangafire",
                         "https://mangafire.to/filter",

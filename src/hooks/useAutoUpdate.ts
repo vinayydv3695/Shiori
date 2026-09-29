@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { isAndroid, isTauri } from '@/lib/tauri';
-import { check } from '@tauri-apps/plugin-updater';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { useUpdateStore } from '@/store/updateStore';
@@ -114,6 +113,10 @@ export function useAutoUpdate() {
           logger.info('[AutoUpdate] Checking Desktop updates via Tauri plugin...');
           let tauriUpdateFound = false;
           try {
+            // Dynamic import (slice F5): the updater plugin is desktop-only and
+            // not needed for first paint; a static import dragged it into the
+            // 1.5 MB entry chunk (verified via built-chunk literal grep).
+            const { check } = await import('@tauri-apps/plugin-updater');
             const update = await check();
             
             if (update && update.available && mounted) {

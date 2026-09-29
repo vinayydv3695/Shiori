@@ -74,7 +74,7 @@ New report channel: `OebBook.report` (parsers append) → `merge_parser_report` 
 
 ## 5. Known limitations & risks
 
-- **PDF layout analysis is line-based**, not geometric: two-column + sidebar books (twocolumn.pdf: 112 TOC entries) and tables (tables.pdf: 7 entries) still suffer. Full fix needs pdftohtml-XML geometry on desktop (GPL tool, optional-shell posture, never bundled) with pdf-extract fallback — see follow-ups.
+- ~~PDF layout analysis is line-based~~ — **resolved**: a pdftohtml-XML geometry pass (`conversion/formats/pdf_geometry.rs`, desktop-only accelerator with pure-Rust fallback) now does column clustering, per-page headline strip, sidebar-last ordering and table reconstruction (twocolumn 112→12, tables 7→1 with a real `<table>`, novel 47→6). Remaining: rotated text, footnotes/marginalia, and complex nested tables.
 - **TXT chapter exactness**: pg1342 (50 vs 61) and pg84 (36 vs 27) have residual TOC-list stubs; safe thresholds traded recall for precision.
 - **MOBI**: no DRM flag → friendly DRM failure still missing (crate API gap; needs signature check follow-up); KF8-prefer exists via adapter scoring.
 - **EPUB→PDF** (printpdf) unchanged: no outline/presets yet.
@@ -84,12 +84,12 @@ New report channel: `OebBook.report` (parsers append) → `merge_parser_report` 
 
 ## 6. Follow-ups (ranked)
 
-1. pdftohtml-XML geometry pass (columns/headers by coordinates, font-size headings) — the single biggest remaining PDF win (R5 validates the approach).
-2. `epub_to_pdf` outline/presets (printpdf bookmarks API) + `epub_to_fb2` output writer.
-3. MOBI DRM detection via `DRMOffset/Count` header fields (parseable without the crate).
-4. Batch-dialog report links; localization keys for report codes.
+1. ~~pdftohtml-XML geometry pass~~ — done (see above); next PDF tier: rotated/marginal text, footnote linking, font-size-based heading levels.
+2. ~~`epub_to_pdf` outline/presets~~ — done (bookmarks, page numbers, A4 margins, embedded font). Remaining: `epub_to_fb2` output writer, user-facing paper presets in the UI.
+3. ~~MOBI DRM detection~~ — done (header-field gate before parsing). Remaining: KF8-prefer verification on real dual files.
+4. ~~Batch-dialog report links~~ — done. Remaining: localization keys for report codes.
 5. CI: epubcheck + corpus scorer job (dev-only tooling).
-6. cargo-fuzz targets for `formats::*::parse` + zip-bomb depth guards for nested archives.
+6. Mutation fuzzer shipped (294 mutants); remaining: cargo-fuzz with coverage + nested-archive depth caps.
 
 ## 7. License audit summary
 

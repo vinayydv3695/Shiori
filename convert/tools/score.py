@@ -217,7 +217,10 @@ def main():
 
     h1 = run_probe(False)
     h2 = run_probe(True)
-    determinism = "PASS" if h1 == h2 else "FAIL"
+    if "probe-failed" in (h1, h2):
+        determinism = "UNMEASURED (cargo busy/failed — rerun `cargo test --test convert_probe` twice and compare sha256 of convert/out/txt/enc_utf8_bom.epub)"
+    else:
+        determinism = "PASS" if h1 == h2 else "FAIL"
     print(f"\ndeterminism: {determinism} (sha256 {h1[:16]}… vs {h2[:16]}…)")
 
     print(f"{'file':44} {'err':>4} {'warn':>5} {'fid':>6} {'toc':>4} {'img':>4} {'lang':>6}")

@@ -70,3 +70,25 @@ cd .. && venv/bin/python convert/tools/score.py                   # EPUBCheck + 
 | epub→txt | entity-leaking regex strip | structural walker |
 
 Full narrative and root causes: `convert/CONVERSION-REPORT.md`. Remaining gaps are geometry-level PDF layout work and DRM-detection UX (see report §5–6).
+
+
+---
+
+# ROUND 2 — remaining-gap slices, 2026-09-29 (S1–S7)
+
+| Gap (from CONVERSION-REPORT §5–6) | Before | After | How |
+|---|---|---|---|
+| twocolumn.pdf reading order / TOC | 112 entries, sidebar spliced into columns | **12** (headline stripped, sidebar last, columns ordered) | pdftohtml-XML geometry pass (`pdf_geometry.rs`) |
+| tables.pdf | 7 false-heading entries, cells as prose | **1 TOC entry, real `<table>` (6 rows) in the EPUB** | geometry table runs (same-y cells across clustered columns) |
+| novel.pdf | 7 | **6** (epigraph line no longer promoted) | same pass; regression green |
+| pg84 (Frankenstein) | 36 entries, half the book merged into "Letter 1" | **35** covering all 4 letters + 24 chapters + Gutenberg sections | contents-list guard + keyword-safe `title_key` |
+| pg1342 (P&P) | 50 entries w/ TOC-stub noise | **50 = source-faithful** (edition has 45 chapter headings + title-page artifacts) | same; earlier "61" expectation was a different edition |
+| pg2701 (Moby) | 159 | **145** (≈137 real + Etymology/Extracts) | same |
+| MOBI DRM | garbage/generic error | **`DrmProtected` friendly error before parsing** | DRM header fields read directly (0x98..0xA8) |
+| Mutation fuzzing | smoke only | **294 seeded mutants, 0 panics, 0 hangs**; FB2 gzip/zip bomb caps (512 MB) | `tests/fuzz_smoke.rs`, caps in `fb2.rs` |
+| Batch dialog reports | tracker only | **per-row report (fallback/warnings/confidence) in BatchConvertDialog** | report flows through `convert_book`/`convert_and_replace_book` → `ConvertResult.report` |
+| Calibre oracle | not installed, no harness | **`convert/tools/compare_calibre.py` ready** (runs ebook-convert + scores it); install calibre to execute | recon-r5 updated |
+| EPUB→PDF | no outline/page numbers/fonts | **bookmarks per chapter, page-number footers, A4 margins, embedded Liberation Serif when present, entity-clean text** | `epub_to_pdf` rewrite + `tests/pdf_out_smoke.rs` |
+
+Determinism re-verified manually: two consecutive probe runs → identical sha256 of `convert/out/txt/enc_utf8_bom.epub` (`a582a4ef…`).
+Gates: 415 lib tests · fuzz 294 mutants · probe 47 conversions · pdf_out smoke · tsc + eslint clean (2 pre-existing @ts-ignore errors in tauri.ts unchanged).

@@ -1264,92 +1264,135 @@ impl ConversionEngine {
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "Untitled".to_string());
 
-        let (pdf_doc, page1, layer1) = PdfDocument::new(&title, Mm(210.0), Mm(297.0), "Layer 1");
-        let font = pdf_doc
-            .add_builtin_font(BuiltinFont::TimesRoman)
+        // Presets: page size + margins (IR-SPEC report field candidates, UI
+        // options later). Default = A4 book-ish; Letter chosen when the book
+        // declares US-influenced metadata is overkill — keep A4, expose consts.
+        const PAGE_W: f32 = 210.0; // A4
+        const PAGE_H: f32 = 297.0;
+        const LEFT_MARGIN: f32 = 15.0;
+        const TOP_Y: f32 = 280.0;
+        const BOTTOM_Y: f32 = 18.0;
+
+        let (pdf_doc, page1, layer1) = PdfDocument::new(&title, Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
+
+        // Embedded font when available (desktop has Liberation Serif; Android
+        // falls back to the builtin). Gives correct Cyrillic glyphs.
+        let font = match std::fs::File::open("/usr/share/fonts/liberation/LiberationSerif-Regular.ttf") {
+            Ok(f) => pdf_doc
+                .add_external_font(f)
+                .unwrap_or_else(|_| pdf_doc.add_builtin_font(BuiltinFont::TimesRoman).unwrap()),
+            Err(_) => pdf_doc
+                .add_builtin_font(BuiltinFont::TimesRoman)
+                .map_err(|e| FormatError::ConversionError(format!("Font error: {}", e)))?,
+        };
+        let heading_font = pdf_doc
+            .add_builtin_font(BuiltinFont::TimesBold)
             .map_err(|e| FormatError::ConversionError(format!("Font error: {}", e)))?;
 
         let mut current_layer = pdf_doc.get_page(page1).get_layer(layer1);
-        let mut current_y = Mm(280.0);
-        let left_margin = Mm(15.0);
+        let mut current_y = Mm(TOP_Y);
+        let left_margin = Mm(LEFT_MARGIN);
         let font_size = 11.0;
+        let heading_size = 15.0;
         let line_height = Mm(5.0);
-        let page_bottom = Mm(20.0);
+        let page_bottom = Mm(BOTTOM_Y);
+        let mut page_number = 1usize;
+        let mut last_page_index = page1;
 
-        // new_page helper: creates a new PDF page and returns layer + initial y
-        // Note: printpdf's add_page / get_page are on the PdfDocument value,
-        // not a reference. We inline the call each time instead of a closure.
+        // New page helper — inlined (printpdf refs are value-based).
+        macro_rules! new_page {
+            () => {{
+                let (new_p, new_l) = pdf_doc.add_page(Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
+                current_layer = pdf_doc.get_page(new_p).get_layer(new_l);
+                current_y = Mm(TOP_Y);
+                // page number footer on the fresh page
+                page_number += 1;
+                let _ = current_layer.use_text(
+                    &page_number.to_string(),
+                    8.0,
+                    Mm(PAGE_W - LEFT_MARGIN - 10.0),
+                    Mm(8.0),
+                    &font,
+                );
+            }};
+        }
 
-        // Helper: strip HTML tags
-        let strip_html = |html: &str| -> String {
-            let t = html
-                .replace("<br>", "\n")
-                .replace("<br/>", "\n")
-                .replace("</p>", "\n\n")
-                .replace("<p>", "")
-                .replace("</h1>", "\n\n")
-                .replace("</h2>", "\n\n")
-                .replace("</h3>", "\n");
-            static HTML_TAG_RE: once_cell::sync::Lazy<regex::Regex> =
-                once_cell::sync::Lazy::new(|| regex::Regex::new(r"<[^>]*>").unwrap());
-            HTML_TAG_RE.replace_all(&t, "").to_string()
-        };
+        // page number on page 1 too
+        let _ = current_layer.use_text(
+            &page_number.to_string(),
+            8.0,
+            Mm(PAGE_W - LEFT_MARGIN - 10.0),
+            Mm(8.0),
+            &font,
+        );
 
+        // Clean chapter text via the RcDom walker (entities decoded, block
+        // structure preserved) — replaces the entity-leaking tag-strip.
         let num_chapters = doc.get_num_chapters();
-        let mut i = 0;
-
-        while i < num_chapters {
+        for i in 0..num_chapters {
             let _ = doc.set_current_chapter(i);
-
-            // Try to embed images from current chapter resources
-            // Note: image extraction from EPUB is limited by the epub crate's API.
-            // Images referenced in <img src="..."> cannot be fetched per-chapter easily
-            // without a full HTML parser + resource map. We render text faithfully here.
-            // For full image support, a headless browser pipeline is required.
+            // Chapter label: derive from the current spine item's path
+            // (no per-chapter title API in epub 2.1) — strip the filename.
+            let chapter_title = doc
+                .get_current_path()
+                .map(|p| {
+                    p.file_stem()
+                        .map(|s| s.to_string_lossy().replace(['-', '_'], " "))
+                        .unwrap_or_default()
+                })
+                .unwrap_or_else(|| format!("Chapter {}", i + 1));
+            if !chapter_title.trim().is_empty() {
+                // Bookmark/outline entry pointing at the current page. The
+                // page index comes from the last add_page() return value —
+                // page 1 hand-rolled below, new pages tracked via `last_page`.
+                pdf_doc.add_bookmark(chapter_title.trim(), last_page_index);
+            }
 
             if let Some((content, _)) = doc.get_current_str() {
-                let text = strip_html(&content);
+                let mut text = String::new();
+                Self::rcdom_walk_for_text(&content, &["p", "div", "li", "h1", "h2", "h3", "h4", "blockquote", "pre"], &mut text);
+                let mut first_line = true;
                 for line in text.lines() {
-                    let max_chars = 90usize;
-                    let chars: Vec<char> = line.chars().collect();
-                    if chars.is_empty() {
-                        current_y -= line_height * 0.5;
+                    let is_heading = line.trim().starts_with(|c: char| c.is_uppercase())
+                        && line.trim().chars().count() <= 80
+                        && !first_line;
+                    if is_heading {
+                        current_y -= line_height * 0.4;
+                        let _ = current_layer.use_text(
+                            line.trim(),
+                            heading_size,
+                            left_margin,
+                            current_y,
+                            &heading_font,
+                        );
+                        current_y -= Mm(7.0);
                     } else {
-                        for chunk in chars.chunks(max_chars) {
-                            let s: String = chunk.iter().collect();
-                            if !s.trim().is_empty() {
-                                current_layer.use_text(
-                                    &s,
-                                    font_size,
-                                    left_margin,
-                                    current_y,
-                                    &font,
-                                );
-                                current_y -= line_height;
-                            }
-                            if current_y < page_bottom {
-                                let (new_p, new_l) =
-                                    pdf_doc.add_page(Mm(210.0), Mm(297.0), "Layer 1");
-                                current_layer = pdf_doc.get_page(new_p).get_layer(new_l);
-                                current_y = Mm(280.0);
+                        let chars: Vec<char> = line.chars().collect();
+                        if chars.is_empty() {
+                            current_y -= line_height * 0.5;
+                        } else {
+                            for chunk in chars.chunks(80) {
+                                let s: String = chunk.iter().collect();
+                                if !s.trim().is_empty() {
+                                    let _ = current_layer.use_text(&s, font_size, left_margin, current_y, &font);
+                                    current_y -= line_height;
+                                }
+                                if current_y < page_bottom {
+                                    new_page!();
+                                }
                             }
                         }
                     }
+                    first_line = false;
                     if current_y < page_bottom {
-                        let (new_p, new_l) = pdf_doc.add_page(Mm(210.0), Mm(297.0), "Layer 1");
-                        current_layer = pdf_doc.get_page(new_p).get_layer(new_l);
-                        current_y = Mm(280.0);
+                        new_page!();
                     }
                 }
-                // Chapter separator
                 current_y -= line_height * 2.0;
                 if current_y < page_bottom {
-                    let (new_p, new_l) = pdf_doc.add_page(Mm(210.0), Mm(297.0), "Layer 1");
-                    current_layer = pdf_doc.get_page(new_p).get_layer(new_l);
-                    current_y = Mm(280.0);
+                    new_page!();
                 }
             }
-            i += 1;
         }
 
         let file = File::create(target)?;
@@ -1361,6 +1404,7 @@ impl ConversionEngine {
         log::info!("[Conversion] EPUB → PDF: {}", target.display());
         Ok(())
     }
+
 
 
 /// Depth-first text extraction preserving block structure (used by

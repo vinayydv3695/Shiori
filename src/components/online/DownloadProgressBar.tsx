@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertCircle, Loader2, BookOpen, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, BookOpen, X, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { DownloadProgress } from '@/store/onlineDownloadStore';
 
@@ -6,6 +6,8 @@ interface DownloadProgressBarProps {
   bookTitle: string;
   progress: DownloadProgress | undefined;
   onClear?: () => void;
+  /** Cancel an in-flight manga chapter download (F9); partial pages are kept for resume. */
+  onCancel?: () => void;
 }
 
 /** Format bytes as "X.X MB" (1 decimal). */
@@ -13,7 +15,7 @@ function formatMb(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
 }
 
-export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadProgressBarProps) {
+export function DownloadProgressBar({ bookTitle, progress, onClear, onCancel }: DownloadProgressBarProps) {
   if (!progress) return null;
 
   const hasTotal = progress.total_bytes !== null && progress.total_bytes > 0;
@@ -29,6 +31,7 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
 
   const isDone = progress.status === 'completed';
   const isError = progress.status === 'error';
+  const isCancelled = progress.status === 'cancelled';
 
   return (
     <div className="p-4 rounded-2xl bg-card/90 border border-border/60 hover:border-primary/40 transition-all duration-300 shadow-sm backdrop-blur-xl group">
@@ -42,16 +45,18 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
             <span
               className={cn(
                 'text-[10px] font-semibold tracking-tight block mt-0.5',
-                isDone ? 'text-emerald-500' : isError ? 'text-destructive' : 'text-muted-foreground'
+                isDone ? 'text-emerald-500' : isError ? 'text-destructive' : isCancelled ? 'text-amber-500' : 'text-muted-foreground'
               )}
             >
               {isDone
                 ? 'Added to library'
                 : isError
                   ? 'Download failed'
-                  : isPages
-                    ? (hasTotal ? `Downloading page ${progress.downloaded_bytes} of ${totalBytes}…` : 'Fetching chapter pages…')
-                    : 'Downloading…'}
+                  : isCancelled
+                    ? 'Cancelled — download again to resume'
+                    : isPages
+                      ? (hasTotal ? `Downloading page ${progress.downloaded_bytes} of ${totalBytes}…` : 'Fetching chapter pages…')
+                      : 'Downloading…'}
             </span>
           </div>
         </div>
@@ -67,6 +72,11 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
               <AlertCircle className="w-3.5 h-3.5" />
               <span>Failed</span>
             </div>
+          ) : isCancelled ? (
+            <div className="flex items-center gap-1 text-[10px] font-extrabold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Cancelled</span>
+            </div>
           ) : (
             <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-primary bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20">
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -74,7 +84,17 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
             </div>
           )}
 
-          {(isDone || isError) && onClear && (
+          {!isDone && !isError && !isCancelled && onCancel && (
+            <button
+              onClick={onCancel}
+              aria-label="Cancel download"
+              className="p-1 rounded-full text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {(isDone || isError || isCancelled) && onClear && (
             <button
               onClick={onClear}
               aria-label="Dismiss item"
@@ -95,6 +115,8 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
           <div className="h-full rounded-full bg-emerald-500 transition-all duration-300" style={{ width: '100%' }} />
         ) : isError ? (
           <div className="h-full rounded-full bg-destructive" style={{ width: '100%' }} />
+        ) : isCancelled ? (
+          <div className="h-full rounded-full bg-amber-500 transition-all duration-300" style={{ width: `${percent ?? 100}%` }} />
         ) : percent !== null ? (
           <div
             className="h-full rounded-full bg-primary shadow-sm shadow-primary/30 transition-all duration-300 ease-out"
@@ -111,7 +133,7 @@ export function DownloadProgressBar({ bookTitle, progress, onClear }: DownloadPr
             ? (isDone ? `${totalBytes || downloaded} pages` : hasTotal ? `${downloaded} / ${total} pages` : 'Connecting…')
             : (isDone ? `${downloaded} MB` : total ? `${downloaded} MB / ${total} MB` : `${downloaded} MB`)}
         </span>
-        {!isDone && !isError && percent !== null && (
+        {!isDone && !isError && !isCancelled && percent !== null && (
           <span className="font-bold text-primary">{percent}%</span>
         )}
       </div>

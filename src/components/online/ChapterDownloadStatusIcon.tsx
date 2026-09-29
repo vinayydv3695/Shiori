@@ -4,6 +4,7 @@ import {
   Clock,
   Download,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 import type { ChapterDownloadStatus } from "./mangaDownloadUtils";
 
@@ -24,6 +25,9 @@ export function ChapterDownloadStatusIcon({
       );
     case "queued":
       return <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />;
+    case "cancelled":
+      // Cancelled = partial pages kept; the row click resumes the download.
+      return <RotateCcw className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
     default:
       return <Download className="w-3.5 h-3.5 text-muted-foreground shrink-0" />;
   }

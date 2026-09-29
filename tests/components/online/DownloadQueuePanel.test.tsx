@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import {
   DownloadQueuePanel,
   useDownloadQueueUI,
@@ -26,7 +26,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   useOnlineDownloadStore.setState({ downloads: {} });
-  useDownloadQueueUI.setState({ open: false });
+  useDownloadQueueUI.setState({ open: false, cancelTarget: null });
 });
 
 const progress = (overrides: Partial<DownloadProgress> = {}): DownloadProgress => ({
@@ -146,5 +146,67 @@ describe('DownloadQueuePanel', () => {
     renderPanel();
 
     expect(screen.getByText('https://example.com/untitled.epub')).toBeInTheDocument();
+  });
+
+  it('shows a cancel affordance for pages-unit downloads and routes it to the registered handler', () => {
+    const cancel = vi.fn();
+    useDownloadQueueUI.getState().setCancelTarget(cancel);
+    useOnlineDownloadStore.setState({
+      downloads: {
+        'chapter-1': progress({
+          target_id: 'chapter-1',
+          title: 'Manga - Chapter 1',
+          unit: 'pages',
+          downloaded_bytes: 3,
+          total_bytes: 20,
+        }),
+      },
+    });
+    useDownloadQueueUI.getState().setOpen(true);
+    renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel download' }));
+    expect(cancel).toHaveBeenCalledWith('chapter-1');
+  });
+
+  it('does not show a cancel affordance for byte-unit (book) downloads', () => {
+    useDownloadQueueUI.getState().setCancelTarget(vi.fn());
+    useOnlineDownloadStore.setState({
+      downloads: {
+        'https://example.com/book.epub': progress({
+          target_id: 'https://example.com/book.epub',
+          title: 'Some Book',
+        }),
+      },
+    });
+    useDownloadQueueUI.getState().setOpen(true);
+    renderPanel();
+
+    expect(screen.queryByRole('button', { name: 'Cancel download' })).not.toBeInTheDocument();
+  });
+
+  it('renders cancelled rows distinctly with their resume point and clears them like other terminal states', () => {
+    useOnlineDownloadStore.setState({
+      downloads: {
+        'chapter-2': progress({
+          target_id: 'chapter-2',
+          title: 'Manga - Chapter 2',
+          status: 'cancelled',
+          unit: 'pages',
+          downloaded_bytes: 5,
+          total_bytes: 20,
+        }),
+      },
+    });
+    useDownloadQueueUI.getState().setOpen(true);
+    renderPanel();
+
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    expect(screen.getByText(/Cancelled — download again to resume/)).toBeInTheDocument();
+    // Resume point preserved (5 / 20 pages)
+    expect(screen.getByText('5 / 20 pages')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss item' }));
+    expect(useOnlineDownloadStore.getState().downloads['chapter-2']).toBeUndefined();
   });
 });

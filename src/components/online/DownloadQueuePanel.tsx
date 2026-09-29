@@ -22,12 +22,22 @@ const EMPTY_DOWNLOADS: Record<string, DownloadProgress> = {};
 interface DownloadQueueUIState {
   open: boolean;
   setOpen: (open: boolean) => void;
+  /**
+   * Chapter-cancel handler registered by the active manga view (F9 desktop
+   * parity #4): the panel is mounted globally in GlobalDialogs, so the view
+   * routes its cancel capability through this shared store. Books (bytes
+   * unit) have no backend cancel command and never see the affordance.
+   */
+  cancelTarget: ((targetId: string) => void) | null;
+  setCancelTarget: (fn: ((targetId: string) => void) | null) => void;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- shared UI open-state, co-located with the panel
 export const useDownloadQueueUI = create<DownloadQueueUIState>((set) => ({
   open: false,
   setOpen: (open) => set({ open }),
+  cancelTarget: null,
+  setCancelTarget: (cancelTarget) => set({ cancelTarget }),
 }));
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -124,23 +134,26 @@ export function DownloadQueuePanel() {
   const open = useDownloadQueueUI((s) => s.open);
   const setOpen = useDownloadQueueUI((s) => s.setOpen);
   const [filter, setFilter] = useState<'all' | 'active' | 'done'>('all');
+  const cancelTarget = useDownloadQueueUI((s) => s.cancelTarget);
   
   // Panel is mounted globally — only subscribe to the live object while open.
   const downloads = useOnlineDownloadStore((s) => (open ? s.downloads : EMPTY_DOWNLOADS));
 
   const entries = Object.values(downloads);
   const activeCount = entries.filter((d) => d.status === 'downloading').length;
-  const finishedCount = entries.filter((d) => d.status === 'completed' || d.status === 'error').length;
+  const isFinished = (s: DownloadProgress['status']) =>
+    s === 'completed' || s === 'error' || s === 'cancelled';
+  const finishedCount = entries.filter((d) => isFinished(d.status)).length;
 
   const filteredEntries = entries.filter((d) => {
     if (filter === 'active') return d.status === 'downloading';
-    if (filter === 'done') return d.status === 'completed' || d.status === 'error';
+    if (filter === 'done') return isFinished(d.status);
     return true;
   });
 
   const handleClearFinished = () => {
     for (const d of entries) {
-      if (d.status === 'completed' || d.status === 'error') {
+      if (isFinished(d.status)) {
         useOnlineDownloadStore.getState().clearDownload(d.target_id);
       }
     }
@@ -184,10 +197,10 @@ export function DownloadQueuePanel() {
               </div>
               <div className="flex items-center gap-2">
                 {finishedCount > 0 && (
-                  <AppTooltip content="Clear completed and failed downloads" side="bottom">
+                  <AppTooltip content="Clear finished downloads" side="bottom">
                     <button
                       onClick={handleClearFinished}
-                      aria-label="Clear completed and failed downloads"
+                      aria-label="Clear finished downloads"
                       className="px-3 py-1 text-xs font-bold rounded-full bg-secondary/80 hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/50 transition-all cursor-pointer shadow-xs"
                     >
                       Clear done
@@ -270,6 +283,11 @@ export function DownloadQueuePanel() {
                   bookTitle={entry.title || entry.target_id}
                   progress={entry}
                   onClear={() => handleClearItem(entry.target_id)}
+                  onCancel={
+                    entry.status === 'downloading' && entry.unit === 'pages' && cancelTarget
+                      ? () => cancelTarget(entry.target_id)
+                      : undefined
+                  }
                 />
               ))
             )}

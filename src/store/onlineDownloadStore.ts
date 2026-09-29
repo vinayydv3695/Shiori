@@ -45,7 +45,7 @@ export function showImportOutcomeFeedback(result: ImportOutcome, title?: string)
 
 export interface DownloadProgress {
   target_id: string; // url or id
-  status: 'downloading' | 'completed' | 'error';
+  status: 'downloading' | 'completed' | 'error' | 'cancelled';
   downloaded_bytes: number;
   total_bytes: number | null;
   /** Optional human-readable title, registered by the frontend when a download starts. */

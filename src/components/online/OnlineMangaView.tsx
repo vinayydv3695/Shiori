@@ -19,7 +19,7 @@ import { useSourceHealthStore } from "@/store/sourceHealthStore";
 import { useOnlineSearchStore } from "@/store/onlineSearchStore";
 import { OnlineSearchHeader } from "./OnlineSearchHeader";
 import { OnlineSourceSelector } from "./OnlineSourceSelector";
-import { DownloadsButton } from "./DownloadQueuePanel";
+import { DownloadsButton, useDownloadQueueUI } from "./DownloadQueuePanel";
 import {
   pluginApi,
   type Chapter as PluginChapter,
@@ -1247,6 +1247,22 @@ export function OnlineMangaView() {
     }
   };
 
+  // Desktop cancel parity (F9 follow-up #4): DownloadQueuePanel is mounted
+  // globally in GlobalDialogs with no prop channel, so while this view is
+  // mounted expose the chapter-cancel capability through the shared queue UI
+  // store. The panel only renders the affordance for pages-unit entries, so
+  // book downloads (no backend cancel command) never see it.
+  useEffect(() => {
+    // api is a module import (stable), so this effect is mount-only.
+    const register = useDownloadQueueUI.getState().setCancelTarget;
+    register((chapterId: string) => {
+      void api.cancelMangaChapterDownload(chapterId).catch(() => {
+        // Best-effort: the download may have already finished between render and click.
+      });
+    });
+    return () => register(null);
+  }, []);
+
   const handleDownloadChapters = async (selectedChapters: UnifiedChapter[], seriesMetadata?: any) => {
     if (selectedChapters.length === 0) return;
     const manga = selectedManga || selectedPluginManga;
@@ -1328,6 +1344,17 @@ export function OnlineMangaView() {
           if (cancelled) {
             // Slice F9: cancellation is not a failure — partial pages remain in
             // the chapter's .parts dir and the next run resumes from them.
+            // Represent it distinctly in the queue (status 'cancelled'), keeping
+            // the page count reached so the row shows the resume point.
+            const existing = useOnlineDownloadStore.getState().downloads[ch.id];
+            useOnlineDownloadStore.getState().setDownload(ch.id, {
+              target_id: ch.id,
+              status: 'cancelled',
+              downloaded_bytes: existing?.downloaded_bytes ?? 0,
+              total_bytes: existing?.total_bytes ?? 1,
+              title: fullDisplayTitle,
+              unit: 'pages',
+            });
             showInfoToast(`Chapter ${ch.chapter} cancelled`, 'Partial pages kept — download again to resume.');
           } else {
             downloadFailures.push({ chapter: String(ch.chapter), reason });

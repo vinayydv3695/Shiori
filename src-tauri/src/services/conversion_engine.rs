@@ -33,19 +33,18 @@ use crate::services::format_detection::detect_format;
 // ──────────────────────────────────────────────────────────────────────────
 
 pub const CONVERSION_MATRIX: &[(&str, &[&str])] = &[
-    // Only pairs backed by a real converter are advertised. The epub→
-    // docx/mobi/azw3/fb2 and pdf→docx/etc. directions were stubs that
-    // returned ConversionNotSupported at execution time — advertising them
-    // just queued jobs that were doomed to fail.
-    ("epub", &["pdf", "txt"]),
-    ("pdf", &["epub", "txt"]),
-    ("mobi", &["epub", "pdf", "txt"]),
-    ("azw3", &["epub", "pdf", "txt"]),
-    ("docx", &["epub", "pdf", "txt"]),
-    ("txt", &["epub", "pdf"]),
+    // Only pairs backed by a real converter are advertised. epub→fb2 landed
+    // with `conversion/fb2_writer.rs`; docx/mobi/azw3 outputs remain stubs
+    // and stay unadvertised.
+    ("epub", &["pdf", "txt", "fb2"]),
+    ("pdf", &["epub", "txt", "fb2"]),
+    ("mobi", &["epub", "pdf", "txt", "fb2"]),
+    ("azw3", &["epub", "pdf", "txt", "fb2"]),
+    ("docx", &["epub", "pdf", "txt", "fb2"]),
+    ("txt", &["epub", "pdf", "fb2"]),
     ("fb2", &["epub", "pdf", "txt"]),
-    ("html", &["epub", "txt"]),
-    ("markdown", &["epub", "txt"]),
+    ("html", &["epub", "txt", "fb2"]),
+    ("markdown", &["epub", "txt", "fb2"]),
 ];
 
 pub fn can_convert(from: &str, to: &str) -> bool {
@@ -924,11 +923,67 @@ impl ConversionEngine {
         })
     }
 
-    async fn epub_to_fb2(_source: &Path, _target: &Path) -> FormatResult<()> {
-        Err(FormatError::ConversionNotSupported {
-            from: "epub".to_string(),
-            to: "fb2".to_string(),
-        })
+    /// EPUB → FB2 2.1 via `conversion::fb2_writer`.
+    async fn epub_to_fb2(source: &Path, target: &Path) -> FormatResult<()> {
+        use ::epub::doc::EpubDoc;
+
+        let mut doc = EpubDoc::new(source)
+            .map_err(|e| FormatError::ConversionError(format!("Failed to open EPUB: {}", e)))?;
+
+        let title = doc
+            .get_title()
+            .filter(|t| !t.trim().is_empty())
+            .unwrap_or_else(|| {
+                source
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "Untitled".to_string())
+            });
+        let authors: Vec<String> = doc
+            .metadata
+            .iter()
+            .filter(|m| m.property == "creator")
+            .map(|m| m.value.clone())
+            .filter(|v| !v.trim().is_empty())
+            .collect();
+        let language = doc
+            .metadata
+            .iter()
+            .find(|m| m.property == "language")
+            .map(|m| m.value.clone())
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| "en".to_string());
+        let id = {
+            use sha2::{Digest, Sha256};
+            let bytes = std::fs::read(source).unwrap_or_default();
+            let mut h = Sha256::new();
+            h.update(&bytes);
+            format!("urn:shiori:{:x}", h.finalize())
+        };
+
+        let mut chapters: Vec<(Option<String>, String)> = Vec::new();
+        for i in 0..doc.get_num_chapters() {
+            let _ = doc.set_current_chapter(i);
+            if let Some((content, _)) = doc.get_current_str() {
+                chapters.push(crate::conversion::fb2_writer::html_to_fb2_body(&content));
+            }
+        }
+        if chapters.is_empty() {
+            return Err(FormatError::ConversionError(
+                "EPUB has no readable chapters".to_string(),
+            ));
+        }
+
+        let book = crate::conversion::fb2_writer::Fb2Book {
+            title,
+            authors,
+            language,
+            id,
+        };
+        crate::conversion::fb2_writer::write_fb2(&book, &chapters, target)
+            .map_err(|e| FormatError::ConversionError(e.to_string()))?;
+        log::info!("[Conversion] EPUB → FB2: {}", target.display());
+        Ok(())
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -1502,7 +1557,7 @@ mod tests {
     /// epub/txt.
     #[test]
     fn test_matrix_has_no_stub_targets() {
-        let real_targets: HashSet<&str> = ["epub", "pdf", "txt"].into_iter().collect();
+        let real_targets: HashSet<&str> = ["epub", "pdf", "txt", "fb2"].into_iter().collect();
         for (from, targets) in CONVERSION_MATRIX {
             for t in *targets {
                 assert!(
@@ -1512,11 +1567,12 @@ mod tests {
             }
         }
         // Explicitly assert the pairs that used to be advertised but always
-        // failed at execution time.
+        // failed at execution time (fb2 now has a real writer — see
+        // conversion/fb2_writer.rs).
         assert!(!can_convert("epub", "docx"));
         assert!(!can_convert("epub", "mobi"));
         assert!(!can_convert("epub", "azw3"));
-        assert!(!can_convert("epub", "fb2"));
+        assert!(can_convert("epub", "fb2"));
         assert!(!can_convert("pdf", "docx"));
         assert!(!can_convert("pdf", "mobi"));
         assert!(!can_convert("txt", "docx"));

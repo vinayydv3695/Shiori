@@ -24,6 +24,7 @@ pub mod utils;
 
 // ── New OEB-based pipeline ───────────────────────────────────────────────
 pub mod epub_builder;
+pub mod fb2_writer;
 pub mod error;
 pub mod formats;
 pub mod oeb;

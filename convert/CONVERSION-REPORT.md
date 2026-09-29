@@ -85,7 +85,7 @@ New report channel: `OebBook.report` (parsers append) → `merge_parser_report` 
 ## 6. Follow-ups (ranked)
 
 1. ~~pdftohtml-XML geometry pass~~ — done (see above); next PDF tier: rotated/marginal text, footnote linking, font-size-based heading levels.
-2. ~~`epub_to_pdf` outline/presets~~ — done (bookmarks, page numbers, A4 margins, embedded font). Remaining: `epub_to_fb2` output writer, user-facing paper presets in the UI.
+2. ~~`epub_to_pdf` outline/presets~~ — done (bookmarks, page numbers, A4 margins, embedded font). `epub_to_fb2` landed too (`conversion/fb2_writer.rs`, round-trip validated). Remaining: user-facing paper/output presets in the UI, AZW3/KF8 writer.
 3. ~~MOBI DRM detection~~ — done (header-field gate before parsing). Remaining: KF8-prefer verification on real dual files.
 4. ~~Batch-dialog report links~~ — done. Remaining: localization keys for report codes.
 5. CI: epubcheck + corpus scorer job (dev-only tooling).

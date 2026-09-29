@@ -92,3 +92,16 @@ Full narrative and root causes: `convert/CONVERSION-REPORT.md`. Remaining gaps a
 
 Determinism re-verified manually: two consecutive probe runs → identical sha256 of `convert/out/txt/enc_utf8_bom.epub` (`a582a4ef…`).
 Gates: 415 lib tests · fuzz 294 mutants · probe 47 conversions · pdf_out smoke · tsc + eslint clean (2 pre-existing @ts-ignore errors in tauri.ts unchanged).
+
+
+---
+
+# ROUND 3 — EPUB→FB2 output writer (2026-09-29, S8)
+
+| Item | Before | After |
+|---|---|---|
+| EPUB→FB2 | `ConversionNotSupported` (unadvertised) | **valid FB2 2.1** — metadata (title/authors/lang/urn id), one `<section>` per chapter with `<title>`, `<emphasis>/<strong>/<code>`, `<cite>`, tables, `<empty-line/>` |
+| Matrix | epub→[pdf,txt] | epub/pdf/mobi/azw3/docx/txt/html/markdown → **+fb2** |
+| Validation | — | produced FB2 **round-trips through our own `formats::fb2::parse`** (titles + body text asserted); 3 walker unit tests + 2 integration tests |
+
+Gates: 423 lib tests · convert_probe 47/47 · fb2_out_smoke 2/2 (round-trip) · determinism unchanged.

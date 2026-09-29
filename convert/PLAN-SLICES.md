@@ -12,3 +12,4 @@
 | S7 | PDF geometry: two-column reorder, sidebar, page headlines, simple tables | twocolumn.pdf TOC ≪ 112 + ordered columns; tables.pdf rows as <table>; novel.pdf stays 7 | conversion/formats/pdf.rs (pdftohtml-XML path) | L |
 
 Gates per slice: `cargo test --lib` + `cargo test --test convert_probe` (+ score.py where structure touched) + tsc/eslint for UI slices.
+| S8 | EPUB→FB2 output writer | valid FB2 round-tripping through our parser; matrix advertises fb2 for all book sources | conversion/fb2_writer.rs, conversion_engine.rs matrix | — done 2026-09-29 |

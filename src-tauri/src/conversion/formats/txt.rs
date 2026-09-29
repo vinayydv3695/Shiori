@@ -226,18 +226,15 @@ fn body_starts_with_heading(html: &str) -> bool {
 fn finalize_chapters(book: &mut OebBook) {
     let mut merged: Vec<OebChapter> = Vec::with_capacity(book.chapters.len());
     for ch in book.chapters.drain(..) {
-        let ch_title = ch
-            .title
-            .as_deref()
-            .map(|t| t.trim().to_lowercase())
-            .unwrap_or_default();
+        let ch_title = ch.title.as_deref().map(title_key).unwrap_or_default();
         let duplicate = merged
             .last()
-            .map(|p| {
-                p.title.as_deref().map(|t| t.trim().to_lowercase()) == Some(ch_title.clone())
-            })
+            .map(|p| p.title.as_deref().map(title_key) == Some(ch_title.clone()))
             .unwrap_or(false);
         if duplicate {
+            if std::env::var("SHIORI_DBG_TXT").is_ok() {
+                eprintln!("[txt] SAME-TITLE MERGE: {:?}", ch.title);
+            }
             let prev = merged.last_mut().unwrap();
             if !prev.html.trim().is_empty() && !ch.html.trim().is_empty() {
                 prev.html.push('\n');
@@ -264,6 +261,36 @@ fn finalize_chapters(book: &mut OebBook) {
     }
 }
 
+/// Canonical key for duplicate-title comparison: lowercase, trailing
+/// punctuation/brackets and trailing page-number tokens stripped, whitespace
+/// collapsed — so the TOC's "Chapter I.]" and the real "CHAPTER I." compare
+/// equal.
+fn title_key(title: &str) -> String {
+    let mut t = title.trim().to_lowercase();
+    while t.ends_with(|c: char| c.is_ascii_punctuation() || c == ']' || c == '[' || c == ')') {
+        t.pop();
+    }
+    // Strip a trailing bare page number (" 12") — but only when the word
+    // before it is NOT a chapter keyword, otherwise "Chapter 2" would
+    // collapse into "chapter" and merge with "Chapter 1".
+    let words: Vec<&str> = t.split_whitespace().collect();
+    if let Some(last) = words.last() {
+        let prev_is_keyword = words.len() >= 2
+            && matches!(
+                words[words.len() - 2],
+                "chapter" | "letter" | "part" | "book" | "section" | "act" | "scene"
+                    | "lesson" | "volume" | "adventure" | "canto" | "prologue"
+                    | "epilogue" | "appendix" | "preface" | "introduction"
+                    | "глава" | "kapitel" | "chapitre" | "capítulo" | "capitulo"
+                    | "kapitola"
+            );
+        if !prev_is_keyword && last.chars().all(|c| c.is_ascii_digit()) {
+            t = words[..words.len() - 1].join(" ").trim_end().to_string();
+        }
+    }
+    t.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// A book's own table of contents produces short stub chapters bearing the
 /// same titles as the real chapters further on (Moby Dick, Frankenstein,
 /// Pride & Prejudice all have this). A stub is a chapter whose title repeats
@@ -274,7 +301,7 @@ fn dedupe_toc_stubs(book: &mut OebBook) {
     let mut longest: HashMap<String, usize> = HashMap::new();
     let mut counts: HashMap<String, usize> = HashMap::new();
     for ch in &book.chapters {
-        let Some(title) = ch.title.as_deref().map(|t| t.trim().to_lowercase()) else {
+        let Some(title) = ch.title.as_deref().map(title_key) else {
             continue;
         };
         let len = ch.html.len();
@@ -283,7 +310,7 @@ fn dedupe_toc_stubs(book: &mut OebBook) {
         *counts.entry(title).or_insert(0) += 1;
     }
     book.chapters.retain(|ch| {
-        let Some(title) = ch.title.as_deref().map(|t| t.trim().to_lowercase()) else {
+        let Some(title) = ch.title.as_deref().map(title_key) else {
             return true;
         };
         let repeated = counts.get(&title).copied().unwrap_or(0) > 1;
@@ -293,6 +320,9 @@ fn dedupe_toc_stubs(book: &mut OebBook) {
         let len = ch.html.len();
         let twins_longest = longest.get(&title).copied().unwrap_or(0);
         let stub = len < 200 && (twins_longest >= 500 || twins_longest >= len * 10) && twins_longest != len;
+        if stub && std::env::var("SHIORI_DBG_TXT").is_ok() {
+            eprintln!("[txt] STUB DROP: {:?} len={} twin={}", ch.title, len, twins_longest);
+        }
         !stub
     });
 }
@@ -347,3 +377,41 @@ fn is_junk_line(text: &str) -> bool {
         });
     page_label || bare_number
 }
+
+#[cfg(test)]
+mod stub_tests {
+    use crate::conversion::oeb::{OebBook, OebChapter};
+
+    fn book_with(titles: &[&str], lens: &[usize]) -> OebBook {
+        let mut b = OebBook::new("t");
+        for (i, (t, l)) in titles.iter().zip(lens).enumerate() {
+            b.chapters.push(OebChapter {
+                id: format!("c{i}"),
+                title: Some(t.to_string()),
+                html: format!("<p>{}</p>", "x".repeat(*l)),
+            });
+        }
+        b
+    }
+
+    #[test]
+    fn toc_stub_variant_titles_dedupe() {
+        // TOC "Chapter I.]" (short stub) + real "CHAPTER I." (long body).
+        let mut b = book_with(
+            &["Chapter I.]", "CHAPTER I.", "Chapter II.", "CHAPTER II."],
+            &[30, 900, 30, 900],
+        );
+        super::dedupe_toc_stubs(&mut b);
+        assert_eq!(b.chapters.len(), 2, "stubs must be dropped: {:?}", b.chapters.iter().map(|c| c.title.clone()).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn title_key_normalizes() {
+        assert_eq!(super::title_key("  Chapter I.] "), "chapter i");
+        assert_eq!(super::title_key("CHAPTER 12."), "chapter 12");
+        assert_eq!(super::title_key("Letter 1"), "letter 1");
+    }
+}
+
+
+

@@ -371,7 +371,24 @@ fn split_into_chapters(html: &str) -> Vec<(String, String)> {
         let line = lines[i];
         let mut pushed = false;
         if let Some(cap) = CHAPTER_RE.captures(line) {
-            heading_split(&mut chapters, &mut current_title, &mut current_body, cap[1].trim());
+            // A paragraph that itself contains FURTHER chapter markers is a
+            // contents list (Gutenberg prints the whole TOC as one line) —
+            // swallowing it as a heading would smear the entire list into a
+            // single title. Keep it as body text instead.
+            static MARKER_RE: once_cell::sync::Lazy<regex::Regex> =
+                once_cell::sync::Lazy::new(|| {
+                    regex::Regex::new(
+                        r"(?i)\b(?:chapter|part|book|prologue|epilogue|introduction|appendix|preface|adventure|letter|volume|section|act|scene|lesson|canto|глава|kapitel|chapitre|capítulo|capitulo|kapitola)\s+(?:[0-9]+|[ivxlcdm]+|[а-яё]+|[a-z]+)\b",
+                    )
+                    .unwrap()
+                });
+            let more_markers = MARKER_RE.find_iter(&cap[1]).count() > 1;
+            if more_markers {
+                current_body.push_str(line);
+                current_body.push('\n');
+            } else {
+                heading_split(&mut chapters, &mut current_title, &mut current_body, cap[1].trim());
+            }
             pushed = true;
         } else if let Some(cap) = BARE_NUM_TITLE_RE.captures(line) {
             let raw = cap[1].trim();

@@ -4,7 +4,7 @@
 
 ## ⚠ Local-oracle limitation (honest)
 
-`ebook-convert` is **not installed** on this dev box (checked: `which ebook-convert` → absent; no calibre package). A full black-box comparison run (calibre CLI on the corpus, side-by-side with native output) was therefore **not possible in this session**. The behavior notes below are from public documented behavior (https://manual.calibre-ebook.com/convert.html) and from the existing integration code. **Recommended follow-up: install calibre on the dev machine (`pacman -S calibre` or official installer) and re-run `convert/tools/compare_calibre.py` (Phase 3).** Adding calibre to CI is *not* recommended (oracle is dev-only per rule 2).
+`ebook-convert` is **not installed** on this dev box (checked: `which ebook-convert` → absent; no calibre package; no sudo for `pacman -S calibre`). A full black-box comparison run (calibre CLI on the corpus, side-by-side with native output) was therefore **not possible in this session**. The behavior notes below are from public documented behavior (https://manual.calibre-ebook.com/convert.html) and from the existing integration code. **The comparison harness is ready: install calibre on the dev machine (`pacman -S calibre` or official installer) and run `convert/tools/compare_calibre.py` — it runs `ebook-convert --enable-heuristics` over the corpus and scores output with the same epubcheck/fidelity/TOC metrics as score.py.** Adding calibre to CI is *not* recommended (oracle is dev-only per rule 2).
 
 ## What Shiori already does with Calibre (audit of calibre_service.rs)
 

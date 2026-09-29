@@ -100,6 +100,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   const [categories, setCategories] = useState<AnnotationCategory[]>([]);
   const [showTranslation, setShowTranslation] = useState(false);
   const [showAICopilot, setShowAICopilot] = useState(false);
+  const isModal = showNoteInput || showTranslation;
   const [translationMode, setTranslationMode] = useState<'translate' | 'define'>('translate');
   const [translationLoading, setTranslationLoading] = useState(false);
   const [dictionaryResult, setDictionaryResult] = useState<DictionaryResponse | null>(null);
@@ -282,18 +283,23 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
         : (anchor.parentElement as HTMLElement | null);
 
       // Position toolbar relative to selection with safe bounds
-      const isCard = showNoteInput || showTranslation || showAICopilot;
-      const toolbarWidth = toolbarRef.current?.offsetWidth || (isCard ? 380 : (showColorPicker ? 500 : 460));
-      const toolbarHeight = toolbarRef.current?.offsetHeight || (isCard ? 300 : (showColorPicker ? 85 : 45));
+      const isModal = showNoteInput || showTranslation;
+      const isCard = isModal || showAICopilot;
+      const toolbarWidth = toolbarRef.current?.offsetWidth || (isModal ? 480 : (isCard ? 380 : (showColorPicker ? 500 : 460)));
+      const toolbarHeight = toolbarRef.current?.offsetHeight || (isModal ? 360 : (isCard ? 300 : (showColorPicker ? 85 : 45)));
 
       const vpWidth = window.innerWidth;
       const vpHeight = window.innerHeight;
       const safeMargin = 12;
 
-      let x = rect.left + rect.width / 2 - toolbarWidth / 2;
+      let x = 0;
       let y = 0;
 
-      if (isCard) {
+      if (isModal) {
+        x = (vpWidth - toolbarWidth) / 2;
+        y = Math.max(safeMargin, (vpHeight - toolbarHeight) / 2);
+      } else if (isCard) {
+        x = rect.left + rect.width / 2 - toolbarWidth / 2;
         if (rect.top - toolbarHeight - safeMargin >= safeMargin) {
           y = rect.top - toolbarHeight - 8;
         } else if (rect.bottom + toolbarHeight + safeMargin <= vpHeight - safeMargin) {
@@ -302,6 +308,7 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
           y = Math.max(safeMargin, vpHeight - toolbarHeight - safeMargin);
         }
       } else {
+        x = rect.left + rect.width / 2 - toolbarWidth / 2;
         if (rect.top - toolbarHeight - safeMargin >= safeMargin) {
           y = rect.top - toolbarHeight - 8;
         } else {
@@ -325,9 +332,10 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
   // Dynamic repositioning whenever toolbar size or content changes
   const repositionToolbar = useCallback(() => {
     if (!toolbarRef.current) return;
-    const isCard = showNoteInput || showTranslation || showAICopilot;
-    const actualWidth = (showNoteInput ? (toolbarRef.current.offsetWidth >= 440 ? toolbarRef.current.offsetWidth : 480) : toolbarRef.current.offsetWidth) || (showNoteInput ? 480 : (isCard ? 380 : (showColorPicker ? 500 : 460)));
-    const actualHeight = (showNoteInput ? (toolbarRef.current.offsetHeight >= 300 ? toolbarRef.current.offsetHeight : 360) : toolbarRef.current.offsetHeight) || (showNoteInput ? 360 : (isCard ? 300 : (showColorPicker ? 85 : 45)));
+    const isModal = showNoteInput || showTranslation;
+    const isCard = isModal || showAICopilot;
+    const actualWidth = (isModal ? (toolbarRef.current.offsetWidth >= 440 ? toolbarRef.current.offsetWidth : 480) : toolbarRef.current.offsetWidth) || (isModal ? 480 : (isCard ? 380 : (showColorPicker ? 500 : 460)));
+    const actualHeight = (isModal ? (toolbarRef.current.offsetHeight >= 300 ? toolbarRef.current.offsetHeight : 360) : toolbarRef.current.offsetHeight) || (isModal ? 360 : (isCard ? 300 : (showColorPicker ? 85 : 45)));
     const rect = selectionRectRef.current;
 
     const vpWidth = window.innerWidth;
@@ -337,8 +345,8 @@ export function TextSelectionToolbar({ bookId, currentLocation }: TextSelectionT
     let x = 0;
     let y = 0;
 
-    if (showNoteInput) {
-      // Center the Add Note modal directly on screen for optimal user visibility and focus
+    if (isModal) {
+      // Center the modal directly on screen for optimal user visibility and focus
       x = (vpWidth - actualWidth) / 2;
       y = Math.max(safeMargin, (vpHeight - actualHeight) / 2);
     } else if (rect) {
@@ -659,13 +667,17 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
     setTranslationResult(null);
     try {
       const result = await api.translateText(selectedText, targetLang);
+      const upper = (result?.translated_text || '').toUpperCase();
+      if (upper.includes('QUERY LENGTH LIMIT EXCEEDED') || upper.includes('MYMEMORY WARNING')) {
+        throw new Error('Translation service query limit reached. Please try translating again.');
+      }
       translationClientCache.set(cacheKey, result);
       setTranslationResult(result);
     } catch (err: any) {
       setTranslationError(
         typeof err === 'object' && err !== null && 'userMessage' in err
           ? String(err.userMessage)
-          : String(err)
+          : String(err?.message || err)
       );
     } finally {
       setTranslationLoading(false);
@@ -777,36 +789,66 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
   return (
     <AnimatePresence>
-      {isVisible && showNoteInput && (
+      {isVisible && isModal && (
         <motion.div
-          key="text-selection-note-backdrop"
+          key="text-selection-modal-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-[9990] bg-black/25 dark:bg-black/45 backdrop-blur-[2.5px] pointer-events-auto select-none"
+          className="fixed inset-0 z-[9990] bg-black/40 dark:bg-black/60 backdrop-blur-md pointer-events-auto select-none"
           aria-hidden="true"
           onPointerDown={(e) => {
             e.stopPropagation();
-            setShowNoteInput(false);
-            setNoteText('');
+            if (showNoteInput) {
+              setShowNoteInput(false);
+              setNoteText('');
+            }
+            if (showTranslation) {
+              setShowTranslation(false);
+              hideToolbar();
+            }
           }}
           onClick={(e) => {
             e.stopPropagation();
-            setShowNoteInput(false);
-            setNoteText('');
+            if (showNoteInput) {
+              setShowNoteInput(false);
+              setNoteText('');
+            }
+            if (showTranslation) {
+              setShowTranslation(false);
+              hideToolbar();
+            }
           }}
         />
       )}
       {isVisible && (
         <motion.div
-          key="text-selection-toolbar-modal"
+          key={isModal ? "text-selection-centered-modal" : "text-selection-floating-toolbar"}
           ref={toolbarRef}
-          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showAICopilot) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showColorPicker ? 'text-selection-toolbar--highlight-active' : ''} ${showNoteInput ? 'text-selection-toolbar--note-active' : ''}`}
-          style={isAndroid ? undefined : { left: position.x, top: position.y }}
-          initial={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 8, scale: 0.96 }}
-          animate={isAndroid ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1, y: 0, scale: 1 }}
-          exit={isAndroid ? { opacity: 0, y: 20 } : { opacity: 0, y: 6, scale: 0.96 }}
+          className={`text-selection-toolbar ${isAndroid ? 'text-selection-toolbar--android' : ''} ${showAndroidMore ? 'text-selection-toolbar--more-active' : ''} ${(!showNoteInput && !showTranslation && !showAICopilot) ? 'text-selection-toolbar--pill' : 'text-selection-toolbar--card'} ${showColorPicker ? 'text-selection-toolbar--highlight-active' : ''} ${isModal ? 'text-selection-toolbar--note-active' : ''}`}
+          style={isAndroid ? undefined : (isModal ? { left: '50%', top: '50%' } : { left: position.x, top: position.y })}
+          initial={
+            isAndroid
+              ? { opacity: 0, y: 20 }
+              : isModal
+              ? { opacity: 0, scale: 0.96, x: '-50%', y: '-50%' }
+              : { opacity: 0, y: 8, scale: 0.96 }
+          }
+          animate={
+            isAndroid
+              ? { opacity: 1, y: 0, scale: 1 }
+              : isModal
+              ? { opacity: 1, scale: 1, x: '-50%', y: '-50%' }
+              : { opacity: 1, y: 0, scale: 1 }
+          }
+          exit={
+            isAndroid
+              ? { opacity: 0, y: 20 }
+              : isModal
+              ? { opacity: 0, scale: 0.96, x: '-50%', y: '-50%' }
+              : { opacity: 0, y: 6, scale: 0.96 }
+          }
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
@@ -1308,6 +1350,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
           {showTranslation && (
             <TranslationPopup
+              selectedText={selectedText}
               mode={translationMode}
               loading={translationLoading}
               dictionaryResult={dictionaryResult}
@@ -1320,6 +1363,10 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
               onAddVocabulary={handleAddVocabulary}
               onSwitchMode={(mode) => {
                 if (mode === 'define') handleDefine();
+                else handleTranslate();
+              }}
+              onRetry={() => {
+                if (translationMode === 'define') handleDefine();
                 else handleTranslate();
               }}
             />

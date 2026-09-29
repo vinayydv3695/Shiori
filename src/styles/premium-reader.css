@@ -825,40 +825,32 @@ select {
    Centers and cleanly frames standalone covers and first pages.
    ──────────────────────────────────────────────────────────── */
 .epub-cover-wrapper,
-.premium-chapter-content:has(> .epub-cover-wrapper),
-.premium-chapter-content:has(> svg:only-child),
-.premium-chapter-content:has(> div > svg:only-child),
-.premium-chapter-content:has(> img:only-child),
-.premium-chapter-content:has(> div > img:only-child) {
+.premium-chapter-content:has(> .epub-cover-wrapper) {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
   min-height: calc(100dvh - 160px) !important;
+  height: 100% !important;
   width: 100% !important;
   max-width: 100% !important;
   margin: 0 auto !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
+  padding: 0 !important;
 }
 
-.epub-cover-wrapper > div,
-.premium-chapter-content:has(> div > svg:only-child) > div,
-.premium-chapter-content:has(> div > img:only-child) > div {
+.epub-cover-wrapper > div {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
   max-height: calc(100dvh - 150px) !important;
   max-width: 100% !important;
-  width: auto !important;
+  width: 100% !important;
   margin: 0 auto !important;
 }
 
 .premium-chapter-content img,
-.premium-chapter-content svg,
-.epub-cover-wrapper img,
-.epub-cover-wrapper svg {
+.epub-cover-wrapper img {
   max-height: calc(100dvh - 160px) !important;
   max-width: 100% !important;
   width: auto !important;
@@ -867,7 +859,22 @@ select {
   margin: 0 auto !important;
 }
 
-.epub-cover-wrapper img,
+.epub-cover-wrapper img {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16) !important;
+  border-radius: var(--radius-md, 8px) !important;
+}
+
+.premium-chapter-content svg,
+.epub-cover-wrapper svg,
+.epub-svg-illustration {
+  max-height: calc(100dvh - 160px) !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  margin: 0 auto !important;
+}
+
 .epub-cover-wrapper svg {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16) !important;
   border-radius: var(--radius-md, 8px) !important;
@@ -879,10 +886,11 @@ select {
     min-height: calc(100dvh - 130px) !important;
   }
 
-  .premium-chapter-content--first-page img,
-  .premium-chapter-content--first-page svg,
+  .premium-chapter-content img,
   .epub-cover-wrapper img,
-  .epub-cover-wrapper svg {
+  .premium-chapter-content svg,
+  .epub-cover-wrapper svg,
+  .epub-svg-illustration {
     max-height: calc(100dvh - 130px) !important;
   }
 }
@@ -3421,15 +3429,18 @@ select {
   border-color: var(--text-primary, #1a1817);
 }
 
-/* Note input area */
+/* Note & Translation modal card */
 .text-selection-toolbar.text-selection-toolbar--note-active {
   padding: 0 !important;
   border-radius: 24px !important;
   width: 480px !important;
-  max-width: min(calc(100vw - 28px), 500px) !important;
-  overflow: hidden;
-  box-shadow: 0 24px 54px -10px rgba(0, 0, 0, 0.38), 0 8px 22px -3px rgba(0, 0, 0, 0.16) !important;
-  border: 1px solid var(--ui-border) !important;
+  max-width: min(calc(100vw - 32px), 500px) !important;
+  max-height: min(calc(100vh - 48px), 640px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-shadow: 0 32px 68px -12px rgba(0, 0, 0, 0.42), 0 12px 28px -4px rgba(0, 0, 0, 0.22), 0 0 0 1px color-mix(in srgb, var(--ui-border) 80%, transparent), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.45) !important;
+  border: 1px solid color-mix(in srgb, var(--ui-border) 80%, transparent) !important;
   background: var(--bg-elevated) !important;
   backdrop-filter: blur(28px) !important;
   -webkit-backdrop-filter: blur(28px) !important;
@@ -3605,10 +3616,35 @@ select {
 }
 
 .translation-popup {
-  padding: 14px;
-  min-width: 280px;
-  max-width: 380px;
+  padding: 18px 20px;
+  width: 100%;
+  max-height: min(calc(100vh - 48px), 640px);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.translation-popup-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ui-focus) 40%, var(--ui-border)) transparent;
+}
+
+.translation-popup-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.translation-popup-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.translation-popup-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ui-focus) 35%, var(--ui-border));
+  border-radius: 6px;
+}
+
+.translation-popup-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-focus);
 }
 
 .translation-popup-header {

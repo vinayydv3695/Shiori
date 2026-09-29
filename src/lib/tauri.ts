@@ -195,6 +195,22 @@ export interface MangaVolume {
   volume_number?: number
 }
 
+/** Lean per-volume row for the series view (slice F2-a) — mirrors the Rust
+ * `SeriesBookItem`. Subset of `Book` without authors/tags/notes. */
+export interface SeriesBookItem {
+  id: number
+  title: string
+  sort_title?: string | null
+  series_index?: number | null
+  cover_path?: string | null
+  reading_status: string
+  page_count?: number | null
+  last_opened?: string | null
+  file_format: string
+  file_path: string
+  added_date: string
+}
+
 export interface SearchQuery {
   query?: string
   domain?: string
@@ -1375,6 +1391,26 @@ export const api = {
 
   async updateReadingStatus(bookId: number, status: string): Promise<void> {
     return invoke("update_reading_status", { bookId, status })
+  },
+
+  /** Batch reading-status update (slice F2-a): one IPC + one transaction. */
+  async updateReadingStatusBatch(ids: number[], status: string): Promise<number> {
+    return invoke("update_reading_status_batch", { ids, status })
+  },
+
+  /** Lean series volumes for the series view (slice F2-a). */
+  async getSeriesBooksByName(series: string): Promise<SeriesBookItem[]> {
+    return invoke("get_series_books_by_name", { series })
+  },
+
+  /** Single-row series lookup (replaces getMangaSeriesList(1000,0)+find). */
+  async getMangaSeriesByTitle(title: string): Promise<MangaSeries | null> {
+    return invoke("get_manga_series_by_title", { title })
+  },
+
+  /** Batched book hydration: one IPC for N ids (replaces N× getBook). */
+  async getBooksByIds(ids: number[]): Promise<Book[]> {
+    return invoke("get_books_by_ids", { ids })
   },
 
   async getBooksByReadingStatus(status: string, limit: number = 50, offset: number = 0): Promise<Book[]> {

@@ -71,6 +71,26 @@ function sanitizeChapterHtml(content: string): string {
   });
 }
 
+/**
+ * Detect if a chapter contains zero readable or visual content
+ * (e.g. empty splash/root stubs, whitespace/&nbsp;-only wrappers).
+ */
+export function isChapterHtmlBlank(html: string): boolean {
+  if (!html || !html.trim()) return true;
+  // If it has any image or svg image, it is NOT blank
+  if (/<(?:\w+:)?(?:img|image)\b/i.test(html)) return false;
+  // If it has visible SVG graphics or text, it is NOT blank
+  if (/<(?:path|rect|circle|polygon|polyline|text)\b/i.test(html)) return false;
+  // Strip head, script, style
+  const withoutHead = html.replace(/<(?:head|script|style)\b[^>]*>[\s\S]*?<\/(?:head|script|style)>/gi, '');
+  // Strip tags and whitespace entities
+  const text = withoutHead
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:nbsp|#160|ensp|emsp);/gi, ' ')
+    .trim();
+  return text.length === 0;
+}
+
 export function ChapterHtml({ content, isFirstPage }: { content: string; isFirstPage?: boolean }) {
   const html = useMemo(() => sanitizeChapterHtml(content), [content]);
   return (
@@ -219,8 +239,8 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
   // K3-006: single-pass replace with a replacer function instead of a
   // per-resource loop that allocated the whole string on every iteration.
   // The replacer is called for each match without rebuilding processedHtml.
-  const srcRegex = /(src|srcset|href)="([^"']+)"/g;
-  processedHtml = processedHtml.replace(srcRegex, (whole, attr: string, originalPath: string) => {
+  const srcRegex = /\b(src|srcset|href|xlink:href)=(["'])([^"']+)\2/gi;
+  processedHtml = processedHtml.replace(srcRegex, (whole, attr: string, quote: string, originalPath: string, offset: number, fullStr: string) => {
     // Skip absolute URLs, data URIs, anchors, and CSS files (already processed)
     if (
       originalPath.startsWith('http') ||
@@ -242,14 +262,21 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
       return whole;
     }
 
-    return `${attr}="${rewriteResourceValue(attr, originalPath, bookId)}"`;
+    const rewritten = rewriteResourceValue(attr, originalPath, bookId);
+    // For SVG <image> elements, supply both href and xlink:href for maximum browser/WebView compatibility
+    const surrounding = fullStr.slice(Math.max(0, offset - 24), offset).toLowerCase();
+    if (surrounding.includes('<image') && (attr === 'href' || attr.toLowerCase() === 'xlink:href')) {
+      return `href="${rewritten}" xlink:href="${rewritten}"`;
+    }
+
+    return `${attr}="${rewritten}"`;
   });
 
   // Step 3: Normalize SVG covers & illustrations
   // Calibre and EPUB generators often add preserveAspectRatio="none" which distorts covers,
   // or width="100%" / height="100%" with no constraints.
-  // Handles both standard <svg> and namespaced <svg:svg> from EPUBs.
-  processedHtml = processedHtml.replace(/<(?:svg:)?svg\b([^>]*)>/gi, (_whole, attrs) => {
+  // Normalize <svg:svg> to <svg> WITHOUT corrupting <svg:image>!
+  processedHtml = processedHtml.replace(/<(?:\w+:)?svg(?=[\s>])([^>]*)>/gi, (_whole, attrs) => {
     let cleanAttrs = attrs;
     if (/preserveAspectRatio=["']none["']/i.test(cleanAttrs)) {
       cleanAttrs = cleanAttrs.replace(/preserveAspectRatio=["']none["']/i, 'preserveAspectRatio="xMidYMid meet"');
@@ -263,16 +290,24 @@ export async function processEpubHtml(bookId: number, html: string): Promise<str
     }
     return `<svg ${cleanAttrs}>`;
   });
-  processedHtml = processedHtml.replace(/<\/(?:svg:)?svg>/gi, '</svg>');
-  processedHtml = processedHtml.replace(/<(?:\w+:)?image\b/gi, '<image');
+  processedHtml = processedHtml.replace(/<\/(?:\w+:)?svg>/gi, '</svg>');
+  processedHtml = processedHtml.replace(/<(?:\w+:)?image(?=[\s>])/gi, '<image');
   processedHtml = processedHtml.replace(/<\/(?:\w+:)?image>/gi, '</image>');
 
   // Step 4: Tag cover pages with epub-cover-wrapper
+  const withoutHead = html.replace(/<(?:head|script|style)\b[^>]*>[\s\S]*?<\/(?:head|script|style)>/gi, '');
+  const bodyText = withoutHead
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:nbsp|#160|ensp|emsp);/gi, ' ')
+    .trim();
+  const hasVisual = /<(?:\w+:)?(?:img|image|svg)\b/i.test(withoutHead);
+
   const isCoverPage =
     /<meta\s+[^>]*name=["'](?:calibre:cover|cover)["']/i.test(html) ||
-    /<title>[^<]*\bcover\b[^<]*<\/title>/i.test(html) ||
-    /\b(?:class|id)=["'][^"']*\b(?:cover|titlepage|ebookmaker-coverpage)\b[^"']*["']/i.test(html) ||
-    /\bepub:type=["'][^"']*\bcover\b[^"']*["']/i.test(html);
+    /<title>[^<]*\b(?:cover|title\s*page)\b[^<]*<\/title>/i.test(html) ||
+    /\b(?:class|id)=["'][^"']*\b(?:cover|titlepage|ebookmaker-coverpage|cover-nav-unit)\b[^"']*["']/i.test(html) ||
+    /\bepub:type=["'][^"']*\bcover\b[^"']*["']/i.test(html) ||
+    (hasVisual && bodyText.length < 150); // Standalone illustration or cover page with minimal/no text
 
   if (isCoverPage && !processedHtml.includes('epub-cover-wrapper')) {
     processedHtml = `<div class="epub-cover-wrapper">${processedHtml}</div>`;
@@ -891,26 +926,53 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       const chapter = await loadProcessedChapter(bookId, index, termToHighlight);
       if (requestToken !== chapterRequestRef.current) return;
 
-      if (!chapter.content || chapter.content.trim().length === 0) {
-        throw new Error(`Chapter ${index + 1} has no content`);
+      let effectiveIndex = index;
+      let effectiveChapter = chapter;
+
+      // If chapter has zero readable or visual content (empty splash/root stubs, whitespace-only),
+      // look ahead/back for the nearest non-blank chapter so the user never lands on a blank page.
+      if (isChapterHtmlBlank(effectiveChapter.content) && metadata && metadata.total_chapters > 1) {
+        const direction = (initialScrollRatio !== undefined && initialScrollRatio > 0.5) ? -1 : 1;
+        let candidateIdx = effectiveIndex + direction;
+        while (candidateIdx >= 0 && candidateIdx < metadata.total_chapters) {
+          try {
+            const candidate = await loadProcessedChapter(bookId, candidateIdx, termToHighlight);
+            if (!isChapterHtmlBlank(candidate.content)) {
+              effectiveChapter = candidate;
+              effectiveIndex = candidateIdx;
+              break;
+            }
+          } catch {
+            // continue seeking
+          }
+          candidateIdx += direction;
+        }
       }
 
-      const processedChapter = chapter;
+      if (isChapterHtmlBlank(effectiveChapter.content)) {
+        effectiveChapter = {
+          ...effectiveChapter,
+          content: `<div class="epub-empty-book-notice" style="display:flex;align-items:center;justify-content:center;min-height:50vh;color:var(--text-secondary);font-size:15px;text-align:center;padding:2rem;"><p>This chapter does not contain any readable content.</p></div>`,
+        };
+      }
+
+      const processedChapter = effectiveChapter;
 
       setCurrentChapter(processedChapter);
-      setCurrentIndex(index);
+      setCurrentIndex(effectiveIndex);
+      currentIndexRef.current = effectiveIndex;
       setIsLoading(false);
 
       const progressPercent = metadata
-        ? ((index + 1) / metadata.total_chapters) * 100
+        ? ((effectiveIndex + 1) / metadata.total_chapters) * 100
         : 0;
 
-      const scrollRatio = scrollPositionsRef.current.get(index) || 0;
-      const savedBlockIndex = blockPositionsRef.current.get(index);
+      const scrollRatio = scrollPositionsRef.current.get(effectiveIndex) || 0;
+      const savedBlockIndex = blockPositionsRef.current.get(effectiveIndex);
       const location = scrollRatio > 0
-        ? `chapter_${index}:scroll_${scrollRatio.toFixed(6)}${savedBlockIndex !== undefined ? `:b${savedBlockIndex}` : ''}`
-        : `chapter_${index}`;
-      const cfi = `epubcfi(/0/${index}!/scroll/${scrollRatio.toFixed(6)})`;
+        ? `chapter_${effectiveIndex}:scroll_${scrollRatio.toFixed(6)}${savedBlockIndex !== undefined ? `:b${savedBlockIndex}` : ''}`
+        : `chapter_${effectiveIndex}`;
+      const cfi = `epubcfi(/0/${effectiveIndex}!/scroll/${scrollRatio.toFixed(6)})`;
 
       try {
         await api.saveReadingProgress(bookId, location, progressPercent, undefined, undefined, cfi);

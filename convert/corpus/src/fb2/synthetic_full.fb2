@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:xlink="http://www.w3.org/1999/xlink">
+<description>
+  <title-info>
+    <genre>sf_history</genre>
+    <author><first-name>Synthetic</first-name><last-name>Sample</last-name><id>auth-1</id></author>
+    <book-title>The Test Engine</book-title>
+    <annotation><p>A synthetic book used to exercise the conversion pipeline.</p></annotation>
+    <keywords>test, conversion</keywords>
+    <date>2024-01-15</date>
+    <coverpage><image xlink:href="#cover.png"/></coverpage>
+    <lang>en</lang>
+    <src-lang>en</src-lang>
+    <translator><first-name>None</first-name><last-name>None</last-name></translator>
+    <sequence name="Engine Tests" number="3"/>
+  </title-info>
+  <document-info>
+    <author><nickname>harness</nickname></author>
+    <program-used>convert corpus generator</program-used>
+    <date value="2024-01-15">2024-01-15</date>
+    <id>synthetic-test-engine</id>
+    <version>1.0</version>
+  </document-info>
+  <publish-info>
+    <book-name>The Test Engine</book-name>
+    <publisher>Synthetic Press</publisher>
+    <year>2024</year>
+    <isbn>978-0-00-000000-2</isbn>
+  </publish-info>
+</description>
+<body>
+  <title><p>The Test Engine</p></title>
+  <epigraph>
+    <p>All models are wrong.</p>
+    <text-author>Some Statistician</text-author>
+  </epigraph>
+  <section id="ch1">
+    <title><p>Chapter One</p></title>
+    <p>It was a dark and stormy night when the engine first woke<sup><a l:href="#note1" type="note">[1]</a></sup>.</p>
+    <p>The pistons hissed like snakes, and the boiler <emphasis>glowed</emphasis> with a terrible heat.</p>
+    <cite><p>Quoted wisdom stands apart from the body.</p></cite>
+    <poem id="p1">
+      <stanza>
+        <v>Hum of the wheels,</v>
+        <v>whisper of steam,</v>
+      </stanza>
+      <stanza>
+        <v>carrying cargo,</v>
+        <v>carrying dream.</v>
+      </stanza>
+      <text-author>Engine Poem</text-author>
+    </poem>
+    <section id="ch1a">
+      <title><p>A Sub-Section</p></title>
+      <p>Nested sections must become nested TOC entries.</p>
+      <image l:href="#img1" alt="A test image"/>
+    </section>
+  </section>
+  <section id="ch2">
+    <title><p>Chapter Two</p></title>
+    <p>Morning came, pale and quiet. The tables below need care:</p>
+    <table>
+      <tr><th>Part</th><th>Torque</th></tr>
+      <tr><td>A</td><td>100</td></tr>
+      <tr><td>B</td><td>250</td></tr>
+    </table>
+    <empty-line/>
+    <p>The machine stopped. <strong>Everything</strong> was silent.</p>
+  </section>
+</body>
+<body name="notes">
+  <title><p>Notes</p></title>
+  <section id="note1">
+    <title><p>1</p></title>
+    <p>This is the footnote body for the awakening.</p>
+  </section>
+</body>
+<binary id="cover.png" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGJgAAAAAAMAAgDyTAACAAAASUVORK5CYII=</binary>
+<binary id="img1" content-type="image/png">iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGJgAAAAAAMAAgDyTAACAAAASUVORK5CYII=</binary>
+</FictionBook>

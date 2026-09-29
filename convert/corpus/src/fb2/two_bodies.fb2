@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:xlink="http://www.w3.org/1999/xlink">
+<description><title-info>
+  <book-title>Two Bodies</book-title>
+  <author><first-name>A</first-name><last-name>B</last-name></author>
+  <lang>en</lang>
+</title-info></description>
+<body>
+  <title><p>Two Bodies</p></title>
+  <section><title><p>Main</p></title>
+    <p>Body one refers to a comment<sup><a l:href="#c1" type="comment">[c1]</a></sup>.</p>
+  </section>
+</body>
+<body name="comments">
+  <title><p>Comments</p></title>
+  <section id="c1"><title><p>c1</p></title><p>Commentary text lives here.</p></section>
+</body>
+</FictionBook>

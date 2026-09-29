@@ -19,49 +19,300 @@ use super::ConversionError;
 /// 5. Use chardet heuristic
 /// 6. Final fallback: Windows-1252 (most common legacy Western encoding)
 pub fn decode_text(raw: &[u8]) -> Result<String, ConversionError> {
-    // 1. Strip UTF-8 BOM
-    let raw = if raw.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        &raw[3..]
-    } else {
-        raw
-    };
+    Ok(decode_text_scored(raw).0)
+}
 
-    // 2. Try strict UTF-8
-    if let Ok(s) = std::str::from_utf8(raw) {
-        return Ok(s.to_string());
+/// Score-based charset detection + decoding (replaces chardet).
+///
+/// Returns `(decoded_string, encoding_label, confidence_0_1)`. The scoring
+/// runs every plausible legacy encoding through `encoding_rs`, penalizing
+/// errors, replacement chars and control chars, and boosting script-typical
+/// results (kana for Japanese, hangul for Korean, hanzi without kana for
+/// Chinese, lowercase-heavy Cyrillic for Russian) so CJK/legacy files that
+/// chardet used to mangle now decode cleanly without user tuning.
+fn cyr_letters(s: &str) -> usize {
+    s.chars()
+        .filter(|c| matches!(c, '\u{0400}'..='\u{04FF}' | '\u{0500}'..='\u{052F}'))
+        .count()
+}
+
+pub fn decode_text_scored(raw: &[u8]) -> (String, String, f32) {
+    // 1. BOMs — authoritative when present.
+    if raw.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        if let Ok(s) = std::str::from_utf8(&raw[3..]) {
+            return (s.to_string(), "utf-8".to_string(), 1.0);
+        }
+    }
+    if raw.len() >= 2 && raw[0] == 0xFF && raw[1] == 0xFE {
+        // UTF-16LE BOM (also covers UTF-32LE BOM: FF FE 00 00)
+        if raw.len() >= 4 && raw[2] == 0x00 && raw[3] == 0x00 {
+            let (s, _, had) = encoding_rs::Encoding::for_label(b"utf-32le").unwrap().decode(raw);
+            if !had {
+                return (s.into_owned(), "utf-32le".to_string(), 1.0);
+            }
+        }
+        let (s, _, _had) = encoding_rs::UTF_16LE.decode(raw);
+        return (s.into_owned(), "utf-16le".to_string(), 0.99);
+    }
+    if raw.len() >= 2 && raw[0] == 0xFE && raw[1] == 0xFF {
+        let (s, _, _had) = encoding_rs::UTF_16BE.decode(raw);
+        return (s.into_owned(), "utf-16be".to_string(), 0.99);
+    }
+    if raw.len() >= 4 && raw[0] == 0x00 && raw[1] == 0x00 && raw[2] == 0xFE && raw[3] == 0xFF {
+        let (s, _, had) = encoding_rs::Encoding::for_label(b"utf-32be").unwrap().decode(raw);
+        if !had {
+            return (s.into_owned(), "utf-32be".to_string(), 1.0);
+        }
     }
 
-    // 3. Check for UTF-16 BOM
-    if raw.len() >= 2 {
-        if raw[0] == 0xFF && raw[1] == 0xFE {
-            let (decoded, _, had_errors) = encoding_rs::UTF_16LE.decode(raw);
-            if !had_errors {
-                return Ok(decoded.into_owned());
+    // 2. BOM-less UTF-16 before the UTF-8 shortcut: a NUL-heavy byte stream
+    // is valid UTF-8 (NULs are legal code points!), so `from_utf8` alone
+    // cannot distinguish it — the alternating-NUL pattern is conclusive.
+    if raw.len() >= 8 {
+        let even_nuls = raw
+            .iter()
+            .step_by(2)
+            .take(256)
+            .filter(|b| **b == 0)
+            .count();
+        let odd_nuls = raw
+            .iter()
+            .skip(1)
+            .step_by(2)
+            .take(256)
+            .filter(|b| **b == 0)
+            .count();
+        let pairs = (raw.len() / 2).min(256);
+        if pairs > 8 && even_nuls as f32 / pairs as f32 > 0.5 {
+            let (s, _, _) = encoding_rs::UTF_16BE.decode(raw);
+            let clean = s.chars().filter(|c| !c.is_control()).count();
+            if clean as f32 / s.chars().count().max(1) as f32 > 0.8 {
+                return (s.into_owned(), "utf-16be".to_string(), 0.95);
             }
-        } else if raw[0] == 0xFE && raw[1] == 0xFF {
-            let (decoded, _, had_errors) = encoding_rs::UTF_16BE.decode(raw);
-            if !had_errors {
-                return Ok(decoded.into_owned());
+        }
+        if pairs > 8 && odd_nuls as f32 / pairs as f32 > 0.5 {
+            let (s, _, _) = encoding_rs::UTF_16LE.decode(raw);
+            let clean = s.chars().filter(|c| !c.is_control()).count();
+            if clean as f32 / s.chars().count().max(1) as f32 > 0.8 {
+                return (s.into_owned(), "utf-16le".to_string(), 0.95);
             }
         }
     }
 
-    // 4. Use chardet
-    let result = chardet::detect(raw);
-    let charset = chardet::charset2encoding(&result.0);
+    // 4. Score the legacy single-byte / CJK candidates.
+    let candidates: &[(&'static str, &'static encoding_rs::Encoding)] = &[
+        ("windows-1252", encoding_rs::WINDOWS_1252),
+        ("windows-1251", encoding_rs::WINDOWS_1251),
+        ("koi8-r", encoding_rs::KOI8_R),
+        ("iso-8859-2", encoding_rs::ISO_8859_2),
+        ("iso-8859-5", encoding_rs::ISO_8859_5),
+        ("windows-1256", encoding_rs::WINDOWS_1256),
+        ("iso-8859-7", encoding_rs::ISO_8859_7),
+        ("shift_jis", encoding_rs::SHIFT_JIS),
+        ("euc-jp", encoding_rs::EUC_JP),
+        ("gbk", encoding_rs::GBK),
+        ("big5", encoding_rs::BIG5),
+        ("euc-kr", encoding_rs::EUC_KR),
+    ];
 
-    if let Some(encoding) = encoding_rs::Encoding::for_label(charset.as_bytes()) {
-        if encoding != encoding_rs::WINDOWS_1252 {
-            let (decoded, _, had_errors) = encoding.decode(raw);
-            if !had_errors {
-                return Ok(decoded.into_owned());
+    let mut best: Option<(String, &'static str, f32)> = None;
+    for (label, enc) in candidates {
+        let (decoded, _, had_errors) = enc.decode(raw);
+        let s: &str = &decoded;
+        if s.is_empty() && !raw.is_empty() {
+            continue;
+        }
+        let mut score = 1.0f32;
+        if had_errors {
+            score -= 0.35;
+        }
+        let mut repl = 0usize;
+        let mut ctrl = 0usize;
+        let mut letters = 0usize;
+        let mut lower = 0usize;
+        let mut upper = 0usize;
+        let mut kana = 0usize;
+        let mut hangul = 0usize;
+        let mut hanzi = 0usize;
+        for c in s.chars() {
+            if c == '\u{FFFD}' {
+                repl += 1;
+            } else if c.is_control() && !matches!(c, '\n' | '\r' | '\t') {
+                ctrl += 1;
+            } else if c.is_alphabetic() {
+                letters += 1;
+                if c.is_lowercase() {
+                    lower += 1;
+                } else if c.is_uppercase() {
+                    upper += 1;
+                }
+                let cp = c as u32;
+                // Hiragana + Katakana
+                if (0x3040..=0x30FF).contains(&cp) {
+                    kana += 1;
+                }
+                // Hangul syllables + jamo
+                if (0xAC00..=0xD7AF).contains(&cp) || (0x1100..=0x11FF).contains(&cp) {
+                    hangul += 1;
+                }
+                // CJK unified ideographs (hanzi / kanji)
+                if (0x4E00..=0x9FFF).contains(&cp) {
+                    hanzi += 1;
+                }
             }
+        }
+        let total = s.chars().count().max(1) as f32;
+        score -= (repl as f32 / total as f32) * 0.9;
+        score -= (ctrl as f32 / total as f32) * 0.7;
+        // Box-drawing / block elements (0x2500..0x25FF) never legitimately
+        // appear in prose — koi8-r's art zone leaks them on wrong decodes.
+        let weird = s.chars().filter(|c| (0x2500..=0x25FF).contains(&(*c as u32))).count();
+        score -= (weird as f32 / total as f32) * 2.5;
+
+        // Home-script consistency: a decode whose output is dominated by a
+        // script its encoding never produces is a wrong guess.
+        let home_script = |s: &str| -> usize {
+            let (mut latin, mut cyr, mut arab, mut greek) = (0usize, 0usize, 0usize, 0usize);
+            for c in s.chars() {
+                let u = c as u32;
+                if c.is_alphabetic() && c.is_ascii() {
+                    latin += 1;
+                }
+                if (0x0400..=0x052F).contains(&u) {
+                    cyr += 1;
+                }
+                if (0x0600..=0x06FF).contains(&u) {
+                    arab += 1;
+                }
+                if (0x0370..=0x03FF).contains(&u) {
+                    greek += 1;
+                }
+            }
+            match *label {
+                "windows-1252" | "iso-8859-2" => latin,
+                "windows-1251" | "koi8-r" | "iso-8859-5" => cyr,
+                "windows-1256" => arab,
+                "iso-8859-7" => greek,
+                _ => letters,
+            }
+        };
+        let home = home_script(s);
+        if letters > 0 && home as f32 / (letters as f32) < 0.5 {
+            score -= 0.5;
+        }
+
+        // Script-consistency boosts: an encoding whose output looks like its
+        // home script (and has few errors) beats a permissive wrong guess.
+        let cjk_frac = (kana + hangul + hanzi) as f32 / total;
+        match *label {
+            "shift_jis" | "euc-jp" => {
+                if kana as f32 / total > 0.02 {
+                    score += 0.5; // kana can only come from a Japanese decode
+                    if hanzi as f32 / total > 0.1 {
+                        score += 0.15; // kanji + kana = unmistakably Japanese
+                    }
+                } else if hanzi as f32 / total > 0.2 && kana == 0 {
+                    score -= 0.3; // hanzi without kana = more likely Chinese
+                }
+                if cjk_frac < 0.05 {
+                    score -= 0.4;
+                }
+            }
+            "gbk" | "big5" => {
+                if hanzi as f32 / total > 0.2 && kana == 0 && hangul == 0 {
+                    score += 0.3;
+                } else if cjk_frac < 0.05 {
+                    score -= 0.4;
+                }
+                // Big5 text that is NOT valid GBK (lead byte 0xA4 gap etc.)
+                // already lost via had_errors; nothing more to do here.
+            }
+            "euc-kr" => {
+                if hangul as f32 / total > 0.1 {
+                    score += 0.4;
+                    if hanzi as f32 / total > 0.05 {
+                        score += 0.1; // hangul + hanja = Korean with hanja
+                    }
+                } else if cjk_frac < 0.05 {
+                    score -= 0.4;
+                }
+            }
+            "koi8-r" | "windows-1251" | "iso-8859-5" => {
+                // koi8-r and cp1251 are byte-level case inverses of each
+                // other on prose. The wrong decode turns ~88% lowercase text
+                // into ~88% uppercase, with capitals landing mid-word; the
+                // right decode keeps capitals at word starts only.
+                let cyr = letters.max(1);
+                let upper_ratio = upper as f32 / cyr as f32;
+                let mut word_init = 0usize;
+                let mut prev_alpha = false;
+                for c in s.chars() {
+                    if c.is_alphabetic() {
+                        if c.is_uppercase() && !prev_alpha {
+                            word_init += 1;
+                        }
+                        prev_alpha = true;
+                    } else {
+                        prev_alpha = false;
+                    }
+                }
+                let init_ratio = if upper == 0 {
+                    1.0
+                } else {
+                    word_init as f32 / upper as f32
+                };
+                if upper_ratio >= 0.55 && init_ratio < 0.85 {
+                    score -= 0.6; // scrambled case: wrong Cyrillic decode
+                } else if upper_ratio >= 0.55 && init_ratio >= 0.85 && letters > 8 {
+                    score += 0.2; // legit all-caps heading block
+                } else if (0.02..0.45).contains(&upper_ratio) {
+                    let cyr_frac = cyr_letters(s) as f32 / letters.max(1) as f32;
+                    if cyr_frac >= 0.9 && letters as f32 / total >= 0.15 {
+                        score += 0.35; // prose-like case mix in real Cyrillic
+                    }
+                } else if upper_ratio <= 0.02 && letters > 12 {
+                    score -= 0.25; // prose without ANY capital = suspicious
+                }
+                // Cyrillic-only sanity: scripts must actually contain Cyrillic.
+                let cyr_chars = cyr_letters(s);
+                if cyr_chars == 0 {
+                    score -= 0.5;
+                }
+            }
+            "windows-1252" => {
+                // Latin-2 text decoded as 1252 exposes Polish/Czech glyphs as
+                // superscript/currency artifacts (³ ¹ ² ±).
+                let junk = s
+                    .chars()
+                    .filter(|c| matches!(c, '³' | '¹' | '²' | '±'))
+                    .count();
+                score -= (junk as f32 / total as f32) * 1.2;
+            }
+            "iso-8859-2" => {}
+            _ => {}
+        }
+
+        // Hard cap: extremely noisy decodes are never winners.
+        if score < 0.0 {
+            continue;
+        }
+        let better = best
+            .as_ref()
+            .map(|(_, _, s)| score > *s)
+            .unwrap_or(true);
+        if better {
+            best = Some((decoded.into_owned(), label, score));
         }
     }
 
-    // 5. Fallback: Windows-1252 (lossy but recoverable)
-    let (decoded, _, _) = encoding_rs::WINDOWS_1252.decode(raw);
-    Ok(decoded.into_owned())
+    match best {
+        Some((s, label, score)) if score >= 0.45 => (s, label.to_string(), score),
+        // Degenerate fallback: lossy but recoverable.
+        _ => {
+            let (decoded, _, _) = encoding_rs::WINDOWS_1252.decode(raw);
+            (decoded.into_owned(), "windows-1252".to_string(), 0.2)
+        }
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -71,6 +322,148 @@ pub fn decode_text(raw: &[u8]) -> Result<String, ConversionError> {
 /// Normalize all line endings to \n (LF).
 pub fn normalize_line_endings(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RTF → PLAIN TEXT (minimal, safe)
+// ──────────────────────────────────────────────────────────────────────────
+
+/// Convert RTF markup to plain text. Handles the constructs found in books:
+/// groups `{…}`, control words `\wordN`, `\'xx` hex escapes, `\uN?` unicode
+/// escapes, `\par`/`\line` paragraph breaks, `\tab`, and skips font/color
+/// tables. Anything unrecognized degrades to the literal text, never a crash.
+pub fn rtf_to_text(rtf: &str) -> String {
+    let mut out = String::with_capacity(rtf.len());
+    let bytes = rtf.as_bytes();
+    let mut i = 0usize;
+    let mut skip_depth = 0usize; // inside {\*…} destination: drop until matching '}'
+    let mut nested = 0usize; // group depth
+
+    while i < bytes.len() {
+        match bytes[i] {
+            b'{' => {
+                // "{\* …}" destinations (font tables, pictures, …) are skipped.
+                if skip_depth == 0
+                    && bytes.get(i + 1) == Some(&b'\\')
+                    && bytes.get(i + 2) == Some(&b'*')
+                {
+                    skip_depth = nested + 1;
+                }
+                nested += 1;
+                i += 1;
+            }
+            b'}' => {
+                nested = nested.saturating_sub(1);
+                if skip_depth > nested {
+                    skip_depth = 0;
+                }
+                i += 1;
+            }
+            b'\\' => {
+                i += 1;
+                // \'xx — hex escape: consume and decode (ANSI codepage).
+                if bytes.get(i) == Some(&b'\'') && i + 2 < bytes.len() {
+                    if skip_depth == 0 {
+                        if let Ok(hex) = std::str::from_utf8(&bytes[i + 1..i + 3]) {
+                            if let Ok(v) = u8::from_str_radix(hex, 16) {
+                                let one = [v];
+                                let (dec, _, _) = encoding_rs::WINDOWS_1252.decode(&one);
+                                out.push_str(&dec);
+                            }
+                        }
+                    }
+                    i += 3;
+                    continue;
+                }
+                // Control word: letters, then optional -N argument.
+                let mut cw = String::new();
+                while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+                    cw.push(bytes[i] as char);
+                    i += 1;
+                }
+                let mut arg = String::new();
+                if bytes.get(i) == Some(&b'-') {
+                    arg.push('-');
+                    i += 1;
+                }
+                while i < bytes.len() && bytes[i].is_ascii_digit() {
+                    arg.push(bytes[i] as char);
+                    i += 1;
+                }
+                if skip_depth == 0 {
+                    match cw.as_str() {
+                        "par" | "line" | "sect" => out.push('\n'),
+                        "tab" => out.push('\t'),
+                        "u" => {
+                            // \uN? — unicode scalar (decimal, may be negative).
+                            if let Ok(v) = arg.parse::<i64>() {
+                                let cp = v.unsigned_abs() as u32;
+                                if let Some(ch) = char::from_u32(cp) {
+                                    out.push(ch);
+                                }
+                            }
+                            // skip the fallback char after \uN?
+                            if bytes.get(i) == Some(&b'?') {
+                                i += 1;
+                            }
+                        }
+                        "emspace" | "enspace" => out.push(' '),
+                        "bullet" => out.push('•'),
+                        "endash" => out.push('–'),
+                        "emdash" => out.push('—'),
+                        "lquote" => out.push('\u{2018}'),
+                        "rquote" => out.push('\u{2019}'),
+                        "ldblquote" => out.push('\u{201C}'),
+                        "rdblquote" => out.push('\u{201D}'),
+                        "_" => out.push('_'),
+                        // Document/table destinations we skip even at depth 0:
+                        "fonttbl" | "colortbl" | "stylesheet" | "info" | "pict"
+                        | "header" | "footer" | "footnote" | "headerf" | "footerf"
+                        | "pntext" | "nonshppict" | "themedata" | "colorschememapping"
+                        | "latentstyles" | "listtable" | "listoverridetable"
+                        | "generator" | "wgrffmtfilter" | "updateres" | "rsidtbl"
+                        | "mmathPr" | "datastore" | "xmlnstbl" | "slink" | "hlink"
+                        | "field" | "comment" => {}
+                        _ => {}
+                    }
+                }
+                // Control words end with a skipped delimiting space.
+                if i < bytes.len() && bytes[i] == b' ' {
+                    i += 1;
+                }
+            }
+            b'\r' => {
+                out.push('\n');
+                i += 1;
+                if bytes.get(i) == Some(&b'\n') {
+                    i += 1;
+                }
+            }
+            _ => {
+                if skip_depth == 0 {
+                    // Copy one full UTF-8 char (byte boundaries stay valid).
+                    let ch_len = utf8_char_len(bytes[i]);
+                    let end = (i + ch_len).min(bytes.len());
+                    out.push_str(&rtf[i..end]);
+                    i += ch_len;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Length (in bytes) of the UTF-8 char starting at `b` (0 = 1 byte).
+fn utf8_char_len(b: u8) -> usize {
+    match b {
+        0x00..=0x7F => 1,
+        0xC0..=0xDF => 2,
+        0xE0..=0xEF => 3,
+        0xF0..=0xF7 => 4,
+        _ => 1,
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1068,4 +1461,85 @@ pub fn is_scene_break(line: &str) -> bool {
         && t.chars()
             .all(|c| matches!(c, '*' | '-' | '_' | '~' | '#' | ' ' | '•' | '·' | '—' | '–'))
         && t.chars().any(|c| !c.is_whitespace())
+}
+
+#[cfg(test)]
+mod decoding_tests {
+    use super::*;
+
+    fn probe(path: &str) -> (String, String, f32) {
+        let raw = std::fs::read(path).unwrap();
+        decode_text_scored(&raw)
+    }
+
+    #[test]
+    fn utf16le_bomless_decodes_clean() {
+        let (s, label, score) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_utf16le.txt"
+        ));
+        assert!(s.contains("The quick brown fox"), "utf16le text: {s:?}");
+        assert_eq!(label, "utf-16le");
+        assert!(score > 0.9);
+    }
+
+    #[test]
+    fn koi8r_beat_cp1251() {
+        let (s, label, _) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_koi8r.txt"
+        ));
+        assert_eq!(label, "koi8-r", "decoded: {s:?}");
+        assert!(s.contains("Война"), "decoded: {s:?}");
+    }
+
+    #[test]
+    fn big5_beats_gbk() {
+        let (s, label, _) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_big5.txt"
+        ));
+        assert_eq!(label, "big5", "decoded: {s:?}");
+        assert!(s.contains("寂靜"), "decoded: {s:?}");
+    }
+
+    #[test]
+    fn gbk_beats_big5() {
+        let (s, label, _) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_gbk.txt"
+        ));
+        assert_eq!(label, "gbk", "decoded: {s:?}");
+        assert!(s.contains("黎明"), "decoded: {s:?}");
+    }
+
+    #[test]
+    fn shift_jis_beats_euc_jp_and_gbk() {
+        let (s, label, _) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_shift_jis.txt"
+        ));
+        assert_eq!(label, "shift_jis", "decoded: {s:?}");
+        assert!(s.contains("夜明け"), "decoded: {s:?}");
+    }
+
+    #[test]
+    fn cp1251_beats_koi8() {
+        let (s, label, _) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_cp1251.txt"
+        ));
+        assert_eq!(label, "windows-1251", "decoded: {s:?}");
+        assert!(s.contains("Война"), "decoded: {s:?}");
+    }
+
+    #[test]
+    fn euc_kr_beat_gbk() {
+        let (s, label, _) = probe(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/txt/enc_euc_kr.txt"
+        ));
+        assert_eq!(label, "euc-kr", "decoded: {s:?}");
+        assert!(s.contains("새벽"), "decoded: {s:?}");
+    }
 }

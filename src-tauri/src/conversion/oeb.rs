@@ -43,6 +43,10 @@ pub struct OebBook {
     /// images are still referenced. Dropped — and the dir deleted — together
     /// with the book, after `build_epub` has streamed every image.
     pub(crate) temp_dir: Option<tempfile::TempDir>,
+
+    /// Parsers append per-parse findings here (encoding guesses, heuristics,
+    /// fallback decisions). The pipeline merges this into the job report.
+    pub report: super::report::ConversionReport,
 }
 
 /// A single readable chapter.

@@ -471,6 +471,25 @@ pub struct MangaSeries {
     pub added_date: String,
 }
 
+/// Lean per-volume row for the series view (slice F2-a). Deliberately a
+/// subset of `Book` — no authors/tags/notes — so a 1000+ chapter series
+/// crosses IPC as ~100 KB instead of multi-MB fully-hydrated rows.
+/// Field names stay snake_case to match the frontend `Book` contract.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SeriesBookItem {
+    pub id: i64,
+    pub title: String,
+    pub sort_title: Option<String>,
+    pub series_index: Option<f64>,
+    pub cover_path: Option<String>,
+    pub reading_status: String,
+    pub page_count: Option<i64>,
+    pub last_opened: Option<String>,
+    pub file_format: String,
+    pub file_path: String,
+    pub added_date: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MangaVolume {
     pub id: Option<i64>,

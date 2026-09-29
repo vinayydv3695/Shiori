@@ -27,6 +27,7 @@ pub mod epub_builder;
 pub mod error;
 pub mod formats;
 pub mod oeb;
+pub mod report;
 
 #[cfg(test)]
 pub mod tests;
@@ -165,41 +166,114 @@ pub async fn convert_to_epub_new(
     progress: Option<ProgressCallback>,
     db: Option<&crate::db::Database>,
 ) -> Result<PathBuf, ConversionError> {
+    Ok(
+        convert_to_epub_new_with_report(input_path, progress, db)
+            .await?
+            .0,
+    )
+}
+
+/// Like [`convert_to_epub_new`] but returns the full conversion report
+/// (IR-SPEC §4) alongside the output path.
+pub async fn convert_to_epub_new_with_report(
+    input_path: &Path,
+    progress: Option<ProgressCallback>,
+    db: Option<&crate::db::Database>,
+) -> Result<(PathBuf, report::ConversionReport), ConversionError> {
+    convert_to_epub_into(input_path, None, progress, db).await
+}
+
+/// Convert into a caller-managed output directory. With `out_dir: None` the
+/// output lands in a kept temp dir (reader session semantics). With
+/// `Some(dir)` the pipeline writes `dir/{stem}.epub` and the caller owns
+/// cleanup — used by the conversion engine so failed jobs leak nothing.
+pub async fn convert_to_epub_into(
+    input_path: &Path,
+    out_dir: Option<&Path>,
+    progress: Option<ProgressCallback>,
+    db: Option<&crate::db::Database>,
+) -> Result<(PathBuf, report::ConversionReport), ConversionError> {
+    let started = std::time::Instant::now();
     let ext = input_path
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_lowercase())
         .unwrap_or_default();
+    let known = matches!(
+        ext.as_str(),
+        "epub" | "cbz" | "cbr" | "pdf" | "mobi" | "azw" | "azw3" | "prc" | "docx"
+            | "fb2" | "fbz" | "txt" | "rtf" | "html" | "htm" | "xhtml" | "md"
+            | "markdown"
+    );
+    if !known {
+        return Err(ConversionError::UnsupportedFormat(ext));
+    }
+
+    let source_size = std::fs::metadata(input_path).map(|m| m.len()).unwrap_or(0);
+    let source_sha256 = streamed_sha256(input_path)?;
+
+    // Deterministic `dcterms:modified`: the source file's mtime in UTC.
+    let modified = std::fs::metadata(input_path)
+        .and_then(|m| m.modified())
+        .ok()
+        .map(|t| -> String {
+            let d: chrono::DateTime<chrono::Utc> = t.into();
+            d.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+        });
+    let ext = input_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+    let mut report = report::ConversionReport::new(
+        if ext.is_empty() { "unknown" } else { &ext },
+        source_size,
+    );
 
     let progress_arc = progress.map(std::sync::Arc::new);
-    let report = {
-        let p = progress_arc.clone();
-        move |stage: &str, percent: u8| {
-            if let Some(ref cb) = p {
-                cb(ConversionProgress {
-                    stage: stage.to_string(),
-                    percent,
-                });
-            }
+    let p = progress_arc.clone();
+    let report_to_progress = move |stage: &str, percent: u8| {
+        if let Some(ref cb) = p {
+            cb(ConversionProgress {
+                stage: stage.to_string(),
+                percent,
+            });
         }
     };
 
-    report("Detecting format", 2);
+    report_to_progress("Detecting format", 2);
 
-    // Prepare output path. The intermediate dir is a `tempfile::TempDir`
-    // (0700 perms, unique) that we `keep()`: the returned EPUB path is handed
-    // to the frontend reader, which reads it lazily for the whole session, so
-    // drop-time auto-cleanup would delete a file still in use. Leftovers are
-    // reaped by `cleanup_converted_cache` (Clear Cache / app exit).
+    // Prepare output path. Reader-session semantics (out_dir None): the dir is
+    // a `tempfile::TempDir` (0700 perms, unique) that we `keep()` — the
+    // returned EPUB path is handed to the frontend reader, which reads it
+    // lazily for the whole session, so drop-time auto-cleanup would delete a
+    // file still in use. Leftovers are reaped by `cleanup_converted_cache`.
     let stem = input_path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("converted");
-    let tmp_handle = tempfile::Builder::new()
-        .prefix("shiori_converted_")
-        .tempdir()?;
-    let tmp_dir = tmp_handle.keep();
-    let output_path = tmp_dir.join(format!("{}.epub", stem));
+    let output_path = match out_dir {
+        Some(dir) => dir.join(format!("{}.epub", stem)),
+        None => {
+            let tmp_handle = tempfile::Builder::new()
+                .prefix("shiori_converted_")
+                .tempdir()?;
+            tmp_handle.keep().join(format!("{}.epub", stem))
+        }
+    };
+
+    // Deterministic `dcterms:modified`: the source file's mtime in UTC.
+    let modified = std::fs::metadata(input_path)
+        .and_then(|m| m.modified())
+        .ok()
+        .map(|t| -> String {
+            let d: chrono::DateTime<chrono::Utc> = t.into();
+            d.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+        });
+    let build_opts = epub_builder::BuildOptions {
+        source_sha256: Some(source_sha256),
+        modified,
+    };
 
     if let Some(db) = db {
         use crate::services::calibre_service::{self, CalibreError, CalibreProfile};
@@ -232,7 +306,12 @@ pub async fn convert_to_epub_new(
             {
                 Ok(_) => {
                     log::info!("[AutoConvert] Successfully converted with Calibre!");
-                    return Ok(output_path);
+                    report.note_heuristic("calibre-user-installed");
+                    report.info(
+                        "calibre_used",
+                        "Converted with Calibre (user-installed ebook-convert).",
+                    );
+                    return finalize_report(output_path, build_opts, report, started);
                 }
                 Err(CalibreError::Disabled) | Err(CalibreError::NotFound) => {
                     log::info!("[AutoConvert] Calibre not available or disabled, falling back to native conversion");
@@ -250,24 +329,29 @@ pub async fn convert_to_epub_new(
     match ext.as_str() {
         "epub" => {
             // Already EPUB — return path unchanged
-            report("Ready", 100);
-            return Ok(input_path.to_path_buf());
+            report_to_progress("Ready", 100);
+            report.chapter_count = 0;
+            return Ok((input_path.to_path_buf(), report));
         }
 
         "cbz" => {
-            report("Parsing comic archive", 10);
+            report_to_progress("Parsing comic archive", 10);
             let mut oeb = formats::cbz::parse(input_path)?;
-            report("Building EPUB", 60);
+            report_to_progress("Building EPUB", 60);
             oeb.sanitize_html();
-            epub_builder::build_epub(&oeb, &output_path)?;
+            epub_builder::build_epub_with_report(&oeb, &output_path, &build_opts, &mut report)?;
+            record_book_metrics(&oeb, &mut report);
+            merge_parser_report(&mut report, &oeb.report);
         }
 
         "cbr" => {
-            report("Extracting comic archive", 10);
+            report_to_progress("Extracting comic archive", 10);
             let mut oeb = formats::cbr::parse(input_path)?;
-            report("Building EPUB", 60);
+            report_to_progress("Building EPUB", 60);
             oeb.sanitize_html();
-            epub_builder::build_epub(&oeb, &output_path)?;
+            epub_builder::build_epub_with_report(&oeb, &output_path, &build_opts, &mut report)?;
+            record_book_metrics(&oeb, &mut report);
+            merge_parser_report(&mut report, &oeb.report);
         }
 
         // All book formats go through the OEB pipeline: real parser →
@@ -275,11 +359,12 @@ pub async fn convert_to_epub_new(
         "pdf" | "mobi" | "azw" | "azw3" | "prc" | "docx" | "fb2" | "fbz" | "txt" | "rtf"
         | "html" | "htm" | "xhtml" | "md" | "markdown" => {
             let stage = format!("Parsing {}", ext.to_uppercase());
-            report(&stage, 10);
+            report_to_progress(&stage, 10);
             let mut oeb = parse_oeb(input_path, &ext)?;
-            report("Building EPUB", 60);
+            report_to_progress("Building EPUB", 60);
             oeb.sanitize_html();
-            epub_builder::build_epub(&oeb, &output_path)?;
+            epub_builder::build_epub_with_report(&oeb, &output_path, &build_opts, &mut report)?;
+            record_book_metrics(&oeb, &mut report);
         }
 
         other => {
@@ -291,8 +376,65 @@ pub async fn convert_to_epub_new(
         return Err(ConversionError::EmptyContent);
     }
 
-    report("Done", 100);
-    Ok(output_path)
+    report_to_progress("Done", 100);
+    finalize_report(output_path, build_opts, report, started)
+}
+
+/// Fill the report with post-build metrics + content digest.
+fn finalize_report(
+    output_path: PathBuf,
+    _opts: epub_builder::BuildOptions,
+    mut report: report::ConversionReport,
+    started: std::time::Instant,
+) -> Result<(PathBuf, report::ConversionReport), ConversionError> {
+    report.duration_ms = started.elapsed().as_millis() as u64;
+    if let Some(digest) = sha256_of_file(&output_path) {
+        report.output_sha256 = Some(digest);
+    }
+    Ok((output_path, report))
+}
+
+fn record_book_metrics(book: &oeb::OebBook, report: &mut report::ConversionReport) {
+    report.toc_entries = book.toc.len();
+    report.chapter_count = book.chapters.len();
+    report.image_count = book.images.len() + usize::from(book.cover_image.is_some());
+}
+
+/// Fold parser-level findings into the job report (IR-SPEC §4).
+fn merge_parser_report(report: &mut report::ConversionReport, parser: &report::ConversionReport) {
+    report.warnings.extend(parser.warnings.iter().cloned());
+    for h in &parser.heuristics_used {
+        if !report.heuristics_used.iter().any(|x| x == h) {
+            report.heuristics_used.push(h.clone());
+        }
+    }
+    if report.fallback_used.is_none() {
+        report.fallback_used = parser.fallback_used.clone();
+    }
+    report.confidence = (report.confidence * parser.confidence).max(0.1);
+}
+
+/// Streaming SHA-256 of a file (bounded memory — reads in 1 MB chunks).
+fn streamed_sha256(path: &Path) -> Result<[u8; 32], ConversionError> {
+    use sha2::{Digest, Sha256};
+    let mut file = std::fs::File::open(path).map_err(ConversionError::IoError)?;
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 1024 * 1024];
+    loop {
+        use std::io::Read;
+        let n = file.read(&mut buf).map_err(ConversionError::IoError)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hasher.finalize().into())
+}
+
+fn sha256_of_file(path: &Path) -> Option<String> {
+    streamed_sha256(path)
+        .ok()
+        .map(|h| h.iter().map(|b| format!("{:02x}", b)).collect())
 }
 
 /// Dispatch a source file to the matching OEB parser by extension.

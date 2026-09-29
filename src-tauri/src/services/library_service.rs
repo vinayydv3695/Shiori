@@ -2298,6 +2298,72 @@ pub fn update_reading_status(db: &Database, book_id: i64, status: &str) -> Resul
     Ok(())
 }
 
+/// Batch variant of `update_reading_status` (slice F2-a): ONE transaction for
+/// the whole id set. Baseline (perf/BASELINE.md Q4): 200 autocommit updates
+/// cost 18.8 ms vs 1.3 ms in a single transaction (14.5x) — and the SQLite
+/// write lock is held once instead of 200 times, so concurrent library reads
+/// don't stall behind bulk ops like "mark all read" on a 1000-chapter series.
+pub fn update_reading_status_batch(db: &Database, ids: &[i64], status: &str) -> Result<usize> {
+    let valid = ["planning", "reading", "completed", "on_hold", "dropped"];
+    if !valid.contains(&status) {
+        return Err(ShioriError::Validation(format!(
+            "Invalid reading status: {}",
+            status
+        )));
+    }
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let mut conn = db.get_connection()?;
+    let tx = conn.transaction()?;
+    let mut updated = 0usize;
+    {
+        let mut stmt = tx.prepare(
+            "UPDATE books SET reading_status = ?1, modified_date = CURRENT_TIMESTAMP WHERE id = ?2",
+        )?;
+        for &id in ids {
+            updated += stmt.execute(params![status, id])?;
+        }
+    }
+    tx.commit()?;
+    Ok(updated)
+}
+
+/// Lean per-volume rows for the series view (slice F2-a). Ordered by
+/// series_index (the v52 composite index serves this without a temp B-tree).
+/// No authors/tags hydration — the series view renders id/title/index/cover/
+/// status only; full `Book` rows stay available via `get_books_by_ids`.
+pub fn get_series_books_by_name(db: &Database, series: &str) -> Result<Vec<crate::models::SeriesBookItem>> {
+    let conn = db.get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, title, sort_title, series_index, cover_path, reading_status,
+                page_count, last_opened, file_format, file_path, added_date
+         FROM books
+         WHERE series = ?1 AND in_trash = 0
+         ORDER BY series_index ASC NULLS LAST, added_date ASC, id ASC",
+    )?;
+    let rows = stmt.query_map(params![series], |row| {
+        Ok(crate::models::SeriesBookItem {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            sort_title: row.get(2)?,
+            series_index: row.get(3)?,
+            cover_path: row.get(4)?,
+            reading_status: row.get(5)?,
+            page_count: row.get(6)?,
+            last_opened: row.get(7)?,
+            file_format: row.get(8)?,
+            file_path: row.get(9)?,
+            added_date: row.get(10)?,
+        })
+    })?;
+    let mut items = Vec::new();
+    for r in rows {
+        items.push(r?);
+    }
+    Ok(items)
+}
+
 pub fn get_books_by_reading_status(
     db: &Database,
     status: &str,
@@ -2401,11 +2467,12 @@ pub fn get_book_summaries_by_domain(
 
 pub fn get_library_stats(db: &Database) -> Result<crate::models::LibraryStats> {
     let conn = db.get_connection()?;
+    // in_trash rows are excluded: stats describe the live library (slice F2-a).
     let sql = "SELECT
         COALESCE(SUM(CASE WHEN domain = 'books' THEN 1 ELSE 0 END), 0) as total_books,
         COALESCE(SUM(CASE WHEN domain IN ('manga', 'comics', 'manga_comics') THEN 1 ELSE 0 END), 0) as total_manga,
         COALESCE(SUM(file_size), 0) as total_size_bytes
-    FROM books";
+    FROM books WHERE in_trash = 0";
 
     let mut stmt = conn.prepare(sql)?;
     let mut rows = stmt.query([])?;

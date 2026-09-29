@@ -95,6 +95,9 @@ pub struct ConversionJob {
     pub created_at: DateTime<Utc>,
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
+    /// Structured conversion report (JSON) — set on completion.
+    #[serde(default)]
+    pub report: Option<serde_json::Value>,
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -235,6 +238,7 @@ impl ConversionEngine {
             created_at: Utc::now(),
             started_at: None,
             completed_at: None,
+            report: None,
         };
 
         self.tracker.insert(job_id.clone(), job.clone());
@@ -323,6 +327,7 @@ impl ConversionEngine {
                 created_at: Utc::now(),
                 started_at: None,
                 completed_at: None,
+                report: None,
             })
         })?;
         rows.collect()
@@ -375,11 +380,12 @@ impl ConversionEngine {
 
     fn persist_job(job: &ConversionJob, conn: &rusqlite::Connection) {
         let status_str = job.status.to_string();
+        let report_json = job.report.as_ref().map(|r| r.to_string());
         if let Err(e) = conn.execute(
             "INSERT OR REPLACE INTO conversion_jobs
              (id, book_id, source_path, target_path, source_format, target_format,
-              status, progress, error_message, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,CURRENT_TIMESTAMP)",
+              status, progress, error_message, report, updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,CURRENT_TIMESTAMP)",
             rusqlite::params![
                 job.id,
                 job.book_id,
@@ -390,6 +396,7 @@ impl ConversionEngine {
                 status_str,
                 job.progress,
                 job.error,
+                report_json,
             ],
         ) {
             log::error!(
@@ -493,6 +500,7 @@ impl ConversionEngine {
                     })
                         as std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>;
 
+                    let mut job_report: Option<serde_json::Value> = None;
                     let result = Self::execute_conversion(
                         &job.source_format,
                         &job.target_format,
@@ -502,6 +510,7 @@ impl ConversionEngine {
                         &job_id,
                         db.as_ref(),
                         Some(progress_cb),
+                        &mut job_report,
                     )
                     .await;
 
@@ -518,12 +527,14 @@ impl ConversionEngine {
                                     worker_id,
                                     job_id
                                 );
+                                j.report = job_report.clone();
                                 handle
                                     .emit(
                                         "conversion:complete",
                                         serde_json::json!({
                                             "job_id": job_id,
                                             "output_path": job.target_path,
+                                            "report": job_report,
                                         }),
                                     )
                                     .ok();
@@ -630,6 +641,43 @@ impl ConversionEngine {
         }
     }
 
+    /// Native source→EPUB through the report-capable pipeline. Because the
+    /// engine already owns Calibre orchestration (calibre-first / rust-first
+    /// policies), the pipeline is invoked with `db: None` so no double-Calibre
+    /// can happen; the report is returned in `report_out`. The intermediate
+    /// dir is caller-owned (dropped on any path, including failure), so a
+    /// failed job leaks nothing in the temp dir.
+    async fn native_epub_convert(
+        source: &Path,
+        target: &Path,
+        progress_cb: Option<std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>>,
+        report_out: &mut Option<serde_json::Value>,
+    ) -> FormatResult<()> {
+        let bridge = progress_cb.map(|cb| -> crate::conversion::ProgressCallback {
+            Box::new(move |p: crate::conversion::ConversionProgress| {
+                cb(p.percent, &p.stage);
+            })
+        });
+        let work_dir = tempfile::Builder::new()
+            .prefix("shiori_engine_")
+            .tempdir()
+            .map_err(|e| FormatError::ConversionError(e.to_string()))?;
+        match crate::conversion::convert_to_epub_into(source, Some(work_dir.path()), bridge, None)
+            .await
+        {
+            Ok((path, report)) => {
+                tokio::fs::copy(&path, target)
+                    .await
+                    .map_err(|e| FormatError::ConversionError(e.to_string()))?;
+                if let Ok(v) = serde_json::to_value(report) {
+                    *report_out = Some(v);
+                }
+                Ok(())
+            }
+            Err(e) => Err(FormatError::ConversionError(e.to_string())),
+        }
+    }
+
     async fn execute_conversion(
         source_fmt: &str,
         target_fmt: &str,
@@ -639,6 +687,7 @@ impl ConversionEngine {
         job_id: &str,
         db: Option<&Database>,
         progress_cb: Option<std::sync::Arc<dyn Fn(u8, &str) + Send + Sync>>,
+        report_out: &mut Option<serde_json::Value>,
     ) -> FormatResult<()> {
         let check_cancel = || -> FormatResult<()> {
             if cancelled.contains(job_id) {
@@ -667,7 +716,15 @@ impl ConversionEngine {
                         )
                         .await
                         {
-                            Ok(()) => return Ok(()),
+                            Ok(()) => {
+                                *report_out = Some(serde_json::json!({
+                                    "source_format": source_fmt,
+                                    "heuristics_used": ["calibre"],
+                                    "warnings": [],
+                                    "confidence": 1.0,
+                                }));
+                                return Ok(())
+                            }
                             Err(CalibreError::Cancelled) => {
                                 return Err(FormatError::ConversionError("Cancelled".to_string()))
                             }
@@ -686,27 +743,22 @@ impl ConversionEngine {
                         }
                     }
 
-                    let rust_fmt =
-                        Self::rust_source_format_for_epub(source_fmt).ok_or_else(|| {
-                            FormatError::ConversionNotSupported {
-                                from: source_fmt.to_string(),
-                                to: "epub".to_string(),
-                            }
-                        })?;
+                    // Validate the format has a native converter before
+                    // spending work (the pipeline would fail later anyway).
+                    Self::rust_source_format_for_epub(source_fmt).ok_or_else(|| {
+                        FormatError::ConversionNotSupported {
+                            from: source_fmt.to_string(),
+                            to: "epub".to_string(),
+                        }
+                    })?;
 
                     if let Some(cb) = &progress_cb {
                         cb(10, "Converting with native engine...");
                     }
 
-                    let res = crate::conversion::convert_to_epub(
-                        source,
-                        target,
-                        rust_fmt,
-                        progress_cb.as_deref(),
-                    )
-                    .await
-                    .map(|_| ())
-                    .map_err(|e| e.into());
+                    // Native path via the report-capable pipeline (IR-SPEC §4).
+                    let res = Self::native_epub_convert(source, target, progress_cb.clone(), report_out)
+                        .await;
 
                     if let Some(cb) = &progress_cb {
                         cb(100, "Finalizing...");
@@ -720,15 +772,7 @@ impl ConversionEngine {
                     cb(10, "Converting with native engine...");
                 }
 
-                match crate::conversion::convert_to_epub(
-                    source,
-                    target,
-                    crate::conversion::SourceFormat::Txt,
-                    progress_cb.as_deref(),
-                )
-                .await
-                .map(|_| ())
-                .map_err(|e| e.into())
+                match Self::native_epub_convert(source, target, progress_cb.clone(), report_out).await
                 {
                     Ok(()) => return Ok(()),
                     Err(rust_err) => {
@@ -789,17 +833,9 @@ impl ConversionEngine {
 
     // Step 1: Source to EPUB
     if source_fmt != "epub" {
-        let src_format = crate::conversion::SourceFormat::from_extension(source_fmt)
-            .unwrap_or(crate::conversion::SourceFormat::Txt);
-
-        crate::conversion::convert_to_epub(
-            source,
-            &intermediate_epub,
-            src_format,
-            progress_cb.as_deref(),
-        )
-        .await
-        .map_err(|e| FormatError::ConversionError(e.to_string()))?;
+        Self::native_epub_convert(source, &intermediate_epub, progress_cb.clone(), report_out)
+            .await
+            .map_err(|e| FormatError::ConversionError(e.to_string()))?;
     } else {
         tokio::fs::copy(source, &intermediate_epub).await?;
     }
@@ -1334,6 +1370,7 @@ impl ConversionEngine {
     ) -> FormatResult<()> {
         let dummy_cancelled = DashSet::new();
         let dummy_job_id = "direct";
+        let mut report_out: Option<serde_json::Value> = None;
         Self::execute_conversion(
             source_format,
             target_format,
@@ -1343,6 +1380,7 @@ impl ConversionEngine {
             dummy_job_id,
             db,
             progress_cb,
+            &mut report_out,
         )
         .await
     }
@@ -1415,6 +1453,7 @@ mod tests {
             created_at: Utc::now(),
             started_at: None,
             completed_at: None,
+            report: None,
         };
         // Queue: submit_conversion persists the Queued row.
         ConversionEngine::persist_job(&queued, &conn);
@@ -1462,6 +1501,7 @@ mod tests {
         let dummy = DashSet::new();
         // txt → docx converts txt→epub successfully, then fails in step 2
         // (epub_to_docx is a stub returning ConversionNotSupported).
+        let mut report_out: Option<serde_json::Value> = None;
         let res = rt.block_on(ConversionEngine::execute_conversion(
             "txt",
             "docx",
@@ -1471,14 +1511,33 @@ mod tests {
             "test-job",
             None,
             None,
+            &mut report_out,
         ));
         assert!(res.is_err(), "stub target must fail");
 
         let after = epub_files(&std::env::temp_dir());
+        // Ignore `shiori_test_roundtrip.epub`, left briefly by a parallel
+        // unit test (epub_builder roundtrip) — the leak contract here is
+        // only about this job's intermediates.
+        let mine = |f: &String| !f.starts_with("shiori_test_roundtrip");
+        let before: Vec<String> = before.into_iter().filter(mine).collect();
+        let after: Vec<String> = after.into_iter().filter(mine).collect();
         assert_eq!(
             before, after,
             "intermediate epub leaked in temp dir after failed conversion"
         );
+        // The engine's work dir must be gone too (caller-owned tempdir).
+        let leaked_dirs: usize = std::fs::read_dir(std::env::temp_dir())
+            .map(|rd| {
+                rd.filter_map(|e| e.ok())
+                    .filter(|e| {
+                        e.file_name().to_string_lossy().starts_with("shiori_engine_")
+                            && e.file_type().map(|t| t.is_dir()).unwrap_or(false)
+                    })
+                    .count()
+            })
+            .unwrap_or(0);
+        assert_eq!(leaked_dirs, 0, "engine work dir leaked after failed conversion");
     }
 
     #[test]

@@ -30,8 +30,8 @@ fn get_dictionary_cache() -> &'static Mutex<HashMap<String, DictionaryResult>> {
 fn get_client() -> &'static Client {
     HTTP_CLIENT.get_or_init(|| {
         Client::builder()
-            .timeout(Duration::from_secs(5))
-            .connect_timeout(Duration::from_secs(3))
+            .timeout(Duration::from_secs(8))
+            .connect_timeout(Duration::from_secs(4))
             .pool_idle_timeout(Duration::from_secs(120))
             .pool_max_idle_per_host(8)
             .tcp_nodelay(true)
@@ -155,9 +155,46 @@ struct LingvaResponse {
     translation: String,
 }
 
-// ═══════════════════════════════════════════════════════════════
-// DICTIONARY LOOKUP
-// ═══════════════════════════════════════════════════════════════
+fn sanitize_definition_text(raw: &str) -> String {
+    let mut cleaned = raw.to_string();
+    while let Some(start) = cleaned.to_lowercase().find("<style") {
+        if let Some(end) = cleaned[start..].to_lowercase().find("</style>") {
+            cleaned.replace_range(start..start + end + 8, "");
+        } else {
+            break;
+        }
+    }
+    while let Some(start) = cleaned.to_lowercase().find("<script") {
+        if let Some(end) = cleaned[start..].to_lowercase().find("</script>") {
+            cleaned.replace_range(start..start + end + 9, "");
+        } else {
+            break;
+        }
+    }
+    let stripped = strip_html_tags(&cleaned);
+    let decoded = decode_html_entities(&stripped);
+
+    let mut result = decoded;
+    while let Some(start) = result.find(".mw-parser-output") {
+        if let Some(brace_end) = result[start..].find('}') {
+            result.replace_range(start..start + brace_end + 1, "");
+        } else {
+            break;
+        }
+    }
+    while let Some(start) = result.find('{') {
+        if let Some(end) = result[start..].find('}') {
+            let inner = &result[start + 1..start + end];
+            if inner.contains(':') || inner.contains(';') {
+                result.replace_range(start..start + end + 1, "");
+                continue;
+            }
+        }
+        break;
+    }
+
+    result.trim().to_string()
+}
 
 /// Look up a word, checking memory cache first, then querying Wiktionary (fast CDN)
 /// with immediate fallback to the Free Dictionary API.
@@ -239,16 +276,12 @@ async fn wiktionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
                 .definitions
                 .iter()
                 .filter_map(|d| {
-                    let text = decode_html_entities(&strip_html_tags(&d.definition))
-                        .trim()
-                        .to_string();
+                    let text = sanitize_definition_text(&d.definition);
                     if text.is_empty() {
                         return None;
                     }
                     let example = d.examples.iter().find_map(|e| {
-                        let cleaned = decode_html_entities(&strip_html_tags(e))
-                            .trim()
-                            .to_string();
+                        let cleaned = sanitize_definition_text(e);
                         if cleaned.is_empty() {
                             None
                         } else {
@@ -359,8 +392,8 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
                 .into_iter()
                 .take(3)
                 .map(|d| DictionaryDefinition {
-                    definition: decode_html_entities(&d.definition),
-                    example: d.example.map(|e| decode_html_entities(&e)),
+                    definition: sanitize_definition_text(&d.definition),
+                    example: d.example.map(|e| sanitize_definition_text(&e)),
                     synonyms: d.synonyms.into_iter().take(5).collect(),
                     antonyms: d.antonyms.into_iter().take(5).collect(),
                 })
@@ -380,6 +413,115 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
 // ═══════════════════════════════════════════════════════════════
 // TRANSLATION SERVICE
 // ═══════════════════════════════════════════════════════════════
+
+/// Split text into semantic chunks bounded by `max_chars`.
+/// Splits prefer paragraph breaks (`\n`), then sentence endings (`. `, `! `, `? `),
+/// then whitespace, never splitting in the middle of UTF-8 characters.
+fn split_text_into_chunks(text: &str, max_chars: usize) -> Vec<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return Vec::new();
+    }
+    if trimmed.chars().count() <= max_chars {
+        return vec![trimmed.to_string()];
+    }
+
+    let mut chunks = Vec::new();
+    let paragraphs: Vec<&str> = trimmed.split('\n').collect();
+    let mut current_chunk = String::new();
+
+    for (p_idx, p) in paragraphs.iter().enumerate() {
+        let p_trimmed = p.trim();
+        if p_trimmed.is_empty() {
+            if !current_chunk.is_empty() && p_idx < paragraphs.len() - 1 {
+                current_chunk.push('\n');
+            }
+            continue;
+        }
+
+        if p_trimmed.chars().count() > max_chars {
+            // Flush current accumulated chunk
+            if !current_chunk.is_empty() {
+                chunks.push(current_chunk.clone());
+                current_chunk.clear();
+            }
+
+            // Split paragraph by sentences
+            let mut remaining = p_trimmed;
+            while !remaining.is_empty() {
+                if remaining.chars().count() <= max_chars {
+                    chunks.push(remaining.to_string());
+                    break;
+                }
+
+                // Look for sentence boundary (. ! ? ;) within the first max_chars characters
+                let mut best_split = None;
+                let mut char_count = 0;
+                let mut last_space = None;
+
+                for (byte_offset, c) in remaining.char_indices() {
+                    char_count += 1;
+                    if char_count > max_chars {
+                        break;
+                    }
+                    if c == ' ' {
+                        last_space = Some(byte_offset);
+                    }
+                    if (c == '.' || c == '!' || c == '?' || c == ';') && byte_offset + c.len_utf8() < remaining.len() {
+                        let next_byte = byte_offset + c.len_utf8();
+                        if remaining[next_byte..].starts_with(' ') || remaining[next_byte..].starts_with('\n') {
+                            best_split = Some(next_byte);
+                        }
+                    }
+                }
+
+                let mut split_byte = if let Some(punct_split) = best_split {
+                    punct_split
+                } else if let Some(space_split) = last_space {
+                    space_split
+                } else {
+                    // Hard boundary at max_chars safely on UTF-8 char boundary
+                    let mut byte_idx = remaining.len();
+                    let mut count = 0;
+                    for (b_idx, _) in remaining.char_indices() {
+                        if count == max_chars {
+                            byte_idx = b_idx;
+                            break;
+                        }
+                        count += 1;
+                    }
+                    byte_idx
+                };
+
+                if split_byte == 0 {
+                    split_byte = remaining.chars().next().map(|c| c.len_utf8()).unwrap_or(remaining.len());
+                }
+
+                let piece = remaining[..split_byte].trim();
+                if !piece.is_empty() {
+                    chunks.push(piece.to_string());
+                }
+                remaining = remaining[split_byte..].trim_start();
+            }
+        } else {
+            let needed = if current_chunk.is_empty() { 0 } else { 1 };
+            if current_chunk.chars().count() + needed + p_trimmed.chars().count() > max_chars {
+                chunks.push(current_chunk.clone());
+                current_chunk.clear();
+            }
+            if !current_chunk.is_empty() {
+                current_chunk.push('\n');
+            }
+            current_chunk.push_str(p_trimmed);
+        }
+    }
+
+    if !current_chunk.is_empty() {
+        chunks.push(current_chunk);
+    }
+
+    chunks
+}
 
 /// Translate text using high-performance Google Web Translate with MyMemory & Lingva fallbacks.
 /// source_lang: ISO 639-1 code (e.g. "en") or "auto" for auto-detect
@@ -404,16 +546,24 @@ pub async fn translate_text(
         return Ok(cached.clone());
     }
 
-    let result = if clean_text.len() > 3000 {
+    let result = if clean_text.chars().count() > 1200 {
         translate_long_text(clean_text, source_lang, target_lang).await?
     } else {
         translate_text_single(clean_text, source_lang, target_lang).await?
     };
 
-    get_translation_cache()
-        .lock()
-        .unwrap()
-        .insert(key, result.clone());
+    // Only cache valid translations that are non-empty and don't match known error strings
+    let upper = result.translated_text.to_uppercase();
+    if !result.translated_text.trim().is_empty()
+        && !upper.contains("QUERY LENGTH LIMIT EXCEEDED")
+        && !upper.contains("MYMEMORY WARNING")
+    {
+        get_translation_cache()
+            .lock()
+            .unwrap()
+            .insert(key, result.clone());
+    }
+
     Ok(result)
 }
 
@@ -422,30 +572,37 @@ async fn translate_long_text(
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    let chunks: Vec<&str> = text
-        .split("\n\n")
-        .flat_map(|p| p.split(". "))
-        .filter(|c| !c.trim().is_empty())
-        .collect();
+    let chunks = split_text_into_chunks(text, 1000);
+    if chunks.is_empty() {
+        return Ok(TranslationResult {
+            translated_text: String::new(),
+            source_language: source_lang.to_string(),
+            target_language: target_lang.to_string(),
+            provider: "none".to_string(),
+        });
+    }
 
-    let mut translated_pieces = Vec::new();
+    let mut translated_pieces = Vec::with_capacity(chunks.len());
     let mut provider = String::new();
 
-    for chunk in chunks {
-        let safe_chunk = if chunk.len() > 2500 {
-            &chunk[..2500]
-        } else {
-            chunk
-        };
-        let res = translate_text_single(safe_chunk, source_lang, target_lang).await?;
+    for chunk in &chunks {
+        let res = translate_text_single(chunk, source_lang, target_lang).await?;
         translated_pieces.push(res.translated_text);
         if provider.is_empty() {
             provider = res.provider;
         }
     }
 
+    let separator = if text.contains("\n\n") {
+        "\n\n"
+    } else if text.contains('\n') {
+        "\n"
+    } else {
+        " "
+    };
+
     Ok(TranslationResult {
-        translated_text: translated_pieces.join(". "),
+        translated_text: translated_pieces.join(separator),
         source_language: source_lang.to_string(),
         target_language: target_lang.to_string(),
         provider,
@@ -614,18 +771,17 @@ async fn translate_google_web(
     })
 }
 
-/// Fallback translation provider: MyMemory API.
-async fn translate_mymemory(
-    text: &str,
+async fn translate_mymemory_single(
+    chunk: &str,
     source_lang: &str,
     target_lang: &str,
-) -> Result<TranslationResult> {
+) -> Result<String> {
     let client = get_client();
     let langpair = format!("{}|{}", source_lang, target_lang);
 
     let response = client
         .get("https://api.mymemory.translated.net/get")
-        .query(&[("q", text), ("langpair", &langpair)])
+        .query(&[("q", chunk), ("langpair", &langpair)])
         .send()
         .await
         .map_err(|e| ShioriError::Other(format!("MyMemory request failed: {}", e)))?;
@@ -642,32 +798,121 @@ async fn translate_mymemory(
         .await
         .map_err(|e| ShioriError::Other(format!("Failed to parse MyMemory response: {}", e)))?;
 
-    if let Some(status) = &result.response_status {
-        if let Some(status_num) = status.as_u64() {
-            if status_num == 403 {
-                return Err(ShioriError::Other("MyMemory quota exceeded".to_string()));
-            }
-        }
+    let status_code = match &result.response_status {
+        Some(serde_json::Value::Number(n)) => n.as_u64().unwrap_or(200),
+        Some(serde_json::Value::String(s)) => s.parse::<u64>().unwrap_or(200),
+        _ => 200,
+    };
+
+    if status_code != 200 {
+        return Err(ShioriError::Other(format!(
+            "MyMemory API error status {}: {}",
+            status_code, result.response_data.translated_text
+        )));
     }
 
     let decoded = decode_html_entities(&result.response_data.translated_text);
+    let trimmed = decoded.trim();
+
+    let upper = trimmed.to_uppercase();
+    if trimmed.is_empty()
+        || upper.contains("QUERY LENGTH LIMIT EXCEEDED")
+        || upper.contains("MYMEMORY WARNING")
+        || upper.contains("INVALID TARGET LANGUAGE")
+        || upper.contains("PLEASE SPECIFY A VALID")
+        || upper.contains("QUOTA EXCEEDED")
+    {
+        return Err(ShioriError::Other(format!("MyMemory error: {}", trimmed)));
+    }
+
+    Ok(trimmed.to_string())
+}
+
+/// Fallback translation provider: MyMemory API.
+/// Chunks queries to <= 450 characters to strictly respect MyMemory's 500-char limit.
+async fn translate_mymemory(
+    text: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<TranslationResult> {
+    let chunks = split_text_into_chunks(text, 450);
+    if chunks.is_empty() {
+        return Ok(TranslationResult {
+            translated_text: String::new(),
+            source_language: source_lang.to_string(),
+            target_language: target_lang.to_string(),
+            provider: "mymemory".to_string(),
+        });
+    }
+
+    let mut translated_pieces = Vec::with_capacity(chunks.len());
+    for chunk in &chunks {
+        let piece = translate_mymemory_single(chunk, source_lang, target_lang).await?;
+        translated_pieces.push(piece);
+    }
+
+    let separator = if text.contains("\n\n") {
+        "\n\n"
+    } else if text.contains('\n') {
+        "\n"
+    } else {
+        " "
+    };
 
     Ok(TranslationResult {
-        translated_text: decoded,
+        translated_text: translated_pieces.join(separator),
         source_language: source_lang.to_string(),
         target_language: target_lang.to_string(),
         provider: "mymemory".to_string(),
     })
 }
 
+async fn translate_lingva_single(
+    instance: &str,
+    chunk: &str,
+    source_lang: &str,
+    target_lang: &str,
+) -> Result<String> {
+    let client = get_client();
+    let url = format!(
+        "{}/api/v1/{}/{}/{}",
+        instance,
+        urlencoding::encode(source_lang),
+        urlencoding::encode(target_lang),
+        urlencoding::encode(chunk)
+    );
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Lingva request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(ShioriError::Other(format!("Status {}", response.status())));
+    }
+
+    let result: LingvaResponse = response
+        .json()
+        .await
+        .map_err(|e| ShioriError::Other(format!("Parse failed: {}", e)))?;
+
+    let decoded = decode_html_entities(&result.translation);
+    let trimmed = decoded.trim();
+    if trimmed.is_empty() {
+        return Err(ShioriError::Other("Empty translation".to_string()));
+    }
+
+    Ok(trimmed.to_string())
+}
+
 /// Fallback translation provider: Lingva API.
+/// Chunks queries to <= 400 characters to prevent URL-length overflow.
 async fn translate_lingva(
     text: &str,
     source_lang: &str,
     target_lang: &str,
 ) -> Result<TranslationResult> {
-    let client = get_client();
-
     let instances = [
         "https://lingva.ml",
         "https://translate.nerdvpn.de",
@@ -675,46 +920,49 @@ async fn translate_lingva(
         "https://lingva.thedesk.top",
     ];
 
-    let mut last_error = String::new();
-
-    for instance in instances {
-        let url = format!(
-            "{}/api/v1/{}/{}/{}",
-            instance,
-            urlencoding::encode(source_lang),
-            urlencoding::encode(target_lang),
-            urlencoding::encode(text)
-        );
-
-        let response = match client.get(&url).send().await {
-            Ok(resp) => resp,
-            Err(e) => {
-                last_error = format!("Request failed: {}", e);
-                continue;
-            }
-        };
-
-        if !response.status().is_success() {
-            last_error = format!("Status {}", response.status());
-            continue;
-        }
-
-        let result: LingvaResponse = match response.json().await {
-            Ok(res) => res,
-            Err(e) => {
-                last_error = format!("Parse failed: {}", e);
-                continue;
-            }
-        };
-
-        let decoded = decode_html_entities(&result.translation);
-
+    let chunks = split_text_into_chunks(text, 400);
+    if chunks.is_empty() {
         return Ok(TranslationResult {
-            translated_text: decoded,
+            translated_text: String::new(),
             source_language: source_lang.to_string(),
             target_language: target_lang.to_string(),
             provider: "lingva".to_string(),
         });
+    }
+
+    let separator = if text.contains("\n\n") {
+        "\n\n"
+    } else if text.contains('\n') {
+        "\n"
+    } else {
+        " "
+    };
+
+    let mut last_error = String::new();
+
+    for instance in instances {
+        let mut translated_pieces = Vec::with_capacity(chunks.len());
+        let mut failed = false;
+
+        for chunk in &chunks {
+            match translate_lingva_single(instance, chunk, source_lang, target_lang).await {
+                Ok(res) => translated_pieces.push(res),
+                Err(e) => {
+                    last_error = e.to_string();
+                    failed = true;
+                    break;
+                }
+            }
+        }
+
+        if !failed && !translated_pieces.is_empty() {
+            return Ok(TranslationResult {
+                translated_text: translated_pieces.join(separator),
+                source_language: source_lang.to_string(),
+                target_language: target_lang.to_string(),
+                provider: "lingva".to_string(),
+            });
+        }
     }
 
     Err(ShioriError::Other(format!(

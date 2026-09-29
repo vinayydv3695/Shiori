@@ -1,0 +1,713 @@
+{
+  "docx/synthetic.epub": {
+    "file": "docx/synthetic.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "synthetic",
+      "language": "en",
+      "toc_entries": 3,
+      "images": 0,
+      "chapters": 4,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 266
+  },
+  "epub/pg11.epub": {
+    "file": "epub/pg11.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "Alice's Adventures in Wonderland",
+      "language": "en",
+      "toc_entries": 0,
+      "images": 1,
+      "chapters": 16,
+      "has_nav": false,
+      "has_ncx": true
+    },
+    "text_len": 0
+  },
+  "epub/pg84.epub": {
+    "file": "epub/pg84.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "Frankenstein; or, the modern prometheus",
+      "language": "en",
+      "toc_entries": 0,
+      "images": 1,
+      "chapters": 33,
+      "has_nav": false,
+      "has_ncx": true
+    },
+    "text_len": 0
+  },
+  "fb2/sloppy_cp1251.epub": {
+    "file": "fb2/sloppy_cp1251.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "Ðóññêàÿ Ñèíòåòèêà",
+      "language": "ru",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 240
+  },
+  "fb2/synthetic_full.epub": {
+    "file": "fb2/synthetic_full.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "The Test Engine",
+      "language": "en",
+      "toc_entries": 3,
+      "images": 2,
+      "chapters": 5,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 462
+  },
+  "fb2/two_bodies.epub": {
+    "file": "fb2/two_bodies.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "Two Bodies",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 99
+  },
+  "mobi/synthetic.epub": {
+    "file": "mobi/synthetic.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "The Test Engine",
+      "language": "en",
+      "toc_entries": 3,
+      "images": 0,
+      "chapters": 4,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 29729
+  },
+  "pdf/novel.epub": {
+    "file": "pdf/novel.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "novel",
+      "language": "en",
+      "toc_entries": 47,
+      "images": 0,
+      "chapters": 48,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 82893
+  },
+  "pdf/scan_page1.epub": {
+    "file": "pdf/scan_page1.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "scan page1",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 1,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 25
+  },
+  "pdf/scan_page2.epub": {
+    "file": "pdf/scan_page2.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "scan page2",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 1,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 25
+  },
+  "pdf/scan_page3.epub": {
+    "file": "pdf/scan_page3.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "scan page3",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 1,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 25
+  },
+  "pdf/tables.epub": {
+    "file": "pdf/tables.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "tables",
+      "language": "en",
+      "toc_entries": 7,
+      "images": 0,
+      "chapters": 8,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 508
+  },
+  "pdf/twocolumn.epub": {
+    "file": "pdf/twocolumn.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "twocolumn",
+      "language": "en",
+      "toc_entries": 112,
+      "images": 0,
+      "chapters": 113,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 76763
+  },
+  "txt/edge_blank_lines.epub": {
+    "file": "txt/edge_blank_lines.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge blank lines",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 305
+  },
+  "txt/edge_bom_only.epub": {
+    "file": "txt/edge_bom_only.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge bom only",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 33
+  },
+  "txt/edge_crlf.epub": {
+    "file": "txt/edge_crlf.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge crlf",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 298
+  },
+  "txt/edge_empty.epub": {
+    "file": "txt/edge_empty.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge empty",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 30
+  },
+  "txt/edge_huge_line.epub": {
+    "file": "txt/edge_huge_line.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge huge line",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 10000032
+  },
+  "txt/edge_markdown.epub": {
+    "file": "txt/edge_markdown.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge markdown",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 111
+  },
+  "txt/edge_no_final_newline.epub": {
+    "file": "txt/edge_no_final_newline.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge no final newline",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 310
+  },
+  "txt/edge_roman_numerals.epub": {
+    "file": "txt/edge_roman_numerals.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge roman numerals",
+      "language": "en",
+      "toc_entries": 4,
+      "images": 0,
+      "chapters": 5,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 224
+  },
+  "txt/edge_rtf.epub": {
+    "file": "txt/edge_rtf.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge rtf",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 102
+  },
+  "txt/edge_stray_control.epub": {
+    "file": "txt/edge_stray_control.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge stray control",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 89
+  },
+  "txt/edge_tabs.epub": {
+    "file": "txt/edge_tabs.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "edge tabs",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 68
+  },
+  "txt/enc_big5.epub": {
+    "file": "txt/enc_big5.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc big5",
+      "language": "zh",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 65
+  },
+  "txt/enc_cp1251.epub": {
+    "file": "txt/enc_cp1251.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc cp1251",
+      "language": "ru",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 141
+  },
+  "txt/enc_cp1252.epub": {
+    "file": "txt/enc_cp1252.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc cp1252",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 299
+  },
+  "txt/enc_euc_kr.epub": {
+    "file": "txt/enc_euc_kr.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc euc kr",
+      "language": "ko",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 87
+  },
+  "txt/enc_gbk.epub": {
+    "file": "txt/enc_gbk.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc gbk",
+      "language": "zh",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 64
+  },
+  "txt/enc_iso8859_1.epub": {
+    "file": "txt/enc_iso8859_1.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc iso8859 1",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 302
+  },
+  "txt/enc_koi8r.epub": {
+    "file": "txt/enc_koi8r.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc koi8r",
+      "language": "ru",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 140
+  },
+  "txt/enc_latin2.epub": {
+    "file": "txt/enc_latin2.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc latin2",
+      "language": "en",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 79
+  },
+  "txt/enc_shift_jis.epub": {
+    "file": "txt/enc_shift_jis.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc shift jis",
+      "language": "ja",
+      "toc_entries": 1,
+      "images": 0,
+      "chapters": 2,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 77
+  },
+  "txt/enc_utf16be.epub": {
+    "file": "txt/enc_utf16be.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc utf16be",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 300
+  },
+  "txt/enc_utf16le.epub": {
+    "file": "txt/enc_utf16le.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc utf16le",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 300
+  },
+  "txt/enc_utf8_bom.epub": {
+    "file": "txt/enc_utf8_bom.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "enc utf8 bom",
+      "language": "en",
+      "toc_entries": 2,
+      "images": 0,
+      "chapters": 3,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 301
+  },
+  "txt/pg11.epub": {
+    "file": "txt/pg11.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "pg11",
+      "language": "en",
+      "toc_entries": 20,
+      "images": 0,
+      "chapters": 21,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 174103
+  },
+  "txt/pg1342.epub": {
+    "file": "txt/pg1342.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "pg1342",
+      "language": "en",
+      "toc_entries": 50,
+      "images": 0,
+      "chapters": 51,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 556597
+  },
+  "txt/pg1661.epub": {
+    "file": "txt/pg1661.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "pg1661",
+      "language": "en",
+      "toc_entries": 4,
+      "images": 0,
+      "chapters": 5,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 579342
+  },
+  "txt/pg2701.epub": {
+    "file": "txt/pg2701.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "pg2701",
+      "language": "en",
+      "toc_entries": 291,
+      "images": 0,
+      "chapters": 292,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 1289102
+  },
+  "txt/pg84.epub": {
+    "file": "txt/pg84.epub",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {
+      "title": "pg84",
+      "language": "en",
+      "toc_entries": 36,
+      "images": 0,
+      "chapters": 37,
+      "has_nav": true,
+      "has_ncx": true
+    },
+    "text_len": 444668
+  },
+  "txt/enc_utf16le.txt": {
+    "file": "txt/enc_utf16le.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8246,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_utf16be.txt": {
+    "file": "txt/enc_utf16be.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8246,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_utf8_bom.txt": {
+    "file": "txt/enc_utf8_bom.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8228,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_cp1251.txt": {
+    "file": "txt/enc_cp1251.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8624,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_koi8r.txt": {
+    "file": "txt/enc_koi8r.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8664,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_cp1252.txt": {
+    "file": "txt/enc_cp1252.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8264,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_shift_jis.txt": {
+    "file": "txt/enc_shift_jis.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.75,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_gbk.txt": {
+    "file": "txt/enc_gbk.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.7632,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_big5.txt": {
+    "file": "txt/enc_big5.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.7532,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_euc_kr.txt": {
+    "file": "txt/enc_euc_kr.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.8235,
+    "fidelity_min": 0.99
+  },
+  "txt/enc_latin2.txt": {
+    "file": "txt/enc_latin2.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.5778,
+    "fidelity_min": 0.99
+  },
+  "txt/edge_markdown.txt": {
+    "file": "txt/edge_markdown.txt",
+    "errors": 0,
+    "warnings": 0,
+    "meta": {},
+    "fidelity": 0.9172,
+    "fidelity_min": 0.95
+  }
+}

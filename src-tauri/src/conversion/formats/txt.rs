@@ -219,8 +219,38 @@ fn body_starts_with_heading(html: &str) -> bool {
 
 /// Drop empty chapters, renumber ids sequentially, and guarantee at least
 /// one chapter exists.
+/// Drop empty chapters, merge consecutive chapters with the same title (a
+/// book's own TOC list + the real headings produce duplicate titles — the
+/// later duplicate's body folds into the first), renumber ids sequentially,
+/// and guarantee at least one chapter exists.
 fn finalize_chapters(book: &mut OebBook) {
-    book.chapters.retain(|ch| !ch.html.trim().is_empty());
+    let mut merged: Vec<OebChapter> = Vec::with_capacity(book.chapters.len());
+    for ch in book.chapters.drain(..) {
+        let ch_title = ch
+            .title
+            .as_deref()
+            .map(|t| t.trim().to_lowercase())
+            .unwrap_or_default();
+        let duplicate = merged
+            .last()
+            .map(|p| {
+                p.title.as_deref().map(|t| t.trim().to_lowercase()) == Some(ch_title.clone())
+            })
+            .unwrap_or(false);
+        if duplicate {
+            let prev = merged.last_mut().unwrap();
+            if !prev.html.trim().is_empty() && !ch.html.trim().is_empty() {
+                prev.html.push('\n');
+            }
+            if !ch.html.trim().is_empty() {
+                prev.html.push_str(&ch.html);
+            }
+        } else {
+            merged.push(ch);
+        }
+    }
+    merged.retain(|ch| !ch.html.trim().is_empty());
+    book.chapters = merged;
     for (i, ch) in book.chapters.iter_mut().enumerate() {
         ch.id = format!("chapter_{:03}", i + 1);
     }

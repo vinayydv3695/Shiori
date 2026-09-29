@@ -174,6 +174,12 @@ impl<'a> MigrationManager<'a> {
         if current_version < 50 {
             self.run_in_savepoint("v50", |mgr| mgr.migrate_to_v50())?;
         }
+        if current_version < 51 {
+            self.run_in_savepoint("v51", |mgr| mgr.migrate_to_v51())?;
+        }
+        if current_version < 52 {
+            self.run_in_savepoint("v52", |mgr| mgr.migrate_to_v52())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2932,6 +2938,40 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v50_ai_keys_fallback");
         self.record_migration(50, "ai_keys_fallback", &hash)?;
+        Ok(())
+    }
+
+    /// v51: conversion report column (IR-SPEC §4). The structured conversion
+    /// report (warnings, heuristics, fallback, confidence, output digest) is
+    /// stored as JSON so the UI can show it after the fact.
+    fn migrate_to_v51(&self) -> Result<()> {
+        log::info!("[Migration] Applying v51: conversion_jobs.report");
+
+        if !self.column_exists("conversion_jobs", "report")? {
+            self.conn.execute(
+                "ALTER TABLE conversion_jobs ADD COLUMN report TEXT",
+                [],
+            )?;
+        }
+
+        let hash = Self::calculate_checksum("v51_conversion_jobs_report");
+        self.record_migration(51, "conversion_jobs_report", &hash)?;
+        Ok(())
+    }
+
+    fn migrate_to_v52(&self) -> Result<()> {
+        log::info!("[Migration] Applying v52: books(manga_series_id, series_index) covering index");
+
+        // Perf (slice F2-a): the series-page read (Q3) used idx_books_manga_series
+        // plus a TEMP B-TREE for ORDER BY series_index. The composite index lets
+        // SQLite serve the sorted series listing directly from the B-tree.
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_manga_series_idx ON books(manga_series_id, series_index)",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v52_books_manga_series_idx");
+        self.record_migration(52, "books_manga_series_idx", &hash)?;
         Ok(())
     }
 }

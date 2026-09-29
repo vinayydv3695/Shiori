@@ -8,27 +8,77 @@
 ///   - EPUB 2 compatibility: toc.ncx included alongside nav.xhtml.
 use std::io::{BufWriter, Seek, Write};
 use std::path::Path;
-use uuid::Uuid;
 use zip::write::FileOptions;
 use zip::CompressionMethod;
 
 use super::error::ConversionError;
 use super::oeb::{escape_xml, ImageSource, OebBook};
+use super::report::ConversionReport;
 
 // ──────────────────────────────────────────────────────────────────────────
 // PUBLIC API
 // ──────────────────────────────────────────────────────────────────────────
 
-/// Build an EPUB 3 file from the given `OebBook` and write it to `output_path`.
+/// Build options controlling deterministic output (IR-SPEC §5).
+///
+/// Same input + same options ⇒ byte-identical file.
+#[derive(Debug, Clone, Default)]
+pub struct BuildOptions {
+    /// SHA-256 of the source file. Derives the stable `dc:identifier`.
+    pub source_sha256: Option<[u8; 32]>,
+    /// `dcterms:modified` value. Should be the source file's mtime (UTC,
+    /// ISO-8601). Falls back to a fixed epoch when absent — never wall-clock.
+    pub modified: Option<String>,
+}
+
+/// Build an EPUB 3 file from the given `OebBook` and write it to `output_path`,
+/// recording report items into `report`.
 ///
 /// The archive is written straight to disk through a `BufWriter` (no
 /// in-memory `Vec<u8>` assembly) and page images are streamed from their
 /// `ImageSource` one at a time, so a 1 GB CBZ conversion costs bounded RAM.
-pub fn build_epub(book: &OebBook, output_path: &Path) -> Result<(), ConversionError> {
+pub fn build_epub_with_report(
+    book: &OebBook,
+    output_path: &Path,
+    opts: &BuildOptions,
+    report: &mut ConversionReport,
+) -> Result<(), ConversionError> {
+    // Validate the TOC against the chapter set; dead entries are dropped
+    // with a report item so the nav can never contain broken links
+    // (IR-SPEC §3). Chapters may legitimately carry `#anchor` suffixes.
+    let chapter_ids: std::collections::HashSet<&str> =
+        book.chapters.iter().map(|c| c.id.as_str()).collect();
+    let valid = |href: &str| -> bool {
+        let file_part = href.split('#').next().unwrap_or(href);
+        file_part.is_empty() || chapter_ids.contains(file_part)
+    };
+    fn prune(entries: &[super::oeb::TocEntry], valid: &dyn Fn(&str) -> bool, dropped: &mut usize) -> Vec<super::oeb::TocEntry> {
+        entries
+            .iter()
+            .filter_map(|e| {
+                if !valid(&e.href) {
+                    *dropped += 1;
+                    return None;
+                }
+                let mut kept = e.clone();
+                kept.children = prune(&e.children, valid, dropped);
+                Some(kept)
+            })
+            .collect()
+    }
+    let mut dropped = 0usize;
+    let toc = prune(&book.toc, &valid, &mut dropped);
+    if dropped > 0 {
+        report.warn(
+            "toc_dead_links_removed",
+            format!("Removed {dropped} table-of-contents entries pointing at missing chapters."),
+        );
+    }
+
     let result = (|| {
         let file = std::fs::File::create(output_path)?;
         let mut zip = zip::ZipWriter::new(BufWriter::new(file));
-        assemble_epub_zip(book, &mut zip)?;
+        assemble_epub_zip(book, &toc, opts, &mut zip)?;
         let mut inner = zip
             .finish()
             .map_err(|e| ConversionError::Other(e.to_string()))?;
@@ -46,21 +96,60 @@ pub fn build_epub(book: &OebBook, output_path: &Path) -> Result<(), ConversionEr
     result
 }
 
+/// Backward-compatible wrapper with deterministic defaults.
+pub fn build_epub(book: &OebBook, output_path: &Path) -> Result<(), ConversionError> {
+    build_epub_with_report(book, output_path, &BuildOptions::default(), &mut ConversionReport::new("", 0))
+}
+
+/// Stable, deterministic `urn:uuid:` from a source digest.
+///
+/// Derives v5-style UUID bits from the first 16 bytes of the SHA-256; the
+/// same source file always produces the same identifier.
+pub fn stable_book_uuid(source_sha256: &[u8; 32], fallback_seed: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(source_sha256);
+    hasher.update(fallback_seed);
+    let digest = hasher.finalize();
+    let mut b = [0u8; 16];
+    b.copy_from_slice(&digest[..16]);
+    b[6] = (b[6] & 0x0F) | 0x50; // version 5
+    b[8] = (b[8] & 0x3F) | 0x80; // RFC 4122 variant
+    let h = b.iter().map(|x| format!("{:02x}", x)).collect::<Vec<_>>();
+    format!(
+        "{}-{}-{}-{}-{}",
+        &h[0..4].concat(),
+        &h[4..6].concat(),
+        &h[6..8].concat(),
+        &h[8..10].concat(),
+        &h[10..16].concat()
+    )
+}
+
+/// Fixed ZIP entry timestamp (1980-01-01) — deterministic archives.
+fn pinned_zip_time() -> zip::DateTime {
+    zip::DateTime::default()
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // ZIP ASSEMBLY
 // ──────────────────────────────────────────────────────────────────────────
 
 fn assemble_epub_zip<W: Write + Seek>(
     book: &OebBook,
+    toc: &[super::oeb::TocEntry],
+    opts: &BuildOptions,
     zip: &mut zip::ZipWriter<W>,
 ) -> Result<(), ConversionError> {
-
-    // STORED options for mimetype (EPUB spec requirement)
+    // Deterministic archives (IR-SPEC §5): every entry pinned to 1980-01-01.
+    let pinned = pinned_zip_time();
     let stored: FileOptions<()> = FileOptions::default()
         .compression_method(CompressionMethod::Stored)
+        .last_modified_time(pinned)
         .large_file(false);
-    let deflated: FileOptions<()> =
-        FileOptions::default().compression_method(CompressionMethod::Deflated);
+    let deflated: FileOptions<()> = FileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .last_modified_time(pinned);
 
     // 1. mimetype — MUST be first, MUST be Stored
     zip.start_file("mimetype", stored)
@@ -77,19 +166,19 @@ fn assemble_epub_zip<W: Write + Seek>(
     // 3. OEBPS/content.opf
     zip.start_file("OEBPS/content.opf", deflated)
         .map_err(|e| ConversionError::Other(e.to_string()))?;
-    zip.write_all(build_content_opf(book).as_bytes())
+    zip.write_all(build_content_opf(book, opts).as_bytes())
         .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     // 4. OEBPS/toc.ncx (EPUB 2 compatibility)
     zip.start_file("OEBPS/toc.ncx", deflated)
         .map_err(|e| ConversionError::Other(e.to_string()))?;
-    zip.write_all(build_toc_ncx(book).as_bytes())
+    zip.write_all(build_toc_ncx(book, toc, opts).as_bytes())
         .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     // 5. OEBPS/nav.xhtml (EPUB 3 navigation document)
     zip.start_file("OEBPS/nav.xhtml", deflated)
         .map_err(|e| ConversionError::Other(e.to_string()))?;
-    zip.write_all(build_nav_xhtml(book).as_bytes())
+    zip.write_all(build_nav_xhtml(book, toc).as_bytes())
         .map_err(|e| ConversionError::Other(e.to_string()))?;
 
     // 6. OEBPS/Styles/stylesheet.css
@@ -140,8 +229,9 @@ fn write_image<W: Write + Seek>(
     zip: &mut zip::ZipWriter<W>,
     img: &super::oeb::OebImage,
 ) -> Result<(), ConversionError> {
-    let deflated: FileOptions<()> =
-        FileOptions::default().compression_method(CompressionMethod::Deflated);
+    let deflated: FileOptions<()> = FileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .last_modified_time(pinned_zip_time());
     zip.start_file(&format!("OEBPS/Images/{}", img.filename), deflated)
         .map_err(|e| ConversionError::Other(e.to_string()))?;
     match &img.source {
@@ -175,9 +265,31 @@ fn write_image<W: Write + Seek>(
 // OPF (Package Document)
 // ──────────────────────────────────────────────────────────────────────────
 
-fn build_content_opf(book: &OebBook) -> String {
-    let uid = Uuid::new_v4();
-    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
+fn build_content_opf(book: &OebBook, opts: &BuildOptions) -> String {
+    // Deterministic identifier (IR-SPEC §5): derived from the source digest
+    // (or a content seed) — same input always yields the same uuid.
+    let seed: Vec<u8> = book
+        .chapters
+        .iter()
+        .flat_map(|c| c.id.as_bytes())
+        .chain(book.title.as_bytes())
+        .copied()
+        .collect();
+    let uid = match opts.source_sha256 {
+        Some(h) => stable_book_uuid(&h, &seed),
+        None => {
+            use sha2::{Digest, Sha256};
+            let mut h = Sha256::new();
+            h.update(&seed);
+            let digest = h.finalize();
+            stable_book_uuid(&digest.into(), b"seed")
+        }
+    };
+    // Deterministic `dcterms:modified` (source mtime, never wall-clock).
+    let modified = opts
+        .modified
+        .clone()
+        .unwrap_or_else(|| "1980-01-01T00:00:00Z".to_string());
 
     // ── Metadata section ──
     let mut meta_lines: Vec<String> = vec![
@@ -187,7 +299,7 @@ fn build_content_opf(book: &OebBook) -> String {
             "    <dc:language>{}</dc:language>",
             escape_xml(&book.language)
         ),
-        format!("    <meta property=\"dcterms:modified\">{now}</meta>"),
+        format!("    <meta property=\"dcterms:modified\">{modified}</meta>"),
     ];
 
     for author in &book.authors {
@@ -287,8 +399,25 @@ fn build_content_opf(book: &OebBook) -> String {
 // NCX (EPUB 2 Table of Contents)
 // ──────────────────────────────────────────────────────────────────────────
 
-fn build_toc_ncx(book: &OebBook) -> String {
-    let uid = Uuid::new_v4();
+fn build_toc_ncx(book: &OebBook, toc: &[super::oeb::TocEntry], opts: &BuildOptions) -> String {
+    // Same deterministic id as the OPF (EPUB 2 mirror).
+    let seed: Vec<u8> = book
+        .chapters
+        .iter()
+        .flat_map(|c| c.id.as_bytes())
+        .chain(book.title.as_bytes())
+        .copied()
+        .collect();
+    let uid = match opts.source_sha256 {
+        Some(h) => stable_book_uuid(&h, &seed),
+        None => {
+            use sha2::{Digest, Sha256};
+            let mut h = Sha256::new();
+            h.update(&seed);
+            let digest = h.finalize();
+            stable_book_uuid(&digest.into(), b"seed")
+        }
+    };
 
     // Helper to recursively build NCX navPoints
     fn build_nav_points(entries: &[super::oeb::TocEntry], play_order: &mut usize) -> String {
@@ -313,9 +442,9 @@ fn build_toc_ncx(book: &OebBook) -> String {
         result
     }
 
-    let points = if !book.toc.is_empty() {
+    let points = if !toc.is_empty() {
         let mut order = 0;
-        build_nav_points(&book.toc, &mut order)
+        build_nav_points(toc, &mut order)
     } else {
         // Fallback to flat chapter list
         book.chapters.iter().enumerate().map(|(i, ch)| {
@@ -352,7 +481,7 @@ fn build_toc_ncx(book: &OebBook) -> String {
 // NAV (EPUB 3 Navigation Document)
 // ──────────────────────────────────────────────────────────────────────────
 
-fn build_nav_xhtml(book: &OebBook) -> String {
+fn build_nav_xhtml(book: &OebBook, toc: &[super::oeb::TocEntry]) -> String {
     // Helper to recursively build HTML lists
     fn build_nav_list(entries: &[super::oeb::TocEntry]) -> String {
         let mut result = String::new();
@@ -372,8 +501,8 @@ fn build_nav_xhtml(book: &OebBook) -> String {
         result
     }
 
-    let items = if !book.toc.is_empty() {
-        build_nav_list(&book.toc)
+    let items = if !toc.is_empty() {
+        build_nav_list(toc)
     } else {
         // Fallback to flat chapter list
         book.chapters

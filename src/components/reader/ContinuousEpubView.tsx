@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { api, isAndroid, type Annotation, type BookMetadata } from '@/lib/tauri';
-import { ChapterHtml, loadProcessedChapter } from './PremiumEpubReader';
+import { ChapterHtml, loadProcessedChapter, isChapterHtmlBlank } from './PremiumEpubReader';
 import { applyHighlightsToDOM, scrollToAnnotationMark } from '@/lib/highlightAnnotations';
 import { scrollCanvasToSearchTerm } from '@/lib/sceneHighlight';
 import { handleExternalLinkClick } from '@/lib/externalLinks';
@@ -121,6 +121,15 @@ export function ContinuousEpubView({
     if (index < 0 || index >= metadata.total_chapters) return null;
     try {
       const chapter = await loadProcessedChapter(bookId, index, searchTerm);
+      if (isChapterHtmlBlank(chapter.content)) {
+        if (metadata.total_chapters > 1) {
+          return null;
+        }
+        return {
+          index,
+          content: `<div class="epub-empty-book-notice" style="display:flex;align-items:center;justify-content:center;min-height:50vh;color:var(--text-secondary);font-size:15px;text-align:center;padding:2rem;"><p>This book does not contain any readable content.</p></div>`,
+        };
+      }
       return { index, content: chapter.content };
     } catch (e) {
       logger.error('[ContinuousEpubView] Failed to load chapter', index, e);
@@ -144,9 +153,51 @@ export function ContinuousEpubView({
     prevSearchTermRef.current = searchTerm;
 
     const loadInitial = async () => {
-      const ch1 = await fetchChapter(initialChapterIndex);
-      if (!active || !ch1) return;
-      
+      let targetIndex = initialChapterIndex;
+      let ch1 = await fetchChapter(targetIndex);
+
+      if (!ch1 && metadata.total_chapters > 1) {
+        // Search forward for first non-blank chapter
+        for (let i = targetIndex + 1; i < metadata.total_chapters; i++) {
+          ch1 = await fetchChapter(i);
+          if (ch1) {
+            targetIndex = i;
+            break;
+          }
+        }
+        // If not found, search backward
+        if (!ch1) {
+          for (let i = targetIndex - 1; i >= 0; i--) {
+            ch1 = await fetchChapter(i);
+            if (ch1) {
+              targetIndex = i;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!active) return;
+
+      if (!ch1) {
+        try {
+          const rawCh = await loadProcessedChapter(bookId, initialChapterIndex, searchTerm);
+          ch1 = {
+            index: initialChapterIndex,
+            content: rawCh.content || `<div class="epub-empty-book-notice" style="display:flex;align-items:center;justify-content:center;min-height:50vh;color:var(--text-secondary);font-size:15px;text-align:center;padding:2rem;"><p>This book does not contain any readable content.</p></div>`,
+          };
+          targetIndex = initialChapterIndex;
+        } catch {
+          return;
+        }
+      }
+
+      if (targetIndex !== initialChapterIndex) {
+        setActiveChapterIndex(targetIndex);
+        activeChapterIndexRef.current = targetIndex;
+        onChapterChangeRef.current(targetIndex);
+      }
+
       // Fix: Do NOT eagerly preload ch N+1 here. Putting it in the DOM before
       // the initial scroll settles causes the IntersectionObserver to fire with
       // ch N+1 as the "most visible" chapter, which overwrites the saved position
@@ -218,7 +269,8 @@ export function ContinuousEpubView({
     
     // Initial scroll jump
     if (!hasAppliedInitialScroll.current) {
-      const el = chapterRefs.current.get(initialChapterIndex);
+      const targetIdx = chapters[0]?.index ?? initialChapterIndex;
+      const el = chapterRefs.current.get(targetIdx);
       if (el) {
         if (initialScrollRatio > 0) {
           // Allow some time for image loading but set immediately too
@@ -442,7 +494,14 @@ export function ContinuousEpubView({
         setLoadingBottom(true);
         loadingBottomRef.current = true;
         
-        const newCh = await fetchChapter(lastIdx + 1);
+        let nextIdx = lastIdx + 1;
+        let newCh: LoadedChapter | null = null;
+        while (nextIdx < metadata.total_chapters) {
+          newCh = await fetchChapter(nextIdx);
+          if (newCh) break;
+          nextIdx++;
+        }
+
         if (newCh) {
           // Appending can push the window past 8 and slice chapters off the TOP
           // (above the viewport). That shifts everything below the removed
@@ -475,7 +534,14 @@ export function ContinuousEpubView({
         setLoadingTop(true);
         loadingTopRef.current = true;
         
-        const newCh = await fetchChapter(firstIdx - 1);
+        let prevIdx = firstIdx - 1;
+        let newCh: LoadedChapter | null = null;
+        while (prevIdx >= 0) {
+          newCh = await fetchChapter(prevIdx);
+          if (newCh) break;
+          prevIdx--;
+        }
+
         if (newCh) {
           const activeEl = chapterRefs.current.get(activeChapterIndexRef.current);
           prevScrollStateRef.current = {

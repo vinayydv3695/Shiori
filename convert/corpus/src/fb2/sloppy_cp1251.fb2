@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+<description><title-info><book-title>Русская Синтетика</book-title><author><first-name>Тест</first-name><last-name>Пример</last-name></author><lang>ru</lang></title-info></description>
+<body>
+  <title><p>Русская Синтетика</p></title>
+  <section><title><p>Глава Первая</p></title>
+    <p>Ночь была тёмной, и фонари дрожали от ветра.</p>
+    <p>Снег падал на пустую площадь вне формат &amp; порядка.</p>
+    <custom-tag>unknown elements must be skipped or mapped</custom-tag>
+  </section>
+  <section><title><p>Глава Вторая</p></title>
+    <p>Утро пришло тихо. &quot;Кавычки&quot; и &apos;апострофы&apos; в порядке.</p>
+  </section>
+</body>
+</FictionBook>

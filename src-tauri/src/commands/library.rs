@@ -1,5 +1,6 @@
 use crate::services::{ingest_service, library_service};
 use crate::utils::validate;
+use rusqlite::OptionalExtension;
 use crate::{
     error::Result,
     models::{Book, ImportResult, IngestResult},
@@ -901,6 +902,82 @@ pub fn update_reading_status(
     library_service::update_reading_status(&app_state.db, book_id, &status)
 }
 
+/// Batch reading-status updates (slice F2-a) — one transaction, one event.
+/// Replaces the frontend's per-book await loop (1000 IPC round-trips for a
+/// 1000-chapter "mark all read").
+#[tauri::command]
+pub fn update_reading_status_batch(
+    app: tauri::AppHandle,
+    app_state: State<'_, AppState>,
+    ids: Vec<i64>,
+    status: String,
+) -> Result<usize> {
+    validate::require_one_of(
+        &status,
+        &["planning", "reading", "completed", "on_hold", "dropped"],
+        "reading status",
+    )?;
+    validate::require_non_empty_vec(&ids, "ids")?;
+    let updated = library_service::update_reading_status_batch(&app_state.db, &ids, &status)?;
+    let _ = app.emit(
+        "library-updated",
+        LibraryUpdatedPayload {
+            kind: "book-updated",
+            ids,
+        },
+    );
+    Ok(updated)
+}
+
+/// Lean series volumes for the series view (slice F2-a): id/title/index/cover/
+/// status only — no authors/tags hydration. Ordered by series_index.
+#[tauri::command]
+pub fn get_series_books_by_name(
+    app_state: State<'_, AppState>,
+    series: String,
+) -> Result<Vec<crate::models::SeriesBookItem>> {
+    validate::require_non_empty(&series, "series")?;
+    validate::require_max_length(&series, 1000, "series")?;
+    library_service::get_series_books_by_name(&app_state.db, &series)
+}
+
+/// Single-row series lookup by title (slice F2-a). Replaces the frontend's
+/// `getMangaSeriesList(1000, 0)` + client-side `find` anti-pattern.
+#[tauri::command]
+pub fn get_manga_series_by_title(
+    app_state: State<'_, AppState>,
+    title: String,
+) -> Result<Option<crate::models::MangaSeries>> {
+    validate::require_non_empty(&title, "title")?;
+    validate::require_max_length(&title, 1000, "title")?;
+    let conn = app_state.db.get_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, title, sort_title, cover_path, status, added_date
+         FROM manga_series WHERE title = ?1 COLLATE NOCASE",
+    )?;
+    let row = stmt
+        .query_row(rusqlite::params![title], |row| {
+            Ok(crate::models::MangaSeries {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                sort_title: row.get(2)?,
+                cover_path: row.get(3)?,
+                status: row.get(4)?,
+                added_date: row.get(5)?,
+            })
+        })
+        .optional()?;
+    Ok(row)
+}
+
+/// Batched book hydration (slice F2-a): one IPC for N ids instead of N
+/// `get_book` round-trips (HomePage favorites, `applyLibraryUpdate`).
+#[tauri::command]
+pub fn get_books_by_ids(app_state: State<'_, AppState>, ids: Vec<i64>) -> Result<Vec<Book>> {
+    validate::require_non_empty_vec(&ids, "ids")?;
+    library_service::get_books_by_ids(&app_state.db, &ids)
+}
+
 #[tauri::command]
 pub async fn get_books_by_reading_status(
     app_state: State<'_, AppState>,
@@ -1601,9 +1678,14 @@ pub async fn import_online_manga_chapters(
         let paths: Vec<String> = paths_with_chapters.iter().map(|p| p.path.clone()).collect();
         let batch_result = crate::services::library_service::import_manga(&db, paths, &covers_dir)?;
 
-        let conn = db.get_connection()?;
+        let mut conn = db.get_connection()?;
+        // Slice F2-a: series linkage + optional metadata writes for the whole
+        // batch run in ONE transaction. Baseline: 200 autocommit linkage
+        // updates cost 2.8 ms vs 0.8 ms batched (3.3x), and the write lock is
+        // taken once instead of per chapter.
+        let tx = conn.transaction()?;
 
-        let series_id: Option<i64> = conn.query_row(
+        let series_id: Option<i64> = tx.query_row(
             "SELECT id FROM manga_series WHERE title = ?",
             [&series_metadata.title],
             |row| row.get(0),
@@ -1617,7 +1699,7 @@ pub async fn import_online_manga_chapters(
         let series_id = if let Some(sid) = series_id {
             if let Some(cover_url) = &series_metadata.cover_url {
                 // WARN (optional cover on existing series)
-                if let Err(e) = conn.execute(
+                if let Err(e) = tx.execute(
                     "UPDATE manga_series SET cover_path = ? WHERE id = ? AND (cover_path IS NULL OR cover_path = '')",
                     rusqlite::params![cover_url, sid],
                 ) {
@@ -1629,7 +1711,7 @@ pub async fn import_online_manga_chapters(
             }
             sid
         } else {
-            conn.execute(
+            tx.execute(
                 "INSERT INTO manga_series (title, sort_title, status, cover_path, added_date)
                  VALUES (?, ?, 'ongoing', ?, CURRENT_TIMESTAMP)",
                 rusqlite::params![
@@ -1638,12 +1720,12 @@ pub async fn import_online_manga_chapters(
                     series_metadata.cover_url
                 ],
             )?;
-            conn.last_insert_rowid()
+            tx.last_insert_rowid()
         };
 
         for path_obj in paths_with_chapters {
             if batch_result.success.contains(&path_obj.path) || batch_result.duplicates.contains(&path_obj.path) {
-                let book_id: Option<i64> = conn.query_row(
+                let book_id: Option<i64> = tx.query_row(
                     "SELECT id FROM books WHERE file_path = ?",
                     [&path_obj.path],
                     |row| row.get(0)
@@ -1655,7 +1737,7 @@ pub async fn import_online_manga_chapters(
 
                     // FATAL: series/anilist linkage is requested data; surface failure instead of
                     // claiming success while dropping it.
-                    conn.execute(
+                    tx.execute(
                         "UPDATE books SET manga_series_id = ?, series = ?, series_index = ?, anilist_id = ? WHERE id = ?",
                         rusqlite::params![
                             series_id,
@@ -1668,7 +1750,7 @@ pub async fn import_online_manga_chapters(
 
                     if let Some(desc) = &series_metadata.description {
                         // WARN (optional description); book must still import.
-                        if let Err(e) = conn.execute(
+                        if let Err(e) = tx.execute(
                             "UPDATE books SET notes = ? WHERE id = ? AND (notes IS NULL OR notes = '')",
                             rusqlite::params![desc, bid],
                         ) {
@@ -1682,6 +1764,7 @@ pub async fn import_online_manga_chapters(
             }
         }
 
+        tx.commit()?;
         Ok(batch_result)
     })
     .await

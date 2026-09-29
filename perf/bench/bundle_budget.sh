@@ -7,8 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 DIST="dist"
-ENTRY_BUDGET_KB=${ENTRY_BUDGET_KB:-1500}   # post-fix entry chunk; baseline was 1505 KB
-TOTAL_BUDGET_KB=${TOTAL_BUDGET_KB:-6800}   # whole dist/
+ENTRY_BUDGET_KB=${ENTRY_BUDGET_KB:-900}    # post-split entry (F5 lowMemory split); was 1500 pre-split
+TOTAL_BUDGET_KB=${TOTAL_BUDGET_KB:-7000}   # whole dist/ — flat budget: eager code moved to lazy chunks
 
 if [ ! -d "$DIST/assets" ]; then
   echo "dist/assets missing — run 'npx vite build' first" >&2

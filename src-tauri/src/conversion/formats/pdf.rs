@@ -48,6 +48,14 @@ static WORD_NUMERAL_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::L
 pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
     let path_buf = path.to_path_buf();
     common::block_on(async move {
+        // Geometry path first (desktop, pdftohtml present): best reading
+        // order, column/sidebar repair, table reconstruction. Falls back to
+        // the pure-Rust pdf-extract pipeline everywhere else.
+        if let Ok((geo_pages, table_count)) =
+            crate::conversion::formats::pdf_geometry::geometry_pages(&path_buf)
+        {
+            return parse_with_geometry(&path_buf, geo_pages, table_count);
+        }
         match parse_with_pdf_extract(&path_buf).await {
             Ok(book) => Ok(book),
             Err(pdf_extract_err) => {
@@ -142,6 +150,39 @@ async fn parse_with_pdf_extract(path: &Path) -> Result<OebBook, ConversionError>
         );
     }
 
+    Ok(book)
+}
+
+/// Geometry-reflowed pages → the same chrome-strip and chapter-split passes
+/// as the text path, plus table-count reporting.
+fn parse_with_geometry(
+    path: &Path,
+    mut pages: Vec<String>,
+    table_count: usize,
+) -> Result<OebBook, ConversionError> {
+    let (title, authors, description, language) = extract_book_metadata(path);
+    let cover = extract_cover_image(path);
+    let (h, f, p) = strip_page_chrome(&mut pages);
+    let chapters = split_pages_into_chapters(&pages);
+    let mut book = OebBook::new(title);
+    book.authors = authors;
+    book.language = language;
+    book.description = description;
+    book.cover_image = cover;
+    for (i, (ch_title, ch_body)) in chapters.into_iter().enumerate() {
+        book.chapters.push(OebChapter {
+            id: format!("chapter_{:03}", i + 1),
+            title: Some(ch_title),
+            html: ch_body,
+        });
+    }
+    book.report.note_heuristic("pdf-geometry-reflow");
+    book.report.info(
+        "reading_order_repaired",
+        format!(
+            "Geometry analysis: {table_count} table(s) reconstructed, {h} header / {f} footer / {p} page-number line(s) removed."
+        ),
+    );
     Ok(book)
 }
 

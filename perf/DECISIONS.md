@@ -31,6 +31,16 @@ Rule: nothing here is repeated in later rounds. New entries append with date + p
 - Vite `crossorigin` restoration / modulepreload polyfill: rejected in-repo (blank white screen on AUR webkit2gtk).
 - Fat LTO: OOMs 7-15 GB CI runners.
 
+## Phase 2/3 decisions (fixes + verification)
+- **v52 index kept without a timing claim:** controlled A/B 3.85 vs 3.97 ms (noise) at 1,100 rows; plan improved (`TEMP B-TREE FOR LAST TERM` vs full) — hygiene, not a win. Do not cite as speedup.
+- **R1-M3 closed as non-issue** (grouping 2.1 ms @2050 books); **R1-H2 closed as dead code** (ModernListView/TableView have no importers).
+- **Arc<[u8]> page cache rejected:** hit path copies at the `tauri::ipc::Response`/disk-write boundary anyway, so it would add diff churn without a measurable win. Revisit only with a zero-copy IPC path.
+- **Download cancel/resume deferred:** needs a cancel registry + `.part` resume protocol; out of budget, listed as follow-up #3.
+- **RSS scheduler gating rejected:** resident JobScheduler cost is tiny; gating on feed count risks disabling scheduling when the first feed is added later.
+- **Entry-chunk literal grep is the reliable evidence method here** (visualizer JSON parsing failed twice; tree dump ≠ per-chunk mapping). Verified eager in entry: `plugin:updater`, `remarkPlugins`/`rehypePlugins` (react-markdown), `en-US-AriaNeural` (edgeTTS), `speechSynthesis`, `graphql.anilist.co`. Only the updater was removed (dynamic import, −25 KB).
+- **Pre-existing test failures (4) proven at base commit 4e3b7c87** via `git worktree` (DownloadQueuePanel ×3 TooltipProvider, OnlineMangaDetailView ×1). Not ours; do not chase.
+- **F1 test contract update:** `libraryMutation.test.ts` now asserts one `getBooksByIds` call (was N `getBook`) — intentional contract change, matches F2-a.
+
 ## Measurement protocol (Phase 1 forward)
 - Every optimization needs before/after numbers in the commit message + `perf/BASELINE.md` comparison.
 - Benchmark harness must run the *identical* seed dataset for before/after (seed tool spec in RECON-SUMMARY → Agent B).

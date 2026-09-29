@@ -6,11 +6,12 @@ vi.mock('@/lib/tauri', () => ({
   api: {
     searchBooks: vi.fn(),
     getBook: vi.fn(),
+    getBooksByIds: vi.fn(),
   },
 }));
 
 const mockedSearchBooks = vi.mocked(api.searchBooks);
-const mockedGetBook = vi.mocked(api.getBook);
+const mockedGetBooksByIds = vi.mocked(api.getBooksByIds);
 
 function makeBook(id: number, title = `Book ${id}`): Book {
   return {
@@ -48,7 +49,8 @@ describe('applyLibraryUpdate — mutation-aware library-updated handling', () =>
       books: [makeBook(1, 'old title'), makeBook(2), makeBook(3)],
       totalCount: 3,
     });
-    mockedGetBook.mockResolvedValueOnce(makeBook(1, 'patched title'));
+    // Slice F1/F2-a contract: one batched getBooksByIds call replaces N getBook calls.
+    mockedGetBooksByIds.mockResolvedValueOnce([makeBook(1, 'patched title')]);
 
     await useLibraryStore.getState().applyLibraryUpdate({ kind: 'book-updated', ids: [1] });
 
@@ -56,7 +58,8 @@ describe('applyLibraryUpdate — mutation-aware library-updated handling', () =>
     expect(books.map((b) => b.id)).toEqual([1, 2, 3]); // order + length preserved
     expect(books[0].title).toBe('patched title');
     expect(books[1].title).toBe('Book 2');
-    expect(mockedGetBook).toHaveBeenCalledTimes(1);
+    expect(mockedGetBooksByIds).toHaveBeenCalledTimes(1);
+    expect(mockedGetBooksByIds).toHaveBeenCalledWith([1]);
     expect(mockedSearchBooks).not.toHaveBeenCalled();
   });
 
@@ -65,7 +68,7 @@ describe('applyLibraryUpdate — mutation-aware library-updated handling', () =>
 
     await useLibraryStore.getState().applyLibraryUpdate({ kind: 'book-updated', ids: [99] });
 
-    expect(mockedGetBook).not.toHaveBeenCalled();
+    expect(mockedGetBooksByIds).not.toHaveBeenCalled();
     expect(useLibraryStore.getState().books.map((b) => b.id)).toEqual([1]);
     expect(mockedSearchBooks).not.toHaveBeenCalled();
   });

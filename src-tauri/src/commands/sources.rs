@@ -689,6 +689,56 @@ fn download_referer_for(source_id: &str) -> Option<&'static str> {
     }
 }
 
+/// Abandoned `.parts` directories (cancelled downloads the user never resumed)
+/// are removed at the start of the next chapter download. Kept parts are the
+/// resume protocol (slice F9), so the threshold is deliberately generous.
+const STALE_PARTS_MAX_AGE: std::time::Duration =
+    std::time::Duration::from_secs(7 * 24 * 60 * 60);
+
+/// Best-effort sweep of `<name>.cbz.parts` directories under `downloads_dir`
+/// whose directory mtime is older than [`STALE_PARTS_MAX_AGE`]. `keep` is the
+/// parts dir of the chapter about to (re)start and is never swept, so a user
+/// explicitly retrying an old chapter still resumes from its parts.
+///
+/// Blocking (dir scan + removals) — call from `spawn_blocking`. Failures are
+/// ignored on purpose: a failed sweep must never fail the download itself.
+fn sweep_stale_parts(
+    downloads_dir: &std::path::Path,
+    keep: &std::path::Path,
+    now: std::time::SystemTime,
+) {
+    let Ok(read) = std::fs::read_dir(downloads_dir) else {
+        return;
+    };
+    for entry in read.flatten() {
+        let path = entry.path();
+        if path.as_path() == keep {
+            continue;
+        }
+        // `foo.cbz.parts` → extension "parts".
+        if path.extension().and_then(|e| e.to_str()) != Some("parts") {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        if !meta.is_dir() {
+            continue;
+        }
+        let Ok(modified) = meta.modified() else {
+            continue;
+        };
+        // Clock skew (mtime in the future) ⇒ age lookup fails ⇒ not stale.
+        if now
+            .duration_since(modified)
+            .map(|age| age > STALE_PARTS_MAX_AGE)
+            .unwrap_or(false)
+        {
+            let _ = std::fs::remove_dir_all(&path);
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn download_manga_chapter_as_cbz(
     app_handle: tauri::AppHandle,
@@ -739,6 +789,17 @@ pub async fn download_manga_chapter_as_cbz(
     // from its parts; the CBZ is assembled — and atomically renamed into
     // place — only once every part exists.
     let parts_dir = cbz_path.with_extension("cbz.parts");
+
+    // F9 follow-up #5: sweep abandoned parts dirs before creating this
+    // chapter's. Reads/writes on the fs, so keep it off the async runtime.
+    {
+        let sweep_root = downloads_dir.clone();
+        let keep = parts_dir.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            sweep_stale_parts(&sweep_root, &keep, std::time::SystemTime::now())
+        })
+        .await;
+    }
     tokio::fs::create_dir_all(&parts_dir).await?;
 
     // Cooperative cancellation (slice F9): the flag is removed on every exit
@@ -1699,5 +1760,47 @@ mod sanitize_filename_tests {
         ] {
             assert_safe_component(input);
         }
+    }
+}
+
+#[cfg(test)]
+mod sweep_stale_parts_tests {
+    use super::{sweep_stale_parts, STALE_PARTS_MAX_AGE};
+    use std::time::{Duration, SystemTime};
+
+    #[test]
+    fn fresh_parts_survive_and_only_old_non_resuming_parts_are_swept() {
+        let root = tempfile::tempdir().unwrap();
+        let keep = root.path().join("Keep.cbz.parts");
+        let abandoned = root.path().join("Abandoned.cbz.parts");
+        let book = root.path().join("Book.cbz");
+        let parts_file = root.path().join("AFile.cbz.parts");
+        for dir in [&keep, &abandoned] {
+            std::fs::create_dir(dir).unwrap();
+            std::fs::write(dir.join("0001.bin"), b"part").unwrap();
+        }
+        std::fs::write(&book, b"zip").unwrap();
+        std::fs::write(&parts_file, b"not a dir").unwrap();
+
+        // Nothing is old enough yet — a just-cancelled chapter keeps its parts.
+        sweep_stale_parts(root.path(), &keep, SystemTime::now());
+        assert!(abandoned.exists(), "fresh parts dir must survive the sweep");
+
+        // Eight days later the abandoned dir is gone; the chapter being retried
+        // keeps its parts, and non-parts entries are never touched.
+        let later = SystemTime::now() + STALE_PARTS_MAX_AGE + Duration::from_secs(60);
+        sweep_stale_parts(root.path(), &keep, later);
+        assert!(!abandoned.exists(), "stale parts dir must be swept");
+        assert!(keep.exists(), "the resuming chapter's parts must survive");
+        assert!(book.exists(), "CBZ files are never swept");
+        assert!(parts_file.exists(), "a .parts regular file is not a parts dir");
+    }
+
+    #[test]
+    fn missing_downloads_dir_is_a_noop() {
+        let root = tempfile::tempdir().unwrap();
+        let missing = root.path().join("nope");
+        let keep = missing.join("Keep.cbz.parts");
+        sweep_stale_parts(&missing, &keep, SystemTime::now()); // must not panic
     }
 }

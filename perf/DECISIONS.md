@@ -51,6 +51,10 @@ Rule: nothing here is repeated in later rounds. New entries append with date + p
 - **Full `cargo test --lib` not re-run this session** (shared target dir held by the concurrent session's `cargo test --test convert_probe`); `CARGO_INCREMENTAL=0 cargo check --lib` finished clean (0 errors). Re-run the suite before release. `cargo check` also required `CARGO_INCREMENTAL=0` once because the shared incremental cache was corrupted by two concurrent cargo processes.
 - Test contract updated: downloading rows are no longer disabled — `MangaDownloadDock.test.tsx` now asserts click-to-cancel (16/16 pass); `countChapterStatuses` gains `cancelled`.
 
+## F9 post-commit verification (2026-09-29, item #1 closed)
+- `CARGO_INCREMENTAL=0 cargo test --lib`: **415 passed, 1 failed, 4 ignored**. The single failure is `conversion::formats::pdf_geometry::geometry_tests::tables_reconstructed` — inside the concurrent session's active PDF-geometry refactor, not F9. All download/reader/db tests pass. Re-run when their refactor lands.
+- Still not done (fresh session, in order): #2 manual cancel→retry smoke, #3 GUI trace pass, #4 desktop cancel UI (DownloadQueuePanel) + `cancelled` status fidelity in `onlineDownloadStore`, #5 stale `.parts` age sweep, #6 EPUB base64 check (coordinate with reader session) / font subsetting / Android per-ABI + opt-level A/B, #7 RSS visibility bridge, #8 four pre-existing vitest failures (DownloadQueuePanel TooltipProvider ×3, OnlineMangaDetailView ×1).
+
 ## Measurement protocol (Phase 1 forward)
 - Every optimization needs before/after numbers in the commit message + `perf/BASELINE.md` comparison.
 - Benchmark harness must run the *identical* seed dataset for before/after (seed tool spec in RECON-SUMMARY → Agent B).

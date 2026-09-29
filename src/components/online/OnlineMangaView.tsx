@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
-import { BookOpen, Loader2, Download, ArrowRight, Search, Filter, X, Flame, Clock, Trophy, Compass } from "lucide-react";
+import { BookOpen, Loader2, Download, ArrowRight, Search, Filter, X, Flame, Clock, Trophy, Compass, Shield } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import {
   useMangaDex,
@@ -753,6 +754,46 @@ export function OnlineMangaView() {
     ? isAnySearchLoading
     : isAnyBrowseLoading;
   const totalPages = Math.ceil(visibleTotalResults / 20);
+
+  // Check if screen currently has no manga loaded yet
+  const isScreenEmpty = useMemo(() => {
+    if (hasVisibleSearched) {
+      return isPluginMangaSource
+        ? visiblePluginResults.length === 0
+        : visibleResults.length === 0;
+    }
+    if (isAdvancedFilterActive) {
+      return advancedBrowseResults.length === 0;
+    }
+    const hasPopular = Boolean(browseData.popular && browseData.popular.length > 0);
+    const hasLatest = Boolean(browseData.latest && browseData.latest.length > 0);
+    const hasTopRated = Boolean(browseData["top-rated"] && browseData["top-rated"].length > 0);
+    return !hasPopular && !hasLatest && !hasTopRated;
+  }, [
+    hasVisibleSearched,
+    isPluginMangaSource,
+    visiblePluginResults.length,
+    visibleResults.length,
+    isAdvancedFilterActive,
+    advancedBrowseResults.length,
+    browseData,
+  ]);
+
+  const [cfPopupDismissed, setCfPopupDismissed] = useState(false);
+
+  // Reset dismissal when a new search or loading operation starts
+  useEffect(() => {
+    if (displayLoading) {
+      setCfPopupDismissed(false);
+    }
+  }, [displayLoading, activeSource?.id, searchQuery]);
+
+  const showCfBypassPopup =
+    !isAndroid &&
+    activeSource?.id === "mangafire" &&
+    displayLoading &&
+    isScreenEmpty &&
+    !cfPopupDismissed;
 
   const scheduleSearch = useCallback(
     (value: string) => {
@@ -1592,6 +1633,67 @@ export function OnlineMangaView() {
       {/* Download Progress Toast Overlay */}
       {downloadProgressToast}
       {tombstoneDialog}
+
+      {/* Cloudflare Bypass Popup on Desktop when Screen is Empty */}
+      <AnimatePresence>
+        {showCfBypassPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md select-none"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.93, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: "spring", damping: 26, stiffness: 360 }}
+              className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-amber-500/35 bg-card/95 p-6 shadow-2xl text-center backdrop-blur-2xl dark:border-amber-500/25"
+            >
+              {/* Ambient Glow */}
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-44 h-44 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Close / Dismiss Button */}
+              <button
+                type="button"
+                onClick={() => setCfPopupDismissed(true)}
+                className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+                aria-label="Dismiss"
+              >
+                <X size={14} />
+              </button>
+
+              {/* Animated Shield + Spinner */}
+              <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 border border-amber-500/30 shadow-inner">
+                <Shield className="h-6 w-6 text-amber-500 animate-pulse" />
+                <Loader2 className="absolute inset-0 m-auto h-11 w-11 text-amber-500/50 animate-spin" />
+              </div>
+
+              {/* Status Pill */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 mb-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                <span>Cloudflare Active</span>
+              </div>
+
+              {/* Title */}
+              <h3 className="text-base font-bold text-foreground tracking-tight mb-1.5">
+                Trying to bypass Cloudflare...
+              </h3>
+
+              {/* Description */}
+              <p className="text-xs text-muted-foreground leading-relaxed mb-5">
+                MangaFire is protected by Cloudflare. Solving verification in the background, please wait patiently...
+              </p>
+
+              {/* Animated Progress Bar */}
+              <div className="w-full h-1.5 bg-muted/60 rounded-full overflow-hidden relative">
+                <div className="h-full w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 animate-pulse rounded-full" />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* ── Mobile Search Header ── */}
       <div className="md:hidden">
         <OnlineSearchHeader
@@ -1694,7 +1796,7 @@ export function OnlineMangaView() {
       </div>
 
       <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
-        {isAndroid && activeSource?.id === "mangafire" && displayLoading && (
+        {(isAndroid || !isScreenEmpty) && activeSource?.id === "mangafire" && displayLoading && (
           <div className="my-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-amber-700 dark:text-amber-300 text-xs font-semibold shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">
               <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-500" />

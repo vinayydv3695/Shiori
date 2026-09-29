@@ -492,7 +492,17 @@ export function OnlineMangaDetailView({
                 className="flex flex-col max-h-[600px] overflow-y-auto custom-scrollbar relative"
               >
                 {chaptersLoading ? (
-                  <div className="p-8 text-center text-muted-foreground/80">Loading chapters...</div>
+                  <div className="p-8 text-center text-muted-foreground/80 flex flex-col items-center justify-center gap-2">
+                    {sourceId === 'mangafire' && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full">
+                        Cloudflare Active
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                      <span>{sourceId === 'mangafire' ? 'Trying to bypass Cloudflare to load chapters...' : 'Loading chapters...'}</span>
+                    </div>
+                  </div>
                 ) : chaptersError ? (
                   <div className="p-8 text-center text-red-400">{chaptersError}</div>
                 ) : filteredAndSortedChapters.length === 0 ? (

@@ -136,71 +136,84 @@ interface OverlayProps {
 }
 
 const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: OverlayProps) => {
-  const btnCls = cn(
-    'flex items-center justify-center w-8 h-8 rounded-full',
-    'bg-secondary/95 text-foreground hover:bg-secondary hover:scale-110',
-    'transition-transform duration-200',
-    'border border-border/50',
-    'shadow-sm'
-  )
-
   const ActionTooltip = ({ content, children }: { content: string, children: React.ReactNode }) => (
     <Tooltip>
       <TooltipTrigger asChild>
         {children}
       </TooltipTrigger>
-      <TooltipContent sideOffset={8} className="bg-popover text-popover-foreground border border-border/50 backdrop-blur-md">
-        <p className="text-xs font-medium">{content}</p>
+      <TooltipContent sideOffset={8} className="bg-popover/95 text-popover-foreground border border-border/60 backdrop-blur-md shadow-md">
+        <p className="text-xs font-semibold">{content}</p>
       </TooltipContent>
     </Tooltip>
   )
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delayDuration={150}>
       <div
         className={cn(
-          'absolute inset-0 flex flex-col items-center justify-center gap-3',
-          'bg-card-overlay/70',
+          'absolute inset-0 z-20 flex flex-col items-center justify-center gap-3',
+          'bg-gradient-to-t from-black/85 via-black/50 to-black/35 backdrop-blur-[3px] dark:from-black/90 dark:via-black/60 dark:to-black/40',
           'opacity-0 group-hover:opacity-100',
-          'transition-all duration-300 ease-out',
+          'transition-all duration-250 ease-out',
           'rounded-[inherit]',
           'hidden md:flex'
         )}
       >
-        <ActionTooltip content={isManga ? 'Read manga' : 'Open book'}>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onOpen() }} 
-            className={cn(btnCls, 'w-12 h-12 bg-primary text-primary-foreground hover:bg-primary/90 border-primary/30 shadow-lg')}
-          >
-            <IconBookOpen size={22} className="opacity-90" />
-          </button>
-        </ActionTooltip>
+        <div className="flex flex-col items-center justify-center gap-2.5 scale-95 group-hover:scale-100 transition-transform duration-250 ease-out">
+          {/* Primary Action: Tactile "Read" / "Read Manga" Pill */}
+          <ActionTooltip content={isManga ? 'Read manga' : 'Open book'}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onOpen() }}
+              className={cn(
+                'group/btn relative flex items-center gap-2 px-5 py-2 rounded-full',
+                'bg-gradient-to-b from-primary via-primary to-[color-mix(in_srgb,var(--primary)_82%,black)]',
+                'text-primary-foreground font-bold text-xs tracking-wide select-none',
+                'border-t border-white/30',
+                'shadow-[0_4px_16px_rgba(0,0,0,0.4),0_1px_2px_rgba(0,0,0,0.2)]',
+                'hover:shadow-[0_6px_22px_rgba(0,0,0,0.5)] hover:scale-105 hover:brightness-105',
+                'active:scale-95 transition-all duration-150 cursor-pointer'
+              )}
+            >
+              <BookOpen size={15} strokeWidth={2.4} className="transition-transform duration-200 group-hover/btn:scale-110" />
+              <span>{isManga ? 'Read Manga' : 'Read'}</span>
+            </button>
+          </ActionTooltip>
 
-        <div className="flex items-center gap-2">
-          {onViewDetails && (
-            <ActionTooltip content="View details">
-              <button onClick={(e) => { e.stopPropagation(); onViewDetails() }} className={btnCls}>
-                <Info className="w-4 h-4 opacity-80" />
+          {/* Secondary Actions: Floating Frosted Glass Island / Dock */}
+          <div className="flex items-center gap-1 p-1 rounded-full bg-black/40 dark:bg-white/10 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.3)] select-none">
+            {onViewDetails && (
+              <ActionTooltip content="View details">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onViewDetails() }}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-white/85 hover:text-white hover:bg-white/20 active:scale-90 transition-all duration-150 cursor-pointer"
+                >
+                  <Info size={14} strokeWidth={2.2} />
+                </button>
+              </ActionTooltip>
+            )}
+
+            <ActionTooltip content="Edit metadata">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onEdit() }}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white/85 hover:text-white hover:bg-white/20 active:scale-90 transition-all duration-150 cursor-pointer"
+              >
+                <Pencil size={13} strokeWidth={2.2} />
               </button>
             </ActionTooltip>
-          )}
-          
-          <ActionTooltip content="Edit metadata">
-            <button onClick={(e) => { e.stopPropagation(); onEdit() }} className={btnCls}>
-              <Pencil size={15} className="opacity-80" />
-            </button>
-          </ActionTooltip>
-          
 
-          
-          <ActionTooltip content="Delete book">
-            <button 
-              onClick={(e) => { e.stopPropagation(); onDelete() }} 
-              className={cn(btnCls, 'hover:bg-red-500/80 hover:border-red-500/50 hover:text-white')}
-            >
-              <IconDelete size={15} className="opacity-80" />
-            </button>
-          </ActionTooltip>
+            <ActionTooltip content="Delete book">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onDelete() }}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-white/85 hover:text-rose-200 hover:bg-rose-500/80 active:scale-90 transition-all duration-150 cursor-pointer"
+              >
+                <Trash2 size={13} strokeWidth={2.2} />
+              </button>
+            </ActionTooltip>
+          </div>
         </div>
       </div>
     </TooltipProvider>
@@ -386,56 +399,65 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           isManga={isManga}
         />
 
-        {/* Selection checkbox */}
-        <AppTooltip content={isSelected ? 'Deselect' : 'Select'} side="top">
-          <button
-            onClick={(e) => { e.stopPropagation(); onSelect(book.id!) }}
-            aria-label={isSelected ? 'Deselect' : 'Select'}
+        {/* Top-Left: Selection Checkbox & Format Pill */}
+        <div className="absolute top-2.5 left-2.5 z-30 flex items-center gap-1.5 pointer-events-auto">
+          {/* Animated Selection Checkbox */}
+          <div
             className={cn(
-              'absolute top-2.5 left-2.5 z-10',
-              'w-5 h-5 rounded flex items-center justify-center',
-              'border transition-all duration-[100ms]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              'transition-all duration-200 ease-out overflow-hidden flex items-center justify-center',
               isSelected
-                ? 'bg-primary border-primary shadow-sm opacity-100'
-                : 'bg-background/90 border-border/70 opacity-0 group-hover:opacity-100',
+                ? 'w-5 opacity-100 scale-100'
+                : 'w-0 opacity-0 scale-75 group-hover:w-5 group-hover:opacity-100 group-hover:scale-100'
             )}
           >
-            {isSelected && <IconCheck size={11} className="text-primary-foreground" />}
-          </button>
-        </AppTooltip>
-
-        {/* Favorite toggle */}
-        <AppTooltip content={isFavorited ? 'Remove from favorites' : 'Add to favorites'} side="top">
-          <button
-            onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
-            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-            className={cn(
-              'absolute top-2.5 right-2.5 z-10',
-              'w-5 h-5 rounded flex items-center justify-center',
-              'transition-all duration-[100ms]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              isFavorited
-                ? 'text-red-500 opacity-100'
-                : 'text-white/70 opacity-0 group-hover:opacity-100 hover:text-red-400',
-            )}
-          >
-            <Heart size={13} fill={isFavorited ? 'currentColor' : 'none'} />
-          </button>
-        </AppTooltip>
-
-        {/* Format badge */}
-        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5 pointer-events-none">
-          <div className="pointer-events-auto">
-            <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} onOpen={() => onOpen(book.id!)} />
+            <AppTooltip content={isSelected ? 'Deselect' : 'Select'} side="top">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSelect(book.id!) }}
+                aria-label={isSelected ? 'Deselect' : 'Select'}
+                className={cn(
+                  'w-5 h-5 rounded-md flex items-center justify-center shrink-0 cursor-pointer',
+                  'border transition-all duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  isSelected
+                    ? 'bg-primary border-primary shadow-sm text-primary-foreground'
+                    : 'bg-black/50 hover:bg-black/70 border-white/40 text-white backdrop-blur-sm shadow-xs',
+                )}
+              >
+                {isSelected && <IconCheck size={11} className="text-primary-foreground" />}
+              </button>
+            </AppTooltip>
           </div>
+
+          <FormatPill format={book.file_format} filePath={book.file_path} bookId={book.id} onOpen={() => onOpen(book.id!)} />
+
           {isRss && (coverUrl && !imgError) && (
-            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md bg-orange-500 text-white border border-white/20 pointer-events-auto">
+            <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-bold rounded-full tracking-wide shadow-md bg-orange-500 text-white border border-white/20 select-none">
               <Rss size={10} />
               RSS
             </span>
           )}
         </div>
+
+        {/* Favorite toggle */}
+        <AppTooltip content={isFavorited ? 'Remove from favorites' : 'Add to favorites'} side="top">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onFavorite?.(book.id!) }}
+            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+            className={cn(
+              'absolute top-2.5 right-2.5 z-30',
+              'w-6 h-6 rounded-full flex items-center justify-center cursor-pointer',
+              'transition-all duration-150',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              isFavorited
+                ? 'text-rose-500 fill-current bg-rose-500/20 border border-rose-500/30 shadow-xs opacity-100 scale-100 hover:scale-110 active:scale-95'
+                : 'text-white/80 bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:scale-110 active:scale-95',
+            )}
+          >
+            <Heart size={12} fill={isFavorited ? 'currentColor' : 'none'} strokeWidth={2.4} />
+          </button>
+        </AppTooltip>
 
         {/* ── Info Strip (Tachiyomi Style) ── */}
         {(coverUrl && !imgError) && (

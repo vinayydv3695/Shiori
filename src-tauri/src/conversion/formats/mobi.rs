@@ -52,6 +52,14 @@ pub fn parse(path: &Path) -> Result<OebBook, ConversionError> {
 // ──────────────────────────────────────────────────────────────────────────
 
 fn build_oeb(adapter: &MobiAdapter, file_data: &[u8]) -> Result<OebBook, ConversionError> {
+    // DRM gate first: never convert (or garbage-decrypt) protected books —
+    // fail fast with the standard friendly error (mission rule 3).
+    let drm = mobi_drm_info(file_data);
+    if drm.is_some() {
+        log::warn!("[MOBI→EPUB] Refusing DRM-protected file");
+        return Err(ConversionError::DrmProtected);
+    }
+
     let meta = adapter
         .get_metadata()
         .map_err(|e| ConversionError::Other(e.to_string()))?;
@@ -120,6 +128,43 @@ fn clean_chapter_html(html: &str) -> String {
     let re = regex::Regex::new(r"(?is)<mbp:pagebreak\b[^>]*?/?>").unwrap();
     let cleaned = re.replace_all(html, "").into_owned();
     cleaned.replace("</img>", "")
+}
+
+/// Read the MOBI header DRM fields (DRM offset/count/size/flags at MOBI
+/// offsets 0x98..0xA8) straight from record 0. `Some(())` means the file
+/// carries DRM; `None` means no DRM or an unreadable header (the adapter is
+/// the source of truth for content, this is only a gate).
+pub fn mobi_drm_info(data: &[u8]) -> Option<()> {
+    if data.len() < 78 + 8 {
+        return None;
+    }
+    // Standard PalmDB record list: entries at byte 78, id(4) attr(1) off(3).
+    let entry = 78usize;
+    let off0 = (data[entry + 5] as usize) << 16 | (data[entry + 6] as usize) << 8 | data[entry + 7] as usize;
+    if off0 + 16 + 0xA8 > data.len() {
+        return None;
+    }
+    if &data[off0 + 16..off0 + 20] != b"MOBI" {
+        return None;
+    }
+    let rd = |o: usize| -> u32 {
+        u32::from_be_bytes([
+            data[off0 + 16 + o],
+            data[off0 + 16 + o + 1],
+            data[off0 + 16 + o + 2],
+            data[off0 + 16 + o + 3],
+        ])
+    };
+    // KF8 files use the KF8-boundary counts; MOBI6 uses these four fields.
+    let drm_offset = rd(0x98);
+    let drm_count = rd(0x9C);
+    let drm_size = rd(0xA0);
+    let drm_flags = rd(0xA4);
+    if drm_count > 0 || drm_flags != 0 || (drm_offset != 0 && drm_size > 0) {
+        Some(())
+    } else {
+        None
+    }
 }
 
 fn split_authors(raw: &str) -> Vec<String> {
@@ -630,4 +675,42 @@ fn resolve_src(src: &str, alias: &HashMap<String, usize>) -> Option<usize> {
         return resolve_alias(basename, alias);
     }
     None
+}
+
+#[cfg(test)]
+mod drm_tests {
+    use super::*;
+
+    #[test]
+    fn drm_fields_detected() {
+        // clone the synthetic fixture and patch the two DRM fields
+        let p = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/mobi/synthetic.mobi"
+        ));
+        if !p.exists() {
+            return;
+        }
+        let mut data = std::fs::read(p).unwrap();
+        assert!(mobi_drm_info(&data).is_none(), "fixture must be DRM-free");
+        let off0 = (data[83] as usize) << 16 | (data[84] as usize) << 8 | data[85] as usize;
+        // drm_flags at MOBI header 0xA4 (= rec0 + 16 + 0xA4)
+        let flags = off0 + 16 + 0xA4;
+        data[flags] = 0x01;
+        assert!(mobi_drm_info(&data).is_some(), "DRM flags must be detected");
+    }
+
+    #[test]
+    fn drm_free_fixture_passes() {
+        let p = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../convert/corpus/src/mobi/synthetic.mobi"
+        ));
+        if !p.exists() {
+            return;
+        }
+        let mut book = crate::conversion::formats::mobi::parse(p).unwrap();
+        assert!(!book.chapters.is_empty());
+        assert!(mobi_drm_info(&std::fs::read(p).unwrap()).is_none());
+    }
 }

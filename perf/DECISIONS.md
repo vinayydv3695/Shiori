@@ -41,6 +41,11 @@ Rule: nothing here is repeated in later rounds. New entries append with date + p
 - **Pre-existing test failures (4) proven at base commit 4e3b7c87** via `git worktree` (DownloadQueuePanel ×3 TooltipProvider, OnlineMangaDetailView ×1). Not ours; do not chase.
 - **F1 test contract update:** `libraryMutation.test.ts` now asserts one `getBooksByIds` call (was N `getBook`) — intentional contract change, matches F2-a.
 
+## Pass A2 decisions (entry-chunk split, 2026-09-29)
+- **Root cause found with `perf/tools/eager-graph.mjs`:** `App.tsx -> lib/lowMemory.ts -> PremiumEpubReader.tsx` was the single eager edge putting the reader stack (react-markdown, TTS, AniList) in the entry. Fixed with dynamic imports in `lowMemory.ts`. **Entry 1480 -> 837 KB (-43%)**; literal grep confirms the libs are gone; budgets tightened (entry 900 KB / dist 7000 KB).
+- Visualizer JSON parsing abandoned as unreliable here; the static import-graph tool is the supported method (`node perf/tools/eager-graph.mjs <pattern>`). Keep imports static→dynamic parity in mind: tree-shaking is NOT modelled.
+- **Pass B (download cancel + `.part` resume) briefed, not implemented:** full contract + anchors in `perf/slices/F9-download-cancel-resume.md`. Attempting the backend rewrite with the remaining context would have risked correctness (mission rule 9) — execute it as the next session's first slice.
+
 ## Measurement protocol (Phase 1 forward)
 - Every optimization needs before/after numbers in the commit message + `perf/BASELINE.md` comparison.
 - Benchmark harness must run the *identical* seed dataset for before/after (seed tool spec in RECON-SUMMARY → Agent B).

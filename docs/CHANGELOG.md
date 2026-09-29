@@ -1,3 +1,35 @@
+# Release Notes (v1.0.17)
+
+## Performance — Large Libraries & Downloads
+
+- **1000-Chapter Series Fixed** — The series page is now row-virtualized (~24 cards mounted instead of ~1000), loads the full chapter list in a single lean IPC call, and batches "mark all read" into one transaction.
+- **Faster Downloads** — Pages download with bounded concurrency (3 in flight), progress events are coalesced (~20k events for a 1000-chapter batch reduced to a few per second), and chapters download 2 at a time.
+- **Download Cancel & Resume** — Cancel any manga chapter from the Downloads panel; partial pages are kept and a retry resumes exactly where it stopped. Abandoned partial downloads older than 7 days are cleaned up automatically.
+- **Faster Reader Page Turns** — The manga reader keeps one open ZIP archive per book, preloads pages in parallel, and uses a warm-disk fast path (extraction ~6.7x faster).
+- **Startup Slimmed** — The reader/TTS/AI stack was split out of the entry bundle (1480 KB → 837 KB, -43%) and Cloudflare/webview warm-ups moved off the startup critical path.
+- **Android Low-Effects Mode** — Backdrop blur and heavy shadows are flattened on Android; the download fallback writes to an app-local directory.
+
+## Conversion Engine
+
+- **Geometry-Aware PDF Reflow** — Two-column PDFs keep reading order, sidebars sort last, per-page headlines are stripped, and tables are reconstructed as real tables.
+- **EPUB to FB2** — Valid FB2 2.1 output (round-trip tested); every book source now offers FB2 as a conversion target.
+- **EPUB to PDF Polish** — Per-chapter outline/bookmarks, page-number footers, A4 margins preset, and embedded Liberation Serif.
+- **Conversion Reports** — Per-file reports surface in the Batch Convert dialog; DRM-protected MOBI files are refused with a clear error before parsing; TXT table-of-contents residue fixed.
+
+## Online & UI
+
+- **Cloudflare Bypass UX** — Clear "bypassing Cloudflare..." states while MangaFire chapters load, plus a desktop prompt when a source needs verification.
+- **Library Card Hover Redesign** — Cleaner gradient overlay with tactile Read, Details, Edit, and Delete actions.
+
+## Fixes
+
+- Fixed the 4 failing test suites (missing TooltipProvider in test renders); the full frontend suite is 294/294 green.
+- RSS feed updates pause while the app is hidden or backgrounded (desktop unfocused, mobile suspended) to save battery.
+
+## Under the Hood
+
+- Rust test suite fully green (423 passed) including a network-free cancel → retry → assembly test for the download parts protocol.
+
 # Release Notes (v1.0.16)
 
 ## Reader Polish & Fixes

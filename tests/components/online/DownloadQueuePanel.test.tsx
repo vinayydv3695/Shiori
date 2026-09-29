@@ -6,6 +6,7 @@ import {
 } from '@/components/online/DownloadQueuePanel';
 import { useOnlineDownloadStore } from '@/store/onlineDownloadStore';
 import type { DownloadProgress } from '@/store/onlineDownloadStore';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 beforeAll(() => {
   Object.defineProperty(window, 'matchMedia', {
@@ -81,10 +82,19 @@ describe('onlineDownloadStore.registerDownload', () => {
   });
 });
 
+// The panel renders AppTooltip wrappers; the app mounts TooltipProvider in
+// main.tsx, so tests must provide it too.
+const renderPanel = () =>
+  render(
+    <TooltipProvider delayDuration={0}>
+      <DownloadQueuePanel />
+    </TooltipProvider>
+  );
+
 describe('DownloadQueuePanel', () => {
   it('shows an empty state when nothing is downloading', () => {
     useDownloadQueueUI.getState().setOpen(true);
-    render(<DownloadQueuePanel />);
+    renderPanel();
 
     expect(screen.getByText('Queue is Empty')).toBeInTheDocument();
   });
@@ -106,7 +116,7 @@ describe('DownloadQueuePanel', () => {
       },
     });
     useDownloadQueueUI.getState().setOpen(true);
-    render(<DownloadQueuePanel />);
+    renderPanel();
 
     // Titles from the registered title map
     expect(screen.getByText('Book A')).toBeInTheDocument();
@@ -133,7 +143,7 @@ describe('DownloadQueuePanel', () => {
       },
     });
     useDownloadQueueUI.getState().setOpen(true);
-    render(<DownloadQueuePanel />);
+    renderPanel();
 
     expect(screen.getByText('https://example.com/untitled.epub')).toBeInTheDocument();
   });

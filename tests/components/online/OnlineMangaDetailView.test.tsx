@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { OnlineMangaDetailView, UnifiedChapter } from '@/components/online/OnlineMangaDetailView';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 // Mock matchMedia
 beforeAll(() => {
@@ -31,11 +32,15 @@ describe('OnlineMangaDetailView - Action Gating', () => {
   };
 
   it('regression: Action gates - Save to Library button should be disabled when isInLibrary is true', () => {
+    // The view renders AppTooltip wrappers; the app mounts TooltipProvider in
+    // main.tsx, so tests must provide it too.
     const { rerender } = render(
-      <OnlineMangaDetailView
-        {...defaultProps}
-        isInLibrary={true}
-      />
+      <TooltipProvider delayDuration={0}>
+        <OnlineMangaDetailView
+          {...defaultProps}
+          isInLibrary={true}
+        />
+      </TooltipProvider>
     );
 
     // When already in the library the button reads "SAVED" and is disabled.
@@ -49,10 +54,12 @@ describe('OnlineMangaDetailView - Action Gating', () => {
 
     // Rerender with isInLibrary = false
     rerender(
-      <OnlineMangaDetailView
-        {...defaultProps}
-        isInLibrary={false}
-      />
+      <TooltipProvider delayDuration={0}>
+        <OnlineMangaDetailView
+          {...defaultProps}
+          isInLibrary={false}
+        />
+      </TooltipProvider>
     );
 
     // Not in library: button reads "SAVE" and is enabled.

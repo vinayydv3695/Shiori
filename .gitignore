@@ -66,3 +66,4 @@ extensions/*/*/target
 convert/out/
 convert/tools/epubcheck*
 convert/tools/*.zip
+convert/tools/__pycache__/

@@ -8,6 +8,7 @@ import { motion } from "framer-motion"
 import { ShelfSidebar } from "../shelves/ShelfSidebar"
 
 import { Shelf } from "../../lib/tauri"
+import { IS_STORE_BUILD } from "@/lib/storeConfig"
 
 interface SidebarProps {
   onOpenSettings?: () => void
@@ -34,6 +35,7 @@ export function Sidebar({ onOpenSettings, onCreateShelf, onEditShelf }: SidebarP
     { icon: Tag, label: "Tags", action: () => setCurrentView("library") },
     { icon: BarChart2, label: "Statistics", action: () => setCurrentView("statistics") },
   ].filter(item => {
+    if (IS_STORE_BUILD && item.label === 'Online Manga') return false;
     if (preferredContentType === 'books' && item.label === 'Online Manga') return false;
     if (preferredContentType === 'manga' && item.label === 'Online Books') return false;
     if (preferredContentType === 'manga' && item.label === 'Annotations') return false;

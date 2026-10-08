@@ -4,6 +4,7 @@ import { LibraryGrid } from "./library/LibraryGrid"
 import { SectionErrorBoundary } from "./ErrorBoundary"
 import { Book, isAndroid } from "@/lib/tauri"
 import { DomainView } from "@/store/uiStore"
+import { IS_STORE_BUILD } from "@/lib/storeConfig"
 
 const HomePage = lazy(() => import("./home/HomePage").then(m => ({ default: m.HomePage })))
 const RSSFeedManager = lazy(() => import("./rss/RSSFeedManager"))
@@ -157,20 +158,20 @@ export function ViewRouter({
           <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><OnlineBooksView /></Suspense>
         )}
 
-        {currentView === 'online-manga' && (
+        {!IS_STORE_BUILD && currentView === 'online-manga' && (
           <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><OnlineMangaView /></Suspense>
         )}
 
 
-        {currentView === 'torbox-discover' && (
+        {!IS_STORE_BUILD && currentView === 'torbox-discover' && (
           <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><TorboxControlCenter initialTab="discover" /></Suspense>
         )}
 
-        {currentView === 'torbox-books' && (
+        {!IS_STORE_BUILD && currentView === 'torbox-books' && (
           <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><TorboxControlCenter initialTab="books" /></Suspense>
         )}
 
-        {currentView === 'torbox-manga' && (
+        {!IS_STORE_BUILD && currentView === 'torbox-manga' && (
           <Suspense fallback={<SectionSkeletonLoader variant="grid" />}><TorboxControlCenter initialTab="manga" /></Suspense>
         )}
 

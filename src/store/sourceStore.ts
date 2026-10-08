@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
 import { pluginApi } from '@/lib/pluginSources';
 import { isAndroid } from '@/lib/tauri';
+import { IS_STORE_BUILD } from '@/lib/storeConfig';
 
 export type SourceKind = 'manga' | 'books';
 export type SourceStatus = 'active' | 'planned';
@@ -23,13 +24,27 @@ export interface SourceConfig {
 
 const SOURCE_STORE_VERSION = 11;
 
+export const STORE_RESTRICTED_SOURCE_IDS = new Set<string>([
+  'libgen',
+  'annas-archive',
+  'nyaa',
+  'toongod',
+  'toonily',
+  'weebrook',
+  'toontop',
+  'manhwaread',
+  'manhwahub',
+  'mangafire',
+  'mangadex',
+]);
+
 const MANDATORY_SOURCE_IDS = new Set<string>();
 
 function isMandatorySource(sourceId: string): boolean {
   return MANDATORY_SOURCE_IDS.has(sourceId);
 }
 
-const DEFAULT_SOURCES: SourceConfig[] = [
+const ALL_DEFAULT_SOURCES: SourceConfig[] = [
   {
     id: 'mangadex',
     name: 'MangaDex',
@@ -181,11 +196,15 @@ const DEFAULT_SOURCES: SourceConfig[] = [
   },
 ];
 
+const DEFAULT_SOURCES: SourceConfig[] = IS_STORE_BUILD
+  ? ALL_DEFAULT_SOURCES.filter((source) => !STORE_RESTRICTED_SOURCE_IDS.has(source.id))
+  : ALL_DEFAULT_SOURCES;
+
 const DEFAULT_SOURCE_IDS = new Set(DEFAULT_SOURCES.map((source) => source.id));
 
 const DEFAULT_PRIMARY_SOURCE_BY_KIND: Record<SourceKind, string> = {
   books: 'gutenberg',
-  manga: isAndroid ? 'mangafire' : 'mangadex',
+  manga: IS_STORE_BUILD ? '' : (isAndroid ? 'mangafire' : 'mangadex'),
 };
 
 function mergeSources(persistedSources?: Partial<SourceConfig>[]): SourceConfig[] {
@@ -193,8 +212,12 @@ function mergeSources(persistedSources?: Partial<SourceConfig>[]): SourceConfig[
     return DEFAULT_SOURCES;
   }
 
+  const safePersisted = IS_STORE_BUILD
+    ? persistedSources.filter((s) => s.id && !STORE_RESTRICTED_SOURCE_IDS.has(s.id))
+    : persistedSources;
+
   return DEFAULT_SOURCES.map((source) => {
-    const stored = persistedSources.find((item) => item.id === source.id);
+    const stored = safePersisted.find((item) => item.id === source.id);
     if (!stored) return source;
 
     return {
@@ -375,6 +398,7 @@ export const useSourceStore = create<SourceStore>()(
 
         // Append registry sources that are not present yet.
         for (const meta of metas) {
+          if (IS_STORE_BUILD && STORE_RESTRICTED_SOURCE_IDS.has(meta.id)) continue;
           if (nextSources.some((source) => source.id === meta.id)) continue;
           nextSources.push({
             id: meta.id,

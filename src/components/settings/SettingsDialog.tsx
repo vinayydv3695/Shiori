@@ -61,6 +61,7 @@ import { ExtensionsSection } from './ExtensionsSection'
 import { OnlineCacheSettings } from './OnlineCacheSettings'
 import { AppTooltip } from '@/components/ui/tooltip'
 import { TorboxSettings } from './TorboxSettings'
+import { IS_STORE_BUILD } from '@/lib/storeConfig'
 import { check } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { getVersion } from '@tauri-apps/api/app'
@@ -1046,38 +1047,40 @@ const GeneralSettings = ({
         </SettingSection>
       )}
 
-      <SettingSection title="Download Services" description="Configure cloud torrent and download services">
-        <div className="space-y-4">
-          <SettingItem
-            label="Debrid Provider"
-            description="Torbox is the active SHIORI x TORBOX provider for online downloads in this build."
-          >
-            <Select
-              value={preferredDebridProvider}
-              onValueChange={(val) => setPreferredDebridProvider(val as 'auto' | 'torbox')}
-              disabled
+      {!IS_STORE_BUILD && (
+        <SettingSection title="Download Services" description="Configure cloud torrent and download services">
+          <div className="space-y-4">
+            <SettingItem
+              label="Debrid Provider"
+              description="Torbox is the active SHIORI x TORBOX provider for online downloads in this build."
             >
-              <SelectTrigger className="w-full md:w-[220px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">Auto (Torbox)</SelectItem>
-                <SelectItem value="torbox">Torbox</SelectItem>
-              </SelectContent>
-            </Select>
-          </SettingItem>
+              <Select
+                value={preferredDebridProvider}
+                onValueChange={(val) => setPreferredDebridProvider(val as 'auto' | 'torbox')}
+                disabled
+              >
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (Torbox)</SelectItem>
+                  <SelectItem value="torbox">Torbox</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingItem>
 
 
 
-          <SettingItem
-            label="Torbox API Key"
-            description="Cloud torrent service to download and import media directly into Shiori."
-          >
-            <TorboxSettings />
-          </SettingItem>
+            <SettingItem
+              label="Torbox API Key"
+              description="Cloud torrent service to download and import media directly into Shiori."
+            >
+              <TorboxSettings />
+            </SettingItem>
 
-        </div>
-      </SettingSection>
+          </div>
+        </SettingSection>
+      )}
 
       {isSectionVisible('Integrations', ['AniList Token']) && (
         <SettingSection title="Integrations" description="Connect to third-party services">
@@ -2736,12 +2739,20 @@ const AboutSettings = () => {
       <motion.div variants={itemVariants} className="bg-card/30 border border-border/40 rounded-2xl p-5 flex items-center justify-between shadow-sm">
         <div className="space-y-1">
           <div className="text-[15px] font-medium tracking-tight">Version {appVersion}</div>
-          <div className="text-[13px] text-muted-foreground">You are running the latest version</div>
+          <div className="text-[13px] text-muted-foreground">
+            {IS_STORE_BUILD ? "Updates are managed automatically by the Microsoft Store" : "You are running the latest version"}
+          </div>
         </div>
-        <Button variant="secondary" className="gap-2 rounded-xl" onClick={handleCheckUpdate} disabled={isChecking}>
-          <RefreshCw size={15} className={cn(isChecking && "animate-spin")} />
-          {isChecking ? "Checking..." : "Check for Updates"}
-        </Button>
+        {!IS_STORE_BUILD ? (
+          <Button variant="secondary" className="gap-2 rounded-xl" onClick={handleCheckUpdate} disabled={isChecking}>
+            <RefreshCw size={15} className={cn(isChecking && "animate-spin")} />
+            {isChecking ? "Checking..." : "Check for Updates"}
+          </Button>
+        ) : (
+          <div className="text-xs font-medium text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-lg border border-border/30">
+            Microsoft Store Edition
+          </div>
+        )}
       </motion.div>
 
       {/* Quick Links */}
@@ -2751,6 +2762,7 @@ const AboutSettings = () => {
           {([
             { label: 'GitHub Repository', url: 'https://github.com/vinayydv3695/Shiori', icon: ExternalLink },
             { label: 'Report an Issue', url: 'https://github.com/vinayydv3695/Shiori/issues', icon: AlertTriangle },
+            { label: 'Privacy Policy', url: 'https://github.com/vinayydv3695/Shiori/blob/main/PRIVACY.md', icon: Shield },
             { label: 'License (GPL v3.0)', url: 'https://opensource.org/license/gpl-3.0', icon: FileText },
             { label: 'Official Website', url: 'http://shiori.vinayydv.me/', icon: ExternalLink },
           ]).map((link) => (

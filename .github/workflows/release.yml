@@ -333,7 +333,8 @@ jobs:
 
             | Platform | File |
             |---|---|
-            | **Windows** | `.exe` (NSIS installer) / `.msi` |
+            | **Windows (Standard)** | `.exe` (NSIS installer) / `.msi` |
+            | **Windows (Microsoft Store)** | `Shiori-Store-Setup.exe` (Compliant store build) |
             | **macOS (Apple Silicon / Intel)** | `.dmg` |
             | **Linux (Debian/Ubuntu)** | `.deb` |
             | **Linux (Fedora/RHEL)** | `.rpm` |
@@ -411,6 +412,152 @@ jobs:
 
           tar -C "${STAGE_DIR}" -czf "${TAR_PATH}" usr
           gh release upload "v${VERSION}" "${TAR_PATH}" --repo "vinayydv3695/Shiori-releases" --clobber
+
+  # ── Step 2b: Build Windows Microsoft Store Edition ─────────────────
+  build-windows-store:
+    name: Build Windows Microsoft Store Edition
+    needs: check-version
+    if: needs.check-version.outputs.version_changed == 'true'
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Sync version to Tauri config & configure Store build ──
+      - name: Sync version and configure Store settings
+        shell: bash
+        run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
+          echo "Configuring Microsoft Store build for version $VERSION"
+
+          if command -v python3 &> /dev/null; then
+            python3 -c "
+          import json
+          with open('src-tauri/tauri.conf.json', 'r') as f:
+              config = json.load(f)
+          config['version'] = '$VERSION'
+          if 'bundle' not in config: config['bundle'] = {}
+          # Disable Tauri updater artifacts for Store build (Store handles updates)
+          config['bundle']['createUpdaterArtifacts'] = False
+          
+          # Bundle VC runtime DLLs
+          res = config['bundle'].get('resources', [])
+          if isinstance(res, list):
+              res.extend(['vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll', 'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll'])
+              config['bundle']['resources'] = res
+          
+          with open('src-tauri/tauri.conf.json', 'w') as f:
+              json.dump(config, f, indent=2)
+              f.write('\n')
+          "
+          fi
+
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+
+      # ── Setup Node.js ──
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      # ── Setup Rust ──
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      # ── Cache Rust dependencies ──
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+          cache-bin: false
+
+      # ── Copy Visual C++ Redist DLLs ──
+      - name: Copy Visual C++ Redist DLLs
+        shell: pwsh
+        run: |
+          $dlls = @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll", "msvcp140_atomic_wait.dll", "msvcp140_codecvt_ids.dll")
+          foreach ($dll in $dlls) {
+            $src = "C:\Windows\System32\$dll"
+            if (Test-Path $src) {
+              Copy-Item -Path $src -Destination "src-tauri\$dll"
+            } else {
+              New-Item -Path "src-tauri\$dll" -ItemType File -Force | Out-Null
+            }
+          }
+
+      # ── Install frontend dependencies ──
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # ── Prepare Tauri Key ──
+      - name: Prepare Tauri Key
+        shell: bash
+        run: |
+          RAW_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.TAURI_PRIVATE_KEY }}"
+          CLEAN_KEY=$(echo "$RAW_KEY" | grep -v "untrusted comment" | tr -d '\n\r ')
+          echo "::add-mask::$CLEAN_KEY"
+          echo "CLEAN_TAURI_KEY=$CLEAN_KEY" >> $GITHUB_ENV
+
+      # ── Build Tauri app (Store edition) ──
+      - name: Build Tauri app (Store edition)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.CLEAN_TAURI_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || secrets.TAURI_KEY_PASSWORD }}
+          VITE_STORE_BUILD: 'true'
+          VITE_MICROSOFT_STORE: 'true'
+          VITE_ANILIST_DESKTOP_CLIENT_ID: ${{ secrets.VITE_ANILIST_DESKTOP_CLIENT_ID }}
+        with:
+          tauriScript: npm run tauri
+          args: ''
+
+      # ── Prepare Store Artifacts ──
+      - name: Prepare Store artifacts
+        shell: pwsh
+        run: |
+          $version = "${{ needs.check-version.outputs.version }}"
+          New-Item -ItemType Directory -Force -Path "store-artifacts" | Out-Null
+          
+          # NSIS installer
+          $nsisFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -Exclude "*.sig"
+          if ($nsisFiles) {
+            $primaryExe = $nsisFiles | Select-Object -First 1
+            Copy-Item $primaryExe.FullName -Destination "store-artifacts\Shiori-Store-Setup.exe"
+            Copy-Item $primaryExe.FullName -Destination "store-artifacts\Shiori_${version}_Store_x64-setup.exe"
+            Write-Host "Created Shiori-Store-Setup.exe and Shiori_${version}_Store_x64-setup.exe"
+          } else {
+            Write-Warning "No NSIS installer executable found in src-tauri\target\release\bundle\nsis\"
+          }
+
+          # MSI installer (if generated)
+          $msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -Exclude "*.sig"
+          if ($msiFiles) {
+            $primaryMsi = $msiFiles | Select-Object -First 1
+            Copy-Item $primaryMsi.FullName -Destination "store-artifacts\Shiori-Store.msi"
+            Copy-Item $primaryMsi.FullName -Destination "store-artifacts\Shiori_${version}_Store_x64.msi"
+            Write-Host "Created Shiori-Store.msi"
+          }
+
+      # ── Upload to GitHub Actions Artifacts ──
+      - name: Upload Store artifact to Actions run
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-store-package
+          path: store-artifacts/*
+          if-no-files-found: error
+
+      # ── Upload Store artifacts to GitHub Release on Shiori-releases ──
+      - name: Upload Store artifacts to Shiori-releases
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: vinayydv3695/Shiori-releases
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          files: store-artifacts/*
+          fail_on_unmatched_files: false
 
   # ── Step 3: Publish updater manifest (latest.json) ──────────────────
   publish-updater:

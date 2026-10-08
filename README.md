@@ -230,9 +230,10 @@ If Shiori doesn't quite fit your needs, or if you're looking for a hosted web se
 
 ---
 
-## License
+## License & Privacy
 
-Shiori is released under the [GPL-3.0 License](LICENSE).
+Shiori is released under the [GPL-3.0 License](LICENSE).  
+Read our [Privacy Policy](PRIVACY.md).
 
 ---
 
@@ -248,5 +249,6 @@ Shiori is released under the [GPL-3.0 License](LICENSE).
   <br/>
   <a href="https://github.com/vinayydv3695/Shiori/issues">Report Bug</a> ·
   <a href="https://github.com/vinayydv3695/Shiori/discussions">Discussions</a> ·
+  <a href="PRIVACY.md">Privacy Policy</a> ·
   <a href="https://github.com/vinayydv3695/Shiori-releases/releases">Releases</a>
 </div>

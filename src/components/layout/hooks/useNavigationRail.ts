@@ -1,5 +1,6 @@
 import { useUIStore, type CurrentView } from "@/store/uiStore"
 import { usePreferencesStore } from "@/store/preferencesStore"
+import { IS_STORE_BUILD } from "@/lib/storeConfig"
 import {
   BookOpen,
   Globe,
@@ -23,7 +24,7 @@ export type NavItem = {
   section: NavSection
 }
 
-const NAV_ITEMS: NavItem[] = [
+const ALL_NAV_ITEMS: NavItem[] = [
   {
     label: "Home",
     targetView: "home",
@@ -95,6 +96,15 @@ const NAV_ITEMS: NavItem[] = [
     section: "WORKSPACE",
   },
 ]
+
+const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS.filter((item) => {
+  if (IS_STORE_BUILD) {
+    if (item.targetView === 'torbox-discover' || item.targetView === 'online-manga') {
+      return false;
+    }
+  }
+  return true;
+});
 
 export function useNavigationRail() {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)

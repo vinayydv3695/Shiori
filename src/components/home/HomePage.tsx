@@ -26,7 +26,6 @@ import { useUIStore, type DomainView } from '@/store/uiStore'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api } from '@/lib/tauri'
 import { formatFileSize, isMangaDomain, proxyExternalCover } from '@/lib/utils'
-import { useTorboxStore } from '@/store/useTorboxStore'
 import { groupBooksBySeries, extractSeriesTitle, type GroupedItem, type SeriesGroup } from '@/hooks/useGroupedLibrary'
 import { parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -239,8 +238,6 @@ export function HomePage({
   const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
   const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
   const [allInProgress, setAllInProgress] = useState<number>(0)
-  const torboxJobs = useTorboxStore(s => s.jobs)
-  const hasTorboxKey = useTorboxStore(s => s.hasApiKey)
 
   const domain = currentDomain
 

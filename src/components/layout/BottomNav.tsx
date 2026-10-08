@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
 import { useTorboxStore } from '@/store/useTorboxStore'
+import { IS_STORE_BUILD } from '@/lib/storeConfig'
 import { motion } from 'framer-motion'
 
 const containerVariants = {
@@ -69,6 +70,10 @@ export function BottomNav({
         label="Browse"
         isActive={currentView === 'online-books' || currentView === 'online-manga'}
         onClick={() => {
+          if (IS_STORE_BUILD) {
+            onNavigateToView('online-books');
+            return;
+          }
           onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books');
         }}
       />
@@ -140,14 +145,16 @@ export function BottomNav({
                 </motion.div>
               </DropdownMenuItem>
               
-              <DropdownMenuItem asChild onClick={() => onNavigateToView('torbox-discover')}>
-                <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                  <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                    <TorboxIcon className="w-[18px] h-[18px]" />
-                  </div>
-                  <span className="text-base font-medium">Torbox</span>
-                </motion.div>
-              </DropdownMenuItem>
+              {!IS_STORE_BUILD && (
+                <DropdownMenuItem asChild onClick={() => onNavigateToView('torbox-discover')}>
+                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
+                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
+                      <TorboxIcon className="w-[18px] h-[18px]" />
+                    </div>
+                    <span className="text-base font-medium">Torbox</span>
+                  </motion.div>
+                </DropdownMenuItem>
+              )}
             </>
           )}
 

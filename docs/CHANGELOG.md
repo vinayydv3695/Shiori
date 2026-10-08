@@ -1,3 +1,18 @@
+# Release Notes (v1.0.18)
+
+## Microsoft Store Edition & App Store Compliance
+
+- **Dedicated Microsoft Store Package** — Added a dedicated CI build pipeline in `release.yml` producing compliant `Shiori-Store-Setup.exe` (and `.msi`) artifacts tailored for Microsoft Store Win32 distribution.
+- **Store-Compliant Safe Mode** — Build-time flag (`VITE_STORE_BUILD=true`) purges shadow libraries (LibGen, Anna's Archive, Nyaa), torrent/debrid integrations (Torbox), and unlicensed manga scrapers from default sources, keeping only 100% legal public domain literature (Project Gutenberg) and local offline library management.
+- **Store-Managed Auto-Update Handling** — Complies with Microsoft Store Policy 10.2.3 by gracefully suppressing third-party in-app updater notifications and linking updates to the Microsoft Store.
+- **Privacy Policy Integration** — Added full Microsoft Store Policy 10.5-compliant `PRIVACY.md`, linked in README and accessible directly from the in-app Settings > About menu.
+
+## Mobile & Android UI Polish
+
+- **Android Safe-Area & Gesture Navigation** — Full edge-to-edge support with safe-area insets across navigation rails, drawers, modals, and reader overlays.
+- **Book Reader Topbar Redesign** — Cleaned up cluttered topbar on Android/mobile layouts into a spacious 3-option bar with a secondary actions overflow menu.
+- **Mobile Responsive Dialogs** — Native bottom-sheet styling, responsive touch targets (min 44px), and proper keyboard/viewport handling.
+
 # Release Notes (v1.0.17)
 
 ## Performance — Large Libraries & Downloads

@@ -233,6 +233,21 @@ function App() {
     'cmd+shift+f': () => dialogs.setAdvancedFilterOpen(true),
     '?': () => dialogs.setShortcutsDialogOpen(true),
     'ctrl+/': () => dialogs.setShortcutsDialogOpen(true),
+    'cmd+=': () => {
+      const prefs = usePreferencesStore.getState().preferences
+      const cur = prefs?.uiScale ?? 1.0
+      const next = Math.min(1.75, Math.round((cur + 0.05) * 100) / 100)
+      void usePreferencesStore.getState().updateGeneralSettings({ uiScale: next })
+    },
+    'cmd+-': () => {
+      const prefs = usePreferencesStore.getState().preferences
+      const cur = prefs?.uiScale ?? 1.0
+      const next = Math.max(0.75, Math.round((cur - 0.05) * 100) / 100)
+      void usePreferencesStore.getState().updateGeneralSettings({ uiScale: next })
+    },
+    'cmd+0': () => {
+      void usePreferencesStore.getState().updateGeneralSettings({ uiScale: 1.0 })
+    },
   })
 
   // ── Book action handlers (thin wrappers that connect dialogs to actions) ──

@@ -164,18 +164,36 @@ impl ActiveDownloads {
 pub fn run() {
     #[cfg(target_os = "linux")]
     {
-        // WEBKIT_DISABLE_DMABUF_RENDERER=1 prevents blank/white screens on Arch Linux.
-        // DMA-BUF renderer is broken on many webkit2gtk-4.1 builds (both X11 and Wayland).
-        // Set unconditionally unless the user explicitly opts back in via SHIORI_WEBKIT_DMABUF=1.
-        let dmabuf_enabled = std::env::var("SHIORI_WEBKIT_DMABUF")
-            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
-            .unwrap_or(false);
+        // On Linux, DMA-BUF hardware acceleration is essential for smooth 60 FPS rendering under Wayland.
+        // Disabling it forces WebKitGTK into CPU software rasterization, causing extreme UI lag on blurs/animations.
+        let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok()
+            || std::env::var("XDG_SESSION_TYPE").map(|v| v == "wayland").unwrap_or(false);
 
-        if !dmabuf_enabled {
-            // Only set if not already set by the user's environment
-            if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+        let user_dmabuf_choice = std::env::var("SHIORI_WEBKIT_DMABUF")
+            .ok()
+            .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"));
+
+        if let Some(enabled) = user_dmabuf_choice {
+            if enabled {
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "0");
+                log::info!("Linux: hardware DMA-BUF renderer enabled via SHIORI_WEBKIT_DMABUF=1");
+            } else {
                 std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-                log::info!("Linux: disabled WebKit DMA-BUF renderer (set SHIORI_WEBKIT_DMABUF=1 to enable)");
+                log::info!("Linux: WebKit DMA-BUF renderer disabled via SHIORI_WEBKIT_DMABUF=0");
+            }
+        } else if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+            // Check if GPU is proprietary NVIDIA
+            let is_nvidia = std::path::Path::new("/sys/module/nvidia").exists()
+                || std::path::Path::new("/dev/nvidia0").exists();
+
+            if is_wayland && !is_nvidia {
+                // On Wayland with Intel or AMD Mesa drivers, DMA-BUF is rock-solid and required for 60fps
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "0");
+                log::info!("Linux (Wayland): GPU DMA-BUF hardware acceleration enabled");
+            } else if is_nvidia && !is_wayland {
+                // NVIDIA on X11 had white-screen bugs with DMA-BUF on older WebKitGTK
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+                log::info!("Linux (NVIDIA/X11): disabled WebKit DMA-BUF renderer for compatibility");
             }
         }
 

@@ -67,7 +67,7 @@ interface PremiumSidebarProps {
   currentIndex: number;
   totalChapters?: number;
   bookTitle?: string;
-  onNavigate: (chapterIndex: number, searchTerm?: string | null) => void;
+  onNavigate: (chapterIndex: number, searchTerm?: string | null, snippet?: string | null) => void;
 }
 
 /** Highlight search query matches in a snippet (case-insensitive) */
@@ -529,8 +529,8 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
   
    const handleSearchResultClick = (result: BookSearchResult) => {
      addToSearchHistory(searchQuery);
-     logger.debug('[PremiumSidebar] Navigating to search result, chapter:', result.chapter_index, 'query:', searchQuery);
-     onNavigate(result.chapter_index, searchQuery);
+     logger.debug('[PremiumSidebar] Navigating to search result, chapter:', result.chapter_index, 'query:', searchQuery, 'snippet:', result.snippet);
+     onNavigate(result.chapter_index, searchQuery, result.snippet);
      closeSidebar();
    };
   
@@ -995,8 +995,8 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
               totalChapters={totalChapters || toc.length || 1}
               currentChapterIndex={currentIndex}
               bookTitle={bookTitle}
-              onNavigateToFirstMention={(chapIdx, charName) => {
-                onNavigate(chapIdx, charName);
+              onNavigateToFirstMention={(chapIdx, charName, snippet) => {
+                onNavigate(chapIdx, charName, snippet);
                 closeSidebar();
               }}
             />

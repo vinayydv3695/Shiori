@@ -68,6 +68,17 @@
           if (splash) splash.style.background = bg;
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta) meta.setAttribute('content', bg);
+
+          var cachedScale = localStorage.getItem('shiori-ui-scale');
+          if (cachedScale) {
+            var s = parseFloat(cachedScale);
+            if (!isNaN(s) && s >= 0.7 && s <= 2.0) {
+              document.documentElement.style.setProperty('--ui-scale', String(s));
+            }
+          }
+          if (document.documentElement.style.zoom) {
+            document.documentElement.style.zoom = '';
+          }
         } catch (e) { /* never break boot over theming */ }
       })();
     </script>

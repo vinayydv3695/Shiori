@@ -178,7 +178,7 @@ interface CharacterNetworkGraphProps {
   totalChapters: number;
   bookTitle?: string;
   onOpenCharacterDetail: (char: TrackedCharacter, portrait: CharacterPortrait) => void;
-  onNavigateToChapter: (chapterIndex: number, charName?: string) => void;
+  onNavigateToChapter: (chapterIndex: number, charName?: string, snippet?: string) => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
@@ -1408,7 +1408,7 @@ export function CharacterNetworkGraph({
                   <ReaderTooltip content={`Jump to Chapter ${sq.chapterIndex + 1} in reader`}>
                     <button
                       type="button"
-                      onClick={() => onNavigateToChapter(sq.chapterIndex, getDistinctiveQuoteTerm(sq.quote, edge.source.name))}
+                      onClick={() => onNavigateToChapter(sq.chapterIndex, getDistinctiveQuoteTerm(sq.quote, edge.source.name), sq.quote)}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-semibold text-[var(--ui-focus)] bg-[color-mix(in_srgb,var(--ui-focus)_8%,var(--bg-secondary))] hover:bg-[var(--ui-focus)] hover:text-white border border-[color-mix(in_srgb,var(--ui-focus)_18%,transparent)] transition-all cursor-pointer shadow-2xs group/btn"
                     >
                       <span>Jump to scene</span>
@@ -1611,7 +1611,7 @@ export function CharacterNetworkGraph({
                   <ReaderTooltip content={`Jump to debut in Chapter ${char.firstMention.chapterIndex + 1}`}>
                     <button
                       type="button"
-                      onClick={() => onNavigateToChapter(char.firstMention.chapterIndex, getDistinctiveQuoteTerm(char.firstMention.sentenceSnippet, char.name))}
+                      onClick={() => onNavigateToChapter(char.firstMention.chapterIndex, getDistinctiveQuoteTerm(char.firstMention.sentenceSnippet, char.name), char.firstMention.sentenceSnippet)}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] hover:bg-[var(--ui-focus)] hover:text-white transition-all cursor-pointer shadow-2xs"
                     >
                       <BookOpen size={10} />
@@ -1961,7 +1961,7 @@ export function CharacterNetworkGraph({
                         <ReaderTooltip content={`Jump to Chapter ${sq.chapterIndex + 1} in reader`}>
                           <button
                             type="button"
-                            onClick={() => onNavigateToChapter(sq.chapterIndex, getDistinctiveQuoteTerm(sq.quote, char.name))}
+                            onClick={() => onNavigateToChapter(sq.chapterIndex, getDistinctiveQuoteTerm(sq.quote, char.name), sq.quote)}
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-semibold text-[var(--ui-focus)] bg-[color-mix(in_srgb,var(--ui-focus)_8%,var(--bg-secondary))] hover:bg-[var(--ui-focus)] hover:text-white border border-[color-mix(in_srgb,var(--ui-focus)_18%,transparent)] transition-all cursor-pointer shadow-2xs group/btn"
                           >
                             <span>Jump to scene</span>

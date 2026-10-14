@@ -146,6 +146,14 @@ export function ContinuousEpubView({
     const isAlreadyLoaded = !isDifferentBook && !isDifferentSearch && chaptersRef.current.some(c => c.index === initialChapterIndex);
 
     if (isAlreadyLoaded) {
+      const targetEl = chapterRefs.current.get(initialChapterIndex);
+      if (targetEl && containerRef.current) {
+        if (searchTerm?.trim()) {
+          scrollCanvasToSearchTerm(containerRef.current, searchTerm, { searchRoot: targetEl });
+        } else {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
       return;
     }
 
@@ -327,7 +335,7 @@ export function ContinuousEpubView({
       if (!container) return;
 
       const targetChapterEl = chapterRefs.current.get(initialChapterIndex) || container;
-      const scrolled = scrollCanvasToSearchTerm(targetChapterEl, searchTerm);
+      const scrolled = scrollCanvasToSearchTerm(container, searchTerm, { searchRoot: targetChapterEl });
 
       if (scrolled) return;
 

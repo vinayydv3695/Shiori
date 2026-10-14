@@ -28,7 +28,7 @@ TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
 
-export interface AppTooltipProps {
+export interface AppTooltipProps extends Omit<React.HTMLAttributes<HTMLElement>, 'content'> {
   children: React.ReactNode;
   content: React.ReactNode;
   side?: 'top' | 'right' | 'bottom' | 'left';
@@ -48,13 +48,14 @@ export function AppTooltip({
   className,
   asChild = true,
   disabled = false,
+  ...props
 }: AppTooltipProps) {
   if (!content || disabled) return <>{children}</>;
 
   const trigger = React.isValidElement(children) && asChild ? (
-    <TooltipTrigger asChild>{children}</TooltipTrigger>
+    <TooltipTrigger asChild {...props}>{children}</TooltipTrigger>
   ) : (
-    <TooltipTrigger asChild>
+    <TooltipTrigger asChild {...props}>
       <span className="inline-flex max-w-full truncate">{children}</span>
     </TooltipTrigger>
   );

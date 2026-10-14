@@ -19,7 +19,11 @@ import {
     Search, 
     ArrowUpDown, 
     Loader2, 
-    BookOpen 
+    BookOpen,
+    ArrowLeft,
+    MoreVertical,
+    BookmarkCheck,
+    BookmarkPlus
 } from 'lucide-react';
 import React from 'react';
 import { compareBooksNatural, parseVolumeOrChapterNumber } from '@/lib/seriesSorting';
@@ -110,6 +114,7 @@ export function MangaReaderHeader({
     const [chapterSearch, setChapterSearch] = useState('');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [switchingChapterId, setSwitchingChapterId] = useState<string | null>(null);
+    const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
     const activeItemRef = useRef<HTMLDivElement | null>(null);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -127,7 +132,7 @@ export function MangaReaderHeader({
 
     // Keep the top bar visible while sidebar/settings/dropdown panels are open.
     useEffect(() => {
-        if (isSidebarOpen || isSettingsOpen || dropdownOpen) {
+        if (isSidebarOpen || isSettingsOpen || dropdownOpen || isMoreMenuOpen) {
             setTopBarVisible(true);
         }
         return () => {
@@ -136,7 +141,13 @@ export function MangaReaderHeader({
                 hideTimeoutRef.current = null;
             }
         };
-    }, [isSidebarOpen, isSettingsOpen, dropdownOpen, setTopBarVisible]);
+    }, [isSidebarOpen, isSettingsOpen, dropdownOpen, isMoreMenuOpen, setTopBarVisible]);
+
+    useEffect(() => {
+        if (!isTopBarVisible || isSidebarOpen || isSettingsOpen) {
+            setIsMoreMenuOpen(false);
+        }
+    }, [isTopBarVisible, isSidebarOpen, isSettingsOpen]);
 
     // In scrolling modes, keep top bar visible while user scrolls,
     // then hide it after a longer quiet period for less distraction.
@@ -145,7 +156,7 @@ export function MangaReaderHeader({
             clearTimeout(hideTimeoutRef.current);
             hideTimeoutRef.current = null;
         }
-        if (stickyHeader || isSidebarOpen || isSettingsOpen || dropdownOpen) {
+        if (stickyHeader || isSidebarOpen || isSettingsOpen || dropdownOpen || isMoreMenuOpen) {
             return;
         }
         if (isScrollMode) {
@@ -175,7 +186,7 @@ export function MangaReaderHeader({
                 hideTimeoutRef.current = null;
             }
         };
-    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, dropdownOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
+    }, [isScrollMode, stickyHeader, isSidebarOpen, isSettingsOpen, dropdownOpen, isMoreMenuOpen, lastScrollActivityAt, setTopBarVisible, isTopBarVisible]);
 
     const handleChapterNav = async (direction: 'prev' | 'next') => {
         if (!onlineSource || !onChapterChange) return;
@@ -261,68 +272,101 @@ export function MangaReaderHeader({
         return list;
     }, [seriesBooks, chapterSearch, sortDirection]);
 
+    const displayTitle = (title?.trim()) || (onlineSource?.contentTitle?.trim()) || (currentLocalBook?.title?.trim()) || 'Manga Reader';
+
+    const displaySubtitle = useMemo(() => {
+        if (sourceType === 'online') {
+            const chTitle = onlineSource?.chapterTitle?.trim();
+            const pageInfo = totalPages > 0 ? `Page ${currentPage + 1} of ${totalPages}` : '';
+            if (chTitle && pageInfo) return `${chTitle} • ${pageInfo}`;
+            return chTitle || pageInfo || '';
+        }
+        if (currentLocalBook?.series) {
+            const volNum = parseVolumeOrChapterNumber(currentLocalBook);
+            const volStr = volNum !== null ? `Vol. ${volNum}` : (currentLocalBook.title || '');
+            const pageInfo = totalPages > 0 ? `Page ${currentPage + 1} of ${totalPages}` : '';
+            if (volStr && pageInfo) return `${volStr} • ${pageInfo}`;
+            return volStr || pageInfo || '';
+        }
+        return totalPages > 0 ? `Page ${currentPage + 1} of ${totalPages}` : '';
+    }, [sourceType, onlineSource?.chapterTitle, currentLocalBook, totalPages, currentPage]);
+
+    const nextChapter = onlineSource && currentIndex !== -1 ? (
+        isDescending ? onlineSource.chapters[currentIndex - 1] : onlineSource.chapters[currentIndex + 1]
+    ) : null;
+    const prevChapter = onlineSource && currentIndex !== -1 ? (
+        isDescending ? onlineSource.chapters[currentIndex + 1] : onlineSource.chapters[currentIndex - 1]
+    ) : null;
+
+    const nextLocalBook = hasNextLocalVolume ? seriesBooks[currentLocalIndex + 1] : null;
+    const prevLocalBook = hasPrevLocalVolume ? seriesBooks[currentLocalIndex - 1] : null;
+
     return (
         <header className={`manga-topbar ${!isTopBarVisible ? 'manga-topbar--hidden' : ''}`}>
             <div className="manga-topbar-content">
                 
-                {/* Left Side: Close & Title */}
+                {/* Left Side: Back & Title */}
                 <div className="manga-topbar-left">
-                    <AppTooltip content="Close Reader (Esc)" side="bottom">
-                        <button type="button" className="manga-topbar-btn" onClick={onClose} aria-label="Close Reader (Esc)">
-                            <X size={18} />
+                    <AppTooltip content="Back to library" side="bottom">
+                        <button
+                            type="button"
+                            className="manga-topbar-btn cursor-pointer shrink-0"
+                            onClick={onClose}
+                            aria-label="Back to library"
+                        >
+                            <ArrowLeft size={18} />
                         </button>
                     </AppTooltip>
-                    <div className="manga-topbar-divider" />
-                    <div className="manga-header-title-group">
-                        <AppTooltip content={title} side="bottom">
-                            <span className="manga-header-title">
-                                {title}
+
+                    <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center flex-1 pr-1 py-0.5">
+                        <AppTooltip content={displayTitle} side="bottom">
+                            <span className="manga-header-title text-xs sm:text-sm font-extrabold text-[var(--manga-text-primary)] truncate block leading-tight">
+                                {displayTitle}
                             </span>
                         </AppTooltip>
-                        {onlineSource?.chapterTitle && (
-                            <>
-                                <span style={{ color: 'var(--manga-text-tertiary)' }}>•</span>
-                                <AppTooltip content={onlineSource.chapterTitle} side="bottom">
-                                    <span className="manga-header-chapter">
-                                        {onlineSource.chapterTitle}
-                                    </span>
-                                </AppTooltip>
-                            </>
+                        {displaySubtitle && (
+                            <AppTooltip content={displaySubtitle} side="bottom">
+                                <span className="manga-header-chapter text-[10px] sm:text-xs text-[var(--manga-text-secondary)] opacity-80 font-medium truncate block leading-tight mt-0.5">
+                                    {displaySubtitle}
+                                </span>
+                            </AppTooltip>
                         )}
                     </div>
                 </div>
 
-                {/* Center: Page Indicator */}
-                <div className="manga-topbar-center">
+                {/* Center: Desktop Page Stepper Pill */}
+                <div className="manga-topbar-center !hidden md:!flex">
                     {totalPages > 0 && (
-                        <div className="manga-indicator">
-                            Page {currentPage + 1} of {totalPages}
+                        <div className="manga-page-stepper">
+                            <button
+                                type="button"
+                                className="manga-page-step-btn"
+                                onClick={() => useMangaContentStore.getState().prevPage(1)}
+                                disabled={currentPage === 0}
+                                aria-label="Previous Page"
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            <span className="manga-page-step-text">
+                                Page {currentPage + 1} of {totalPages}
+                            </span>
+                            <button
+                                type="button"
+                                className="manga-page-step-btn"
+                                onClick={() => useMangaContentStore.getState().nextPage(1)}
+                                disabled={currentPage >= totalPages - 1}
+                                aria-label="Next Page"
+                            >
+                                <ChevronRight size={14} />
+                            </button>
                         </div>
                     )}
                 </div>
-                {/* Right Side: Chapter Nav (Online), Settings, Fullscreen */}
-                <div className="manga-topbar-right">
-                    {(sourceType === 'online' || seriesBooks.length > 1) && (
-                        <>
-                            <AppTooltip content={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"} side="bottom">
-                                <button 
-                                    type="button" 
-                                    onClick={() => setDropdownOpen(true)}
-                                    aria-label={sourceType === 'online' ? "Choose Chapter" : "Choose Volume"}
-                                    className={`manga-topbar-btn cursor-pointer transition-all ${
-                                        dropdownOpen 
-                                            ? isLight 
-                                                ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30' 
-                                                : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20' 
-                                            : ''
-                                    }`} 
-                                >
-                                    <List size={18} />
-                                </button>
-                            </AppTooltip>
 
-                            {/* Chapter / Volume Modal - Portaled to document.body */}
-                            {typeof document !== 'undefined' && createPortal(
+                {/* Right Side: Actions */}
+                <div className="manga-topbar-right">
+                    {/* Chapter / Volume Modal - Portaled to document.body */}
+                    {typeof document !== 'undefined' && createPortal(
                                 <AnimatePresence>
                                     {dropdownOpen && (
                                         <>
@@ -338,18 +382,22 @@ export function MangaReaderHeader({
 
                                             {/* Modal container: Bottom sheet on mobile/Android, Centered card on desktop */}
                                             <motion.div
-                                                className={`fixed z-[205] flex flex-col overflow-hidden select-none border shadow-2xl ${
+                                                data-manga-theme={theme}
+                                                className={`fixed z-[205] flex flex-col overflow-hidden select-none border backdrop-blur-2xl ${
                                                     isAndroid || isMobile
-                                                        ? 'bottom-0 inset-x-0 rounded-t-[28px] max-h-[82vh]'
-                                                        : 'top-[calc(max(12px,calc(env(safe-area-inset-top,0px)+8px))+52px)] left-1/2 -translate-x-1/2 w-84 sm:w-96 max-h-[min(540px,75vh)] rounded-3xl'
+                                                        ? 'bottom-0 inset-x-0 rounded-t-[32px] max-h-[84vh]'
+                                                        : 'top-[calc(max(12px,calc(env(safe-area-inset-top,0px)+8px))+52px)] left-1/2 -translate-x-1/2 w-88 sm:w-96 max-h-[min(560px,78vh)] rounded-3xl'
                                                 } ${
                                                     isLight
-                                                        ? '!bg-[#FAF6EC] !text-[#2C1E0F] !border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/35 ring-1 ring-[#8A6A50]/20'
-                                                        : '!bg-[#121217] !text-white !border-white/15 shadow-2xl shadow-black/95 ring-1 ring-white/10'
+                                                        ? 'text-[#2C1E0F] border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/30 ring-1 ring-[#8A6A50]/20'
+                                                        : 'text-white border-white/10 shadow-2xl shadow-black/95 ring-1 ring-white/10'
                                                 }`}
-                                                style={isAndroid || isMobile ? {
-                                                    paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
-                                                } : undefined}
+                                                style={{
+                                                    backgroundColor: isLight ? '#FAF6EC' : '#121217',
+                                                    ...(isAndroid || isMobile ? {
+                                                        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
+                                                    } : {})
+                                                }}
                                                 initial={isAndroid || isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: -6, x: '-50%' }}
                                                 animate={isAndroid || isMobile ? { y: 0 } : { opacity: 1, scale: 1, y: 0, x: '-50%' }}
                                                 exit={isAndroid || isMobile ? { y: '100%' } : { opacity: 0, scale: 0.96, y: -6, x: '-50%' }}
@@ -357,20 +405,22 @@ export function MangaReaderHeader({
                                             >
                                                 {/* Mobile Drag handle pill */}
                                                 {(isAndroid || isMobile) && (
-                                                    <div className="w-12 h-1 rounded-full bg-muted-foreground/25 mx-auto mt-3 mb-1 shrink-0" />
+                                                    <div className="w-12 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-1 shrink-0" />
                                                 )}
 
                                                 {/* Header: Title, Count, Sort, Close */}
                                                 <div className={`p-4 border-b flex flex-col gap-3 shrink-0 ${
-                                                    isLight ? '!bg-[#F4ECD8] !border-[#D9C9A3]' : '!bg-[#1a1a22] !border-white/10'
+                                                    isLight ? 'bg-[#F4ECD8] border-[#D9C9A3]' : 'bg-white/[0.02] border-white/10'
                                                 }`}>
                                                     <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2 min-w-0">
-                                                            <BookOpen className={`w-4 h-4 shrink-0 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
-                                                            <span className={`font-bold text-sm tracking-tight truncate ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
+                                                        <div className="flex items-center gap-2.5 min-w-0">
+                                                            <div className={`p-1.5 rounded-xl shrink-0 ${isLight ? 'bg-[#A0522D]/15 text-[#A0522D]' : 'bg-white/10 text-white'}`}>
+                                                                <BookOpen className="w-4 h-4" />
+                                                            </div>
+                                                            <span className={`font-semibold text-sm tracking-tight truncate ${isLight ? 'text-[#2C1E0F]' : 'text-white'}`}>
                                                                 {sourceType === 'online' ? 'Chapters' : 'Series Volumes'}
                                                             </span>
-                                                            <span className={`px-2 py-0.5 text-[11px] font-bold rounded-full border shrink-0 ${
+                                                            <span className={`px-2 py-0.5 text-[11px] font-mono font-medium rounded-full border shrink-0 ${
                                                                 isLight 
                                                                     ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]' 
                                                                     : 'bg-white/10 text-white/80 border-white/10'
@@ -385,13 +435,13 @@ export function MangaReaderHeader({
                                                                     type="button"
                                                                     onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
                                                                     aria-label={`Sort chapters (${sortDirection === 'asc' ? 'Ascending' : 'Descending'})`}
-                                                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
+                                                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl transition-all border cursor-pointer active:scale-95 ${
                                                                         isLight 
-                                                                            ? 'text-[#5C4430] hover:text-[#2C1E0F] bg-[#EAE0CB] border-[#D9C9A3]' 
-                                                                            : 'text-white/80 hover:text-white bg-white/10 border-white/10'
+                                                                            ? 'text-[#5C4430] hover:text-[#2C1E0F] bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3]' 
+                                                                            : 'text-white/80 hover:text-white bg-white/10 hover:bg-white/15 border-white/10'
                                                                     }`}
                                                                 >
-                                                                    <ArrowUpDown className={`w-3.5 h-3.5 ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                                                    <ArrowUpDown className={`w-3.5 h-3.5 ${isLight ? 'text-[#A0522D]' : 'text-white/80'}`} />
                                                                     <span>{sortDirection === 'asc' ? '1 → End' : 'End → 1'}</span>
                                                                 </button>
                                                             </AppTooltip>
@@ -399,7 +449,7 @@ export function MangaReaderHeader({
                                                                 type="button"
                                                                 onClick={() => setDropdownOpen(false)}
                                                                 className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
-                                                                    isLight ? 'text-[#5C4430] hover:bg-[#EAE0CB]' : 'text-white/70 hover:bg-white/10'
+                                                                    isLight ? 'text-[#5C4430] hover:bg-[#EAE0CB]' : 'text-white/70 hover:text-white hover:bg-white/10'
                                                                 }`}
                                                             >
                                                                 <X className="w-5 h-5" />
@@ -411,8 +461,8 @@ export function MangaReaderHeader({
                                                     {((sourceType === 'online' && (onlineSource?.chapters.length || 0) > 4) || seriesBooks.length > 4) && (
                                                         <div className={`relative flex items-center border rounded-2xl px-3 py-2 transition-all ${
                                                             isLight 
-                                                                ? '!bg-[#EAE0CB] focus-within:!bg-[#FAF6EC] !border-[#D9C9A3] focus-within:!border-[#A0522D]' 
-                                                                : '!bg-white/[0.06] focus-within:!bg-white/[0.1] !border-white/10 focus-within:!border-amber-400/50'
+                                                                ? 'bg-[#EAE0CB] focus-within:bg-[#FAF6EC] border-[#D9C9A3] focus-within:border-[#A0522D]' 
+                                                                : 'bg-white/[0.05] focus-within:bg-white/[0.09] border-white/10 focus-within:border-white/25'
                                                         }`}>
                                                             <Search className={`w-4 h-4 shrink-0 mr-2.5 ${isLight ? 'text-[#8A6A50]' : 'text-white/40'}`} />
                                                             <input
@@ -443,10 +493,10 @@ export function MangaReaderHeader({
                                                 </div>
 
                                                 {/* Chapters / Volumes List */}
-                                                <div className={`flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 space-y-2 ${
+                                                <div className={`flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-2.5 space-y-1.5 ${
                                                     isAndroid || isMobile ? 'max-h-[60vh]' : 'max-h-[380px]'
                                                 } ${
-                                                    isLight ? '!bg-[#FAF6EC]' : '!bg-[#121217]'
+                                                    isLight ? '!bg-[#FAF6EC]' : '!bg-transparent'
                                                 }`}>
                                                     {sourceType === 'online' ? (
                                                         processedChapters.length === 0 ? (
@@ -460,7 +510,7 @@ export function MangaReaderHeader({
                                                                         className={`mt-3 px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
                                                                             isLight 
                                                                                 ? 'text-[#A0522D] bg-[#A0522D]/10 hover:bg-[#A0522D]/20 border-[#A0522D]/30' 
-                                                                                : 'text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border-amber-400/20'
+                                                                                : 'text-white bg-white/10 hover:bg-white/15 border-white/10'
                                                                         }`}
                                                                     >
                                                                         Clear Search
@@ -493,14 +543,14 @@ export function MangaReaderHeader({
                                                                                 });
                                                                             }
                                                                         }}
-                                                                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
+                                                                        className={`group relative flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
                                                                             isSelected 
                                                                                 ? isLight 
-                                                                                    ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/40 font-semibold shadow-xs' 
-                                                                                    : '!bg-amber-500/20 !text-amber-300 border border-amber-500/35 font-semibold shadow-inner'
+                                                                                    ? 'bg-[#E5D7BC] text-[#733516] border border-[#A0522D]/40 font-semibold shadow-xs' 
+                                                                                    : 'bg-white/[0.12] text-white border border-white/25 font-semibold shadow-sm ring-1 ring-white/15'
                                                                                 : isLight 
-                                                                                    ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
-                                                                                    : '!text-white/90 hover:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
+                                                                                    ? 'text-[#2C1E0F] hover:bg-[#F4ECD8] active:bg-[#EAE0CB] border border-transparent' 
+                                                                                    : 'text-white/85 hover:bg-white/[0.06] active:bg-white/[0.1] border border-transparent hover:border-white/5'
                                                                         }`}
                                                                     >
                                                                         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -509,10 +559,10 @@ export function MangaReaderHeader({
                                                                                     isSelected 
                                                                                         ? isLight 
                                                                                             ? '!bg-[#A0522D] !text-white shadow-xs' 
-                                                                                            : '!bg-amber-400 !text-black shadow-sm' 
+                                                                                            : '!bg-white !text-black shadow-sm' 
                                                                                         : isLight 
                                                                                             ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
-                                                                                            : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                            : '!bg-white/10 !text-white/80 border border-white/5'
                                                                                 }`}>
                                                                                     Vol. {c.volume} Ch. {c.number}
                                                                                 </span>
@@ -521,10 +571,10 @@ export function MangaReaderHeader({
                                                                                     isSelected 
                                                                                         ? isLight 
                                                                                             ? '!bg-[#A0522D] !text-white shadow-xs' 
-                                                                                            : '!bg-amber-400 !text-black shadow-sm' 
+                                                                                            : '!bg-white !text-black shadow-sm' 
                                                                                         : isLight 
                                                                                             ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
-                                                                                            : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                            : '!bg-white/10 !text-white/80 border border-white/5'
                                                                                 }`}>
                                                                                     Ch. {c.number}
                                                                                 </span>
@@ -532,7 +582,7 @@ export function MangaReaderHeader({
                                                                                 <span className={`px-2.5 py-1 text-xs font-mono font-bold rounded-xl shrink-0 border ${
                                                                                     isLight 
                                                                                         ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
-                                                                                        : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                        : '!bg-white/10 !text-white/80 border border-white/5'
                                                                                 }`}>
                                                                                     Ch
                                                                                 </span>
@@ -540,7 +590,7 @@ export function MangaReaderHeader({
                                                                             
                                                                             <span className={`truncate text-sm ${
                                                                                 isSelected 
-                                                                                    ? (isLight ? 'text-[#733516] font-bold' : 'text-amber-300 font-bold') 
+                                                                                    ? (isLight ? 'text-[#733516] font-semibold' : 'text-white font-semibold') 
                                                                                     : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
                                                                             }`}>
                                                                                 {formatChapterTitle({
@@ -553,18 +603,18 @@ export function MangaReaderHeader({
 
                                                                         <div className="flex items-center gap-1.5 shrink-0 ml-3">
                                                                             {isSwitching ? (
-                                                                                <Loader2 className={`w-4 h-4 animate-spin ${isLight ? 'text-[#A0522D]' : 'text-amber-400'}`} />
+                                                                                <Loader2 className={`w-4 h-4 animate-spin ${isLight ? 'text-[#A0522D]' : 'text-white'}`} />
                                                                             ) : isSelected ? (
-                                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
                                                                                     isLight 
-                                                                                        ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
-                                                                                        : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
+                                                                                        ? 'bg-[#A0522D] text-white' 
+                                                                                        : 'bg-white text-black'
                                                                                 }`}>
-                                                                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                                                                    <Check className="w-3 h-3 stroke-[3]" />
                                                                                 </div>
                                                                             ) : (
-                                                                                <ChevronRight className={`w-4 h-4 opacity-40 ${
-                                                                                    isLight ? 'text-[#8A6A50]' : 'text-white/40'
+                                                                                <ChevronRight className={`w-4 h-4 transition-all group-hover:translate-x-0.5 ${
+                                                                                    isLight ? 'text-[#8A6A50]/60 group-hover:text-[#2C1E0F]' : 'text-white/30 group-hover:text-white/70'
                                                                                 }`} />
                                                                             )}
                                                                         </div>
@@ -590,14 +640,14 @@ export function MangaReaderHeader({
                                                                             setDropdownOpen(false);
                                                                             window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: b.id } }));
                                                                         }}
-                                                                        className={`group relative flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
+                                                                        className={`group relative flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
                                                                             isSelected 
                                                                                 ? isLight 
-                                                                                    ? '!bg-[#A0522D]/15 !text-[#733516] border border-[#A0522D]/40 font-semibold shadow-xs' 
-                                                                                    : '!bg-amber-500/20 !text-amber-300 border border-amber-500/35 font-semibold shadow-inner'
+                                                                                    ? 'bg-[#E5D7BC] text-[#733516] border border-[#A0522D]/40 font-semibold shadow-xs' 
+                                                                                    : 'bg-white/[0.12] text-white border border-white/25 font-semibold shadow-sm ring-1 ring-white/15'
                                                                                 : isLight 
-                                                                                    ? '!text-[#2C1E0F] hover:!bg-[#EFE6D2] active:!bg-[#E5D7BC] border border-transparent' 
-                                                                                    : '!text-white/90 hover:!bg-white/[0.08] active:!bg-white/[0.12] border border-transparent'
+                                                                                    ? 'text-[#2C1E0F] hover:bg-[#F4ECD8] active:bg-[#EAE0CB] border border-transparent' 
+                                                                                    : 'text-white/85 hover:bg-white/[0.06] active:bg-white/[0.1] border border-transparent hover:border-white/5'
                                                                         }`}
                                                                     >
                                                                         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -605,31 +655,32 @@ export function MangaReaderHeader({
                                                                                 isSelected 
                                                                                     ? isLight 
                                                                                         ? '!bg-[#A0522D] !text-white shadow-xs' 
-                                                                                        : '!bg-amber-400 !text-black shadow-sm' 
+                                                                                        : '!bg-white !text-black shadow-sm' 
                                                                                     : isLight 
                                                                                         ? '!bg-[#E5D7BC] !text-[#5C4430] border border-[#D9C9A3]/60' 
-                                                                                        : '!bg-white/10 !text-white/90 border border-white/5'
+                                                                                        : '!bg-white/10 !text-white/80 border border-white/5'
                                                                             }`}>
                                                                                 Vol. {b.series_index ?? parseVolumeOrChapterNumber(b) ?? (idx + 1)}
                                                                             </span>
                                                                             <span className={`truncate text-sm ${
                                                                                 isSelected 
-                                                                                    ? (isLight ? 'text-[#733516] font-bold' : 'text-amber-300 font-bold') 
+                                                                                    ? (isLight ? 'text-[#733516] font-semibold' : 'text-white font-semibold') 
                                                                                     : (isLight ? 'text-[#2C1E0F] font-medium' : 'text-white/90 font-medium')
                                                                             }`}>{b.title}</span>
                                                                         </div>
+
                                                                         <div className="flex items-center gap-1.5 shrink-0 ml-3">
                                                                             {isSelected ? (
-                                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                                                                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
                                                                                     isLight 
-                                                                                        ? 'bg-[#A0522D]/20 border border-[#A0522D]/40 text-[#A0522D]' 
-                                                                                        : 'bg-amber-400/20 border border-amber-400/40 text-amber-300'
+                                                                                        ? 'bg-[#A0522D] text-white' 
+                                                                                        : 'bg-white text-black'
                                                                                 }`}>
-                                                                                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                                                                    <Check className="w-3 h-3 stroke-[3]" />
                                                                                 </div>
                                                                             ) : (
-                                                                                <ChevronRight className={`w-4 h-4 opacity-40 ${
-                                                                                    isLight ? 'text-[#8A6A50]' : 'text-white/40'
+                                                                                <ChevronRight className={`w-4 h-4 transition-all group-hover:translate-x-0.5 ${
+                                                                                    isLight ? 'text-[#8A6A50]/60 group-hover:text-[#2C1E0F]' : 'text-white/30 group-hover:text-white/70'
                                                                                 }`} />
                                                                             )}
                                                                         </div>
@@ -639,119 +690,312 @@ export function MangaReaderHeader({
                                                         )
                                                     )}
                                                 </div>
-                                                </motion.div>
+                                            </motion.div>
                                             </>
                                         )}
                                     </AnimatePresence>,
                                     document.body
                                 )}
+                    {/* ── DESKTOP TOOLBAR (md:flex) ── */}
+                    <div className="hidden md:flex items-center gap-1">
+                        {(sourceType === 'online' || seriesBooks.length > 1) && (
+                            <AppTooltip content={sourceType === 'online' ? "Chapters List" : "Volumes List"} side="bottom">
+                                <button
+                                    type="button"
+                                    onClick={() => setDropdownOpen(true)}
+                                    aria-label={sourceType === 'online' ? "Chapters List" : "Volumes List"}
+                                    className={`manga-topbar-btn cursor-pointer transition-all ${
+                                        dropdownOpen
+                                            ? isLight
+                                                ? 'manga-topbar-btn--active !bg-[#A0522D]/15 !text-[#A0522D] ring-1 ring-[#A0522D]/30'
+                                                : 'manga-topbar-btn--active !bg-white/15 !text-white ring-1 ring-white/20'
+                                            : ''
+                                    }`}
+                                >
+                                    <BookOpen size={17} />
+                                </button>
+                            </AppTooltip>
+                        )}
+
+                        {sourceType === 'local' && seriesBooks.length > 1 && (
+                            <>
+                                <AppTooltip content="Previous Volume" side="bottom">
+                                    <button
+                                        type="button"
+                                        className="manga-topbar-btn"
+                                        onClick={() => {
+                                            if (prevLocalBook) {
+                                                window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: prevLocalBook.id } }));
+                                            }
+                                        }}
+                                        disabled={!hasPrevLocalVolume}
+                                        aria-label="Previous Volume"
+                                    >
+                                        <ChevronLeft size={17} />
+                                    </button>
+                                </AppTooltip>
+                                <AppTooltip content="Next Volume" side="bottom">
+                                    <button
+                                        type="button"
+                                        className="manga-topbar-btn"
+                                        onClick={() => {
+                                            if (nextLocalBook) {
+                                                window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextLocalBook.id } }));
+                                            }
+                                        }}
+                                        disabled={!hasNextLocalVolume}
+                                        aria-label="Next Volume"
+                                    >
+                                        <ChevronRight size={17} />
+                                    </button>
+                                </AppTooltip>
                             </>
                         )}
 
-                    {sourceType === 'local' && seriesBooks.length > 1 && (
-                        <>
-                            <AppTooltip content="Previous Volume" side="bottom">
-                                <button 
-                                    type="button"
-                                    className="manga-topbar-btn"
-                                    onClick={() => {
-                                        const prevBook = seriesBooks[currentLocalIndex - 1];
-                                        if (prevBook) {
-                                            window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: prevBook.id } }));
-                                        }
-                                    }}
-                                    disabled={!hasPrevLocalVolume}
-                                    style={{ opacity: hasPrevLocalVolume ? 1 : 0.4 }}
-                                    aria-label="Previous Volume"
-                                >
-                                    <ChevronLeft size={20} />
-                                </button>
-                            </AppTooltip>
-                            <AppTooltip content="Next Volume" side="bottom">
-                                <button 
-                                    type="button"
-                                    className="manga-topbar-btn"
-                                    onClick={() => {
-                                        const nextBook = seriesBooks[currentLocalIndex + 1];
-                                        if (nextBook) {
-                                            window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextBook.id } }));
-                                        }
-                                    }}
-                                    disabled={!hasNextLocalVolume}
-                                    style={{ opacity: hasNextLocalVolume ? 1 : 0.4 }}
-                                    aria-label="Next Volume"
-                                >
-                                    <ChevronRight size={20} />
-                                </button>
-                            </AppTooltip>
-                            <div className="manga-topbar-divider" />
-                        </>
-                    )}
+                        {sourceType === 'online' && (
+                            <>
+                                <AppTooltip content="Previous Chapter" side="bottom">
+                                    <button
+                                        type="button"
+                                        className="manga-topbar-btn"
+                                        onClick={() => handleChapterNav('prev')}
+                                        disabled={!hasPrevChapter}
+                                        aria-label="Previous Chapter"
+                                    >
+                                        <ChevronLeft size={17} />
+                                    </button>
+                                </AppTooltip>
+                                <AppTooltip content="Next Chapter" side="bottom">
+                                    <button
+                                        type="button"
+                                        className="manga-topbar-btn"
+                                        onClick={() => handleChapterNav('next')}
+                                        disabled={!hasNextChapter}
+                                        aria-label="Next Chapter"
+                                    >
+                                        <ChevronRight size={17} />
+                                    </button>
+                                </AppTooltip>
+                                <AppTooltip content={isAlreadyInLibrary ? "In Library" : "Add to Library"} side="bottom">
+                                    <button
+                                        type="button"
+                                        className={`manga-topbar-btn ${isAlreadyInLibrary ? '!text-amber-500 hover:!text-amber-400' : ''}`}
+                                        onClick={addToLibrary}
+                                        disabled={isAlreadyInLibrary}
+                                        aria-label={isAlreadyInLibrary ? "In Library" : "Add to Library"}
+                                    >
+                                        {isAlreadyInLibrary ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}
+                                    </button>
+                                </AppTooltip>
+                            </>
+                        )}
 
-                    {sourceType === 'online' && (
-                        <>
-                            <AppTooltip content="Previous Chapter" side="bottom">
-                                <button 
-                                    type="button"
-                                    className="manga-topbar-btn"
-                                    onClick={() => handleChapterNav('prev')}
-                                    disabled={!hasPrevChapter}
-                                    style={{ opacity: hasPrevChapter ? 1 : 0.4 }}
-                                    aria-label="Previous Chapter"
-                                >
-                                    <ChevronLeft size={20} />
-                                </button>
-                            </AppTooltip>
-                            <AppTooltip content="Next Chapter" side="bottom">
-                                <button 
-                                    type="button"
-                                    className="manga-topbar-btn"
-                                    onClick={() => handleChapterNav('next')}
-                                    disabled={!hasNextChapter}
-                                    style={{ opacity: hasNextChapter ? 1 : 0.4 }}
-                                    aria-label="Next Chapter"
-                                >
-                                    <ChevronRight size={20} />
-                                </button>
-                            </AppTooltip>
-                            <AppTooltip content={isAlreadyInLibrary ? "Already in Library" : "Add to Library"} side="bottom">
+                        <AppTooltip content="Reader Settings (S)" side="bottom">
+                            <button
+                                type="button"
+                                className={`manga-topbar-btn ${isSidebarOpen ? 'manga-topbar-btn--active' : ''}`}
+                                onClick={toggleSidebar}
+                                aria-label="Reader Settings (S)"
+                            >
+                                <Settings size={17} />
+                            </button>
+                        </AppTooltip>
+
+                        {!isAndroid && (
+                            <AppTooltip content={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"} side="bottom">
                                 <button
                                     type="button"
                                     className="manga-topbar-btn"
-                                    onClick={addToLibrary}
-                                    disabled={isAlreadyInLibrary}
-                                    aria-label={isAlreadyInLibrary ? "Already in Library" : "Add to Library"}
+                                    onClick={toggleFullscreen}
+                                    aria-label={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
                                 >
-                                    {isAlreadyInLibrary ? <CheckCircle2 size={18} className="text-green-500" /> : <Library size={18} />}
+                                    {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
                                 </button>
                             </AppTooltip>
-                            <div className="manga-topbar-divider" />
-                        </>
-                    )}
+                        )}
+                    </div>
 
-                    <AppTooltip content="Toggle Sidebar (S)" side="bottom">
-                        <button 
+                    {/* ── ANDROID / MOBILE TOOLBAR: Exactly 3 Primary Options + 3-dots Menu ── */}
+                    <div className="flex md:hidden items-center gap-1">
+                        {/* Option 1: Chapters drawer */}
+                        {(sourceType === 'online' || seriesBooks.length > 1) && (
+                            <button
+                                type="button"
+                                onClick={() => setDropdownOpen(true)}
+                                aria-label={sourceType === 'online' ? "Chapters List" : "Volumes List"}
+                                className={`manga-topbar-btn cursor-pointer ${
+                                    dropdownOpen ? 'manga-topbar-btn--active' : ''
+                                }`}
+                            >
+                                <BookOpen size={17} />
+                            </button>
+                        )}
+
+                        {/* Option 2: Add to Library (online) OR Next Volume (local) */}
+                        {sourceType === 'online' ? (
+                            <button
+                                type="button"
+                                className={`manga-topbar-btn ${isAlreadyInLibrary ? '!text-amber-500' : ''}`}
+                                onClick={addToLibrary}
+                                disabled={isAlreadyInLibrary}
+                                aria-label={isAlreadyInLibrary ? "In Library" : "Add to Library"}
+                            >
+                                {isAlreadyInLibrary ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}
+                            </button>
+                        ) : hasNextLocalVolume ? (
+                            <button
+                                type="button"
+                                className="manga-topbar-btn"
+                                onClick={() => {
+                                    if (nextLocalBook) {
+                                        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: nextLocalBook.id } }));
+                                    }
+                                }}
+                                aria-label="Next Volume"
+                            >
+                                <ChevronRight size={17} />
+                            </button>
+                        ) : null}
+
+                        {/* Option 3: Reader Settings */}
+                        <button
                             type="button"
                             className={`manga-topbar-btn ${isSidebarOpen ? 'manga-topbar-btn--active' : ''}`}
                             onClick={toggleSidebar}
-                            aria-label="Toggle Sidebar (S)"
+                            aria-label="Reader Settings"
                         >
-                            <Settings size={18} />
+                            <Settings size={17} />
                         </button>
-                    </AppTooltip>
-                    
-                    {!isAndroid && (
-                        <AppTooltip content={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"} side="bottom">
-                            <button 
+
+                        {/* 4th button: More Options (3 dots) */}
+                        <div className="relative flex items-center">
+                            <button
                                 type="button"
-                                className="manga-topbar-btn" 
-                                onClick={toggleFullscreen}
-                                aria-label={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
+                                className={`manga-topbar-btn ${isMoreMenuOpen ? 'manga-topbar-btn--active' : ''}`}
+                                onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                                aria-label="More options"
                             >
-                                {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                                <MoreVertical size={17} />
                             </button>
-                        </AppTooltip>
-                    )}
+
+                            <AnimatePresence>
+                                {isMoreMenuOpen && (
+                                    <>
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.15 }}
+                                            className="fixed inset-0 z-[95]"
+                                            onClick={() => setIsMoreMenuOpen(false)}
+                                        />
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                                            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                                            className="manga-dropdown-menu"
+                                        >
+                                            <div className="flex flex-col gap-0.5">
+                                                {/* Next Chapter */}
+                                                {sourceType === 'online' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsMoreMenuOpen(false);
+                                                            handleChapterNav('next');
+                                                        }}
+                                                        disabled={!hasNextChapter}
+                                                        className="manga-menu-item"
+                                                    >
+                                                        <ChevronRight />
+                                                        <span className="truncate">
+                                                            {nextChapter ? `Next: ${nextChapter.title || `Ch. ${nextChapter.number}`}` : 'Next Chapter'}
+                                                        </span>
+                                                    </button>
+                                                )}
+
+                                                {/* Previous Chapter */}
+                                                {sourceType === 'online' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsMoreMenuOpen(false);
+                                                            handleChapterNav('prev');
+                                                        }}
+                                                        disabled={!hasPrevChapter}
+                                                        className="manga-menu-item"
+                                                    >
+                                                        <ChevronLeft />
+                                                        <span className="truncate">
+                                                            {prevChapter ? `Prev: ${prevChapter.title || `Ch. ${prevChapter.number}`}` : 'Previous Chapter'}
+                                                        </span>
+                                                    </button>
+                                                )}
+
+                                                {/* Local prev volume */}
+                                                {sourceType === 'local' && hasPrevLocalVolume && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsMoreMenuOpen(false);
+                                                            if (prevLocalBook) {
+                                                                window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: prevLocalBook.id } }));
+                                                            }
+                                                        }}
+                                                        className="manga-menu-item"
+                                                    >
+                                                        <ChevronLeft />
+                                                        <span className="truncate">Previous Volume</span>
+                                                    </button>
+                                                )}
+
+                                                {/* Add / in library */}
+                                                {sourceType === 'online' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (!isAlreadyInLibrary) {
+                                                                addToLibrary();
+                                                            }
+                                                            setIsMoreMenuOpen(false);
+                                                        }}
+                                                        className="manga-menu-item"
+                                                        disabled={isAlreadyInLibrary}
+                                                    >
+                                                        {isAlreadyInLibrary ? (
+                                                            <>
+                                                                <BookmarkCheck className="text-amber-500" />
+                                                                <span>Already in Library</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <BookmarkPlus />
+                                                                <span>Add to Library</span>
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
+
+                                                {/* Reading mode / Settings shortcut */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsMoreMenuOpen(false);
+                                                        toggleSidebar();
+                                                    }}
+                                                    className="manga-menu-item"
+                                                >
+                                                    <Settings />
+                                                    <span>Reader Settings</span>
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    </>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    </div>
                 </div>
 
             </div>

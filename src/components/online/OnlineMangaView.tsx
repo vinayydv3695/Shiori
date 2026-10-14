@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { cn } from "@/lib/utils";
-import { BookOpen, Loader2, Download, ArrowRight, Search, Filter, X, Flame, Clock, Trophy, Compass, Shield } from "lucide-react";
+import { BookOpen, Loader2, Download, ArrowRight, Search, Filter, X, Flame, Clock, Trophy, Compass, Shield, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useInView } from "react-intersection-observer";
 import {
@@ -11,6 +11,7 @@ import {
   type BrowseMode,
 } from "@/hooks/useMangaDex";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AppTooltip } from "@/components/ui/tooltip";
 import { logger } from "@/lib/logger";
 
@@ -272,7 +273,7 @@ export function OnlineMangaView() {
   const reportPluginError = useCallback(
     (sourceId: string | null | undefined, message: string) => {
       setPluginError(message);
-      if (message.includes("Cloudflare")) {
+      if (message.includes("Cloudflare") || sourceId === "mangafire") {
         setCfVerifyUrl(getCfVerifyUrl(sourceId, getSourceWebsite(sourceId)));
       } else {
         setCfVerifyUrl(null);
@@ -280,6 +281,8 @@ export function OnlineMangaView() {
     },
     [getSourceWebsite],
   );
+
+  const [browseReloadTrigger, setBrowseReloadTrigger] = useState(0);
 
   const [lastSearchedQuery, setLastSearchedQuery] = useState("");
 
@@ -468,6 +471,7 @@ export function OnlineMangaView() {
           const data = await withRowTimeout(browseManga(mode, 20), `Browse ${mode}`);
           launchCacheSet(cacheKey, data);
           setBrowseData((prev) => ({ ...prev, [mode]: data }));
+          return true;
         } else {
           const raw = await withRowTimeout(
             pluginApi.browse(activeSource.id, mode, 1, 20),
@@ -481,6 +485,7 @@ export function OnlineMangaView() {
           }));
           launchCacheSet(cacheKey, data);
           setBrowseData((prev) => ({ ...prev, [mode]: data }));
+          return true;
         }
       } catch (err) {
         const message =
@@ -493,6 +498,7 @@ export function OnlineMangaView() {
         // of leaving the section silently empty.
         reportPluginError(activeSource.id, message);
         setBrowseData((prev) => ({ ...prev, [mode]: [] }));
+        return false;
       } finally {
         setBrowseLoading((prev) => ({ ...prev, [mode]: false }));
       }
@@ -510,7 +516,12 @@ export function OnlineMangaView() {
       void loadBrowseData("top-rated");
     } else {
       const loadSequentially = async () => {
-        await loadBrowseData("popular");
+        const ok = await loadBrowseData("popular");
+        if (!ok) {
+          // If primary mode timed out or failed (e.g. Cloudflare block), stop sequential loading
+          // immediately so the user isn't stuck waiting 60s for 4 cascading timeouts.
+          return;
+        }
         await loadBrowseData("latest");
         await loadBrowseData("recent");
         await loadBrowseData("top-rated");
@@ -522,7 +533,7 @@ export function OnlineMangaView() {
     setBrowsePage(1);
     setHasMoreBrowseResults(true);
     setAdvancedBrowseResults([]);
-  }, [activeSource?.id]); // Re-run when source ID changes
+  }, [activeSource?.id, browseReloadTrigger]); // Re-run when source ID or reload trigger changes
 
   // Trigger search if we arrive with a pre-filled query (e.g. from AniList "Read Online")
   useEffect(() => {
@@ -781,6 +792,13 @@ export function OnlineMangaView() {
 
   const [cfPopupDismissed, setCfPopupDismissed] = useState(false);
 
+  // Automatically dismiss popup when an error occurs
+  useEffect(() => {
+    if (pluginError) {
+      setCfPopupDismissed(true);
+    }
+  }, [pluginError]);
+
   // Reset dismissal when a new search or loading operation starts
   useEffect(() => {
     if (displayLoading) {
@@ -793,6 +811,7 @@ export function OnlineMangaView() {
     activeSource?.id === "mangafire" &&
     displayLoading &&
     isScreenEmpty &&
+    !pluginError &&
     !cfPopupDismissed;
 
   const scheduleSearch = useCallback(
@@ -820,6 +839,69 @@ export function OnlineMangaView() {
       setSearchQuery,
     ],
   );
+
+  // Handle manual verification from the Cloudflare modal or error banner
+  const handleManualCfVerify = useCallback(async () => {
+    if (!activeSource) return;
+    setCfVerifying(true);
+    setCfVerifyMsg(null);
+    try {
+      const verifyUrl =
+        cfVerifyUrl ??
+        getCfVerifyUrl(activeSource.id, activeSource.website);
+      if (!verifyUrl) {
+        setCfVerifyMsg("Verification failed: no source URL available");
+        return;
+      }
+      await solveCfChallenge(verifyUrl, "visible");
+      setCfVerifyMsg("Verification completed — loading manga now.");
+      setCfPopupDismissed(true);
+      setPluginError(null);
+      if (hasVisibleSearched) {
+        scheduleSearch(searchQuery);
+      } else {
+        setBrowseReloadTrigger((prev) => prev + 1);
+      }
+    } catch (err) {
+      console.warn("[CF] verify failed:", err);
+      setCfVerifyMsg(
+        `Verification failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    } finally {
+      setCfVerifying(false);
+    }
+  }, [
+    activeSource,
+    cfVerifyUrl,
+    hasVisibleSearched,
+    scheduleSearch,
+    searchQuery,
+  ]);
+
+  const handleRetryBrowse = useCallback(() => {
+    setPluginError(null);
+    setCfVerifyMsg(null);
+    setCfPopupDismissed(false);
+    if (hasVisibleSearched) {
+      scheduleSearch(searchQuery);
+    } else {
+      setBrowseReloadTrigger((prev) => prev + 1);
+    }
+  }, [hasVisibleSearched, scheduleSearch, searchQuery]);
+
+  const isCloudflareOrSourceBlocked = useMemo(() => {
+    if (!pluginError) return false;
+    const lower = pluginError.toLowerCase();
+    return (
+      lower.includes("cloudflare") ||
+      lower.includes("turnstile") ||
+      lower.includes("just a moment") ||
+      (activeSource?.id === "mangafire" &&
+        (lower.includes("timed out") || lower.includes("failed")))
+    );
+  }, [pluginError, activeSource?.id]);
 
   const handleViewChapters = useCallback(
     async (manga: MangaDexManga) => {
@@ -1635,65 +1717,118 @@ export function OnlineMangaView() {
       {tombstoneDialog}
 
       {/* Cloudflare Bypass Popup on Desktop when Screen is Empty */}
-      <AnimatePresence>
-        {showCfBypassPopup && (
+      <Dialog
+        open={showCfBypassPopup}
+        onOpenChange={(open) => {
+          if (!open) setCfPopupDismissed(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px] w-[92vw] !p-0 overflow-hidden !border-none !bg-transparent shadow-none [&>button]:hidden">
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md select-none"
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="relative w-full overflow-hidden rounded-3xl border border-border/80 text-card-foreground p-6 sm:p-7 shadow-2xl transition-colors text-center select-none"
+            style={{ backgroundColor: "hsl(var(--card))" }}
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.93, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ type: "spring", damping: 26, stiffness: 360 }}
-              className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-amber-500/35 bg-card/95 p-6 shadow-2xl text-center backdrop-blur-2xl dark:border-amber-500/25"
+            {/* Close / Dismiss Button */}
+            <button
+              type="button"
+              onClick={() => setCfPopupDismissed(true)}
+              className="absolute top-4 right-4 p-2 rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer focus:outline-none"
+              aria-label="Dismiss (Esc)"
+              title="Dismiss (Esc)"
             >
-              {/* Ambient Glow */}
-              <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-44 h-44 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+              <X size={16} />
+            </button>
 
-              {/* Close / Dismiss Button */}
-              <button
-                type="button"
-                onClick={() => setCfPopupDismissed(true)}
-                className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
-                aria-label="Dismiss"
+            {/* Icon Badge */}
+            <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary shadow-xs">
+              <Shield className="h-7 w-7 text-primary stroke-[2.2]" />
+              <div
+                className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border border-border shadow-xs text-primary"
+                style={{ backgroundColor: "hsl(var(--card))" }}
               >
-                <X size={14} />
-              </button>
-
-              {/* Animated Shield + Spinner */}
-              <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-500/5 border border-amber-500/30 shadow-inner">
-                <Shield className="h-6 w-6 text-amber-500 animate-pulse" />
-                <Loader2 className="absolute inset-0 m-auto h-11 w-11 text-amber-500/50 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               </div>
+            </div>
 
-              {/* Status Pill */}
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 mb-2.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                <span>Cloudflare Active</span>
-              </div>
+            {/* Status Pill */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide bg-secondary text-secondary-foreground border border-border/80 mb-3 shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              <span className="uppercase tracking-wider text-[10px] font-mono">
+                Cloudflare Protection
+              </span>
+            </div>
 
-              {/* Title */}
-              <h3 className="text-base font-bold text-foreground tracking-tight mb-1.5">
-                Trying to bypass Cloudflare...
-              </h3>
+            {/* Title */}
+            <h3 className="text-xl font-bold text-foreground tracking-tight mb-2">
+              Bypassing Cloudflare...
+            </h3>
 
-              {/* Description */}
-              <p className="text-xs text-muted-foreground leading-relaxed mb-5">
-                MangaFire is protected by Cloudflare. Solving verification in the background, please wait patiently...
-              </p>
+            {/* Description */}
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-[320px] mx-auto mb-5">
+              <span className="font-semibold text-foreground">
+                {activeSource?.name || "MangaFire"}
+              </span>{" "}
+              requires verification. Solving in the background — manga will load automatically.
+            </p>
 
-              {/* Animated Progress Bar */}
-              <div className="w-full h-1.5 bg-muted/60 rounded-full overflow-hidden relative">
-                <div className="h-full w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 animate-pulse rounded-full" />
-              </div>
-            </motion.div>
+            {/* Smooth Sweeping Indeterminate Progress Bar */}
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden relative mb-6 border border-border/40">
+              <motion.div
+                className="absolute top-0 bottom-0 rounded-full bg-primary"
+                initial={{ left: "-40%", width: "40%" }}
+                animate={{ left: ["-40%", "100%"] }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 1.6,
+                  ease: [0.4, 0, 0.2, 1],
+                }}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-2.5">
+              <Button
+                type="button"
+                onClick={handleManualCfVerify}
+                disabled={cfVerifying}
+                className="w-full h-10 rounded-xl font-semibold text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+              >
+                {cfVerifying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Opening verification window...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Verify in Browser</span>
+                    <ExternalLink className="w-4 h-4 stroke-[2]" />
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCfPopupDismissed(true)}
+                className="w-full h-10 rounded-xl font-medium text-xs sm:text-sm border-border/80 hover:bg-muted text-muted-foreground hover:text-foreground active:scale-[0.98] transition-all cursor-pointer"
+              >
+                Wait in Background
+              </Button>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground/60 mt-3">
+              Press Esc to dismiss and wait in background
+            </p>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </DialogContent>
+      </Dialog>
       {/* ── Mobile Search Header ── */}
       <div className="md:hidden">
         <OnlineSearchHeader
@@ -1796,89 +1931,82 @@ export function OnlineMangaView() {
       </div>
 
       <div className="px-3 md:px-6 pt-1 md:pt-3 max-w-5xl mx-auto w-full">
-        {(isAndroid || !isScreenEmpty) && activeSource?.id === "mangafire" && displayLoading && (
-          <div className="my-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-amber-700 dark:text-amber-300 text-xs font-semibold shadow-xs">
+        {(isAndroid || !isScreenEmpty || cfPopupDismissed) &&
+          activeSource?.id === "mangafire" &&
+          displayLoading &&
+          !pluginError && (
+          <div className="my-2.5 p-3 rounded-2xl bg-secondary border border-border flex items-center justify-between gap-3 text-foreground text-xs font-medium shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">
-              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-amber-500" />
-              <span className="truncate">Trying to bypass Cloudflare protection, please wait patiently...</span>
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-primary" />
+              <span className="truncate text-muted-foreground">
+                Bypassing Cloudflare for <span className="font-semibold text-foreground">{activeSource?.name || "MangaFire"}</span> in background...
+              </span>
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full shrink-0">
               Cloudflare Active
             </span>
           </div>
         )}
 
         {mangadexError && (
-          <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+          <div className="mt-3 p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium shadow-xs">
             {mangadexError}
           </div>
         )}
 
         {pluginError && (
-          <div className="mt-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive">
-            <div className="font-medium mb-1">
-              {pluginError.includes("Cloudflare")
-                ? "🔒 Blocked by Cloudflare"
-                : "Search Failed"}
-            </div>
-            {pluginError.includes("Cloudflare") ? (
-              <div className="space-y-2.5">
-                <p className="text-sm text-muted-foreground">{pluginError}</p>
+          <div className="mt-3 p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-md text-foreground">
+            {isCloudflareOrSourceBlocked ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5 font-semibold text-sm sm:text-base text-foreground">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                    <Shield className="w-4 h-4 stroke-[2.2]" />
+                  </div>
+                  <div>
+                    <span className="text-foreground">Cloudflare Verification Required</span>
+                    <p className="text-xs font-normal text-muted-foreground">
+                      {activeSource?.name || "MangaFire"} is protected by Cloudflare Turnstile
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {pluginError.toLowerCase().includes("timed out")
+                    ? `The connection timed out while waiting for Cloudflare verification. Complete a quick verification in your browser to clear access.`
+                    : pluginError}
+                </p>
+
                 {pluginError.includes("IPv6") && (
-                  <p className="text-xs text-amber-500 opacity-90">
-                    💡 This network appears to lack IPv6 — Cloudflare
-                    verification needs it. Try a phone hotspot, enable IPv6 on
-                    your router, or use a VPN with IPv6.
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                    💡 This network appears to lack IPv6 — Cloudflare verification needs it. Try a phone hotspot, enable IPv6 on your router, or use a VPN with IPv6.
                   </p>
                 )}
-                <p className="text-sm text-muted-foreground">
-                  This source requires browser verification and cannot be
-                  accessed automatically.
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={async () => {
-                      if (!activeSource) return;
-                      setCfVerifying(true);
-                      setCfVerifyMsg(null);
-                      try {
-                        const verifyUrl =
-                          cfVerifyUrl ??
-                          getCfVerifyUrl(activeSource.id, activeSource.website);
-                        if (!verifyUrl) {
-                          setCfVerifyMsg(
-                            "Verification failed: no source URL available",
-                          );
-                          return;
-                        }
-                        await solveCfChallenge(verifyUrl, "visible");
-                        setCfVerifyMsg(
-                          "Verification completed — retry your search now.",
-                        );
-                      } catch (err) {
-                        console.warn("[CF] verify failed:", err);
-                        setCfVerifyMsg(
-                          `Verification failed: ${
-                            err instanceof Error ? err.message : String(err)
-                          }`,
-                        );
-                      } finally {
-                        setCfVerifying(false);
-                      }
-                    }}
+                    onClick={handleManualCfVerify}
                     disabled={cfVerifying}
-                    className="gap-2"
+                    className="gap-2 font-medium bg-primary text-primary-foreground hover:bg-primary/90"
                   >
-                    {cfVerifying && (
+                    {cfVerifying ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <ExternalLink className="w-3.5 h-3.5" />
                     )}
                     {cfVerifying ? "Verifying…" : "Verify in browser"}
                   </Button>
                   <Button
                     size="sm"
-                    variant="secondary"
+                    variant="outline"
+                    onClick={handleRetryBrowse}
+                    className="gap-2 font-medium border-border/80 hover:bg-muted text-foreground"
+                  >
+                    Retry
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     onClick={async () => {
                       setNetDiagChecking(true);
                       setNetDiagError(null);
@@ -1895,7 +2023,7 @@ export function OnlineMangaView() {
                       }
                     }}
                     disabled={netDiagChecking}
-                    className="gap-2"
+                    className="gap-2 text-muted-foreground hover:text-foreground"
                   >
                     {netDiagChecking && (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1903,30 +2031,33 @@ export function OnlineMangaView() {
                     {netDiagChecking ? "Checking…" : "Check network"}
                   </Button>
                 </div>
+
                 {cfVerifyMsg && (
                   <p
                     className={cn(
-                      "text-xs",
+                      "text-xs font-medium pt-1",
                       cfVerifyMsg.startsWith("Verification failed")
                         ? "text-amber-500"
-                        : "text-green-600",
+                        : "text-green-600 dark:text-green-400",
                     )}
                   >
                     {cfVerifyMsg}
                   </p>
                 )}
+
                 {netDiagError && (
                   <p className="text-xs text-amber-500">
                     Network check failed: {netDiagError}
                   </p>
                 )}
+
                 {netDiag && (
-                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1.5">
                     <p
                       className={cn(
-                        "text-xs",
+                        "text-xs font-medium",
                         netDiag.attestationReachable
-                          ? "text-green-600"
+                          ? "text-green-600 dark:text-green-400"
                           : "text-amber-500",
                       )}
                     >
@@ -1950,16 +2081,16 @@ export function OnlineMangaView() {
                     )}
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground opacity-80">
-                  After verifying, retry your search.
-                </p>
-                <p className="text-xs text-muted-foreground opacity-70">
-                  Alternative: switch to <strong>MangaDex</strong> for
-                  unrestricted access.
-                </p>
+
+                <div className="pt-2 flex flex-col gap-1 text-xs text-muted-foreground border-t border-border/50">
+                  <p>After completing verification, content will refresh automatically.</p>
+                  <p className="text-muted-foreground/80">
+                    Alternative: switch to <strong>MangaDex</strong> for instant unrestricted access.
+                  </p>
+                </div>
               </div>
             ) : (
-              <div className="text-sm">{pluginError}</div>
+              <div className="text-sm font-medium text-destructive">{pluginError}</div>
             )}
           </div>
         )}

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, isTauri } from "../lib/tauri";
+import { api, isTauri, setNativeZoom } from "../lib/tauri";
 import { invoke } from "@tauri-apps/api/core";
 
 import { logger } from "../lib/logger";
@@ -85,6 +85,23 @@ export function syncThemeColorHex(hex: string, isLight?: boolean) {
   } catch {
     // Storage unavailable — splash falls back to the default theme color.
   }
+}
+
+export function applyUiScale(scale: number) {
+  if (typeof document === 'undefined') return;
+  const clamped = Math.max(0.7, Math.min(2.0, Number.isFinite(scale) ? scale : 1.0));
+  document.documentElement.style.setProperty('--ui-scale', String(clamped));
+  // Clear any legacy / buggy CSS zoom property so getBoundingClientRect() and Radix popovers are never shifted
+  if ((document.documentElement.style as any).zoom) {
+    (document.documentElement.style as any).zoom = '';
+  }
+  try {
+    localStorage.setItem('shiori-ui-scale', String(clamped));
+  } catch {
+    // Ignore storage errors
+  }
+  // Apply native browser-engine webview zoom for desktop (WebKitGTK / WebView2 / WKWebView)
+  void setNativeZoom(clamped);
 }
 
 export function syncThemeColor(theme: string) {
@@ -220,8 +237,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         document.documentElement.classList.remove('dark');
       }
       syncThemeColor(preferences.theme);
-      const scale = preferences.uiScale ?? 1.0;
-      document.documentElement.style.setProperty('--ui-scale', String(scale));
+      applyUiScale(preferences.uiScale ?? 1.0);
     } catch (error) {
       logger.error("Failed to load preferences:", error);
       set({ isLoading: false });
@@ -375,10 +391,9 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
         : DEFAULT_USER_PREFERENCES,
     }));
 
-    // Immediately apply ui_scale to CSS if provided (real-time preview)
+    // Immediately apply ui_scale to CSS and DOM zoom if provided (real-time preview)
     if ('uiScale' in updates && updates.uiScale !== undefined) {
-      const scale = updates.uiScale;
-      document.documentElement.style.setProperty('--ui-scale', String(scale));
+      applyUiScale(updates.uiScale);
     }
 
     try {
@@ -388,8 +403,7 @@ export const usePreferencesStore = create<PreferencesStore>((set, get) => ({
       // Rollback
       if (previous) {
         set({ preferences: previous });
-        const prevScale = previous.uiScale ?? 1.0;
-        document.documentElement.style.setProperty('--ui-scale', String(prevScale));
+        applyUiScale(previous.uiScale ?? 1.0);
       }
     }
   },

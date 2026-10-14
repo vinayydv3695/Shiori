@@ -21,7 +21,7 @@ interface CharacterDirectoryPanelProps {
   bookId: number;
   totalChapters: number;
   currentChapterIndex?: number;
-  onNavigateToFirstMention: (chapterIndex: number, characterName: string) => void;
+  onNavigateToFirstMention: (chapterIndex: number, characterName: string, snippet?: string) => void;
   bookTitle?: string;
 }
 
@@ -30,7 +30,7 @@ interface CharacterDetailModalProps {
   portrait: CharacterPortrait;
   bookTitle?: string;
   onClose: () => void;
-  onNavigateToFirstMention: (chapterIndex: number, characterName: string) => void;
+  onNavigateToFirstMention: (chapterIndex: number, characterName: string, snippet?: string) => void;
   aiEnabled: boolean;
 }
 
@@ -426,7 +426,7 @@ function CharacterDetailModal({
           <button
             type="button"
             onClick={() => {
-              onNavigateToFirstMention(char.firstMention.chapterIndex, char.firstMention.sentenceSnippet || char.name);
+              onNavigateToFirstMention(char.firstMention.chapterIndex, char.name, char.firstMention.sentenceSnippet);
               onClose();
             }}
             className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[var(--ui-focus)] text-white hover:opacity-90 shadow-sm transition-all cursor-pointer flex items-center gap-2 ml-auto active:scale-98"
@@ -456,7 +456,7 @@ function CharacterItem({
   aiEnabled: boolean;
   aiRecapLoading: boolean;
   onAIRecap: (name: string, e: React.MouseEvent) => void;
-  onNavigateToFirstMention: (chapterIndex: number, characterName: string) => void;
+  onNavigateToFirstMention: (chapterIndex: number, characterName: string, snippet?: string) => void;
   onOpenDetail: (char: TrackedCharacter, portrait: CharacterPortrait) => void;
 }) {
   const { portrait, isLoading: isPortraitLoading } = useCharacterPortrait(
@@ -609,7 +609,7 @@ function CharacterItem({
       {/* Jump to first mention button */}
       <button
         type="button"
-        onClick={() => onNavigateToFirstMention(char.firstMention.chapterIndex, char.firstMention.sentenceSnippet || char.name)}
+        onClick={() => onNavigateToFirstMention(char.firstMention.chapterIndex, char.name, char.firstMention.sentenceSnippet)}
         className="w-full py-1.5 px-3 rounded-xl bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-secondary))] hover:bg-[var(--ui-focus)] hover:text-white border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] hover:border-transparent text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-between cursor-pointer shadow-2xs group/btn active:scale-98"
       >
         <span className="flex items-center gap-1.5">
@@ -874,9 +874,9 @@ export function CharacterDirectoryPanel({
             portrait={selectedDetail.portrait}
             bookTitle={bookTitle}
             onClose={() => setSelectedDetail(null)}
-            onNavigateToFirstMention={(chapIdx, charName) => {
+            onNavigateToFirstMention={(chapIdx, charName, snippet) => {
               setIsGraphFullscreen(false);
-              onNavigateToFirstMention(chapIdx, charName);
+              onNavigateToFirstMention(chapIdx, charName, snippet);
             }}
             aiEnabled={aiEnabled}
           />
@@ -910,9 +910,9 @@ export function CharacterDirectoryPanel({
               bookTitle={bookTitle}
               isFullscreen={true}
               onOpenCharacterDetail={(char, portrait) => setSelectedDetail({ char, portrait })}
-              onNavigateToChapter={(chapIdx, charName) => {
+              onNavigateToChapter={(chapIdx, charName, snippet) => {
                 setIsGraphFullscreen(false);
-                onNavigateToFirstMention(chapIdx, charName || '');
+                onNavigateToFirstMention(chapIdx, charName || '', snippet);
               }}
               onToggleFullscreen={() => setIsGraphFullscreen(false)}
             />

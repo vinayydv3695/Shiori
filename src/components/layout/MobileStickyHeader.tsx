@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/useTheme"
 import { useLibraryStore, countActiveFilterCriteria } from "@/store/libraryStore"
 import { useState, useRef, useEffect } from "react"
 import { IconX, IconSun, IconMoon } from "@/components/icons/ShioriIcons"
+import { isAndroid } from "@/lib/tauri"
 
 interface MobileStickyHeaderProps {
   searchQuery: string
@@ -53,9 +54,9 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
     <div
       className="sticky top-0 z-40 px-3 bg-background border-b border-border/40 pb-3 flex flex-col gap-3 md:hidden"
       style={{
-        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
-        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)',
-        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)'
+        paddingLeft: isAndroid ? '12px' : 'calc(env(safe-area-inset-left, 0px) + 12px)',
+        paddingRight: isAndroid ? '12px' : 'calc(env(safe-area-inset-right, 0px) + 12px)',
+        paddingTop: isAndroid ? '6px' : 'calc(env(safe-area-inset-top, 0px) + 8px)'
       }}
     >
       <div className="flex items-center justify-between gap-3">
@@ -127,7 +128,7 @@ export function MobileStickyHeader({ searchQuery, onSearchChange, onOpenAdvanced
             type="button"
             onClick={onOpenAdvancedFilter}
               className={cn(
-                'relative flex items-center justify-center h-12 px-3.5 rounded-ui-full border shadow-sm transition-all duration-200 touch-target flex-shrink-0',
+                'relative flex items-center justify-center h-11 px-3.5 rounded-ui-full border shadow-sm transition-all duration-200 touch-target flex-shrink-0',
                 activeFilterCount > 0
                   ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
                   : 'bg-background text-foreground border-border hover:bg-accent'

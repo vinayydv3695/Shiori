@@ -49,7 +49,7 @@ export function findBestMatchingBlock(container: HTMLElement, searchTerm: string
   // Search candidate block elements
   const allCandidates = Array.from(
     container.querySelectorAll<HTMLElement>(
-      'p, blockquote, li, dd, dt, div.paragraph, div.calibre_p, div[class*="text"], div[class*="line"]'
+      'p, blockquote, li, dd, dt, h1, h2, h3, h4, h5, h6, div.paragraph, div.calibre_p, div[class*="text"], div[class*="line"], div[class*="calibre"]'
     )
   );
 
@@ -141,6 +141,59 @@ export function findBestMatchingBlock(container: HTMLElement, searchTerm: string
 }
 
 /**
+ * Highlights matching words directly in an element's text nodes if not already highlighted.
+ */
+export function highlightTextInElement(el: HTMLElement, term: string) {
+  if (!el || !term?.trim()) return;
+  if (el.querySelector('.search-highlight')) return;
+
+  const tokens = extractSearchTokens(term);
+  if (tokens.length === 0) return;
+
+  const phrase = tokens.length > 5 ? tokens.slice(0, 5).join(' ') : tokens.join(' ');
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s,.:;!?"\'“”‘’—–\\-]+');
+  const regex = new RegExp(`(${escaped})`, 'i');
+
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest('mark, script, style')) continue;
+    if ((node.textContent || '').trim().length > 0) {
+      textNodes.push(node as Text);
+    }
+  }
+
+  let matched = false;
+  for (const textNode of textNodes) {
+    const text = textNode.textContent || '';
+    if (regex.test(text)) {
+      matched = true;
+      const span = document.createElement('span');
+      span.innerHTML = text.replace(regex, '<mark class="search-highlight search-highlight--active">$1</mark>');
+      textNode.parentNode?.replaceChild(span, textNode);
+      break;
+    }
+  }
+
+  if (!matched) {
+    const significant = tokens.filter((t) => t.length >= 4);
+    if (significant.length > 0) {
+      const altPattern = significant.slice(0, 4).map((t) => `\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).join('|');
+      const altRegex = new RegExp(`(${altPattern})`, 'gi');
+      for (const textNode of textNodes) {
+        const text = textNode.textContent || '';
+        if (altRegex.test(text)) {
+          const span = document.createElement('span');
+          span.innerHTML = text.replace(altRegex, '<mark class="search-highlight search-highlight--active">$1</mark>');
+          textNode.parentNode?.replaceChild(span, textNode);
+        }
+      }
+    }
+  }
+}
+
+/**
  * Scrolls the given element to the center of the container.
  */
 export function scrollElementToCenter(
@@ -157,15 +210,16 @@ export function scrollElementToCenter(
     const pageIdx = Math.floor(offsetInCanvas / clientWidth);
     container.scrollTo({ left: pageIdx * clientWidth, behavior });
   } else {
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const relativeTop = targetRect.top - containerRect.top;
+    const targetScrollTop =
+      container.scrollTop + relativeTop - container.clientHeight / 2 + targetRect.height / 2;
+    container.scrollTo({ top: Math.max(0, targetScrollTop), behavior });
     try {
       target.scrollIntoView({ behavior, block: 'center', inline: 'nearest' });
     } catch {
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const relativeTop = targetRect.top - containerRect.top;
-      const targetScrollTop =
-        container.scrollTop + relativeTop - container.clientHeight / 2 + targetRect.height / 2;
-      container.scrollTo({ top: Math.max(0, targetScrollTop), behavior });
+      // Ignore if unsupported in environment
     }
   }
 }
@@ -190,41 +244,63 @@ export function pulseElement(el: HTMLElement) {
   }, 3500);
 }
 
+export interface ScrollToSearchOptions {
+  isHorizontal?: boolean;
+  behavior?: ScrollBehavior;
+  searchRoot?: HTMLElement;
+  targetSnippet?: string;
+  searchTerm?: string | null;
+}
+
 /**
  * Unified entry point to scroll any reader container to the target dialogue/search term.
  * Checks for:
- * 1. [data-target-scene="true"] or .scene-dialogue-highlight
- * 2. .search-highlight--active or .search-highlight
- * 3. Best matching paragraph/block by text content (resilient fallback)
+ * 1. Matching block by targetSnippet or multi-token quote/phrase (highest precision)
+ * 2. [data-target-scene="true"] or .scene-dialogue-highlight
+ * 3. .search-highlight--active or .search-highlight
+ * 4. Best matching paragraph/block by text content (resilient fallback)
  */
 export function scrollCanvasToSearchTerm(
   container: HTMLElement,
   searchTerm: string,
-  options?: { isHorizontal?: boolean; behavior?: ScrollBehavior }
+  options?: ScrollToSearchOptions
 ): boolean {
   if (!container || !searchTerm?.trim()) return false;
 
+  const root = options?.searchRoot || container;
   const isHoriz = Boolean(options?.isHorizontal);
   const behavior: ScrollBehavior = options?.behavior ?? 'smooth';
+  const queryToMatch = options?.targetSnippet?.trim() || searchTerm.trim();
 
-  // 1. Check for explicit target-scene marker
-  const targetScene = container.querySelector<HTMLElement>(
+  // 1. If targetSnippet or a distinctive multi-token search term/quote is provided,
+  // locate the EXACT paragraph first (avoiding jumping to the wrong occurrence on page 1).
+  if (queryToMatch) {
+    const bestBlock = findBestMatchingBlock(root, queryToMatch);
+    if (bestBlock && root.contains(bestBlock)) {
+      highlightTextInElement(bestBlock, options?.searchTerm || searchTerm);
+      scrollElementToCenter(container, bestBlock, isHoriz, behavior);
+      pulseElement(bestBlock);
+      return true;
+    }
+  }
+
+  // 2. Check for explicit target-scene marker
+  const targetScene = root.querySelector<HTMLElement>(
     '[data-target-scene="true"], .scene-dialogue-highlight'
   );
-  if (targetScene && container.contains(targetScene)) {
+  if (targetScene && root.contains(targetScene)) {
     scrollElementToCenter(container, targetScene, isHoriz, behavior);
     pulseElement(targetScene);
     return true;
   }
 
-  // 2. Check for active or standard search highlights
-  const activeHighlight = container.querySelector<HTMLElement>(
+  // 3. Check for active or standard search highlights
+  const activeHighlight = root.querySelector<HTMLElement>(
     '.search-highlight--active, .search-highlight'
   );
-  if (activeHighlight && container.contains(activeHighlight)) {
-    // If the highlight is inside a paragraph, pulse the paragraph for full-line spotlight
+  if (activeHighlight && root.contains(activeHighlight)) {
     const parentBlock = activeHighlight.closest<HTMLElement>(
-      'p, blockquote, li, dd, div.paragraph, div.calibre_p'
+      'p, blockquote, li, dd, h1, h2, h3, h4, h5, h6, div.paragraph, div.calibre_p'
     );
     const elementToScroll = parentBlock || activeHighlight;
     scrollElementToCenter(container, elementToScroll, isHoriz, behavior);
@@ -232,9 +308,10 @@ export function scrollCanvasToSearchTerm(
     return true;
   }
 
-  // 3. Resilient block text-content matcher
-  const bestBlock = findBestMatchingBlock(container, searchTerm);
-  if (bestBlock && container.contains(bestBlock)) {
+  // 4. Resilient block text-content matcher fallback
+  const bestBlock = findBestMatchingBlock(root, searchTerm);
+  if (bestBlock && root.contains(bestBlock)) {
+    highlightTextInElement(bestBlock, searchTerm);
     scrollElementToCenter(container, bestBlock, isHoriz, behavior);
     pulseElement(bestBlock);
     return true;

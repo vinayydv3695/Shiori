@@ -2178,3 +2178,25 @@ export const api = {
     return invoke("synthesize_speech", { text, voiceId })
   },
 }
+
+/**
+ * Sets the native desktop webview zoom level.
+ * Uses native WebKitGTK / WebView2 / WKWebView zoom instead of CSS zoom.
+ * This guarantees that DOM element coordinates and Radix UI / Floating UI
+ * popovers, dropdowns, and selects remain 100% pixel-aligned without displacement.
+ */
+export async function setNativeZoom(scale: number): Promise<void> {
+  if (!isTauri || isAndroid) return;
+  const clamped = Math.max(0.5, Math.min(2.5, Number.isFinite(scale) ? scale : 1.0));
+  try {
+    const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+    await getCurrentWebview().setZoom(clamped);
+  } catch {
+    try {
+      await invoke('set_window_zoom', { scale: clamped });
+    } catch (e) {
+      logger.warn('[setNativeZoom] Failed to set native webview zoom', e);
+    }
+  }
+}
+

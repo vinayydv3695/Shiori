@@ -344,6 +344,7 @@ macro_rules! generate_shiori_handlers {
             // Window management
             crate::commands::window::toggle_fullscreen,
             crate::commands::window::get_fullscreen_state,
+            crate::commands::window::set_window_zoom,
             crate::commands::window::download_apk,
             crate::commands::window::device_arch,
             // AniList

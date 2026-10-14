@@ -842,20 +842,51 @@ const GeneralSettings = ({
         >
 
           {!isAndroid && isSettingVisible('UI Scale', 'Adjust overall application size', 'Appearance') && (
-            <SettingItem label="UI Scale" description={`${scalePercent}%`}>
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <span className="text-xs text-muted-foreground w-8 text-right shrink-0">75%</span>
-                <input
-                  type="range"
-                  min="75"
-                  max="150"
-                  step="5"
-                  value={scalePercent}
-                  onChange={(e) => updateGeneralSettings({ uiScale: Number(e.target.value) / 100 })}
-                  className="flex-1 md:w-40"
-                  aria-label="UI scale"
-                />
-                <span className="text-xs text-muted-foreground w-10 shrink-0">150%</span>
+            <SettingItem 
+              label="UI Scale" 
+              description={`Current: ${scalePercent}% (Zoom ${currentScale.toFixed(2)}x)`}
+            >
+              <div className="flex flex-col gap-2.5 w-full md:w-auto">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-8 text-right shrink-0">75%</span>
+                  <input
+                    type="range"
+                    min="75"
+                    max="175"
+                    step="5"
+                    value={scalePercent}
+                    onChange={(e) => updateGeneralSettings({ uiScale: Number(e.target.value) / 100 })}
+                    className="flex-1 md:w-44 accent-primary cursor-pointer"
+                    aria-label="UI scale"
+                  />
+                  <span className="text-xs text-muted-foreground w-10 shrink-0">175%</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[90, 100, 115, 125, 150].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => updateGeneralSettings({ uiScale: preset / 100 })}
+                      className={cn(
+                        "text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition-all cursor-pointer",
+                        scalePercent === preset
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60"
+                      )}
+                    >
+                      {preset}%
+                    </button>
+                  ))}
+                  {scalePercent !== 100 && (
+                    <button
+                      type="button"
+                      onClick={() => updateGeneralSettings({ uiScale: 1.0 })}
+                      className="text-[11px] px-2 py-1 text-muted-foreground hover:text-foreground underline transition-colors cursor-pointer ml-1"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
               </div>
             </SettingItem>
           )}
@@ -932,7 +963,7 @@ const GeneralSettings = ({
                 onValueChange={(val) => updateGeneralSettings({ preferredContentType: val as 'books' | 'manga' | 'both' })}
               >
                 <SelectTrigger className="w-full md:w-[220px]">
-                  <SelectValue />
+                  <SelectValue placeholder="Select content type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="both">Both Books & Manga</SelectItem>
@@ -1144,13 +1175,16 @@ const BookReadingSettings = ({
           }}
         >
           {isSettingVisible('Font Family', 'Book reader font', 'Font Settings') && (
-            <SettingItem label="Font Family" description={normalizedBookFontFamily}>
+            <SettingItem
+              label="Font Family"
+              description={READING_FONTS.find(f => f.id === normalizedBookFontFamily)?.label || normalizedBookFontFamily}
+            >
               <Select
                 value={normalizedBookFontFamily}
                 onValueChange={(val) => updateBookDefaults({ fontFamily: normalizeLegacyFontPreference(val) })}
               >
                 <SelectTrigger className="w-full md:w-[220px]">
-                  <SelectValue />
+                  <SelectValue placeholder="Select font" />
                 </SelectTrigger>
                 <SelectContent>
                   {READING_FONTS.map((font) => (

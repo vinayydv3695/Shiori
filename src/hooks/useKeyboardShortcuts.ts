@@ -39,12 +39,15 @@ export function useKeyboardShortcuts(shortcuts: Shortcuts) {
         const shiftMatch = modifiers.includes('shift') && event.shiftKey
         const altMatch = modifiers.includes('alt') && event.altKey
 
-        const keyMatch = event.key.toLowerCase() === mainKey
+        const keyMatch = 
+          event.key.toLowerCase() === mainKey || 
+          (mainKey === '=' && (event.key === '+' || event.key === '=')) ||
+          (mainKey === '-' && (event.key === '-' || event.key === '_'))
 
         const allModifiersMatch = 
           (!modifiers.includes('cmd') || cmdMatch) &&
           (!modifiers.includes('ctrl') || ctrlMatch) &&
-          (!modifiers.includes('shift') || shiftMatch) &&
+          (!modifiers.includes('shift') || shiftMatch || (mainKey === '=' && event.key === '+')) &&
           (!modifiers.includes('alt') || altMatch)
 
         if (keyMatch && allModifiersMatch) {

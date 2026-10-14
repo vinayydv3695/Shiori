@@ -48,6 +48,19 @@ pub fn get_fullscreen_state<R: Runtime>(app: AppHandle<R>) -> Result<bool, Strin
     window.is_fullscreen().map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn set_window_zoom<R: Runtime>(app: AppHandle<R>, scale: f64) -> Result<(), String> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        if let Some(window) = app.get_webview_window("main") {
+            let clamped = scale.clamp(0.5, 3.0);
+            window.set_zoom(clamped).map_err(|e| e.to_string())?;
+        }
+    }
+    let _ = (&app, scale);
+    Ok(())
+}
+
 #[derive(serde::Serialize, Clone)]
 struct DownloadProgress {
     downloaded: u64,

@@ -276,9 +276,8 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
 
         // If jumping to a scene in the current chapter, scroll immediately
         if (index === currentChapter && searchTerm?.trim()) {
-            const targetEl = contentRef.current || containerRef.current;
-            if (targetEl) {
-                scrollCanvasToSearchTerm(targetEl, searchTerm);
+            if (containerRef.current) {
+                scrollCanvasToSearchTerm(containerRef.current, searchTerm, { searchRoot: contentRef.current || undefined });
             }
         }
 
@@ -297,9 +296,8 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             if (searchTerm?.trim()) {
                 let attempts = 0;
                 const tryScroll = () => {
-                    const targetEl = contentRef.current || containerRef.current;
-                    if (!targetEl) return;
-                    const scrolled = scrollCanvasToSearchTerm(targetEl, searchTerm);
+                    if (!containerRef.current) return;
+                    const scrolled = scrollCanvasToSearchTerm(containerRef.current, searchTerm, { searchRoot: contentRef.current || undefined });
                     if (!scrolled && attempts < 20) {
                         attempts++;
                         setTimeout(tryScroll, 50);

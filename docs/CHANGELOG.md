@@ -1,3 +1,14 @@
+# Release Notes (v1.0.21)
+
+## Reader Navigation & Passage Spotlight
+
+- **Exact Passage & Scene Navigation** — In-book search results and Character Relationship Web ("Jump to scene") now navigate directly to the exact paragraph, passage, and line with precision.
+- **Passage Spotlight & Glow Effect** — When jumping to a scene or search match, the target paragraph pulses with a glowing spotlight animation, and matching terms/quotes are highlighted directly in the live text.
+- **Vertical Reader Scroll Fix** — Resolved an issue where single-chapter vertical reading mode was falsely categorized as horizontal pagination, fixing scroll positioning for in-book search and scene jumps.
+- **Continuous Flow & HTML Readers** — Fixed scroll container targeting in continuous EPUB view and Generic HTML reader to ensure smooth scrolling to passages even across dynamically loaded chapters.
+- **Native Zoom & Dropdown Menu Placement** — Switched UI zoom to native webview zoom API, fixing offset and broken placement of dropdown menus and tooltips in desktop environments (including Hyprland/Wayland).
+- **Desktop "On Hold" Status & Series View** — Restored the "On Hold" shelf action on desktop platforms while keeping Android optimized, and fixed the Series View dialog close button.
+
 # Release Notes (v1.0.18)
 
 ## Microsoft Store Edition & App Store Compliance

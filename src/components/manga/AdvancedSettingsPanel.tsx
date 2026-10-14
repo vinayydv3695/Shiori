@@ -33,9 +33,53 @@ import {
 } from 'lucide-react';
 import { isAndroid } from '@/lib/tauri';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { cn } from '@/lib/utils';
 import { AppTooltip } from '@/components/ui/tooltip';
 
 type SettingsTab = 'layout' | 'image' | 'shortcuts';
+
+function ToggleSwitch({
+    checked,
+    onChange,
+    isLight,
+    label,
+}: {
+    checked: boolean;
+    onChange: () => void;
+    isLight: boolean;
+    label?: string;
+}) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={checked}
+            aria-label={label}
+            onClick={onChange}
+            className={`w-11 h-6 rounded-full transition-all duration-200 relative cursor-pointer p-0.5 shrink-0 ${
+                checked
+                    ? isLight
+                        ? 'bg-[#A0522D]'
+                        : 'bg-white'
+                    : isLight
+                        ? 'bg-[#D9C9A3]'
+                        : 'bg-white/20 hover:bg-white/25'
+            }`}
+        >
+            <span
+                className={`block w-5 h-5 rounded-full transition-transform duration-200 shadow-md ${
+                    checked
+                        ? isLight
+                            ? 'translate-x-5 bg-white'
+                            : 'translate-x-5 bg-black'
+                        : isLight
+                            ? 'translate-x-0 bg-white'
+                            : 'translate-x-0 bg-white/90'
+                }`}
+            />
+        </button>
+    );
+}
 
 /**
  * Advanced settings modal with tabbed interface.
@@ -151,38 +195,45 @@ export function AdvancedSettingsPanel() {
 
     return (
         <div
-            className="fixed inset-0 z-[250] bg-black/65 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in-0 duration-200"
+            className={cn(
+                "fixed inset-0 z-[250] flex items-end sm:items-center justify-center sm:p-4 animate-in fade-in-0 duration-200 transition-colors",
+                isLight ? "bg-black/35 backdrop-blur-xs" : "bg-black/75 backdrop-blur-md"
+            )}
             onClick={(e) => {
                 if (e.target === e.currentTarget) closeSettings();
             }}
         >
             <div 
                 ref={dialogRef}
+                data-manga-theme={theme}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Reader Settings"
                 tabIndex={-1}
                 onKeyDown={handleKeyDown}
-                className={`w-full max-w-xl max-h-[85vh] flex flex-col rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl transition-all animate-in zoom-in-95 duration-200 ${
+                className={`w-full max-w-xl max-h-[85vh] flex flex-col rounded-t-[32px] sm:rounded-3xl overflow-hidden shadow-2xl transition-all animate-in zoom-in-95 duration-200 backdrop-blur-3xl ${
                     isLight
-                        ? 'bg-[#FAF6EC] text-[#2C1E0F] border border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/15'
-                        : 'bg-[#121217] text-white border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/5'
+                        ? 'text-[#2C1E0F] border border-[#D9C9A3] shadow-2xl shadow-[#5C4430]/25 ring-1 ring-[#8A6A50]/15'
+                        : 'text-white border border-white/10 shadow-2xl shadow-black/90 ring-1 ring-white/10'
                 }`}
-                style={isMobileOrAndroid ? {
-                    paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
-                } : undefined}
+                style={{
+                    backgroundColor: isLight ? '#FAF6EC' : '#101015',
+                    ...(isMobileOrAndroid ? {
+                        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
+                    } : {})
+                }}
             >
                 {/* Drag handle pill on mobile */}
                 {isMobileOrAndroid && (
-                    <div className="w-12 h-1 rounded-full bg-muted-foreground/30 mx-auto mt-3 mb-1 shrink-0" />
+                    <div className="w-12 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-1 shrink-0" />
                 )}
 
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex items-center justify-between shrink-0 ${
-                    isLight ? 'bg-[#F0E6CE]/70 border-[#D9C9A3]' : 'bg-white/[0.03] border-white/10'
+                    isLight ? 'bg-[#F4ECD8] border-[#D9C9A3]' : 'bg-white/[0.02] border-white/10'
                 }`}>
                     <div className="flex items-center gap-2.5">
-                        <div className={`p-2 rounded-xl ${isLight ? 'bg-[#A0522D]/15 text-[#A0522D]' : 'bg-amber-400/15 text-amber-400'}`}>
+                        <div className={`p-2 rounded-xl ${isLight ? 'bg-[#A0522D]/15 text-[#A0522D]' : 'bg-white/10 text-white'}`}>
                             <SlidersHorizontal className="w-5 h-5" />
                         </div>
                         <div>
@@ -197,7 +248,7 @@ export function AdvancedSettingsPanel() {
                     <AppTooltip content="Close settings (Esc)">
                         <button 
                             onClick={closeSettings}
-                            className={`p-2 rounded-full transition-colors ${
+                            className={`p-2 rounded-full transition-all cursor-pointer ${
                                 isLight ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC]' : 'text-white/60 hover:text-white hover:bg-white/10'
                             }`}
                             aria-label="Close settings (Esc)"
@@ -209,10 +260,10 @@ export function AdvancedSettingsPanel() {
 
                 {/* Tab Navigation */}
                 <div className={`px-6 pt-3 pb-2 border-b shrink-0 ${
-                    isLight ? 'bg-[#F0E6CE]/40 border-[#D9C9A3]' : 'bg-white/[0.01] border-white/10'
+                    isLight ? 'bg-[#F4ECD8] border-[#D9C9A3]' : 'bg-white/[0.01] border-white/10'
                 }`}>
                     <div className={`flex items-center gap-1 p-1 rounded-2xl border ${
-                        isLight ? 'bg-[#EAE0CB]/70 border-[#D9C9A3]' : 'bg-black/40 border-white/5'
+                        isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/10'
                     }`}>
                         {tabs.map(tab => {
                             const Icon = tab.icon;
@@ -221,13 +272,13 @@ export function AdvancedSettingsPanel() {
                                 <button
                                     key={tab.value}
                                     onClick={() => setActiveTab(tab.value)}
-                                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                                         isActive
                                             ? isLight
-                                                ? 'bg-[#A0522D] text-white shadow-sm shadow-[#A0522D]/30'
-                                                : 'bg-amber-400 text-black shadow-sm shadow-amber-400/30'
+                                                ? 'bg-[#A0522D] text-white shadow-sm'
+                                                : 'bg-white/20 text-white font-semibold shadow-xs border border-white/20'
                                             : isLight
-                                                ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#FAF6EC]/80'
+                                                ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#FAF6EC]'
                                                 : 'text-white/60 hover:text-white hover:bg-white/5'
                                     }`}
                                 >
@@ -247,7 +298,7 @@ export function AdvancedSettingsPanel() {
                             {/* Reading Mode Section */}
                             <div className="space-y-3">
                                 <div>
-                                    <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                    <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-white/50'}`}>
                                         Reading Mode
                                     </label>
                                     <p className={`text-xs mt-0.5 ${isLight ? 'text-[#5C4430]' : 'text-white/60'}`}>
@@ -262,27 +313,27 @@ export function AdvancedSettingsPanel() {
                                             <button
                                                 key={opt.value}
                                                 onClick={() => setReadingMode(opt.value)}
-                                                className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-2 ${
+                                                className={`p-3 rounded-2xl border text-left transition-all relative flex flex-col justify-between gap-2 cursor-pointer active:scale-[0.98] ${
                                                     isSelected
                                                         ? isLight
-                                                            ? 'bg-[#A0522D]/15 border-[#A0522D] shadow-sm ring-1 ring-[#A0522D]/20 text-[#2C1E0F]'
-                                                            : 'bg-amber-400/15 border-amber-400 shadow-sm ring-1 ring-amber-400/20 text-white'
+                                                            ? 'bg-[#A0522D]/12 border-[#A0522D]/40 text-[#733516] shadow-xs'
+                                                            : 'bg-white/[0.12] border-white/30 text-white shadow-sm ring-1 ring-white/20'
                                                         : isLight
-                                                            ? 'bg-[#FAF6EC] hover:bg-[#F0E6CE] border-[#D9C9A3] text-[#2C1E0F]'
+                                                            ? 'bg-[#FAF6EC] hover:bg-[#F4ECD8] border-[#D9C9A3] text-[#2C1E0F]'
                                                             : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-white'
                                                 }`}
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <div className={`p-1.5 rounded-lg ${
+                                                    <div className={`p-1.5 rounded-xl ${
                                                         isSelected
-                                                            ? isLight ? 'bg-[#A0522D] text-white' : 'bg-amber-400 text-black'
+                                                            ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-white text-black shadow-xs'
                                                             : isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'
                                                     }`}>
                                                         <Icon className="w-4 h-4" />
                                                     </div>
                                                     {isSelected && (
                                                         <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                                                            isLight ? 'bg-[#A0522D] text-white' : 'bg-amber-400 text-black'
+                                                            isLight ? 'bg-[#A0522D] text-white' : 'bg-white text-black'
                                                         }`}>
                                                             <Check className="w-2.5 h-2.5 stroke-[3]" />
                                                         </div>
@@ -302,7 +353,7 @@ export function AdvancedSettingsPanel() {
 
                             {/* Layout Options */}
                             <div className="space-y-4 pt-2">
-                                <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-white/50'}`}>
                                     Layout & Controls
                                 </label>
 
@@ -316,14 +367,16 @@ export function AdvancedSettingsPanel() {
                                                 {stripMargin}px gap between pages
                                             </div>
                                         </div>
-                                        <input
-                                            type="range"
-                                            className="w-36 accent-amber-400"
-                                            min="0"
-                                            max="32"
-                                            value={stripMargin}
-                                            onChange={(e) => setStripMargin(Number(e.target.value))}
-                                        />
+                                        <div className="w-40">
+                                            <input
+                                                type="range"
+                                                className="manga-slider"
+                                                min="0"
+                                                max="32"
+                                                value={stripMargin}
+                                                onChange={(e) => setStripMargin(Number(e.target.value))}
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
@@ -338,13 +391,13 @@ export function AdvancedSettingsPanel() {
                                         </div>
                                     </div>
                                     <div className={`flex items-center gap-1 p-1 rounded-xl border ${
-                                        isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/5'
+                                        isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/10'
                                     }`}>
                                         <button
                                             onClick={() => setReadingDirection('ltr')}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                                                 readingDirection === 'ltr'
-                                                    ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-amber-400 text-black shadow-xs'
+                                                    ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-white/20 text-white shadow-xs border border-white/20'
                                                     : isLight ? 'text-[#5C4430] hover:text-[#2C1E0F]' : 'text-white/60 hover:text-white'
                                             }`}
                                         >
@@ -353,9 +406,9 @@ export function AdvancedSettingsPanel() {
                                         </button>
                                         <button
                                             onClick={() => setReadingDirection('rtl')}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                                                 readingDirection === 'rtl'
-                                                    ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-amber-400 text-black shadow-xs'
+                                                    ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-white/20 text-white shadow-xs border border-white/20'
                                                     : isLight ? 'text-[#5C4430] hover:text-[#2C1E0F]' : 'text-white/60 hover:text-white'
                                             }`}
                                         >
@@ -376,15 +429,15 @@ export function AdvancedSettingsPanel() {
                                         </div>
                                     </div>
                                     <div className={`flex items-center gap-1 p-1 rounded-xl border flex-wrap ${
-                                        isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/5'
+                                        isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/10'
                                     }`}>
                                         {(['bottom', 'top', 'left', 'right', 'none'] as ProgressBarPosition[]).map(pos => (
                                             <button
                                                 key={pos}
                                                 onClick={() => setProgressBarPosition(pos)}
-                                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                                     progressBarPosition === pos
-                                                        ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-amber-400 text-black shadow-xs'
+                                                        ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-white/20 text-white shadow-xs border border-white/20'
                                                         : isLight ? 'text-[#5C4430] hover:text-[#2C1E0F]' : 'text-white/60 hover:text-white'
                                                 }`}
                                             >
@@ -411,19 +464,7 @@ export function AdvancedSettingsPanel() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={toggleNavigationTips}
-                                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                                                showNavigationTips 
-                                                    ? isLight ? 'bg-[#A0522D]' : 'bg-amber-400'
-                                                    : isLight ? 'bg-[#D9C9A3]' : 'bg-white/20'
-                                            }`}
-                                        >
-                                            <div className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-1 ${
-                                                showNavigationTips ? 'translate-x-6' : 'translate-x-1'
-                                            }`} />
-                                        </button>
+                                        <ToggleSwitch checked={showNavigationTips} onChange={toggleNavigationTips} isLight={isLight} label="Toggle navigation tips" />
                                     </div>
 
                                     <div className={`border-t ${isLight ? 'border-[#D9C9A3]/60' : 'border-white/5'}`} />
@@ -441,19 +482,7 @@ export function AdvancedSettingsPanel() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={toggleFloatingPageNumber}
-                                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                                                showFloatingPageNumber 
-                                                    ? isLight ? 'bg-[#A0522D]' : 'bg-amber-400'
-                                                    : isLight ? 'bg-[#D9C9A3]' : 'bg-white/20'
-                                            }`}
-                                        >
-                                            <div className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-1 ${
-                                                showFloatingPageNumber ? 'translate-x-6' : 'translate-x-1'
-                                            }`} />
-                                        </button>
+                                        <ToggleSwitch checked={showFloatingPageNumber} onChange={toggleFloatingPageNumber} isLight={isLight} label="Toggle floating page number" />
                                     </div>
 
                                     <div className={`border-t ${isLight ? 'border-[#D9C9A3]/60' : 'border-white/5'}`} />
@@ -471,19 +500,7 @@ export function AdvancedSettingsPanel() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={toggleContinuousChapter}
-                                            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                                                continuousChapter 
-                                                    ? isLight ? 'bg-[#A0522D]' : 'bg-amber-400'
-                                                    : isLight ? 'bg-[#D9C9A3]' : 'bg-white/20'
-                                            }`}
-                                        >
-                                            <div className={`w-4 h-4 rounded-full bg-white transition-transform transform absolute top-1 ${
-                                                continuousChapter ? 'translate-x-6' : 'translate-x-1'
-                                            }`} />
-                                        </button>
+                                        <ToggleSwitch checked={continuousChapter} onChange={toggleContinuousChapter} isLight={isLight} label="Toggle continuous chapter flow" />
                                     </div>
                                 </div>
                             </div>
@@ -496,7 +513,7 @@ export function AdvancedSettingsPanel() {
                             {/* Image Fit */}
                             <div className="space-y-3">
                                 <div>
-                                    <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                    <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-white/50'}`}>
                                         Image Fit Mode
                                     </label>
                                     <p className={`text-xs mt-0.5 ${isLight ? 'text-[#5C4430]' : 'text-white/60'}`}>
@@ -511,20 +528,20 @@ export function AdvancedSettingsPanel() {
                                             <button
                                                 key={opt.value}
                                                 onClick={() => setFitMode(opt.value)}
-                                                className={`p-3 rounded-2xl border text-left transition-all relative flex items-center justify-between gap-3 ${
+                                                className={`p-3 rounded-2xl border text-left transition-all relative flex items-center justify-between gap-3 cursor-pointer active:scale-[0.98] ${
                                                     isSelected
                                                         ? isLight
-                                                            ? 'bg-[#A0522D]/15 border-[#A0522D] shadow-sm ring-1 ring-[#A0522D]/20 text-[#2C1E0F]'
-                                                            : 'bg-amber-400/15 border-amber-400 shadow-sm ring-1 ring-amber-400/20 text-white'
+                                                            ? 'bg-[#A0522D]/12 border-[#A0522D]/40 text-[#733516] ring-1 ring-[#A0522D]/20 shadow-xs'
+                                                            : 'bg-white/[0.12] border-white/30 text-white ring-1 ring-white/20 shadow-sm'
                                                         : isLight
-                                                            ? 'bg-[#FAF6EC] hover:bg-[#F0E6CE] border-[#D9C9A3] text-[#2C1E0F]'
+                                                            ? 'bg-[#FAF6EC] hover:bg-[#F4ECD8] border-[#D9C9A3] text-[#2C1E0F]'
                                                             : 'bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-white'
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`p-2 rounded-xl ${
                                                         isSelected
-                                                            ? isLight ? 'bg-[#A0522D] text-white' : 'bg-amber-400 text-black'
+                                                            ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-white text-black shadow-xs'
                                                             : isLight ? 'bg-[#E5D7BC] text-[#5C4430]' : 'bg-white/10 text-white/70'
                                                     }`}>
                                                         <Icon className="w-4 h-4" />
@@ -538,7 +555,7 @@ export function AdvancedSettingsPanel() {
                                                 </div>
                                                 {isSelected && (
                                                     <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
-                                                        isLight ? 'bg-[#A0522D] text-white' : 'bg-amber-400 text-black'
+                                                        isLight ? 'bg-[#A0522D] text-white' : 'bg-white text-black'
                                                     }`}>
                                                         <Check className="w-2.5 h-2.5 stroke-[3]" />
                                                     </div>
@@ -563,7 +580,7 @@ export function AdvancedSettingsPanel() {
                                     <AppTooltip content="Zoom out">
                                         <button
                                             onClick={zoomOut}
-                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all ${
+                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
                                                 isLight ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
                                             }`}
                                             aria-label="Zoom out"
@@ -574,7 +591,7 @@ export function AdvancedSettingsPanel() {
                                     <AppTooltip content="Zoom in">
                                         <button
                                             onClick={zoomIn}
-                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all ${
+                                            className={`p-2 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
                                                 isLight ? 'bg-[#EAE0CB] hover:bg-[#E5D7BC] border-[#D9C9A3] text-[#2C1E0F]' : 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
                                             }`}
                                             aria-label="Zoom in"
@@ -598,15 +615,15 @@ export function AdvancedSettingsPanel() {
                                     </div>
                                 </div>
                                 <div className={`flex items-center gap-1 p-1 rounded-xl border ${
-                                    isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/5'
+                                    isLight ? 'bg-[#EAE0CB] border-[#D9C9A3]' : 'bg-black/40 border-white/10'
                                 }`}>
                                     {(['light', 'normal', 'aggressive'] as const).map(level => (
                                         <button
                                             key={level}
                                             onClick={() => setPreloadIntensity(level)}
-                                            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                                                 preloadIntensity === level
-                                                    ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-amber-400 text-black shadow-xs'
+                                                    ? isLight ? 'bg-[#A0522D] text-white shadow-xs' : 'bg-white/20 text-white shadow-xs border border-white/20'
                                                     : isLight ? 'text-[#5C4430] hover:text-[#2C1E0F]' : 'text-white/60 hover:text-white'
                                             }`}
                                         >
@@ -627,7 +644,7 @@ export function AdvancedSettingsPanel() {
                                             {Math.round(imageQuality * 100)}% resolution scaling
                                         </div>
                                     </div>
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-mono font-bold border ${
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-medium border ${
                                         isLight ? 'bg-[#E5D7BC] text-[#5C4430] border-[#D9C9A3]' : 'bg-white/10 text-white border-white/10'
                                     }`}>
                                         {Math.round(imageQuality * 100)}%
@@ -635,7 +652,7 @@ export function AdvancedSettingsPanel() {
                                 </div>
                                 <input
                                     type="range"
-                                    className="w-full accent-amber-400"
+                                    className="manga-slider"
                                     min="50"
                                     max="100"
                                     value={Math.round(imageQuality * 100)}
@@ -649,7 +666,7 @@ export function AdvancedSettingsPanel() {
                     {activeTab === 'shortcuts' && (
                         <div className="space-y-2.5">
                             <div>
-                                <label className={`text-xs font-semibold uppercase tracking-wider ${isLight ? 'text-[#8A6A50]' : 'text-white/50'}`}>
+                                <label className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? 'text-[#7D634B]' : 'text-white/50'}`}>
                                     Keyboard Controls
                                 </label>
                                 <p className={`text-xs mt-0.5 ${isLight ? 'text-[#5C4430]' : 'text-white/60'}`}>
@@ -678,11 +695,11 @@ export function AdvancedSettingsPanel() {
 
                 {/* Footer */}
                 <div className={`px-6 py-4 border-t flex items-center justify-between shrink-0 ${
-                    isLight ? 'bg-[#F0E6CE]/70 border-[#D9C9A3]' : 'bg-white/[0.03] border-white/10'
+                    isLight ? 'bg-[#F4ECD8] border-[#D9C9A3]' : 'bg-white/[0.02] border-white/10'
                 }`}>
                     <button
                         onClick={resetToDefaults}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                        className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer active:scale-95 ${
                             isLight 
                                 ? 'text-[#5C4430] hover:text-[#2C1E0F] hover:bg-[#E5D7BC] border-[#D9C9A3]' 
                                 : 'text-white/70 hover:text-white hover:bg-white/10 border-white/10'
@@ -693,10 +710,10 @@ export function AdvancedSettingsPanel() {
                     </button>
                     <button
                         onClick={closeSettings}
-                        className={`px-6 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all ${
+                        className={`px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                             isLight
-                                ? 'bg-[#A0522D] hover:bg-[#8B4513] text-white shadow-[#A0522D]/30'
-                                : 'bg-amber-400 hover:bg-amber-300 text-black shadow-amber-400/30'
+                                ? 'bg-[#A0522D] hover:bg-[#8B4513] text-white shadow-md shadow-[#A0522D]/30'
+                                : 'bg-white hover:bg-white/90 text-black shadow-lg shadow-white/10'
                         }`}
                     >
                         <Check className="w-4 h-4 stroke-[3]" />

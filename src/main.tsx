@@ -7,7 +7,22 @@ import { ThemeProvider } from './providers/ThemeProvider'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
 import { MotionConfig } from 'framer-motion'
-import { isAndroid } from './lib/tauri'
+import { isAndroid, setNativeZoom } from './lib/tauri'
+
+// Restore desktop native webview zoom on early startup
+if (typeof window !== 'undefined') {
+  try {
+    const cachedScale = localStorage.getItem('shiori-ui-scale');
+    if (cachedScale) {
+      const s = parseFloat(cachedScale);
+      if (!isNaN(s) && s >= 0.5 && s <= 2.5) {
+        void setNativeZoom(s);
+      }
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 // Disable native browser context menu (Back, Forward, Reload, Inspect Element) on desktop
 // in production builds when clicking on free space. Keeps it enabled in dev mode

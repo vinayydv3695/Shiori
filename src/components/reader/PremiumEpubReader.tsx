@@ -884,13 +884,26 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
   // READER THEME — scoped to this container, not global <html>
   // ────────────────────────────────────────────────────────────
-  const loadChapter = useCallback(async (index: number, highlightTerm?: string | null, initialScrollRatio?: number) => {
+  const loadChapter = useCallback(async (
+    index: number,
+    highlightTerm?: string | null,
+    initialScrollRatioOrSnippet?: number | string | null,
+    targetSnippetParam?: string | null
+  ) => {
+    const initialScrollRatio = typeof initialScrollRatioOrSnippet === 'number' ? initialScrollRatioOrSnippet : undefined;
+    const targetSnippet = typeof initialScrollRatioOrSnippet === 'string'
+      ? initialScrollRatioOrSnippet
+      : (targetSnippetParam || undefined);
+
     // If navigating to a scene within the already loaded chapter, immediately trigger scroll
-    if (index === currentIndexRef.current && canvasRef.current && highlightTerm?.trim()) {
+    if (index === currentIndexRef.current && canvasRef.current && (highlightTerm?.trim() || targetSnippet?.trim())) {
       const isHoriz = canvasRef.current.classList.contains('premium-reading-canvas--paginated') ||
-                      canvasRef.current.classList.contains('premium-reading-canvas--two-page') ||
-                      !continuousFlow;
-      scrollCanvasToSearchTerm(canvasRef.current, highlightTerm, { isHorizontal: isHoriz });
+                      canvasRef.current.classList.contains('premium-reading-canvas--two-page');
+      scrollCanvasToSearchTerm(canvasRef.current, targetSnippet || highlightTerm || '', {
+        isHorizontal: isHoriz,
+        targetSnippet,
+        searchTerm: highlightTerm,
+      });
     }
 
     if (chapterLoadInFlightRef.current) return;
@@ -903,8 +916,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       // Save current scroll position before navigating away
       if (canvasRef.current && currentChapter) {
         const isHoriz = canvasRef.current.classList.contains('premium-reading-canvas--paginated') ||
-                        canvasRef.current.classList.contains('premium-reading-canvas--two-page') ||
-                        !continuousFlow;
+                        canvasRef.current.classList.contains('premium-reading-canvas--two-page');
         if (isHoriz) {
           const { scrollLeft, scrollWidth, clientWidth } = canvasRef.current;
           const scrollRatio = scrollWidth > clientWidth ? scrollLeft / (scrollWidth - clientWidth) : 0;
@@ -993,11 +1005,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       const canvas = canvasRef.current;
       if (canvas) {
         const isHoriz = canvas.classList.contains('premium-reading-canvas--paginated') ||
-                        canvas.classList.contains('premium-reading-canvas--two-page') ||
-                        !continuousFlow;
+                        canvas.classList.contains('premium-reading-canvas--two-page');
 
         const isPendingAnnotation = Boolean(useReaderUIStore.getState().pendingAnnotationId);
-        if (!isPendingAnnotation && !termToHighlight) {
+        if (!isPendingAnnotation && !termToHighlight && !targetSnippet) {
           if (initialScrollRatio !== undefined) {
             if (isHoriz) {
               canvas.scrollLeft = initialScrollRatio * Math.max(0, canvas.scrollWidth - canvas.clientWidth);
@@ -1024,7 +1035,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         // center the remembered block (index into getChapterBlockElements).
         // Bounded retries absorb late font swaps / late-mounting content; a
         // missing or out-of-range block silently falls back to the ratio scroll.
-        if (!isPendingAnnotation && !termToHighlight && !isHoriz) {
+        if (!isPendingAnnotation && !termToHighlight && !targetSnippet && !isHoriz) {
           const requestedBlock = blockPositionsRef.current.get(index);
           if (requestedBlock !== undefined && requestedBlock >= 0) {
             void (async () => {
@@ -1047,20 +1058,36 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         }
       }
 
-      // If we have a highlight term, scroll to matching dialogue line/block after content renders
-      if (termToHighlight) {
+      // If we have a highlight term or target snippet, scroll to matching dialogue line/block after content renders
+      const effectiveSearchTarget = targetSnippet || termToHighlight;
+      if (effectiveSearchTarget) {
         let attempts = 0;
         const scrollToSearch = () => {
           const canvas = canvasRef.current;
           if (!canvas) return;
           const isHoriz = canvas.classList.contains('premium-reading-canvas--paginated') ||
-                          canvas.classList.contains('premium-reading-canvas--two-page') ||
-                          !continuousFlow;
+                          canvas.classList.contains('premium-reading-canvas--two-page');
 
-          const scrolled = scrollCanvasToSearchTerm(canvas, termToHighlight, { isHorizontal: isHoriz });
+          const scrolled = scrollCanvasToSearchTerm(canvas, effectiveSearchTarget, {
+            isHorizontal: isHoriz,
+            targetSnippet,
+            searchTerm: termToHighlight,
+          });
           if (!scrolled && attempts < 20) {
             attempts++;
             setTimeout(scrollToSearch, 50);
+          } else if (scrolled && attempts === 0) {
+            // Post-layout settlement: re-check alignment at 160ms and 360ms to absorb late font/image layout shifts
+            setTimeout(() => {
+              const c = canvasRef.current;
+              if (c) {
+                scrollCanvasToSearchTerm(c, effectiveSearchTarget, {
+                  isHorizontal: isHoriz,
+                  targetSnippet,
+                  searchTerm: termToHighlight,
+                });
+              }
+            }, 160);
           }
         };
 

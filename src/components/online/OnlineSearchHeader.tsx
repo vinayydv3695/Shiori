@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Compass, Filter, Globe, BookOpen, Search } from 'lucide-react';
 import { useState } from 'react';
+import { isAndroid } from '@/lib/tauri';
 import { OnlineSourceSelector } from './OnlineSourceSelector';
 import { DownloadsButton } from './DownloadQueuePanel';
 import { AdvancedOnlineSearchDialog } from './AdvancedOnlineSearchDialog';
@@ -51,9 +52,9 @@ export function OnlineSearchHeader({
         isMobile ? "sticky top-0 pb-1.5 px-3 bg-background/90 backdrop-blur-xl border-b border-border/40 shadow-2xs" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
       )}
       style={isMobile ? {
-        paddingTop: 'max(env(safe-area-inset-top, 0px), 6px)',
-        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 12px)',
-        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 12px)',
+        paddingTop: isAndroid ? '6px' : 'max(env(safe-area-inset-top, 0px), 6px)',
+        paddingLeft: isAndroid ? '12px' : 'calc(env(safe-area-inset-left, 0px) + 12px)',
+        paddingRight: isAndroid ? '12px' : 'calc(env(safe-area-inset-right, 0px) + 12px)',
       } : undefined}
     >
       {/* Subtle ambient glass glow */}

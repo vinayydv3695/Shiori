@@ -788,13 +788,18 @@ export const SeriesView = memo(function SeriesView({
             'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95'
           )}
         >
-          <Dialog.Close asChild>
-            <AppTooltip content="Close series view" side="left">
-              <button aria-label="Close series view" className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-card/80 dark:bg-secondary/80 hover:bg-card dark:hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95">
+          <AppTooltip content="Close series view" side="left">
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close series view"
+                className="absolute top-[calc(env(safe-area-inset-top,0px)+1rem)] md:top-4 right-4 text-foreground/80 hover:text-foreground transition-colors flex-shrink-0 z-[60] bg-card/80 dark:bg-secondary/80 hover:bg-card dark:hover:bg-secondary backdrop-blur-md p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary border border-border/50 shadow-md hover:scale-105 active:scale-95 cursor-pointer"
+              >
                 <X className="h-5 w-5" />
               </button>
-            </AppTooltip>
-          </Dialog.Close>
+            </Dialog.Close>
+          </AppTooltip>
           
           <ScrollArea className="flex-1 bg-background/50" viewportRef={scrollViewportRef}>
             <div className="flex flex-col min-h-full pb-16 md:pb-8">

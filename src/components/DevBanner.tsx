@@ -1,8 +1,8 @@
 import { AlertCircle } from "lucide-react"
-import { isTauri } from "@/lib/tauri"
+import { isTauri, isAndroid } from "@/lib/tauri"
 
 export function DevBanner() {
-  if (isTauri) return null
+  if (isTauri || isAndroid) return null
 
   return (
     <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center gap-2 text-sm">

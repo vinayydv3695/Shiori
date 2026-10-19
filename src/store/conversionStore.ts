@@ -114,20 +114,20 @@ export const useConversionStore = create<ConversionState>((set) => ({
     try {
       set({ isLoading: true, error: null });
       const jobs = await invoke<ConversionJob[]>('list_conversion_jobs');
-      set({ jobs, isLoading: false });
-     } catch (error) {
-       logger.error('Failed to load conversion jobs:', error);
-       set({ error: String(error), isLoading: false });
-     }
+      set({ jobs: Array.isArray(jobs) ? jobs : [], isLoading: false });
+    } catch (error) {
+      logger.error('Failed to load conversion jobs:', error);
+      set({ jobs: [], error: String(error), isLoading: false });
+    }
   },
 
   loadSupportedFormats: async () => {
     try {
       const raw = await invoke<{ from: string; to: string[] }[]>('get_supported_conversions');
-      set({ supportedFormats: raw });
-     } catch (error) {
-       logger.error('Failed to load supported formats:', error);
-       set({ error: String(error) });
+      set({ supportedFormats: Array.isArray(raw) ? raw : [] });
+    } catch (error) {
+      logger.error('Failed to load supported formats:', error);
+      set({ supportedFormats: [], error: String(error) });
      }
   },
 

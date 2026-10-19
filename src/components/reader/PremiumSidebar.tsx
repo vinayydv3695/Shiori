@@ -149,6 +149,7 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
 
   const chapterAnnotationCounts = useMemo(() => {
     const map: Record<number, { highlights: number; notes: number }> = {};
+    if (!Array.isArray(annotations)) return map;
     annotations.forEach((ann) => {
       const loc = ann.location;
       const match = loc.match(/^chapter_(\d+)/) || loc.match(/^chapter:(\d+)/);
@@ -232,7 +233,7 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
    const loadAnnotations = useCallback(async () => {
      try {
        const annotationsData = await api.getAnnotations(bookId);
-       setAnnotations(annotationsData);
+       setAnnotations(Array.isArray(annotationsData) ? annotationsData : []);
      } catch (err) {
        logger.error('[PremiumSidebar] Failed to load annotations:', err);
      }
@@ -317,7 +318,8 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
       
       let markdown = `# Book Annotations\n\n`;
       
-      const exportsHighlights = annotations.filter(a => a.annotationType === 'highlight');
+      const safeAnnotations = Array.isArray(annotations) ? annotations : [];
+      const exportsHighlights = safeAnnotations.filter(a => a.annotationType === 'highlight');
       if (exportsHighlights.length > 0) {
         markdown += `## Highlights\n\n`;
         exportsHighlights.forEach(h => {
@@ -326,7 +328,7 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
         });
       }
       
-      const exportsNotes = annotations.filter(a => a.annotationType === 'note');
+      const exportsNotes = safeAnnotations.filter(a => a.annotationType === 'note');
       if (exportsNotes.length > 0) {
         markdown += `## Notes\n\n`;
         exportsNotes.forEach(n => {
@@ -336,7 +338,7 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
         });
       }
 
-      const exportsBookmarks = annotations.filter(a => a.annotationType === 'bookmark');
+      const exportsBookmarks = safeAnnotations.filter(a => a.annotationType === 'bookmark');
       if (exportsBookmarks.length > 0) {
         markdown += `## Bookmarks\n\n`;
         exportsBookmarks.forEach(b => {

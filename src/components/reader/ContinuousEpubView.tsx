@@ -96,8 +96,9 @@ export function ContinuousEpubView({
     annotationsPromiseRef.current = request;
     try {
       const annotations = await request;
-      annotationsRef.current = annotations;
-      return annotations;
+      const safe = Array.isArray(annotations) ? annotations : [];
+      annotationsRef.current = safe;
+      return safe;
     } finally {
       if (annotationsPromiseRef.current === request) {
         annotationsPromiseRef.current = null;

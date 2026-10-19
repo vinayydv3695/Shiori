@@ -50,7 +50,7 @@ export function SleepTimerDialog({ open, onClose, buttonRef }: SleepTimerDialogP
   useEffect(() => {
     if (!open) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | PointerEvent) => {
       const target = e.target as Node;
       if (
         panelRef.current &&
@@ -67,10 +67,10 @@ export function SleepTimerDialog({ open, onClose, buttonRef }: SleepTimerDialogP
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [open, onClose, buttonRef]);

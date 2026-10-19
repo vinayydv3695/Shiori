@@ -19,6 +19,7 @@ const TorboxControlCenter = lazy(() => import("./TorboxControlCenter"))
 const RecycleBinView = lazy(() => import("./RecycleBinView").then(m => ({ default: m.RecycleBinView })))
 const AniListDashboard = lazy(() => import("./online/AniListDashboard").then(m => ({ default: m.AniListDashboard })))
 const ShelfView = lazy(() => import("./shelves/ShelfView").then(m => ({ default: m.ShelfView })))
+const MoreView = lazy(() => import("./more/MoreView").then(m => ({ default: m.MoreView })))
 
 const LoadingSpinner = ({ className = "h-screen" }: { className?: string }) => (
   <div className={`flex items-center justify-center ${className}`}>
@@ -182,6 +183,15 @@ export function ViewRouter({
         {currentView === 'anilist' && (
           <Suspense fallback={<SectionSkeletonLoader variant="dashboard" />}>
             <AniListDashboard onOpenSettings={() => dialogs.setSettingsDialogOpen(true)} />
+          </Suspense>
+        )}
+
+        {currentView === 'more' && (
+          <Suspense fallback={<SectionSkeletonLoader variant="grid" />}>
+            <MoreView
+              onNavigateToView={handleNavigate}
+              onOpenSettings={() => dialogs.setSettingsDialogOpen(true)}
+            />
           </Suspense>
         )}
     </>

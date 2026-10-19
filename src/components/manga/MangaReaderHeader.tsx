@@ -302,7 +302,7 @@ export function MangaReaderHeader({
     const prevLocalBook = hasPrevLocalVolume ? seriesBooks[currentLocalIndex - 1] : null;
 
     return (
-        <header className={`manga-topbar ${!isTopBarVisible ? 'manga-topbar--hidden' : ''}`}>
+        <header className={`manga-topbar ${isAndroid ? 'manga-topbar--android' : ''} ${!isTopBarVisible ? 'manga-topbar--hidden' : ''}`}>
             <div className="manga-topbar-content">
                 
                 {/* Left Side: Back & Title */}
@@ -314,11 +314,11 @@ export function MangaReaderHeader({
                             onClick={onClose}
                             aria-label="Back to library"
                         >
-                            <ArrowLeft size={18} />
+                            <ArrowLeft size={isAndroid ? 20 : 18} />
                         </button>
                     </AppTooltip>
 
-                    <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center flex-1 pr-1 py-0.5">
+                    <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center flex-1 pr-2 py-0.5">
                         <AppTooltip content={displayTitle} side="bottom">
                             <span className="manga-header-title text-xs sm:text-sm font-extrabold text-[var(--manga-text-primary)] truncate block leading-tight">
                                 {displayTitle}
@@ -326,7 +326,7 @@ export function MangaReaderHeader({
                         </AppTooltip>
                         {displaySubtitle && (
                             <AppTooltip content={displaySubtitle} side="bottom">
-                                <span className="manga-header-chapter text-[10px] sm:text-xs text-[var(--manga-text-secondary)] opacity-80 font-medium truncate block leading-tight mt-0.5">
+                                <span className="manga-header-chapter text-[10px] sm:text-xs text-[var(--manga-text-secondary)] opacity-85 font-medium truncate block leading-tight mt-0.5">
                                     {displaySubtitle}
                                 </span>
                             </AppTooltip>
@@ -816,7 +816,7 @@ export function MangaReaderHeader({
                     </div>
 
                     {/* ── ANDROID / MOBILE TOOLBAR: Exactly 3 Primary Options + 3-dots Menu ── */}
-                    <div className="flex md:hidden items-center gap-1">
+                    <div className="flex md:hidden items-center gap-1.5 sm:gap-2">
                         {/* Option 1: Chapters drawer */}
                         {(sourceType === 'online' || seriesBooks.length > 1) && (
                             <button
@@ -827,7 +827,7 @@ export function MangaReaderHeader({
                                     dropdownOpen ? 'manga-topbar-btn--active' : ''
                                 }`}
                             >
-                                <BookOpen size={17} />
+                                <BookOpen size={isAndroid ? 19 : 17} />
                             </button>
                         )}
 
@@ -840,7 +840,7 @@ export function MangaReaderHeader({
                                 disabled={isAlreadyInLibrary}
                                 aria-label={isAlreadyInLibrary ? "In Library" : "Add to Library"}
                             >
-                                {isAlreadyInLibrary ? <BookmarkCheck size={17} /> : <BookmarkPlus size={17} />}
+                                {isAlreadyInLibrary ? <BookmarkCheck size={isAndroid ? 19 : 17} /> : <BookmarkPlus size={isAndroid ? 19 : 17} />}
                             </button>
                         ) : hasNextLocalVolume ? (
                             <button
@@ -853,7 +853,7 @@ export function MangaReaderHeader({
                                 }}
                                 aria-label="Next Volume"
                             >
-                                <ChevronRight size={17} />
+                                <ChevronRight size={isAndroid ? 19 : 17} />
                             </button>
                         ) : null}
 
@@ -864,7 +864,7 @@ export function MangaReaderHeader({
                             onClick={toggleSidebar}
                             aria-label="Reader Settings"
                         >
-                            <Settings size={17} />
+                            <Settings size={isAndroid ? 19 : 17} />
                         </button>
 
                         {/* 4th button: More Options (3 dots) */}
@@ -875,7 +875,7 @@ export function MangaReaderHeader({
                                 onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
                                 aria-label="More options"
                             >
-                                <MoreVertical size={17} />
+                                <MoreVertical size={isAndroid ? 19 : 17} />
                             </button>
 
                             <AnimatePresence>

@@ -23,6 +23,7 @@ import { FeaturedContinueCard } from './FeaturedContinueCard'
 import { useLibraryStore, EMPTY_FILTERS } from '@/store/libraryStore'
 import { useShelfStore } from '@/store/shelfStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { AndroidHomePage } from './AndroidHomePage'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api, isAndroid } from '@/lib/tauri'
@@ -225,6 +226,7 @@ export function HomePage({
   onOpenAdvancedFilter = () => {}, 
   onOpenSettings = () => {} 
 }: HomePageProps) {
+  const isMobile = useIsMobile();
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
   const libraryBooks = useLibraryStore(s => s.books)
@@ -411,8 +413,8 @@ export function HomePage({
     setCurrentView('library');
   }
 
-  // ── Dedicated Android Home Section (media_1792380762389_50df49f1.png) ──
-  if (isAndroid) {
+  // ── Dedicated Mobile / Android Home Section (Fig 1) ──
+  if (isAndroid || isMobile) {
     return (
       <AndroidHomePage
         domain={domain}

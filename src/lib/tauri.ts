@@ -56,26 +56,64 @@ const PUBLIC_COVER_SOURCES = new Set([
   'openlibrary',
 ]);
 
-// Check if we're running in Tauri environment
+// Check if we're running in Tauri environment (or browser simulator mock)
 export const isTauri = (() => {
   if (typeof window === 'undefined') return false
-  // Check for __TAURI__ or __TAURI_INTERNALS__ (Tauri v2)
-  const hasTauri = '__TAURI__' in window || '__TAURI_INTERNALS__' in window
+  // Check for __TAURI__ or __TAURI_INTERNALS__ (Tauri v2) or active mock IPC
+  const hasTauri = '__TAURI__' in window || '__TAURI_INTERNALS__' in window || Boolean((window as any).__TAURI_IS_MOCK__)
   logger.debug('[Tauri Detection]', hasTauri ? 'Running in Tauri mode' : 'Running in browser mode')
-  return hasTauri
+  return Boolean(hasTauri)
 })()
+
+export function hasTauriOrMock(): boolean {
+  if (typeof window === 'undefined') return false;
+  return isTauri || '__TAURI_INTERNALS__' in window || Boolean((window as any)?.__TAURI_IS_MOCK__);
+}
 
 // Reliable Android detection independent of user-agent spoofing in DevTools
 export const isAndroid = (() => {
   if (typeof window === 'undefined') return false;
-  // @ts-ignore - Check for Tauri v2 OS plugin
+
+  // 1. Explicit simulator override via query param or localStorage
+  try {
+    if (typeof location !== 'undefined') {
+      const p = new URLSearchParams(location.search);
+      if (p.get('android') === 'false' || p.get('desktop') === 'true') return false;
+      if (p.has('android') || p.get('platform') === 'android') return true;
+    }
+    const simStorage = localStorage.getItem('shiori_simulate_android');
+    if (simStorage === 'false') return false;
+    if (simStorage === 'true') return true;
+  } catch {
+    // Ignore storage errors
+  }
+
+  // 2. Unit test environment (Vitest in jsdom) -> always desktop
+  const proc = (globalThis as unknown as { process?: { env?: { NODE_ENV?: string; VITEST?: string } } }).process;
+  if (proc && (proc.env?.NODE_ENV === 'test' || proc.env?.VITEST)) {
+    return false;
+  }
+
+  // 3. Real Tauri v2 Android OS plugin or internals
+  // @ts-ignore
   if (window.__TAURI_OS_PLUGIN_INTERNALS__?.os_type === 'android') return true;
-  // @ts-ignore - Fallback for generic Tauri internals
+  // @ts-ignore
   if (window.__TAURI_INTERNALS__?.platform === 'android') return true;
-  
-  // Fallback for browsers or old Tauri (only check UA if we are reasonably sure it's Tauri)
-  const isTauriEnv = '__TAURI__' in window || '__TAURI_INTERNALS__' in window;
-  return isTauriEnv && /android/i.test(navigator.userAgent);
+
+  // 4. Real Android User-Agent (native WebView, mobile Chrome, Firefox Android, etc.)
+  if (typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)) {
+    return true;
+  }
+
+  // 5. If running in pure browser (Vite dev server without native Tauri desktop shell), default to Android simulation
+  const isNativeTauriDesktop =
+    ('__TAURI__' in window || '__TAURI_INTERNALS__' in window) &&
+    !(window as any).__TAURI_IS_MOCK__;
+  if (!isNativeTauriDesktop) {
+    return true;
+  }
+
+  return false;
 })();
 
 // Linux desktop detection (Android UAs also contain "Linux", so exclude Android)
@@ -806,7 +844,7 @@ export interface ConversionReportPayload {
 export const api = {
   // Library operations
   async getBooks(limit: number = 50, offset: number = 0): Promise<BookSummary[]> {
-    if (!isTauri) {
+    if (!hasTauriOrMock()) {
       logger.warn("Running in browser mode - using mock data")
       return Promise.resolve(mockBooks)
     }
@@ -832,14 +870,14 @@ export const api = {
   },
 
   async getTotalBooks(): Promise<number> {
-    if (!isTauri) {
+    if (!hasTauriOrMock()) {
       return Promise.resolve(mockBooks.length)
     }
     return invoke("get_total_books")
   },
 
   async getBook(id: number): Promise<Book> {
-    if (!isTauri) {
+    if (!hasTauriOrMock()) {
       const book = mockBooks[0]
       return Promise.resolve({ ...book, id })
     }
@@ -1071,7 +1109,8 @@ export const api = {
 
   // Reader - Annotations
   async getAnnotations(bookId: number): Promise<Annotation[]> {
-    return invoke("get_annotations", { bookId })
+    const res = await invoke<Annotation[] | null>("get_annotations", { bookId });
+    return Array.isArray(res) ? res : [];
   },
 
   async createAnnotation(
@@ -1113,7 +1152,8 @@ export const api = {
 
   // Annotation Categories
   async getAnnotationCategories(): Promise<AnnotationCategory[]> {
-    return invoke("get_annotation_categories")
+    const res = await invoke<AnnotationCategory[] | null>("get_annotation_categories");
+    return Array.isArray(res) ? res : [];
   },
 
   async createAnnotationCategory(name: string, color: string, icon?: string): Promise<AnnotationCategory> {
@@ -1376,24 +1416,24 @@ export const api = {
 
 
   async getThumbnail(bookId: number): Promise<string | null> {
-    if (!isTauri) return null
+    if (!hasTauriOrMock()) return null
     return invoke("get_thumbnail", { bookId })
   },
 
   async getRecommendedBooks(limit: number = 20): Promise<BookSummary[]> {
-    if (!isTauri) return []
+    if (!hasTauriOrMock()) return []
     return invoke("get_recommended_books", { limit })
   },
 
   async getLibraryStats(): Promise<LibraryStats> {
-    if (!isTauri) {
+    if (!hasTauriOrMock()) {
       return Promise.resolve({ total_books: 10, total_manga: 5, total_size_bytes: 1024 * 1024 * 500 })
     }
     return invoke("get_library_stats")
   },
 
   async getTotalBooksByDomain(domain: 'books' | 'manga_comics'): Promise<number> {
-    if (!isTauri) {
+    if (!hasTauriOrMock()) {
       return Promise.resolve(mockBooks.length) // Mock return
     }
     return invoke("get_total_books_by_domain", { domain })

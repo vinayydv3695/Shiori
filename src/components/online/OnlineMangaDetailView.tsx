@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, BookDown, X, Download, Check, Loader2, ChevronDown } from 'lucide-react';
+import { Play, Bookmark, BookmarkCheck, ArrowLeft, Search, Star, FileText, Globe, BookDown, X, Download, Check, Loader2, ChevronDown, ArrowUpDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -278,31 +278,34 @@ export function OnlineMangaDetailView({
   // Dedicated Android Modern Manga Detail Layout
   if (isAndroid) {
     return (
-      <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto overflow-x-hidden relative font-sans">
-        {/* Backdrop Banner with smooth bottom gradient fade */}
-        <div className="relative w-full h-44 overflow-hidden shrink-0 select-none bg-muted/30">
+      <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto overflow-x-hidden relative font-sans no-scrollbar select-none pb-28">
+        {/* Backdrop Banner with atmospheric double gradient fade */}
+        <div className="relative w-full h-64 sm:h-72 overflow-hidden shrink-0 select-none bg-muted/40">
           {coverUrl && (
             <img
               src={getProxyUrl(sourceId || '', coverUrl)}
               alt=""
               aria-hidden="true"
-              className="w-full h-full object-cover filter blur-xl scale-125 opacity-40 brightness-[0.7]"
+              className="w-full h-full object-cover object-center filter blur-xl scale-125 opacity-40 brightness-[0.7]"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-background/40 to-background" />
+          {/* Top vignette for status bar icons */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-transparent pointer-events-none" />
+          {/* Bottom fade into background */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
 
           {/* Floating Top Navigation Bar */}
           <div 
-            className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-3"
-            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+            className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 pt-3"
+            style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
           >
             <button
               type="button"
               onClick={onBack}
-              className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-md border border-border/50 flex items-center justify-center text-foreground active:scale-90 transition-transform shadow-xs cursor-pointer"
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/15 flex items-center justify-center active:scale-90 transition-all shadow-md cursor-pointer"
               aria-label="Back to browse"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-2">
@@ -312,14 +315,14 @@ export function OnlineMangaDetailView({
                   onClick={onSaveToLibrary}
                   disabled={isInLibrary}
                   className={cn(
-                    "w-9 h-9 rounded-full backdrop-blur-md border border-border/50 flex items-center justify-center transition-all shadow-xs active:scale-90 cursor-pointer",
+                    "w-10 h-10 rounded-full backdrop-blur-md border border-white/15 flex items-center justify-center transition-all shadow-md active:scale-90 cursor-pointer",
                     isInLibrary 
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" 
-                      : "bg-background/80 text-foreground"
+                      ? "bg-emerald-500/25 text-emerald-400 border-emerald-500/40" 
+                      : "bg-black/40 text-white"
                   )}
-                  aria-label={isInLibrary ? "Saved in library" : "Save to library"}
+                  aria-label={isInLibrary ? "Bookmarked in library" : "Bookmark manga"}
                 >
-                  {isInLibrary ? <BookmarkCheck className="w-4 h-4 text-emerald-400" /> : <Bookmark className="w-4 h-4" />}
+                  {isInLibrary ? <BookmarkCheck className="w-5 h-5 text-emerald-400" /> : <Bookmark className="w-5 h-5" />}
                 </button>
               )}
             </div>
@@ -327,9 +330,9 @@ export function OnlineMangaDetailView({
         </div>
 
         {/* Header Info Row (Overlapping the Backdrop) */}
-        <div className="px-4 -mt-16 relative z-10 flex gap-3.5 items-end mb-4">
+        <div className="px-4 -mt-24 relative z-10 flex gap-4 items-end mb-4">
           {/* Floating Poster Thumbnail */}
-          <div className="w-28 aspect-[2/3] rounded-2xl overflow-hidden shadow-xl border-2 border-background bg-secondary/40 shrink-0 relative">
+          <div className="w-28 sm:w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-background bg-card shrink-0 relative group">
             {coverUrl ? (
               <img
                 src={getProxyUrl(sourceId || '', coverUrl)}
@@ -342,46 +345,46 @@ export function OnlineMangaDetailView({
           </div>
 
           {/* Right Title & Meta */}
-          <div className="flex-1 min-w-0 pb-1 space-y-1">
+          <div className="flex-1 min-w-0 pb-1 space-y-1.5">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 text-[9px] font-extrabold uppercase tracking-wider">
+              <span className="px-2.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 text-[10px] font-extrabold uppercase tracking-wider">
                 {status || 'RELEASING'}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-secondary border border-border/50 text-foreground/80 text-[9px] font-semibold uppercase">
+              <span className="px-2.5 py-0.5 rounded-full bg-secondary border border-border/50 text-foreground/80 text-[10px] font-semibold uppercase">
                 {formatText}
               </span>
             </div>
 
-            <h1 className="text-base sm:text-lg font-extrabold text-foreground leading-tight line-clamp-2 drop-shadow-xs">
+            <h1 className="text-lg sm:text-xl font-black text-foreground leading-snug line-clamp-2 tracking-tight drop-shadow-xs">
               {title}
             </h1>
 
-            <p className="text-xs font-medium text-muted-foreground truncate">
+            <p className="text-xs sm:text-sm font-semibold text-muted-foreground truncate">
               {finalAuthor}
             </p>
 
             {/* Rating & Stats */}
-            <div className="flex items-center gap-2.5 pt-0.5 text-xs">
-              <div className="flex items-center gap-1 font-bold text-foreground">
-                <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+            <div className="flex items-center gap-2 pt-0.5 text-xs flex-wrap">
+              <div className="flex items-center gap-1 font-extrabold text-foreground">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                 <span>{ratingScore}</span>
               </div>
               <span className="text-border">•</span>
-              <span className="text-muted-foreground font-medium">
+              <span className="text-muted-foreground font-semibold">
                 {unifiedChapters.length} Chapters
               </span>
               {finalYear !== '?' && (
                 <>
                   <span className="text-border">•</span>
-                  <span className="text-muted-foreground font-medium">{finalYear}</span>
+                  <span className="text-muted-foreground font-semibold">{finalYear}</span>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Action Pill Bar */}
-        <div className="px-4 flex items-center gap-2 mb-4">
+        {/* Action Button Bar */}
+        <div className="px-4 flex items-center gap-2.5 mb-4">
           <Button
             onClick={() => {
               if (resumeChapter) {
@@ -390,9 +393,9 @@ export function OnlineMangaDetailView({
                 onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1]);
               }
             }}
-            className="flex-1 h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-xs shadow-primary/25 active:scale-95 cursor-pointer"
+            className="flex-1 h-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-98 transition-all cursor-pointer"
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
+            <Play className="w-4 h-4 fill-current" />
             <span>{resumeChapter ? `Resume Ch. ${resumeChapter.chapter}` : 'Start Reading'}</span>
           </Button>
 
@@ -401,12 +404,12 @@ export function OnlineMangaDetailView({
               onClick={onSaveToLibrary}
               variant="outline"
               disabled={isInLibrary}
-              className="h-10 px-3.5 rounded-xl border-border/60 bg-secondary/70 hover:bg-secondary text-xs font-semibold flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+              className="h-12 px-4 rounded-2xl border-border/70 bg-card hover:bg-card/80 text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs active:scale-95 shrink-0 cursor-pointer"
             >
               {isInLibrary ? (
-                <><BookmarkCheck className="w-3.5 h-3.5 text-emerald-400" /> Saved</>
+                <><BookmarkCheck className="w-4 h-4 text-emerald-400" /> Saved</>
               ) : (
-                <><Bookmark className="w-3.5 h-3.5 text-foreground/80" /> Save</>
+                <><Bookmark className="w-4 h-4 text-foreground/80" /> Save</>
               )}
             </Button>
           )}
@@ -415,77 +418,83 @@ export function OnlineMangaDetailView({
             <Button
               onClick={onDownloadAll}
               variant="outline"
-              className="h-10 px-3.5 rounded-xl border-border/60 bg-secondary/70 hover:bg-secondary text-xs font-semibold flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+              className="h-12 px-4 rounded-2xl border-border/70 bg-card hover:bg-card/80 text-xs sm:text-sm font-bold flex items-center gap-2 shadow-xs active:scale-95 shrink-0 cursor-pointer"
             >
-              <BookDown className="w-3.5 h-3.5 text-primary" />
+              <BookDown className="w-4 h-4 text-primary" />
               <span>Download</span>
             </Button>
           )}
         </div>
 
-        {/* Expandable Synopsis & Genre Chips */}
+        {/* Expandable Synopsis & Genre Chips in a Polished Card */}
         {(displayDescription || (genres && genres.length > 0)) && (
-          <div className="px-4 mb-4 space-y-2">
-            {displayDescription && (
-              <div className="text-xs text-muted-foreground leading-relaxed">
-                <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
-                {finalDescription && finalDescription.length > 180 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                    className="text-primary font-bold ml-1 hover:underline cursor-pointer"
-                  >
-                    {isDescriptionExpanded ? 'Read less' : 'Read more'}
-                  </button>
-                )}
-              </div>
-            )}
+          <div className="px-4 mb-4">
+            <div className="p-3.5 rounded-2xl bg-card/60 border border-border/50 shadow-2xs space-y-2.5">
+              {displayDescription && (
+                <div className="text-xs sm:text-sm text-foreground/85 leading-relaxed font-normal">
+                  <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
+                  {finalDescription && finalDescription.length > 180 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                      className="text-primary font-bold ml-1.5 hover:underline cursor-pointer"
+                    >
+                      {isDescriptionExpanded ? 'Read less' : 'Read more'}
+                    </button>
+                  )}
+                </div>
+              )}
 
-            {genres && genres.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {genres.map(g => (
-                  <span key={g} className="px-2.5 py-0.5 rounded-full bg-secondary/80 border border-border/40 text-[10px] font-medium text-foreground/75">
-                    {g}
-                  </span>
-                ))}
-              </div>
-            )}
+              {genres && genres.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {genres.map(g => (
+                    <span key={g} className="px-3 py-1 rounded-full bg-secondary/80 border border-border/40 text-xs font-semibold text-foreground/80">
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {/* Chapters Section */}
-        <div className="px-4 flex-1 pb-24">
+        <div className="px-4 flex-1">
           {/* Chapter Toolbar */}
-          <div className="flex items-center justify-between pb-2.5 border-b border-border/40 mb-2">
-            <span className="font-extrabold text-xs sm:text-sm text-foreground">
-              Chapters ({filteredAndSortedChapters.length})
-            </span>
+          <div className="flex items-center justify-between pb-3 mb-2.5 border-b border-border/40">
+            <h2 className="font-black text-sm sm:text-base text-foreground tracking-tight flex items-center">
+              Chapters 
+              <span className="text-primary font-extrabold text-xs ml-1.5">
+                ({filteredAndSortedChapters.length})
+              </span>
+            </h2>
 
             <div className="flex items-center gap-2">
-              {/* Quick Search */}
-              <div className="relative">
+              {/* Quick Search with comfortable width */}
+              <div className="relative flex items-center">
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter ch..."
-                  className="h-7.5 w-24 text-[11px] bg-secondary/50 border-border/50 rounded-lg pl-6 pr-2"
+                  placeholder="Filter chapters..."
+                  className="h-8.5 w-36 sm:w-44 text-xs bg-card border-border/60 rounded-xl pl-8 pr-2.5 shadow-2xs placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/40"
                 />
-                <Search className="w-3 h-3 absolute left-2 top-2 text-muted-foreground pointer-events-none" />
+                <Search className="w-3.5 h-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
               </div>
 
-              {/* Sort Toggle */}
+              {/* Sort Toggle Button */}
               <button
                 type="button"
                 onClick={() => setSortAscending(!sortAscending)}
-                className="h-7.5 px-2 rounded-lg bg-secondary/50 border border-border/50 text-[11px] font-bold flex items-center gap-1 text-muted-foreground hover:text-foreground active:scale-95 cursor-pointer"
+                className="h-8.5 px-3 rounded-xl bg-card border border-border/60 text-xs font-bold flex items-center gap-1.5 text-foreground/80 hover:text-foreground active:scale-95 transition-all shadow-2xs cursor-pointer"
                 title="Sort chapters"
               >
-                {sortAscending ? 'Oldest' : 'Newest'}
+                <ArrowUpDown className="w-3.5 h-3.5 text-primary" />
+                <span>{sortAscending ? 'Oldest' : 'Newest'}</span>
               </button>
             </div>
           </div>
 
-          {/* Chapters Rows */}
+          {/* Chapters List */}
           {chaptersLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -500,48 +509,85 @@ export function OnlineMangaDetailView({
               No chapters found
             </div>
           ) : (
-            <div className="divide-y divide-border/25">
+            <div className="space-y-2">
               {filteredAndSortedChapters.map((chapter) => {
                 const isLastRead = chapter.id === lastReadChapterId;
                 const isResume = chapter.id === resumeChapterId;
                 const dlStatus = chapterDownloadStatus?.[chapter.id];
+                const displayLabel = chapterDisplayLabel(chapter);
+
+                // Deduplicate subtitle: Only show if it's NOT identical to the label, chapter number, or generic chapter string
+                const rawTitle = (chapter.title || '').trim();
+                const isDuplicateTitle = !rawTitle || 
+                  rawTitle.toLowerCase() === displayLabel.toLowerCase() ||
+                  rawTitle.toLowerCase() === `chapter ${chapter.chapter}`.toLowerCase() ||
+                  rawTitle.toLowerCase() === `ch. ${chapter.chapter}`.toLowerCase() ||
+                  rawTitle.toLowerCase() === `ch ${chapter.chapter}`.toLowerCase() ||
+                  rawTitle.toLowerCase() === chapter.chapter.toLowerCase();
+                const distinctTitle = isDuplicateTitle ? null : rawTitle;
 
                 return (
                   <div
                     key={chapter.id}
                     onClick={() => onReadChapter(chapter)}
                     className={cn(
-                      "py-2.5 flex items-center justify-between gap-3 active:bg-secondary/40 transition-colors cursor-pointer",
-                      (isLastRead || isResume) && "text-primary"
+                      "p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 active:scale-[0.99]",
+                      isResume
+                        ? "bg-primary/10 border-primary/30 shadow-xs"
+                        : isLastRead
+                        ? "bg-card/40 border-border/40 opacity-75"
+                        : "bg-card/80 hover:bg-card border-border/60 shadow-2xs"
                     )}
                   >
                     <div className="min-w-0 flex-1">
+                      {/* Top row: Chapter label + Status Badge */}
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-foreground truncate">
-                          {chapterDisplayLabel(chapter)}
+                        <span className={cn(
+                          "font-extrabold text-sm truncate tracking-tight",
+                          isResume ? "text-primary" : "text-foreground"
+                        )}>
+                          {displayLabel}
                         </span>
-                        {(isLastRead || isResume) && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/15 text-primary border border-primary/20">
-                            {isResume ? 'Current' : 'Read'}
+                        {isResume && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary text-primary-foreground shadow-xs">
+                            Current
+                          </span>
+                        )}
+                        {isLastRead && !isResume && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border/50">
+                            Read
                           </span>
                         )}
                       </div>
-                      {chapter.title && (
-                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                          {chapter.title}
+
+                      {/* Distinct Subtitle (ONLY if it's not a duplicate of Chapter X) */}
+                      {distinctTitle && (
+                        <p className="text-xs font-medium text-foreground/80 truncate mt-1">
+                          {distinctTitle}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mt-0.5">
-                        {chapter.date && <span>{chapter.date}</span>}
-                        {chapter.scanlationGroup && (
-                          <>
-                            <span>•</span>
-                            <span className="truncate">{chapter.scanlationGroup}</span>
-                          </>
-                        )}
-                      </div>
+
+                      {/* Bottom Meta Row: Date & Scanlation Group */}
+                      {(chapter.date || chapter.scanlationGroup || (chapter.pages && chapter.pages > 0)) && (
+                        <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground/75 mt-1">
+                          {chapter.date && chapter.date !== 'Unknown' && <span>{chapter.date}</span>}
+                          {chapter.scanlationGroup && (
+                            <>
+                              {chapter.date && chapter.date !== 'Unknown' && <span>•</span>}
+                              <span className="truncate">{chapter.scanlationGroup}</span>
+                            </>
+                          )}
+                          {chapter.pages && chapter.pages > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{chapter.pages}p</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
 
+                    {/* Right Download Button */}
                     {onDownloadChapter && (
                       <button
                         type="button"
@@ -549,8 +595,9 @@ export function OnlineMangaDetailView({
                           e.stopPropagation();
                           onDownloadChapter(chapter);
                         }}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer"
-                        aria-label={`Download chapter ${chapter.chapter}`}
+                        disabled={dlStatus === 'downloading' || dlStatus === 'queued'}
+                        aria-label={`Download ${displayLabel}`}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-secondary/70 hover:bg-secondary text-muted-foreground hover:text-foreground active:scale-90 transition-transform shrink-0 border border-border/40 cursor-pointer"
                       >
                         <ChapterDownloadStatusIcon status={dlStatus} />
                       </button>

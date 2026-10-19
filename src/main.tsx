@@ -1,3 +1,7 @@
+import { initBrowserMock } from './lib/browserMock/initBrowserMock'
+// Initialize browser mock environment before any store or component loads
+initBrowserMock()
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -8,6 +12,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { TooltipProvider } from './components/ui/tooltip'
 import { MotionConfig } from 'framer-motion'
 import { isAndroid, setNativeZoom } from './lib/tauri'
+import { BrowserSimulatorRoot } from './components/simulator/BrowserSimulatorRoot'
 
 // Restore desktop native webview zoom on early startup
 if (typeof window !== 'undefined') {
@@ -50,7 +55,9 @@ createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <TooltipProvider delayDuration={0}>
           <MotionConfig reducedMotion={isAndroid ? 'always' : 'never'}>
-            <App />
+            <BrowserSimulatorRoot>
+              <App />
+            </BrowserSimulatorRoot>
           </MotionConfig>
         </TooltipProvider>
       </ThemeProvider>

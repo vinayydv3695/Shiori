@@ -1,499 +1,248 @@
-import { useState, useMemo } from 'react'
-import { 
-  Home, 
-  Library, 
-  Compass, 
-  Settings, 
-  NotebookPen, 
-  Menu, 
-  BarChart2, 
-  Rss, 
-  Trash2, 
-  History, 
-  Bookmark, 
-  Moon, 
-  Sun,
-  BookOpen,
-  User,
-  ShoppingBag,
-  Search,
-  LogOut
-} from 'lucide-react'
-import { AniListIcon, TorboxIcon } from '@/components/icons'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
-import { BookshelfIcon } from '@/components/icons'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Home, BookOpen, Compass, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { CurrentView } from '@/store/uiStore'
 import { usePreferencesStore } from '@/store/preferencesStore'
-import { useTorboxStore } from '@/store/useTorboxStore'
-import { useTheme } from '@/hooks/useTheme'
-import { useLibraryStore, EMPTY_FILTERS } from '@/store/libraryStore'
 import { IS_STORE_BUILD } from '@/lib/storeConfig'
-import { isAndroid } from '@/lib/tauri'
-import { motion, AnimatePresence } from 'framer-motion'
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12, scale: 0.96 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.2, type: "spring" as const, stiffness: 350, damping: 24 }
-  },
-}
 
 interface BottomNavProps {
   currentView: CurrentView
   onNavigateToView: (view: CurrentView) => void
-  onOpenSettings: () => void
-  onToggleDrawer: () => void
+  onOpenSettings?: () => void
+  onToggleDrawer?: () => void
+  onVisibilityChange?: (visible: boolean) => void
 }
+
+const IDLE_TIMEOUT_MS = 3500
 
 export function BottomNav({
   currentView,
   onNavigateToView,
-  onOpenSettings,
-  onToggleDrawer
+  onVisibilityChange,
 }: BottomNavProps) {
-  const preferredContentType = usePreferencesStore(s => s.preferences?.preferredContentType);
-  const hasTorboxKey = useTorboxStore(s => s.hasApiKey);
-  const { isDark, toggleTheme } = useTheme();
-  const [isAndroidMoreOpen, setIsAndroidMoreOpen] = useState(false);
+  const preferredContentType = usePreferencesStore(s => s.preferences?.preferredContentType)
+  const [isVisible, setIsVisible] = useState(true)
 
-interface AndroidMoreItem {
-  id: string;
-  label: string;
-  subtitle?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  bgClass: string;
-  onClick: () => void;
-}
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isInteractingRef = useRef(false)
+  const lastScrollYRef = useRef(0)
 
-  // 3-Column circular grid items for Android matching media_1792385306724_e66bd916.png
-  const androidMoreItems = useMemo(() => {
-    // Primary 9 items exactly matching the 3x3 layout of media_1792385306724_e66bd916.png:
-    // Row 1: Bookshelf | Bookmarks | Profile
-    // Row 2: Reading now | Store | Dark mode
-    // Row 3: Search | Settings | Log out
-    const items: AndroidMoreItem[] = [
-      {
-        id: 'shelves',
-        label: 'Bookshelf',
-        subtitle: 'Shelves',
-        icon: BookOpen,
-        bgClass: 'bg-[#FDEBE3] dark:bg-rose-950/40',
-        onClick: () => onNavigateToView('shelves'),
-      },
-      {
-        id: 'favorites',
-        label: 'Bookmarks',
-        subtitle: 'Favorites',
-        icon: Bookmark,
-        bgClass: 'bg-[#E3F2FD] dark:bg-sky-950/40',
-        onClick: () => {
-          useLibraryStore.getState().setActiveFilters({
-            ...EMPTY_FILTERS,
-            isFavorite: true,
-          });
-          onNavigateToView('library');
-        },
-      },
-      {
-        id: 'profile',
-        label: 'Profile',
-        subtitle: 'Insights',
-        icon: User,
-        bgClass: 'bg-[#FFF3E0] dark:bg-amber-950/40',
-        onClick: () => onNavigateToView('statistics'),
-      },
-      {
-        id: 'history',
-        label: 'Reading now',
-        subtitle: 'History',
-        icon: History,
-        bgClass: 'bg-[#E8F5E9] dark:bg-emerald-950/40',
-        onClick: () => onNavigateToView('history'),
-      },
-      {
-        id: 'store',
-        label: 'Store',
-        subtitle: 'Browse',
-        icon: ShoppingBag,
-        bgClass: 'bg-[#FDFBE7] dark:bg-yellow-950/40',
-        onClick: () => {
-          if (IS_STORE_BUILD) {
-            onNavigateToView('online-books');
-            return;
-          }
-          onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books');
-        },
-      },
-      {
-        id: 'dark-mode',
-        label: 'Dark mode',
-        subtitle: isDark ? 'On' : 'Off',
-        icon: Moon,
-        bgClass: 'bg-[#EDE7F6] dark:bg-purple-950/40',
-        onClick: () => toggleTheme(),
-      },
-      {
-        id: 'search',
-        label: 'Search',
-        subtitle: 'Find',
-        icon: Search,
-        bgClass: 'bg-[#ECEFF1] dark:bg-slate-800/60',
-        onClick: () => {
-          useLibraryStore.getState().clearFilters();
-          onNavigateToView('library');
-        },
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
-        subtitle: 'App',
-        icon: Settings,
-        bgClass: 'bg-[#FCE4EC] dark:bg-pink-950/40',
-        onClick: () => onOpenSettings(),
-      },
-      {
-        id: 'logout',
-        label: 'Log out',
-        subtitle: 'Recycle',
-        icon: LogOut,
-        bgClass: 'bg-[#FFEBEE] dark:bg-red-950/40',
-        onClick: () => onNavigateToView('recycle-bin'),
-      },
-    ];
+  // Notify parent of visibility changes
+  useEffect(() => {
+    onVisibilityChange?.(isVisible)
+  }, [isVisible, onVisibilityChange])
 
-    // Secondary items from Shiori desktop menu (Annotations, RSS Feeds, AniList, Torbox)
-    if (preferredContentType === 'books' || preferredContentType === 'both') {
-      items.push({
-        id: 'annotations',
-        label: 'Annotations',
-        subtitle: 'Notes',
-        icon: NotebookPen,
-        bgClass: 'bg-[#E0F2F1] dark:bg-teal-950/40',
-        onClick: () => onNavigateToView('annotations'),
-      });
+  // Reset idle timer (auto-hides after 3.5s of no interaction)
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current)
+    }
+    if (!isInteractingRef.current) {
+      idleTimerRef.current = setTimeout(() => {
+        setIsVisible(false)
+      }, IDLE_TIMEOUT_MS)
+    }
+  }, [])
+
+  // Show nav bar and restart timer
+  const showNav = useCallback(() => {
+    setIsVisible(true)
+    resetIdleTimer()
+  }, [resetIdleTimer])
+
+  // Reset timer whenever view changes
+  useEffect(() => {
+    showNav()
+  }, [currentView, showNav])
+
+  // Listen for user click/tap/touch & scroll activity anywhere on the screen
+  useEffect(() => {
+    // Initial timer on mount
+    resetIdleTimer()
+
+    const handleUserInteraction = () => {
+      showNav()
     }
 
-    if (preferredContentType !== 'books') {
-      items.push({
-        id: 'anilist',
-        label: 'AniList',
-        subtitle: 'Tracker',
-        icon: AniListIcon,
-        bgClass: 'bg-[#E3F2FD] dark:bg-blue-950/40',
-        onClick: () => onNavigateToView('anilist'),
-      });
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const delta = currentScrollY - lastScrollYRef.current
 
-      if (!IS_STORE_BUILD && hasTorboxKey) {
-        items.push({
-          id: 'torbox',
-          label: 'Torbox',
-          subtitle: 'Debrid',
-          icon: TorboxIcon,
-          bgClass: 'bg-[#EDE7F6] dark:bg-violet-950/40',
-          onClick: () => onNavigateToView('torbox-discover'),
-        });
+      // Scroll down: hide immediately
+      if (delta > 10 && currentScrollY > 40) {
+        setIsVisible(false)
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
       }
+      // Scroll up: show immediately
+      else if (delta < -10) {
+        showNav()
+      } else {
+        resetIdleTimer()
+      }
+
+      lastScrollYRef.current = currentScrollY
     }
 
-    items.push({
-      id: 'rss',
-      label: 'RSS Feeds',
-      subtitle: 'News',
-      icon: Rss,
-      bgClass: 'bg-[#FFF3E0] dark:bg-orange-950/40',
-      onClick: () => onNavigateToView('rss-articles'),
-    });
+    window.addEventListener('pointerdown', handleUserInteraction, { passive: true })
+    window.addEventListener('touchstart', handleUserInteraction, { passive: true })
+    window.addEventListener('click', handleUserInteraction, { passive: true })
+    window.addEventListener('scroll', handleScroll, { passive: true })
 
-    items.push({
-      id: 'recycle-bin',
-      label: 'Trash',
-      subtitle: 'Bin',
-      icon: Trash2,
-      bgClass: 'bg-[#FFEBEE] dark:bg-red-950/40',
-      onClick: () => onNavigateToView('recycle-bin'),
-    });
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      window.removeEventListener('pointerdown', handleUserInteraction)
+      window.removeEventListener('touchstart', handleUserInteraction)
+      window.removeEventListener('click', handleUserInteraction)
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [resetIdleTimer, showNav])
 
-    return items;
-  }, [preferredContentType, hasTorboxKey, isDark, toggleTheme, onNavigateToView, onOpenSettings]);
+  // Freeze auto-hide while touching/interacting with the bar itself
+  const handleNavPointerEnter = () => {
+    isInteractingRef.current = true
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+  }
+
+  const handleNavPointerLeave = () => {
+    isInteractingRef.current = false
+    resetIdleTimer()
+  }
 
   return (
     <>
-      <nav 
-        className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around min-h-[64px] bg-background md:hidden border-t border-border/50 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] outline-none ring-0"
+      {/* ── Native Android Styled Docked Bottom Bar (Matches Reference) ── */}
+      <motion.nav
+        aria-label="Bottom Navigation"
+        initial={false}
+        animate={{
+          y: isVisible ? 0 : '100%',
+          opacity: isVisible ? 1 : 0,
+        }}
+        transition={{
+          type: 'spring',
+          stiffness: 420,
+          damping: 34,
+          mass: 0.8,
+        }}
+        onPointerDown={handleNavPointerEnter}
+        onPointerUp={handleNavPointerLeave}
+        onPointerEnter={handleNavPointerEnter}
+        onPointerLeave={handleNavPointerLeave}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40 select-none",
+          "bg-card/90 dark:bg-card/85 backdrop-blur-2xl",
+          "rounded-t-[28px] sm:rounded-t-[32px] border-t border-x border-b-0 border-border/40",
+          "shadow-[0_-8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_-12px_40px_rgba(0,0,0,0.5)]",
+          "overflow-hidden",
+          !isVisible && "pointer-events-none"
+        )}
         style={{
-          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
-          paddingLeft: 'env(safe-area-inset-left, 0px)',
-          paddingRight: 'env(safe-area-inset-right, 0px)'
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        <NavItem
-          icon={<Home className="w-[26px] h-[26px]" />}
-          label="Home"
-          isActive={currentView === 'home'}
-          onClick={() => {
-            setIsAndroidMoreOpen(false);
-            onNavigateToView('home');
-          }}
-        />
-        <NavItem
-          icon={<Library className="w-[26px] h-[26px]" />}
-          label="Library"
-          isActive={currentView === 'library'}
-          onClick={() => {
-            setIsAndroidMoreOpen(false);
-            onNavigateToView('library');
-          }}
-        />
-        <NavItem
-          icon={<Compass className="w-[26px] h-[26px]" />}
-          label="Browse"
-          isActive={currentView === 'online-books' || currentView === 'online-manga'}
-          onClick={() => {
-            setIsAndroidMoreOpen(false);
-            if (IS_STORE_BUILD) {
-              onNavigateToView('online-books');
-              return;
-            }
-            onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books');
-          }}
-        />
-
-        {/* More Trigger: On Android opens bottom sheet; on desktop opens dropdown */}
-        {isAndroid ? (
-          <button
-            type="button"
-            aria-label="More"
-            onClick={() => setIsAndroidMoreOpen((prev) => !prev)}
-            className={cn(
-              "relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 ease-out group gap-1 active:scale-95 cursor-pointer",
-              isAndroidMoreOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center w-14 h-8 rounded-full transition-all duration-300",
-              isAndroidMoreOpen ? "bg-primary/15" : "bg-transparent group-hover:bg-primary/5"
-            )}>
-              <Menu className="w-[26px] h-[26px]" />
-            </div>
-            <span className="text-[11px] font-semibold tracking-wide leading-none transition-all duration-300 hidden sm:block opacity-70">
-              More
-            </span>
-          </button>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button aria-label="More" className="flex flex-col items-center justify-center w-full h-full gap-1 text-muted-foreground hover:text-foreground transition-all duration-300 active:scale-95 cursor-pointer">
-                <Menu className="w-[26px] h-[26px]" />
-                <span className="text-[11px] font-medium hidden sm:block">More</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
-              side="top"
-              sideOffset={20}
-              asChild
-            >
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="w-56 rounded-2xl border-border/50 shadow-2xl bg-background p-2 mb-2"
-              >
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('shelves')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                      <BookshelfIcon className="w-[18px] h-[18px]" />
-                    </div>
-                    <span className="text-base font-medium">Shelves</span>
-                  </motion.div>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator className="my-1 bg-border/50" />
-
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('statistics')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                      <BarChart2 size={18} />
-                    </div>
-                    <span className="text-base font-medium">Statistics</span>
-                  </motion.div>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('history')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                      <History size={18} />
-                    </div>
-                    <span className="text-base font-medium">History</span>
-                  </motion.div>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('rss-articles')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                      <Rss size={18} />
-                    </div>
-                    <span className="text-base font-medium">RSS Feeds</span>
-                  </motion.div>
-                </DropdownMenuItem>
-
-                {preferredContentType !== 'books' && (
-                  <>
-                    <DropdownMenuItem asChild onClick={() => onNavigateToView('anilist')}>
-                      <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                        <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                          <AniListIcon className="w-[18px] h-[18px]" />
-                        </div>
-                        <span className="text-base font-medium">AniList</span>
-                      </motion.div>
-                    </DropdownMenuItem>
-                    
-                    {!IS_STORE_BUILD && (
-                      <DropdownMenuItem asChild onClick={() => onNavigateToView('torbox-discover')}>
-                        <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                          <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                            <TorboxIcon className="w-[18px] h-[18px]" />
-                          </div>
-                          <span className="text-base font-medium">Torbox</span>
-                        </motion.div>
-                      </DropdownMenuItem>
-                    )}
-                  </>
+        <div className="grid grid-cols-4 items-center h-[60px] max-w-lg mx-auto w-full px-2">
+          {/* Tab 1: Home */}
+          <NavButton
+            icon={
+              <Home
+                className={cn(
+                  "w-6 h-6 transition-all duration-200",
+                  currentView === 'home'
+                    ? "stroke-[2.2] fill-primary text-primary drop-shadow-xs"
+                    : "stroke-[1.8] text-muted-foreground/75"
                 )}
-
-                {(preferredContentType === 'books' || preferredContentType === 'both') && (
-                  <DropdownMenuItem asChild onClick={() => onNavigateToView('annotations')}>
-                    <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                      <div className="p-2 bg-secondary/50 rounded-lg shrink-0 text-muted-foreground">
-                        <NotebookPen size={18} />
-                      </div>
-                      <span className="text-base font-medium">Annotations</span>
-                    </motion.div>
-                  </DropdownMenuItem>
-                )}
-
-                <DropdownMenuItem asChild onClick={() => onNavigateToView('recycle-bin')}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200 text-destructive focus:bg-destructive/10 focus:text-destructive">
-                    <div className="p-2 bg-destructive/10 rounded-lg shrink-0">
-                      <Trash2 size={18} />
-                    </div>
-                    <span className="text-base font-medium">Trash</span>
-                  </motion.div>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator asChild>
-                  <motion.div variants={itemVariants} className="my-1 bg-border/50" />
-                </DropdownMenuSeparator>
-
-                <DropdownMenuItem asChild onClick={onOpenSettings}>
-                  <motion.div variants={itemVariants} className="gap-3 p-3 cursor-pointer rounded-xl flex items-center transition-all duration-200">
-                    <div className="p-2 bg-primary/10 rounded-lg shrink-0 text-primary">
-                      <Settings size={18} />
-                    </div>
-                    <span className="text-base font-medium">Settings</span>
-                  </motion.div>
-                </DropdownMenuItem>
-              </motion.div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </nav>
-
-      {/* ── ANDROID MORE BOTTOM SHEET (Matches media_1792385306724_e66bd916.png) ── */}
-      {isAndroid && (
-        <AnimatePresence>
-          {isAndroidMoreOpen && (
-            <>
-              {/* Dimmed backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setIsAndroidMoreOpen(false)}
-                className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs"
               />
+            }
+            label="Home"
+            isActive={currentView === 'home'}
+            onClick={() => onNavigateToView('home')}
+          />
 
-              {/* Bottom Sheet Modal */}
-              <motion.div
-                initial={{ y: '100%' }}
-                animate={{ y: 0 }}
-                exit={{ y: '100%' }}
-                transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className="fixed bottom-0 inset-x-0 z-[101] flex flex-col rounded-t-[36px] bg-background/95 backdrop-blur-2xl border-t border-border/60 shadow-2xl overflow-y-auto max-h-[85vh] no-scrollbar select-none"
-                style={{
-                  paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)',
-                }}
-              >
-                {/* Drag handle pill */}
-                <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30 mx-auto mt-3.5 mb-5 shrink-0" />
+          {/* Tab 2: Library */}
+          <NavButton
+            icon={
+              <BookOpen
+                className={cn(
+                  "w-6 h-6 transition-all duration-200",
+                  currentView === 'library'
+                    ? "stroke-[2.2] fill-primary text-primary drop-shadow-xs"
+                    : "stroke-[1.8] text-muted-foreground/75"
+                )}
+              />
+            }
+            label="Library"
+            isActive={currentView === 'library'}
+            onClick={() => onNavigateToView('library')}
+          />
 
-                {/* 3-Column Circular Icon Grid */}
-                <div className="grid grid-cols-3 gap-y-7 gap-x-4 px-6 pt-1 pb-8 max-w-sm mx-auto w-full">
-                  {androidMoreItems.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        item.onClick();
-                        if (item.id !== 'dark-mode') {
-                          setIsAndroidMoreOpen(false);
-                        }
-                      }}
-                      className="flex flex-col items-center justify-center group cursor-pointer active:scale-95 transition-transform"
-                    >
-                      {/* Pastel Tinted Circle Bubble */}
-                      <div
-                        className={cn(
-                          'w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-200 group-hover:scale-105 active:scale-90',
-                          item.bgClass
-                        )}
-                      >
-                        <item.icon className="w-6 h-6 text-[#2D3748] dark:text-[#E2E8F0] stroke-[1.8]" />
-                      </div>
+          {/* Tab 3: Browse / Discover */}
+          <NavButton
+            icon={
+              <Compass
+                className={cn(
+                  "w-6 h-6 transition-all duration-200",
+                  currentView === 'online-books' || currentView === 'online-manga'
+                    ? "stroke-[2.2] fill-primary/30 text-primary drop-shadow-xs"
+                    : "stroke-[1.8] text-muted-foreground/75"
+                )}
+              />
+            }
+            label="Browse"
+            isActive={currentView === 'online-books' || currentView === 'online-manga'}
+            onClick={() => {
+              if (IS_STORE_BUILD) {
+                onNavigateToView('online-books')
+                return
+              }
+              onNavigateToView(preferredContentType === 'manga' ? 'online-manga' : 'online-books')
+            }}
+          />
 
-                      {/* Primary Label */}
-                      <span className="text-xs sm:text-sm font-bold text-foreground tracking-tight mt-2.5 truncate max-w-[95px] text-center">
-                        {item.label}
-                      </span>
+          {/* Tab 4: Profile / More */}
+          <NavButton
+            icon={
+              <User
+                className={cn(
+                  "w-6 h-6 transition-all duration-200",
+                  currentView === 'more'
+                    ? "stroke-[2.2] fill-primary text-primary drop-shadow-xs"
+                    : "stroke-[1.8] text-muted-foreground/75"
+                )}
+              />
+            }
+            label="More"
+            isActive={currentView === 'more'}
+            onClick={() => onNavigateToView('more')}
+          />
+        </div>
+      </motion.nav>
 
-                      {/* Optional Subtitle / Status */}
-                      {item.subtitle && (
-                        <span className="text-[11px] font-medium text-muted-foreground mt-0.5 truncate max-w-[95px]">
-                          {item.subtitle}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      )}
+      {/* ── Minimalist Bottom Edge Handle to Summon Nav Bar when Hidden ── */}
+      <AnimatePresence>
+        {!isVisible && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.2 }}
+            onClick={showNav}
+            className="fixed bottom-1.5 inset-x-0 z-40 flex justify-center pointer-events-auto cursor-pointer"
+            aria-label="Tap to show navigation bar"
+          >
+            <div className="w-12 h-1 rounded-full bg-foreground/25 hover:bg-foreground/50 transition-colors shadow-xs" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
 
-function NavItem({
+function NavButton({
   icon,
   label,
   isActive,
-  onClick
+  onClick,
 }: {
   icon: React.ReactNode
   label: string
@@ -502,29 +251,31 @@ function NavItem({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-label={label}
       className={cn(
-        "relative flex flex-col items-center justify-center w-full h-full transition-all duration-300 ease-out group gap-1 active:scale-95",
-        isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+        "relative flex flex-col items-center justify-center h-full w-full gap-1 transition-all duration-200 active:scale-90 cursor-pointer select-none py-1.5",
+        isActive ? "text-primary" : "text-muted-foreground/75 hover:text-foreground"
       )}
     >
-      <div className={cn(
-        "flex items-center justify-center w-14 h-8 rounded-full transition-all duration-300",
-        isActive ? "bg-primary/15" : "bg-transparent group-hover:bg-primary/5"
-      )}>
-        <div className={cn(
-          "transition-transform duration-300",
-          isActive ? "scale-110 drop-shadow-md" : "scale-100"
-        )}>
-          {icon}
-        </div>
+      {/* Icon */}
+      <div className="relative flex items-center justify-center">
+        {icon}
       </div>
-      <span className={cn(
-        "text-[11px] font-semibold tracking-wide leading-none transition-all duration-300 hidden sm:block",
-        isActive ? "opacity-100" : "opacity-70"
-      )}>
-        {label}
-      </span>
+
+      {/* Subtle Dot Indicator Matching Reference */}
+      <div className="h-1 flex items-center justify-center">
+        {isActive ? (
+          <motion.span
+            layoutId="bottomNavDot"
+            transition={{ type: "spring", stiffness: 480, damping: 32 }}
+            className="w-1.5 h-1.5 rounded-full bg-primary"
+          />
+        ) : (
+          <span className="w-1.5 h-1.5 rounded-full opacity-0 pointer-events-none" />
+        )}
+      </div>
     </button>
   )
 }

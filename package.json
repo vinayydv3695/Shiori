@@ -1,11 +1,13 @@
 {
   "name": "shiori",
   "private": true,
-  "version": "1.0.22",
+  "version": "1.0.23",
   "type": "module",
   "license": "GPL-3.0",
   "scripts": {
     "dev": "tauri dev",
+    "dev:browser": "vite",
+    "dev:android": "vite --open",
     "build": "tsc -b && vite build && tauri build",
     "lint": "eslint .",
     "test": "vitest run",

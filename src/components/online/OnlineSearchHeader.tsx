@@ -113,78 +113,84 @@ export function OnlineSearchHeader({
 
           <div className="relative group">
             {isMobile ? (
-              // Mobile / Android Search Bar: Spacious and balanced
-              <div className="flex items-center bg-card/90 backdrop-blur-xl border border-border/60 rounded-2xl p-1 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 transition-all duration-300 shadow-xs">
-                
-                {/* Search Icon */}
-                <div className="pl-2.5 pr-1 text-muted-foreground/70 shrink-0">
-                  <Search className="w-4 h-4 stroke-[2.2]" />
-                </div>
-                
-                {/* Input */}
-                <input
-                  value={searchValue}
-                  onChange={(e) => onSearchValueChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onSubmit();
-                  }}
-                  placeholder={kind === 'books' ? 'Search books by title, author...' : 'Search manga by title, author...'}
-                  className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-1.5 px-1 min-w-0"
-                  disabled={disabled}
-                />
-                
-                {/* Clear Button */}
-                {searchValue && (
-                  <button
-                    type="button"
-                    onClick={() => onSearchValueChange('')}
-                    className="p-1 rounded-full text-muted-foreground hover:text-foreground active:scale-90 transition-transform mr-1"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+              // Mobile / Android Search Header: Elegant 2-row layout
+              <div className="flex flex-col gap-2">
+                {/* 1. Main Search Bar Row */}
+                <div className="flex items-center bg-card/95 backdrop-blur-xl border border-border/70 rounded-2xl px-2.5 py-1 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20 transition-all duration-300 shadow-xs">
+                  {/* Search Icon */}
+                  <div className="pl-1 pr-2 text-muted-foreground/70 shrink-0">
+                    <Search className="w-4 h-4 stroke-[2.2]" />
+                  </div>
 
-                {/* Right side actions */}
-                <div className="flex items-center gap-1 shrink-0 pr-0.5">
-                  {/* Filter Option */}
-                  {(kind === 'books' || kind === 'manga') && (
-                    <AppTooltip content="Filters" side="bottom">
-                      <button 
-                        onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
-                        aria-label="Filters"
-                        className={cn(
-                          "w-7.5 h-7.5 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95",
-                          (kind === 'books' && hasFilters) || kind === 'manga'
-                            ? "bg-primary text-primary-foreground shadow-2xs" 
-                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-secondary/40"
-                        )}
-                        disabled={disabled}
-                      >
-                        <Filter className="w-3.5 h-3.5 stroke-[2.2]" />
-                      </button>
-                    </AppTooltip>
-                  )}
-
-                  {/* Sources Option */}
-                  <OnlineSourceSelector 
-                    kind={kind} 
-                    variant="ghost" 
-                    iconOnly={true}
-                    className="w-7.5 h-7.5 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0" 
+                  {/* Input Field */}
+                  <input
+                    value={searchValue}
+                    onChange={(e) => onSearchValueChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') onSubmit();
+                    }}
+                    placeholder={kind === 'books' ? 'Search books by title, author...' : 'Search manga by title, author...'}
+                    className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-2 px-1 min-w-0"
+                    disabled={disabled}
                   />
 
-                  {/* Downloads Queue Option */}
-                  <DownloadsButton iconOnly className="w-7.5 h-7.5 rounded-xl shrink-0" />
+                  {/* Clear Button */}
+                  {searchValue && (
+                    <button
+                      type="button"
+                      onClick={() => onSearchValueChange('')}
+                      className="p-1 rounded-full text-muted-foreground hover:text-foreground active:scale-90 transition-transform mr-1.5"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
 
-                  {/* Submit Button */}
-                  <button 
-                    onClick={onSubmit} 
-                    disabled={loading || disabled || !searchValue.trim()}
-                    className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs active:scale-95 shrink-0 ml-0.5"
+                  {/* Search CTA */}
+                  <button
+                    onClick={onSubmit}
+                    disabled={loading || disabled || (!searchValue.trim() && !hasFilters)}
+                    className="px-3.5 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs active:scale-95 shrink-0"
                   >
-                    Go
+                    Search
                   </button>
+                </div>
+
+                {/* 2. Accessory Action Strip (Source Selector, Filter, Downloads) */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none [&::-webkit-scrollbar]:hidden px-0.5">
+                  {/* Source Selector Pill */}
+                  <OnlineSourceSelector
+                    kind={kind}
+                    variant="secondary"
+                    className="h-8 px-2.5 rounded-xl text-xs font-bold bg-card/90 hover:bg-card border border-border/70 shrink-0 shadow-2xs"
+                  />
+
+                  {/* Filter Pill */}
+                  {(kind === 'books' || kind === 'manga') && (
+                    <button
+                      type="button"
+                      onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
+                      aria-label="Filters"
+                      className={cn(
+                        "h-8 px-3 rounded-xl flex items-center gap-1.5 text-xs font-bold transition-all shrink-0 active:scale-95 border",
+                        (kind === 'books' && hasFilters) || (kind === 'manga' && hasFilters)
+                          ? "bg-primary text-primary-foreground border-primary/50 shadow-2xs"
+                          : "bg-card/90 hover:bg-card text-foreground/80 border-border/70 shadow-2xs"
+                      )}
+                      disabled={disabled}
+                    >
+                      <Filter className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <span>Filters</span>
+                      {hasFilters && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Downloads Queue on Right */}
+                  <div className="ml-auto shrink-0">
+                    <DownloadsButton iconOnly className="w-8 h-8 rounded-xl shadow-2xs" />
+                  </div>
                 </div>
               </div>
             ) : (

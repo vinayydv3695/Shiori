@@ -96,14 +96,16 @@ export function AndroidBookDeepDive({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-      className="fixed inset-0 z-50 bg-background text-foreground flex flex-col overflow-y-auto no-scrollbar pb-28 select-none"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[100] w-screen h-screen bg-background text-foreground flex flex-col select-none overflow-hidden"
     >
+      {/* Scrollable details body */}
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28">
       {/* ── 1. HERO COVER ART WITH ATMOSPHERIC GRADIENT FADE ── */}
-      <div className="relative w-full h-[360px] sm:h-[400px] shrink-0 bg-muted overflow-hidden">
+      <div className="relative w-full h-[320px] sm:h-[380px] shrink-0 bg-muted overflow-hidden">
         {coverUrl ? (
           <img
             src={coverUrl}
@@ -117,28 +119,30 @@ export function AndroidBookDeepDive({
           </div>
         )}
 
-        {/* Ambient top vignette & bottom gradient fade into page background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent pointer-events-none" />
+        {/* Ambient top vignette for contrast on status bar and back/heart buttons */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-transparent pointer-events-none" />
 
-        {/* Floating Top Navigation Header */}
+        {/* Deep bottom gradient fading seamlessly into page background */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none" />
+
+        {/* Top Floating Navigation Header */}
         <div
-          className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-3"
-          style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
+          className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-3"
+          style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 0px))' }}
         >
           <button
             type="button"
             onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-white border border-white/15 active:scale-90 transition-all shadow-md cursor-pointer"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/45 backdrop-blur-md text-white border border-white/15 active:scale-90 transition-all shadow-md cursor-pointer"
             aria-label="Back to collection"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
 
           <button
             type="button"
             onClick={handleToggleFav}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md text-white border border-white/15 active:scale-90 transition-all shadow-md cursor-pointer"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-black/45 backdrop-blur-md text-white border border-white/15 active:scale-90 transition-all shadow-md cursor-pointer"
             aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
           >
             <Heart className={cn('w-5 h-5 transition-colors', isFav ? 'fill-rose-500 text-rose-500' : 'text-white')} />
@@ -146,122 +150,97 @@ export function AndroidBookDeepDive({
         </div>
       </div>
 
-      {/* ── 2. BOOK METADATA & TITLE SECTION ── */}
-      <div className="relative -mt-10 px-5 flex flex-col z-10">
-        {/* Author Eyebrow */}
-        <span className="text-xs font-bold text-primary tracking-wider uppercase mb-1">
+      {/* ── 2. EDITORIAL METADATA & CONTENT (Matches media_1792418691337_140e92b7.png) ── */}
+      <div className="relative -mt-10 px-5 sm:px-6 flex flex-col z-10">
+        {/* Author Eyebrow in theme accent */}
+        <span className="text-xs sm:text-sm font-bold text-primary tracking-wide mb-1">
           By {authorName}
         </span>
 
-        {/* Book Title */}
+        {/* Title */}
         <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight leading-tight">
           {book.title}
         </h1>
 
-        {/* Subtitle / Series Context */}
+        {/* Subtitle / Series */}
         {subtitle && (
           <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1 leading-snug">
             {subtitle}
           </p>
         )}
 
-        {/* Genre / Tag Chips */}
+        {/* Genre / Category Capsule Pills */}
         <div className="flex items-center gap-2 flex-wrap mt-3.5">
           {displayTags.map((tag) => (
             <span
               key={tag}
-              className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-muted/70 text-foreground/80 border border-border/50 shadow-2xs"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold bg-card/85 dark:bg-card/70 text-foreground/85 border border-border/60 shadow-2xs"
             >
               {tag}
             </span>
           ))}
         </div>
 
-        {/* Key Stats Bar (Pages, Rating, Est Time, Language) */}
-        <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground/90 py-3 border-y border-border/40 mt-5 mb-4">
+        {/* Key Stats Row (320 📖 • 4.5 ★ • 8h 46min 🎧 • English 🌐) */}
+        <div className="flex items-center gap-4 text-xs font-semibold mt-4 text-muted-foreground/90">
           {/* Pages */}
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-foreground tabular-nums">{totalPages}</span>
-            <BookOpen size={14} className="text-primary" />
+            <span className="font-bold text-primary tabular-nums">{totalPages}</span>
+            <BookOpen size={14} className="text-muted-foreground" />
           </div>
-
-          <div className="w-1 h-1 rounded-full bg-border" />
 
           {/* Rating */}
           <div className="flex items-center gap-1.5">
-            <span className="font-bold text-foreground tabular-nums">{ratingValue}</span>
+            <span className="font-bold text-primary tabular-nums">{ratingValue}</span>
             <Star size={14} className="fill-amber-400 text-amber-400" />
           </div>
 
-          <div className="w-1 h-1 rounded-full bg-border" />
-
-          {/* Time */}
+          {/* Reading Time */}
           <div className="flex items-center gap-1.5">
+            <span className="font-bold text-primary tabular-nums">{timeFormatted}</span>
             <Clock size={14} className="text-muted-foreground" />
-            <span className="font-medium tabular-nums">{timeFormatted}</span>
           </div>
-
-          <div className="w-1 h-1 rounded-full bg-border" />
 
           {/* Language */}
           <div className="flex items-center gap-1.5">
-            <span className="font-medium">{langDisplay}</span>
+            <span className="font-medium text-primary">{langDisplay}</span>
             <Globe size={14} className="text-muted-foreground" />
           </div>
         </div>
 
-        {/* Synopsis / Description */}
-        <div className="flex flex-col gap-1.5">
-          <p className={cn(
-            'text-xs sm:text-sm text-foreground/80 leading-relaxed font-normal whitespace-pre-line',
-            !isExpanded && synopsis.length > 220 && 'line-clamp-4'
-          )}>
-            {synopsis}
-          </p>
-
-          {synopsis.length > 220 && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs font-bold text-primary hover:underline flex items-center gap-1 mt-1 cursor-pointer w-fit"
-            >
-              <span>{isExpanded ? 'Show less' : 'Read more'}</span>
-              {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
-          )}
-        </div>
+        {/* Synopsis Paragraph */}
+        <p className="text-xs sm:text-sm text-foreground/75 leading-relaxed font-normal mt-4 whitespace-pre-line line-clamp-4">
+          {synopsis}
+        </p>
+      </div>
       </div>
 
-      {/* ── 3. FIXED BOTTOM ACTION BAR ── */}
+      {/* ── 3. FLOATING FIXED BOTTOM ACTION BAR (Matches media_1792418691337_140e92b7.png) ── */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-40 p-4 pb-6 bg-gradient-to-t from-background via-background/95 to-background/70 backdrop-blur-md border-t border-border/40 flex items-center gap-3"
-        style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}
+        className="fixed bottom-0 left-0 right-0 z-30 px-5 sm:px-6 pb-6 pt-4 bg-gradient-to-t from-background via-background/95 to-transparent flex items-center gap-3.5"
+        style={{ paddingBottom: 'max(18px, env(safe-area-inset-bottom, 18px))' }}
       >
-        {/* Audio / TTS Button */}
+        {/* Headphone Audio / TTS Button */}
         <button
           type="button"
           onClick={() => {
             if (onListen) onListen(book);
             else onRead(book);
           }}
-          className="w-13 h-13 rounded-2xl bg-card hover:bg-card/80 border border-border/70 flex items-center justify-center text-foreground active:scale-95 transition-all shadow-xs cursor-pointer shrink-0"
+          className="w-14 h-14 rounded-full bg-card/90 dark:bg-card/75 border border-border/70 hover:bg-card flex items-center justify-center text-foreground active:scale-90 transition-all shadow-md shrink-0 cursor-pointer"
           aria-label="Listen with Audio / TTS"
         >
-          <Headphones className="w-5 h-5" />
+          <Headphones className="w-5 h-5 stroke-[2.2]" />
         </button>
 
-        {/* Main "Read Book" CTA Button */}
+        {/* Main "Read Book" CTA Button (Theme Accent Capsule Matching Reference) */}
         <button
           type="button"
           onClick={() => onRead(book)}
-          className="flex-1 h-13 rounded-2xl bg-primary text-primary-foreground font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 active:scale-98 transition-all cursor-pointer"
+          className="flex-1 h-14 rounded-full bg-primary text-primary-foreground font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-lg shadow-primary/25 active:scale-98 transition-all cursor-pointer"
         >
-          <BookOpen className="w-5 h-5" />
-          <span>
-            {progressPercent > 0
-              ? `Continue (${Math.round(progressPercent)}%)`
-              : 'Read Book'}
-          </span>
+          <BookOpen className="w-5 h-5 fill-current stroke-[1.8]" />
+          <span>Read Book</span>
         </button>
       </div>
     </motion.div>

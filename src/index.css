@@ -217,6 +217,16 @@
 }
 
 /* ==================== SCROLLBAR ==================== */
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.8) transparent;

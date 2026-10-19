@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware"
 export type CurrentView =
   | "home"
   | "library"
+  | "more"
   | "rss-feeds"
   | "rss-articles"
   | "annotations"

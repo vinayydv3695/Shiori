@@ -1,3 +1,12 @@
+# Release Notes (v1.0.23)
+
+## Mobile Home Experience & Polish
+
+- **Trending Books Card Carousel** — Introduced high-depth 2:3 vertical cards with full-bleed covers, format badges, and one-tap quick-play buttons on mobile Home.
+- **Recently Played List & Context Actions** — Replaced legacy grids with an editorial Recently Played list featuring book metadata, reading progress, and a 3-dots action dropdown (`Open`, `View Details`, `Edit Metadata`, `Add to Shelf`, `Delete`).
+- **Floating Quick-Resume Player Bar** — Added a dark capsule pill at the bottom of the home screen showing the active book and instant resume controls.
+- **Navigation & Android Reader Usability** — Improved Android reader topbar contrast and accessibility, cleaned up the More view grid, and resolved dynamic module importing and type issues.
+
 # Release Notes (v1.0.22)
 
 ## Online Manga & Online Books Mobile Redesign

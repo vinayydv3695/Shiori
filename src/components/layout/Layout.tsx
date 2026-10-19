@@ -27,7 +27,7 @@ import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
 import { ImportDialog } from '../library/ImportDialog'
 import { CreateShelfDialog } from '../shelves/CreateShelfDialog'
 import { cn } from '@/lib/utils'
-import { type Book } from '@/lib/tauri'
+import { type Book, isAndroid } from '@/lib/tauri'
 import { useLibraryStore } from '@/store/libraryStore'
 import { useToast } from '@/store/toastStore'
 import { type CurrentView } from '@/store/uiStore'
@@ -142,6 +142,7 @@ export function Layout({
   const [importDialogFilePaths, setImportDialogFilePaths] = useState<string[]>([])
   const [autoTriggerMode, setAutoTriggerMode] = useState<'files' | 'folder' | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
+  const [isBottomNavVisible, setIsBottomNavVisible] = useState(true)
 
   // UX additions
   const [showScrollTop, setShowScrollTop] = useState(false)
@@ -428,8 +429,8 @@ export function Layout({
     <div className={cn("flex flex-col h-full w-full overflow-hidden bg-background")}>
 
 
-      {/* ── Topbar ── */}
-      {currentView !== 'online-manga-reader' && (
+      {/* ── Topbar (Desktop Only) ── */}
+      {!isMobile && !isAndroid && currentView !== 'online-manga-reader' && (
         <PremiumTopbar
           currentDomain={currentDomain}
           onDomainChange={onDomainChange}
@@ -466,16 +467,18 @@ export function Layout({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className="z-40">
-          <NavigationRail
-            currentView={currentView}
-            onNavigateToView={onNavigateToView}
-            onCreateShelf={() => setCreateShelfOpen(true)}
-            onOpenSettings={onOpenSettings}
-            onToggleFilters={() => setSidebarOpen((o) => !o)}
-            isFiltersOpen={sidebarOpen}
-          />
-        </div>
+        {!isMobile && !isAndroid && (
+          <div className="z-40">
+            <NavigationRail
+              currentView={currentView}
+              onNavigateToView={onNavigateToView}
+              onCreateShelf={() => setCreateShelfOpen(true)}
+              onOpenSettings={onOpenSettings}
+              onToggleFilters={() => setSidebarOpen((o) => !o)}
+              isFiltersOpen={sidebarOpen}
+            />
+          </div>
+        )}
 
         {/* Sidebar — hidden on homepage */}
         {currentView !== 'home' && currentView !== 'online-manga-reader' && sidebarOpen && (
@@ -502,14 +505,19 @@ export function Layout({
           onTouchStart={isMobile ? handleTouchStart : undefined}
           onTouchMove={isMobile ? handleTouchMove : undefined}
           onTouchEnd={isMobile ? handleTouchEnd : undefined}
-          className="flex-1 min-w-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-transparent relative z-10 transition-all max-md:p-0 md:my-1 md:mr-2 md:mb-2 md:ml-1.5 md:rounded-2xl md:border md:border-border/30 md:bg-card/20 md:backdrop-blur-sm"
-          style={isMobile ? {
+          className={cn(
+            "flex-1 min-w-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden bg-transparent relative z-10 transition-all",
+            (isMobile || isAndroid)
+              ? "p-0"
+              : "md:my-1 md:mr-2 md:mb-2 md:ml-1.5 md:rounded-2xl md:border md:border-border/30 md:bg-card/20 md:backdrop-blur-sm"
+          )}
+          style={(isMobile || isAndroid) ? {
             paddingLeft: 'env(safe-area-inset-left, 0px)',
             paddingRight: 'env(safe-area-inset-right, 0px)',
             transform: `translateY(${pullDistance}px)`
           } : undefined}
         >
-          {isMobile && (
+          {(isMobile || isAndroid) && (
             <div 
               className="absolute top-0 left-0 right-0 flex justify-center overflow-hidden transition-all duration-200"
               style={{ 
@@ -523,8 +531,8 @@ export function Layout({
             </div>
           )}
           <div
-            className={cn('md:pb-0', 'max-md:pb-24')}
-            style={isMobile ? {
+            className={cn((isMobile || isAndroid) ? 'pb-24' : 'md:pb-0')}
+            style={(isMobile || isAndroid) ? {
               paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))'
             } : undefined}
           >
@@ -534,7 +542,7 @@ export function Layout({
       </DragLayer>
       
       {/* ── Mobile Bottom Nav ── */}
-      {isMobile && (
+      {(isMobile || isAndroid) && (
         <BottomNav
           currentView={currentView}
           onNavigateToView={(view) => {
@@ -542,12 +550,20 @@ export function Layout({
           }}
           onOpenSettings={onOpenSettings}
           onToggleDrawer={onOpenAdvancedFilter || (() => {})}
+          onVisibilityChange={setIsBottomNavVisible}
         />
       )}
 
       {/* ── Mobile FAB for Import ── */}
       {isMobile && currentView === 'library' && (
-        <div className="fixed bottom-20 right-4 z-[60]">
+        <div
+          className="fixed right-4 z-[60] transition-all duration-300 ease-out"
+          style={{
+            bottom: isBottomNavVisible
+              ? 'calc(4.75rem + env(safe-area-inset-bottom, 0px))'
+              : 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -609,8 +625,8 @@ export function Layout({
         onOpenChange={setCreateShelfOpen}
       />
 
-      {/* ── Scroll to Top FAB ── */}
-      {showScrollTop && (
+      {/* ── Scroll to Top FAB (Desktop Only) ── */}
+      {!isMobile && !isAndroid && showScrollTop && (
         <button
           onClick={scrollToTop}
           className={cn(

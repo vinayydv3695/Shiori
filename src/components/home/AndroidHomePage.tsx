@@ -1,22 +1,29 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell,
   Search,
-  ChevronRight,
   BookOpen,
   Heart,
-  CheckCircle2,
-  Clock,
-  Sparkles,
-  Layers,
-  X,
-  Bookmark,
-  ArrowUpRight,
+  ChevronRight,
+  Play,
+  MoreVertical,
+  Info,
+  Pencil,
+  FolderPlus,
+  Trash2,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { EditMetadataDialog } from '@/components/library/EditMetadataDialog';
+import { ShelfSelectDialog } from '@/components/library/ShelfSelectDialog';
+import { DeleteBookDialog } from '@/components/library/DeleteBookDialog';
 import { useUIStore, type DomainView } from '@/store/uiStore';
 import { useLibraryStore, EMPTY_FILTERS } from '@/store/libraryStore';
-import { useShelfStore } from '@/store/shelfStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import type { Book, ReadingProgress } from '@/lib/tauri';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -44,6 +51,20 @@ function extractBookFromItem(item: GroupedItem): Book {
     return item.data.books.find((b) => b.reading_status !== 'completed') || item.data.books[0];
   }
   return item.data;
+}
+
+function getBookMeta(book: Book, progress?: ReadingProgress): string {
+  if (progress && progress.progressPercent > 0) {
+    return `${Math.round(progress.progressPercent)}% completed`;
+  }
+  if (book.pubdate) {
+    const match = book.pubdate.match(/\b(18|19|20)\d{2}\b/);
+    if (match) return match[0];
+  }
+  if (book.page_count && book.page_count > 0) {
+    return `${book.page_count} pages`;
+  }
+  return book.file_format?.toUpperCase() || (book.domain === 'manga_comics' ? 'MANGA' : 'EPUB');
 }
 
 export interface AndroidHomePageProps {
@@ -88,23 +109,24 @@ export function AndroidHomePage({
   onViewLibrary,
 }: AndroidHomePageProps) {
   const setCurrentView = useUIStore((s) => s.setCurrentView);
+  const currentDomain = useUIStore((s) => s.currentDomain);
   const setCurrentDomain = useUIStore((s) => s.setCurrentDomain);
   const preferences = usePreferencesStore((s) => s.preferences);
+  const preferredContentType = preferences?.preferredContentType || 'both';
   const favoriteBookIds = useLibraryStore((s) => s.favoriteBookIds);
 
   // Deep dive selected book state
   const [selectedDeepDiveBook, setSelectedDeepDiveBook] = useState<Book | null>(null);
 
+  // Action dialog states
+  const [editingBookId, setEditingBookId] = useState<number | null>(null);
+  const [shelfBookId, setShelfBookId] = useState<number | null>(null);
+  const [deleteBookInfo, setDeleteBookInfo] = useState<{ id: number; title: string } | null>(null);
+
   // Search overlay toggle
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery || '');
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Category filter tab
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  // Carousel active index
-  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     if (searchQuery !== undefined && searchQuery !== localSearch) {
@@ -132,30 +154,12 @@ export function AndroidHomePage({
     }
   };
 
-  // Build categories with realistic book counts
-  const categoryTabs = useMemo(() => {
-    const totalCount = libraryBooks.length;
-    const baseGenres = domain === 'manga_comics'
-      ? ['Action', 'Fantasy', 'Shounen', 'Comedy', 'Mystery', 'Romance', 'Sci-Fi']
-      : ['Motivational', 'Poetry', 'Fiction', 'Fantasy', 'Thriller', 'Biography', 'Sci-Fi'];
-
-    const tabs = [{ id: 'all', label: 'All', count: totalCount }];
-
-    for (const genre of baseGenres) {
-      const count = libraryBooks.filter((b) =>
-        b.tags?.some((t) => t.name.toLowerCase().includes(genre.toLowerCase())) ||
-        b.notes?.toLowerCase().includes(genre.toLowerCase())
-      ).length;
-      tabs.push({ id: genre.toLowerCase(), label: genre, count: Math.max(count, Math.round(totalCount * 0.15) || 1) });
+  // Trending Books for horizontal card row (Top Section)
+  const trendingItems = useMemo(() => {
+    const pool = [...groupedRecommended, ...groupedFavorites, ...groupedRecentlyAdded];
+    if (pool.length === 0 && libraryBooks.length > 0) {
+      return libraryBooks.slice(0, 10).map((b) => ({ type: 'book' as const, data: b }));
     }
-
-    return tabs;
-  }, [domain, libraryBooks]);
-
-  // Featured books for CoverFlow Carousel
-  const featuredItems = useMemo(() => {
-    let pool = [...groupedRecommended, ...groupedContinueReading, ...groupedRecentlyAdded, ...groupedFavorites];
-    // Deduplicate by book id
     const seen = new Set<number>();
     const deduplicated: GroupedItem[] = [];
     for (const item of pool) {
@@ -165,50 +169,39 @@ export function AndroidHomePage({
         deduplicated.push(item);
       }
     }
+    return deduplicated.slice(0, 10);
+  }, [groupedRecommended, groupedFavorites, groupedRecentlyAdded, libraryBooks]);
 
-    if (selectedCategory === 'all') {
-      return deduplicated.slice(0, 12);
+  // Recently Played for vertical list (Middle Section)
+  const recentlyPlayedItems = useMemo(() => {
+    const pool = [...groupedContinueReading, ...groupedRecentlyAdded, ...groupedFavorites];
+    if (pool.length === 0 && libraryBooks.length > 0) {
+      return libraryBooks.slice(0, 8).map((b) => ({ type: 'book' as const, data: b }));
     }
-
-    const filtered = deduplicated.filter((item) => {
+    const seen = new Set<number>();
+    const deduplicated: GroupedItem[] = [];
+    for (const item of pool) {
       const book = extractBookFromItem(item);
-      return (
-        book.tags?.some((t) => t.name.toLowerCase().includes(selectedCategory)) ||
-        book.notes?.toLowerCase().includes(selectedCategory)
-      );
-    });
-
-    return filtered.length > 0 ? filtered.slice(0, 12) : deduplicated.slice(0, 12);
-  }, [groupedRecommended, groupedContinueReading, groupedRecentlyAdded, groupedFavorites, selectedCategory]);
-
-  // Clamp active index when items change
-  useEffect(() => {
-    if (activeIndex >= featuredItems.length) {
-      setActiveIndex(Math.max(0, featuredItems.length - 1));
+      if (book.id && !seen.has(book.id)) {
+        seen.add(book.id);
+        deduplicated.push(item);
+      }
     }
-  }, [featuredItems.length, activeIndex]);
+    return deduplicated.slice(0, 6);
+  }, [groupedContinueReading, groupedRecentlyAdded, groupedFavorites, libraryBooks]);
 
-  // Continue reading primary item
-  const continueReadingItem = groupedContinueReading[0] || groupedRecentlyAdded[0] || null;
-  const continueReadingBook = continueReadingItem ? extractBookFromItem(continueReadingItem) : null;
-  const continueReadingProgress = continueReadingBook?.id ? progressMap[continueReadingBook.id]?.progressPercent : 0;
+  // Active book for the floating quick-resume player bar
+  const activeBookItem = groupedContinueReading[0] || recentlyPlayedItems[0] || null;
+  const activeBook = activeBookItem ? extractBookFromItem(activeBookItem) : (libraryBooks[0] || null);
 
   const handleOpenDeepDive = (item: GroupedItem) => {
     const book = extractBookFromItem(item);
     setSelectedDeepDiveBook(book);
   };
 
-  const handlePrev = () => {
-    setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
-  };
-
-  const handleNext = () => {
-    setActiveIndex((prev) => (prev < featuredItems.length - 1 ? prev + 1 : prev));
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground pb-24 select-none">
-      {/* ── DEEP DIVE MODAL / VIEW (Matches media_1792384408531_a6d652df.png Right Screen) ── */}
+    <div className="min-h-screen bg-background text-foreground pb-28 select-none">
+      {/* ── DEEP DIVE MODAL / VIEW ── */}
       <AnimatePresence>
         {selectedDeepDiveBook && (
           <AndroidBookDeepDive
@@ -227,16 +220,47 @@ export function AndroidHomePage({
         )}
       </AnimatePresence>
 
-      {/* ── 1. HEADER ROW: "Explore our Collection" (Matches media_1792384408531_a6d652df.png) ── */}
+      {/* ── 1. HEADER ROW: "Explore our Collection" with Domain Toggle & Search ── */}
       <header
         className="px-5 pt-3 pb-2 flex items-center justify-between"
         style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
       >
-        <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-          Explore our Collection
-        </h1>
+        <div className="flex flex-col">
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+            Explore our Collection
+          </h1>
+          {/* Subtle Domain indicator / switcher if user reads both books and manga */}
+          {preferredContentType === 'both' && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <button
+                type="button"
+                onClick={() => setCurrentDomain('books')}
+                className={cn(
+                  'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer',
+                  currentDomain === 'books'
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
+                    : 'text-muted-foreground hover:text-foreground bg-secondary/50'
+                )}
+              >
+                Books
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentDomain('manga_comics')}
+                className={cn(
+                  'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer',
+                  currentDomain === 'manga_comics'
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
+                    : 'text-muted-foreground hover:text-foreground bg-secondary/50'
+                )}
+              >
+                Manga
+              </button>
+            </div>
+          )}
+        </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5">
           {/* Search Toggle Button */}
           <button
             type="button"
@@ -244,25 +268,25 @@ export function AndroidHomePage({
             className="w-10 h-10 rounded-full flex items-center justify-center text-foreground/80 hover:text-foreground active:scale-95 transition-all cursor-pointer"
             aria-label="Search Collection"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-5 h-5 stroke-[2]" />
           </button>
 
-          {/* Badge / Collection Counter Icon */}
+          {/* Favorites Quick Shortcut with badge */}
           <button
             type="button"
-            onClick={onViewRSS}
+            onClick={() => onFilterCollection('favorites')}
             className="relative w-10 h-10 rounded-full flex items-center justify-center text-foreground/80 hover:text-foreground active:scale-95 transition-all cursor-pointer"
-            aria-label="Notifications & Bookmarks"
+            aria-label="Favorites"
           >
-            <Bookmark className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary text-primary-foreground font-black text-[9px] flex items-center justify-center shadow-xs">
-              {favoriteBookIds.size > 0 ? Math.min(favoriteBookIds.size, 9) : '4'}
+            <Heart className={cn('w-5 h-5 stroke-[2] transition-colors', favoriteBookIds.size > 0 && 'text-rose-500 fill-rose-500/20')} />
+            <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground font-black text-[9px] flex items-center justify-center shadow-xs">
+              {favoriteBookIds.size > 0 ? Math.min(favoriteBookIds.size, 99) : '0'}
             </span>
           </button>
         </div>
       </header>
 
-      {/* Optional Search Bar Input Dropdown */}
+      {/* Expandable Search Input */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.form
@@ -279,11 +303,11 @@ export function AndroidHomePage({
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
                 placeholder="Search titles, authors, genres..."
-                className="w-full h-10 pl-4 pr-9 rounded-full bg-card border border-border/70 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-inner"
+                className="w-full h-10 pl-4 pr-10 rounded-full bg-card border border-border/70 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-inner"
               />
               <button
                 type="submit"
-                className="absolute right-2.5 text-primary p-1 active:scale-90"
+                className="absolute right-2.5 text-primary p-1 active:scale-90 cursor-pointer"
                 aria-label="Submit search"
               >
                 <Search className="w-4 h-4" />
@@ -293,252 +317,295 @@ export function AndroidHomePage({
         )}
       </AnimatePresence>
 
-      {/* ── 2. CATEGORY TABS WITH SUPERSCRIPT COUNTS (All⁽¹⁷⁶⁾, Motivational⁽³⁰⁾, Poetry⁽²⁰⁾) ── */}
-      <div className="mt-1 px-5 flex items-center gap-4 overflow-x-auto no-scrollbar pb-2">
-        {categoryTabs.map((tab) => {
-          const isActive = selectedCategory === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setSelectedCategory(tab.id);
-                setActiveIndex(0);
-              }}
-              className={cn(
-                'flex items-center text-sm tracking-tight whitespace-nowrap transition-colors cursor-pointer active:scale-95 py-1',
-                isActive
-                  ? 'text-primary font-extrabold'
-                  : 'text-muted-foreground hover:text-foreground font-medium'
-              )}
-            >
-              <span>{tab.label}</span>
-              <span className="text-[10px] font-bold opacity-75 align-super ml-0.5 tabular-nums">
-                ({tab.count})
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ── 2. TRENDING BOOKS (HORIZONTAL CARD CAROUSEL ROW) ── */}
+      <section className="mt-2">
+        <div className="px-5 mb-2.5 flex items-center justify-between">
+          <h2 className="text-xs sm:text-sm font-black tracking-wider uppercase text-foreground/80">
+            Trending Books
+          </h2>
+          <button
+            type="button"
+            onClick={onViewLibrary}
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+          >
+            See All
+          </button>
+        </div>
 
-      {/* ── 3. 3D COVERFLOW CENTER-FOCUSED CAROUSEL (Matches media_1792384408531_a6d652df.png) ── */}
-      <div className="relative mt-3 mb-6 w-full flex flex-col items-center overflow-hidden">
-        {featuredItems.length > 0 ? (
-          <div className="relative w-full h-[340px] sm:h-[370px] flex items-center justify-center">
-            {/* Left preview card */}
-            {activeIndex > 0 && (
-              <div
-                onClick={handlePrev}
-                className="absolute left-4 sm:left-12 z-10 w-[170px] sm:w-[190px] aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg border border-border/40 opacity-40 scale-[0.88] transition-all duration-300 cursor-pointer -translate-x-1/4"
-              >
-                <img
-                  src={getCoverUrl(extractBookFromItem(featuredItems[activeIndex - 1]).cover_path)}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-
-            {/* Active Center Card */}
-            {featuredItems[activeIndex] && (() => {
-              const activeBook = extractBookFromItem(featuredItems[activeIndex]);
-              const activeCover = getCoverUrl(activeBook.cover_path);
-
+        {trendingItems.length > 0 ? (
+          <div className="flex items-center gap-3.5 px-5 overflow-x-auto no-scrollbar scrollbar-none [&::-webkit-scrollbar]:hidden pb-2 pt-1">
+            {trendingItems.map((item) => {
+              const book = extractBookFromItem(item);
+              const coverUrl = getCoverUrl(book.cover_path);
               return (
-                <motion.div
-                  key={`center-card-${activeBook.id}`}
-                  initial={{ scale: 0.95, opacity: 0.8 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.25 }}
-                  onClick={() => handleOpenDeepDive(featuredItems[activeIndex])}
-                  className="relative z-20 w-[225px] sm:w-[250px] aspect-[2/3] rounded-[28px] overflow-hidden shadow-2xl shadow-black/40 border border-border/50 bg-card cursor-pointer group active:scale-[0.98] transition-transform"
+                <div
+                  key={book.id || book.uuid}
+                  onClick={() => handleOpenDeepDive(item)}
+                  className="w-[142px] sm:w-[158px] aspect-[2/3] shrink-0 rounded-[20px] overflow-hidden relative shadow-lg shadow-black/15 border border-border/40 bg-card cursor-pointer group active:scale-[0.98] transition-transform"
                 >
-                  {activeCover ? (
+                  {coverUrl ? (
                     <img
-                      src={activeCover}
-                      alt={activeBook.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      src={coverUrl}
+                      alt={book.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <div className="w-full h-full p-4 flex flex-col justify-between bg-gradient-to-br from-card via-muted to-card">
                       <BookOpen className="w-8 h-8 text-primary/50" />
-                      <span className="text-sm font-bold line-clamp-3">{activeBook.title}</span>
+                      <span className="text-xs font-bold line-clamp-3">{book.title}</span>
                     </div>
                   )}
 
-                  {/* Dark subtle gradient at bottom of card */}
-                  <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+                  {/* Realistic book spine shadow on left edge */}
+                  <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/40 via-black/10 to-transparent pointer-events-none rounded-l-[20px]" />
 
-                  {/* Book Title & Subtitle at bottom of card */}
-                  <div className="absolute inset-x-0 bottom-16 px-4 text-center pointer-events-none">
-                    <h3 className="text-sm font-extrabold text-white line-clamp-1 drop-shadow-md">
-                      {activeBook.title}
-                    </h3>
-                    <p className="text-[11px] font-medium text-white/75 line-clamp-1 mt-0.5">
-                      {getItemAuthor(featuredItems[activeIndex])}
-                    </p>
-                  </div>
+                  {/* Top-left format badge */}
+                  <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-black text-white uppercase tracking-wider border border-white/15 pointer-events-none shadow-xs">
+                    {book.file_format?.toUpperCase() || (book.domain === 'manga_comics' ? 'MANGA' : 'EPUB')}
+                  </span>
 
-                  {/* Floating Circular Action Button with ↗ (ArrowUpRight) */}
+                  {/* Bottom-right circular white play button (Matches Reference Image) */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleOpenDeepDive(featuredItems[activeIndex]);
+                      onOpenBook(book);
                     }}
-                    className="absolute bottom-3 left-1/2 -translate-x-1/2 w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl active:scale-90 transition-transform cursor-pointer border border-white/20"
-                    aria-label="Deep dive book details"
+                    className="absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full bg-white dark:bg-white text-black flex items-center justify-center shadow-lg active:scale-90 hover:scale-105 transition-all cursor-pointer z-10"
+                    aria-label={`Read ${book.title}`}
                   >
-                    <ArrowUpRight className="w-6 h-6 stroke-[2.5]" />
+                    <Play className="w-3.5 h-3.5 fill-black stroke-black ml-0.5" />
                   </button>
-                </motion.div>
+                </div>
               );
-            })()}
-
-            {/* Right preview card */}
-            {activeIndex < featuredItems.length - 1 && (
-              <div
-                onClick={handleNext}
-                className="absolute right-4 sm:right-12 z-10 w-[170px] sm:w-[190px] aspect-[2/3] rounded-[24px] overflow-hidden shadow-lg border border-border/40 opacity-40 scale-[0.88] transition-all duration-300 cursor-pointer translate-x-1/4"
-              >
-                <img
-                  src={getCoverUrl(extractBookFromItem(featuredItems[activeIndex + 1]).cover_path)}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
+            })}
           </div>
         ) : (
-          <div className="w-[230px] aspect-[2/3] rounded-[28px] border border-border/50 bg-card/60 flex flex-col items-center justify-center p-4 text-center">
-            <BookOpen className="w-10 h-10 text-muted-foreground/40 mb-2" />
-            <p className="text-xs text-muted-foreground">No books available in this category.</p>
+          <div className="px-5 py-6 mx-5 rounded-2xl bg-card/60 border border-border/60 text-center">
+            <BookOpen className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">No books available yet.</p>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ── 4. "CONTINUE READING" SECTION (Matches media_1792384408531_a6d652df.png) ── */}
-      <section className="px-5 mt-2">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-foreground tracking-tight">
-            Continue reading
+      {/* ── 3. RECENTLY PLAYED (VERTICAL EDITORIAL LIST) ── */}
+      <section className="mt-5">
+        <div className="px-5 mb-1.5 flex items-center justify-between">
+          <h2 className="text-xs sm:text-sm font-black tracking-wider uppercase text-foreground/80">
+            Recently Played
           </h2>
           <button
             type="button"
             onClick={() => onFilterCollection('reading')}
-            className="text-xs font-semibold text-primary hover:underline cursor-pointer active:scale-95"
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
           >
-            View
+            See All
           </button>
         </div>
 
-        {continueReadingBook ? (
-          <div
-            onClick={() => setSelectedDeepDiveBook(continueReadingBook)}
-            className="p-3.5 rounded-2xl bg-card/90 hover:bg-card border border-border/60 shadow-xs flex flex-col gap-3 cursor-pointer group active:scale-[0.99] transition-all"
-          >
-            {/* Top row with thumbnail and title info */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl overflow-hidden bg-muted/60 shrink-0 border border-border/40 shadow-xs">
-                {continueReadingBook.cover_path ? (
-                  <img
-                    src={getCoverUrl(continueReadingBook.cover_path)}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted">
-                    <BookOpen className="w-5 h-5 text-primary/60" />
-                  </div>
-                )}
-              </div>
+        {recentlyPlayedItems.length > 0 ? (
+          <div className="px-4 flex flex-col gap-1">
+            {recentlyPlayedItems.map((item) => {
+              const book = extractBookFromItem(item);
+              const coverUrl = getCoverUrl(book.cover_path);
+              const author = getItemAuthor(item);
+              const progress = book.id ? progressMap[book.id] : undefined;
+              const meta = getBookMeta(book, progress);
 
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                  {continueReadingBook.title}
-                </span>
-                <span className="text-xs font-medium text-muted-foreground truncate mt-0.5">
-                  By {continueReadingBook.authors?.map((a) => a.name).join(', ') || 'Unknown Author'}
-                </span>
-              </div>
-            </div>
-
-            {/* Bottom row with progress bar & percentage */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-1 bg-muted/70 rounded-full overflow-hidden">
+              return (
                 <div
-                  className="h-full bg-primary rounded-full transition-all duration-300"
-                  style={{ width: `${Math.max(5, Math.round(continueReadingProgress || 69))}%` }}
-                />
-              </div>
-              <span className="text-xs font-bold text-muted-foreground tabular-nums">
-                {Math.round(continueReadingProgress || 69)}%
-              </span>
-            </div>
+                  key={book.id || book.uuid}
+                  onClick={() => handleOpenDeepDive(item)}
+                  className="flex items-center justify-between p-2 rounded-2xl hover:bg-card/70 active:scale-[0.99] transition-all cursor-pointer group"
+                >
+                  {/* Left Cover Thumbnail */}
+                  <div className="relative w-12 h-16 min-w-[48px] max-w-[48px] rounded-xl overflow-hidden bg-muted/80 shrink-0 border border-border/50 shadow-xs">
+                    {coverUrl ? (
+                      <img
+                        src={coverUrl}
+                        alt=""
+                        className="w-full h-full object-cover select-none pointer-events-none"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <BookOpen className="w-5 h-5 text-primary/60" />
+                      </div>
+                    )}
+                    <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/35 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Center Info */}
+                  <div className="flex-1 min-w-0 ml-3.5 mr-2">
+                    <h3 className="text-sm font-black text-foreground tracking-tight truncate group-hover:text-primary transition-colors">
+                      {book.title}
+                    </h3>
+                    <p className="text-xs font-medium text-muted-foreground truncate mt-0.5">
+                      {author || 'Unknown Author'}
+                    </p>
+                    <p className="text-[11px] font-semibold text-muted-foreground/75 truncate mt-0.5">
+                      {meta}
+                    </p>
+                  </div>
+
+                  {/* Right 3-dots Menu Button & Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-2 rounded-full text-muted-foreground/80 hover:text-foreground active:scale-90 transition-transform cursor-pointer"
+                        aria-label="Book actions"
+                      >
+                        <MoreVertical className="w-4 h-4 stroke-[2]" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      sideOffset={4}
+                      className="min-w-[195px] rounded-2xl bg-popover/95 dark:bg-[#18181b]/95 border border-border/80 shadow-2xl backdrop-blur-md p-1.5 z-[9999] text-sm animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenBook(book);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary/70 text-foreground font-medium transition-colors select-none"
+                      >
+                        <BookOpen className="w-4 h-4 text-foreground/85 shrink-0" />
+                        <span>Open</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDeepDive(item);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary/70 text-foreground font-medium transition-colors select-none"
+                      >
+                        <Info className="w-4 h-4 text-foreground/85 shrink-0" />
+                        <span>View Details</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (book.id) setEditingBookId(book.id);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary/70 text-foreground font-medium transition-colors select-none"
+                      >
+                        <Pencil className="w-4 h-4 text-foreground/85 shrink-0" />
+                        <span>Edit Metadata</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (book.id) setShelfBookId(book.id);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary/70 text-foreground font-medium transition-colors select-none"
+                      >
+                        <FolderPlus className="w-4 h-4 text-foreground/85 shrink-0" />
+                        <span>Add to Shelf...</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator className="h-px bg-border/50 my-1 mx-1" />
+
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (book.id) setDeleteBookInfo({ id: book.id, title: book.title });
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-destructive/15 focus:bg-destructive/15 text-destructive font-medium transition-colors select-none"
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive shrink-0" />
+                        <span>Delete</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })}
           </div>
         ) : (
-          <div className="p-4 rounded-2xl bg-card/60 border border-border/60 text-center">
-            <p className="text-xs text-muted-foreground mb-2">No book in progress right now.</p>
-            <button
-              type="button"
-              onClick={onViewLibrary}
-              className="px-4 py-1.5 text-xs font-bold rounded-xl bg-primary text-primary-foreground shadow-xs active:scale-95"
-            >
-              Start Reading
-            </button>
+          <div className="px-5 py-4 mx-5 rounded-2xl bg-card/60 border border-border/60 text-center">
+            <p className="text-xs text-muted-foreground">No recent books yet.</p>
           </div>
         )}
       </section>
 
-      {/* ── 5. QUICK COLLECTIONS PILLS ── */}
-      <section className="px-5 mt-5">
-        <div className="grid grid-cols-3 gap-2">
-          {/* Favorites */}
-          <button
-            type="button"
-            onClick={() => onFilterCollection('favorites')}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-2xl bg-card/85 hover:bg-card border border-border/70 active:scale-95 transition-all shadow-2xs cursor-pointer"
+      {/* ── 4. FLOATING QUICK-RESUME PLAYER BAR (Matches Reference Image) ── */}
+      {activeBook && (
+        <div className="px-5 mt-5 mb-2">
+          <div
+            onClick={() => onOpenBook(activeBook)}
+            className="w-full bg-[#18181b] dark:bg-[#18181b] text-white border border-white/10 shadow-2xl rounded-[22px] p-2.5 sm:p-3 flex items-center justify-between active:scale-[0.99] transition-transform cursor-pointer group"
           >
-            <div className="w-5 h-5 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
-              <Heart size={13} className="fill-rose-500/30" />
+            {/* Left Cover Art Thumbnail */}
+            <div className="w-11 h-11 min-w-[44px] max-w-[44px] rounded-xl overflow-hidden bg-white/10 shrink-0 border border-white/15 shadow-xs relative">
+              {activeBook.cover_path ? (
+                <img
+                  src={getCoverUrl(activeBook.cover_path)}
+                  alt=""
+                  className="w-full h-full object-cover select-none pointer-events-none"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-white/10 text-white/60">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+              )}
             </div>
-            <span className="text-xs font-bold text-foreground truncate">Favorites</span>
-            <span className="text-[10px] font-bold px-1 py-0.2 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300 tabular-nums">
-              {groupedFavorites.length}
-            </span>
-          </button>
 
-          {/* Reading */}
-          <button
-            type="button"
-            onClick={() => onFilterCollection('reading')}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-2xl bg-card/85 hover:bg-card border border-border/70 active:scale-95 transition-all shadow-2xs cursor-pointer"
-          >
-            <div className="w-5 h-5 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <BookOpen size={13} />
+            {/* Center Book Title & Author */}
+            <div className="flex-1 min-w-0 ml-3 mr-3 text-left">
+              <div className="font-bold text-xs sm:text-sm text-white truncate tracking-tight group-hover:text-amber-200 transition-colors">
+                {activeBook.title}
+              </div>
+              <div className="text-[11px] text-white/70 font-medium truncate mt-0.5">
+                {activeBook.authors?.map((a) => a.name).join(', ') || 'Unknown Author'}
+              </div>
             </div>
-            <span className="text-xs font-bold text-foreground truncate">Reading</span>
-            <span className="text-[10px] font-bold px-1 py-0.2 rounded-full bg-primary/15 text-primary tabular-nums">
-              {groupedContinueReading.length}
-            </span>
-          </button>
 
-          {/* Completed */}
-          <button
-            type="button"
-            onClick={() => onFilterCollection('completed')}
-            className="flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-2xl bg-card/85 hover:bg-card border border-border/70 active:scale-95 transition-all shadow-2xs cursor-pointer"
-          >
-            <div className="w-5 h-5 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-              <CheckCircle2 size={13} />
-            </div>
-            <span className="text-xs font-bold text-foreground truncate">Done</span>
-            <span className="text-[10px] font-bold px-1 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 tabular-nums">
-              {groupedCompleted.length}
-            </span>
-          </button>
+            {/* Right Play / Resume Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenBook(activeBook);
+              }}
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white text-black flex items-center justify-center shrink-0 shadow-md active:scale-90 hover:scale-105 transition-all cursor-pointer"
+              aria-label="Resume reading"
+            >
+              <Play className="w-4 h-4 fill-black stroke-black ml-0.5" />
+            </button>
+          </div>
         </div>
-      </section>
+      )}
+
+      {/* ── ACTION DIALOGS ── */}
+      {editingBookId !== null && (
+        <EditMetadataDialog
+          open={editingBookId !== null}
+          onOpenChange={(open) => !open && setEditingBookId(null)}
+          bookId={editingBookId}
+        />
+      )}
+
+      {shelfBookId !== null && (
+        <ShelfSelectDialog
+          open={shelfBookId !== null}
+          onOpenChange={(open) => !open && setShelfBookId(null)}
+          bookId={shelfBookId}
+        />
+      )}
+
+      {deleteBookInfo !== null && (
+        <DeleteBookDialog
+          open={deleteBookInfo !== null}
+          onOpenChange={(open) => !open && setDeleteBookInfo(null)}
+          bookIds={[deleteBookInfo.id]}
+          bookTitle={deleteBookInfo.title}
+        />
+      )}
     </div>
   );
 }

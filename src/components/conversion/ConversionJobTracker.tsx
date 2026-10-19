@@ -152,7 +152,8 @@ const ConversionReportSummary: React.FC<{ report: ConversionReport }> = ({ repor
 };
 
 const ConversionJobTracker: React.FC<ConversionJobTrackerProps> = () => {
-  const jobs = useConversionStore(state => state.jobs);
+  const rawJobs = useConversionStore(state => state.jobs);
+  const jobs = Array.isArray(rawJobs) ? rawJobs : [];
   const loadJobs = useConversionStore(state => state.loadJobs);
   const cancelJob = useConversionStore(state => state.cancelJob);
   const clearCompletedJobs = useConversionStore(state => state.clearCompletedJobs);

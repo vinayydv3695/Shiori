@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { IconBookOpen } from '@/components/icons/ShioriIcons';
 import type { CarouselItem } from './ContentCarousel';
-import { getProxyUrl } from '@/lib/tauri';
+import { getProxyUrl, isAndroid } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
 
 interface HeroMangaBannerProps {
@@ -27,7 +27,10 @@ export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'gener
 
   if (loading) {
     return (
-      <div className="relative w-full h-[280px] sm:h-[320px] md:h-[360px] rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse mb-8" />
+      <div className={cn(
+        "relative w-full rounded-2xl md:rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse",
+        isAndroid ? "h-[190px] mb-5" : "h-[280px] sm:h-[320px] md:h-[360px] mb-8"
+      )} />
     );
   }
 
@@ -35,6 +38,95 @@ export function HeroMangaBanner({ items, loading, onReadClick, sourceId = 'gener
 
   const current = items[currentIndex] || items[0];
   const cover = current?.coverUrl ? getProxyUrl(sourceId, current.coverUrl) : null;
+
+  // Dedicated Cinematic 16:9 Banner for Android
+  if (isAndroid) {
+    return (
+      <div className="relative w-full h-[190px] rounded-2xl overflow-hidden group border border-border/60 bg-card shadow-sm backdrop-blur-xl mb-5 select-none">
+        {cover && (
+          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+            {/* Ambient Blur */}
+            <div className="absolute inset-0 overflow-hidden">
+              <img
+                key={current.id + '-manga-ambient'}
+                src={cover}
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full object-cover filter blur-2xl scale-125 opacity-35 dark:opacity-25 saturate-150 transition-all duration-700"
+              />
+            </div>
+
+            {/* Right side visible artwork with smooth fade */}
+            <div className="absolute right-0 top-0 bottom-0 w-[65%] h-full [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.3)_30%,black_85%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.3)_30%,black_85%)]">
+              <img
+                src={cover}
+                alt=""
+                className="w-full h-full object-cover object-top opacity-85 dark:opacity-75 transition-all duration-700"
+              />
+            </div>
+
+            {/* Contrast Gradient Scrim */}
+            <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-transparent dark:from-background dark:via-background/85 dark:to-transparent [mask-image:linear-gradient(to_right,black_0%,black_50%,transparent_95%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_50%,transparent_95%)]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-card/20 dark:from-background/80 dark:via-transparent dark:to-background/20" />
+          </div>
+        )}
+
+        {/* Content Container */}
+        <div className="relative z-10 h-full p-4 flex flex-col justify-between">
+          {/* Top Tag & Index */}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 text-[10px] font-black tracking-wider uppercase backdrop-blur-md shadow-xs">
+              Featured Manga
+            </span>
+            <span className="text-[11px] font-bold text-muted-foreground/80">
+              #{currentIndex + 1} of {Math.min(items.length, 5)}
+            </span>
+          </div>
+
+          {/* Title & Subtitle */}
+          <div className="max-w-[70%] space-y-1">
+            <h2 className="text-base font-extrabold text-foreground tracking-tight line-clamp-1 drop-shadow-sm">
+              {current.title}
+            </h2>
+            {current.subtitle && (
+              <p className="text-xs font-semibold text-muted-foreground line-clamp-1">
+                {current.subtitle}
+              </p>
+            )}
+          </div>
+
+          {/* Action & Dots */}
+          <div className="flex items-center justify-between pt-1">
+            <Button
+              size="sm"
+              className="h-8 px-4 rounded-xl font-bold gap-1.5 shadow-sm shadow-primary/25 active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90 text-xs cursor-pointer"
+              onClick={() => onReadClick?.(current)}
+            >
+              <IconBookOpen size={14} />
+              Read Now
+            </Button>
+
+            {items.length > 1 && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-card/70 backdrop-blur-md border border-border/40">
+                {items.slice(0, 5).map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setCurrentIndex(i)}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
+                      i === currentIndex ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                    )}
+                    aria-label={`Go to slide ${i + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-[280px] sm:h-[320px] md:h-[360px] rounded-3xl overflow-hidden group border border-border/60 bg-card shadow-lg backdrop-blur-xl mb-8 select-none">

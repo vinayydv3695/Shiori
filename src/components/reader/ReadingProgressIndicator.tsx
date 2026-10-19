@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { api } from '@/lib/tauri';
+import { api, isAndroid } from '@/lib/tauri';
 import { Clock, BookOpen, Timer, Hourglass, Percent } from 'lucide-react';
 import type { BookReadingStats } from '@/lib/tauri';
 import { 
@@ -140,6 +140,38 @@ export function ReadingProgressIndicator({
       readoutText = `${sessionMinutes}m session (${totalMinutes}m total)`;
       tooltipText = 'Session reading time • Tap to cycle modes';
       break;
+  }
+
+  if (isAndroid) {
+    const estimatedTotal = (totalChapters && totalChapters > 1)
+      ? (totalBookWords > 0 ? Math.max(1, Math.round(totalBookWords / 250)) : totalChapters * 18)
+      : Math.max(1, Math.round((totalBookWords || 50000) / 250));
+    const currentEstPage = Math.max(1, Math.min(estimatedTotal, Math.round((progressPercentage / 100) * estimatedTotal) || 1));
+
+    let displayText = `${currentEstPage} / ${estimatedTotal}`;
+    if (mode === 'chapter') {
+      displayText = `${formatTimeRemaining(chapterMinutesLeft, true)} left in ch`;
+    } else if (mode === 'book') {
+      displayText = `${formatTimeRemaining(bookMinutesLeft, true)} left in book`;
+    } else if (mode === 'percent') {
+      displayText = `${Math.round(progressPercentage)}%`;
+    }
+
+    return (
+      <div
+        className="fixed bottom-3.5 left-0 right-0 flex justify-center items-center z-30 pointer-events-auto"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <button
+          type="button"
+          onClick={handleCycleMode}
+          className="text-[11px] sm:text-xs font-medium text-foreground/50 hover:text-foreground/80 tracking-widest tabular-nums cursor-pointer transition-colors bg-transparent border-none py-1 px-3 select-none active:opacity-60"
+          aria-label={tooltipText}
+        >
+          {displayText}
+        </button>
+      </div>
+    );
   }
 
   return (

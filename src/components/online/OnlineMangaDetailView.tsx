@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { AppTooltip } from '@/components/ui/tooltip';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { fetchWithRetry, cn } from '@/lib/utils';
-import { getProxyUrl } from '@/lib/tauri';
+import { getProxyUrl, isAndroid } from '@/lib/tauri';
 import { ChapterDownloadStatusIcon } from './ChapterDownloadStatusIcon';
 import {
   chapterDisplayLabel,
@@ -274,6 +274,296 @@ export function OnlineMangaDetailView({
   const totalReviews = anilistData?.totalReviews ? anilistData.totalReviews.toLocaleString() : '0';
   const alternateTitles = anilistData?.title ? [anilistData.title.english, anilistData.title.romaji, anilistData.title.native].filter(Boolean).join('; ') : title;
   const formatText = anilistData?.format || 'Manga';
+
+  // Dedicated Android Modern Manga Detail Layout
+  if (isAndroid) {
+    return (
+      <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto overflow-x-hidden relative font-sans">
+        {/* Backdrop Banner with smooth bottom gradient fade */}
+        <div className="relative w-full h-44 overflow-hidden shrink-0 select-none bg-muted/30">
+          {coverUrl && (
+            <img
+              src={getProxyUrl(sourceId || '', coverUrl)}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover filter blur-xl scale-125 opacity-40 brightness-[0.7]"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-background/40 to-background" />
+
+          {/* Floating Top Navigation Bar */}
+          <div 
+            className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-3"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+          >
+            <button
+              type="button"
+              onClick={onBack}
+              className="w-9 h-9 rounded-full bg-background/80 backdrop-blur-md border border-border/50 flex items-center justify-center text-foreground active:scale-90 transition-transform shadow-xs cursor-pointer"
+              aria-label="Back to browse"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              {onSaveToLibrary && (
+                <button
+                  type="button"
+                  onClick={onSaveToLibrary}
+                  disabled={isInLibrary}
+                  className={cn(
+                    "w-9 h-9 rounded-full backdrop-blur-md border border-border/50 flex items-center justify-center transition-all shadow-xs active:scale-90 cursor-pointer",
+                    isInLibrary 
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" 
+                      : "bg-background/80 text-foreground"
+                  )}
+                  aria-label={isInLibrary ? "Saved in library" : "Save to library"}
+                >
+                  {isInLibrary ? <BookmarkCheck className="w-4 h-4 text-emerald-400" /> : <Bookmark className="w-4 h-4" />}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Header Info Row (Overlapping the Backdrop) */}
+        <div className="px-4 -mt-16 relative z-10 flex gap-3.5 items-end mb-4">
+          {/* Floating Poster Thumbnail */}
+          <div className="w-28 aspect-[2/3] rounded-2xl overflow-hidden shadow-xl border-2 border-background bg-secondary/40 shrink-0 relative">
+            {coverUrl ? (
+              <img
+                src={getProxyUrl(sourceId || '', coverUrl)}
+                alt={title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground font-semibold">No Cover</div>
+            )}
+          </div>
+
+          {/* Right Title & Meta */}
+          <div className="flex-1 min-w-0 pb-1 space-y-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 text-[9px] font-extrabold uppercase tracking-wider">
+                {status || 'RELEASING'}
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-secondary border border-border/50 text-foreground/80 text-[9px] font-semibold uppercase">
+                {formatText}
+              </span>
+            </div>
+
+            <h1 className="text-base sm:text-lg font-extrabold text-foreground leading-tight line-clamp-2 drop-shadow-xs">
+              {title}
+            </h1>
+
+            <p className="text-xs font-medium text-muted-foreground truncate">
+              {finalAuthor}
+            </p>
+
+            {/* Rating & Stats */}
+            <div className="flex items-center gap-2.5 pt-0.5 text-xs">
+              <div className="flex items-center gap-1 font-bold text-foreground">
+                <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                <span>{ratingScore}</span>
+              </div>
+              <span className="text-border">•</span>
+              <span className="text-muted-foreground font-medium">
+                {unifiedChapters.length} Chapters
+              </span>
+              {finalYear !== '?' && (
+                <>
+                  <span className="text-border">•</span>
+                  <span className="text-muted-foreground font-medium">{finalYear}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Pill Bar */}
+        <div className="px-4 flex items-center gap-2 mb-4">
+          <Button
+            onClick={() => {
+              if (resumeChapter) {
+                onReadChapter(resumeChapter);
+              } else if (unifiedChapters.length > 0) {
+                onReadChapter(filteredAndSortedChapters[filteredAndSortedChapters.length - 1]);
+              }
+            }}
+            className="flex-1 h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 shadow-xs shadow-primary/25 active:scale-95 cursor-pointer"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>{resumeChapter ? `Resume Ch. ${resumeChapter.chapter}` : 'Start Reading'}</span>
+          </Button>
+
+          {onSaveToLibrary && (
+            <Button
+              onClick={onSaveToLibrary}
+              variant="outline"
+              disabled={isInLibrary}
+              className="h-10 px-3.5 rounded-xl border-border/60 bg-secondary/70 hover:bg-secondary text-xs font-semibold flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+            >
+              {isInLibrary ? (
+                <><BookmarkCheck className="w-3.5 h-3.5 text-emerald-400" /> Saved</>
+              ) : (
+                <><Bookmark className="w-3.5 h-3.5 text-foreground/80" /> Save</>
+              )}
+            </Button>
+          )}
+
+          {onDownloadAll && unifiedChapters.length > 0 && (
+            <Button
+              onClick={onDownloadAll}
+              variant="outline"
+              className="h-10 px-3.5 rounded-xl border-border/60 bg-secondary/70 hover:bg-secondary text-xs font-semibold flex items-center gap-1.5 active:scale-95 shrink-0 cursor-pointer"
+            >
+              <BookDown className="w-3.5 h-3.5 text-primary" />
+              <span>Download</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Expandable Synopsis & Genre Chips */}
+        {(displayDescription || (genres && genres.length > 0)) && (
+          <div className="px-4 mb-4 space-y-2">
+            {displayDescription && (
+              <div className="text-xs text-muted-foreground leading-relaxed">
+                <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(displayDescription.replace(/\n/g, '<br/>')) }} />
+                {finalDescription && finalDescription.length > 180 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="text-primary font-bold ml-1 hover:underline cursor-pointer"
+                  >
+                    {isDescriptionExpanded ? 'Read less' : 'Read more'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {genres && genres.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {genres.map(g => (
+                  <span key={g} className="px-2.5 py-0.5 rounded-full bg-secondary/80 border border-border/40 text-[10px] font-medium text-foreground/75">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chapters Section */}
+        <div className="px-4 flex-1 pb-24">
+          {/* Chapter Toolbar */}
+          <div className="flex items-center justify-between pb-2.5 border-b border-border/40 mb-2">
+            <span className="font-extrabold text-xs sm:text-sm text-foreground">
+              Chapters ({filteredAndSortedChapters.length})
+            </span>
+
+            <div className="flex items-center gap-2">
+              {/* Quick Search */}
+              <div className="relative">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter ch..."
+                  className="h-7.5 w-24 text-[11px] bg-secondary/50 border-border/50 rounded-lg pl-6 pr-2"
+                />
+                <Search className="w-3 h-3 absolute left-2 top-2 text-muted-foreground pointer-events-none" />
+              </div>
+
+              {/* Sort Toggle */}
+              <button
+                type="button"
+                onClick={() => setSortAscending(!sortAscending)}
+                className="h-7.5 px-2 rounded-lg bg-secondary/50 border border-border/50 text-[11px] font-bold flex items-center gap-1 text-muted-foreground hover:text-foreground active:scale-95 cursor-pointer"
+                title="Sort chapters"
+              >
+                {sortAscending ? 'Oldest' : 'Newest'}
+              </button>
+            </div>
+          </div>
+
+          {/* Chapters Rows */}
+          {chaptersLoading ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <span>Loading chapters...</span>
+            </div>
+          ) : chaptersError ? (
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+              {chaptersError}
+            </div>
+          ) : filteredAndSortedChapters.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-xs">
+              No chapters found
+            </div>
+          ) : (
+            <div className="divide-y divide-border/25">
+              {filteredAndSortedChapters.map((chapter) => {
+                const isLastRead = chapter.id === lastReadChapterId;
+                const isResume = chapter.id === resumeChapterId;
+                const dlStatus = chapterDownloadStatus?.[chapter.id];
+
+                return (
+                  <div
+                    key={chapter.id}
+                    onClick={() => onReadChapter(chapter)}
+                    className={cn(
+                      "py-2.5 flex items-center justify-between gap-3 active:bg-secondary/40 transition-colors cursor-pointer",
+                      (isLastRead || isResume) && "text-primary"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-foreground truncate">
+                          {chapterDisplayLabel(chapter)}
+                        </span>
+                        {(isLastRead || isResume) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-primary/15 text-primary border border-primary/20">
+                            {isResume ? 'Current' : 'Read'}
+                          </span>
+                        )}
+                      </div>
+                      {chapter.title && (
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {chapter.title}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground/70 mt-0.5">
+                        {chapter.date && <span>{chapter.date}</span>}
+                        {chapter.scanlationGroup && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate">{chapter.scanlationGroup}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {onDownloadChapter && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDownloadChapter(chapter);
+                        }}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground active:scale-90 transition-transform cursor-pointer"
+                        aria-label={`Download chapter ${chapter.chapter}`}
+                      >
+                        <ChapterDownloadStatusIcon status={dlStatus} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background text-foreground overflow-y-auto overflow-x-hidden relative font-sans">

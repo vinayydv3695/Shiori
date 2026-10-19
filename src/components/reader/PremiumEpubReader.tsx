@@ -20,7 +20,7 @@ import { PageFlipEngine, type PageFlipHandle } from './PageFlipEngine';
 import { TextSelectionToolbar } from './TextSelectionToolbar';
 import { ReaderAnnotationTooltip } from './ReaderAnnotationTooltip';
 import { ReaderContextMenu } from './ReaderContextMenu';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter, Bookmark } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Search, BookOpen, Highlighter, Bookmark, List } from '@/components/icons';
 import { ReaderTooltip } from './ReaderTooltip';
 import { escapeHtml } from '@/lib/sanitize';
 import DOMPurify from 'dompurify';
@@ -2630,7 +2630,11 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 className="premium-control-button"
                 aria-label="Table of Contents"
               >
-                <BookOpen className="premium-control-icon" />
+                {isAndroid ? (
+                  <List className="premium-control-icon" />
+                ) : (
+                  <BookOpen className="premium-control-icon" />
+                )}
               </button>
             </ReaderTooltip>
 

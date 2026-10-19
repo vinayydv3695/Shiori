@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Compass, Filter, Globe, BookOpen, Search } from 'lucide-react';
+import { Compass, Filter, Globe, BookOpen, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { isAndroid } from '@/lib/tauri';
 import { OnlineSourceSelector } from './OnlineSourceSelector';
@@ -49,10 +49,10 @@ export function OnlineSearchHeader({
     <div 
       className={cn(
         "flex-shrink-0 relative overflow-hidden z-20 transition-colors duration-500",
-        isMobile ? "sticky top-0 pb-1.5 px-3 bg-background/90 backdrop-blur-xl border-b border-border/40 shadow-2xs" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
+        isMobile ? "sticky top-0 pb-2 px-3 bg-background/95 backdrop-blur-xl border-b border-border/40 shadow-2xs" : "bg-background/40 backdrop-blur-3xl pt-4 pb-3 px-6 md:px-8 border-b border-border/30"
       )}
       style={isMobile ? {
-        paddingTop: isAndroid ? '6px' : 'max(env(safe-area-inset-top, 0px), 6px)',
+        paddingTop: isAndroid ? '8px' : 'max(env(safe-area-inset-top, 0px), 6px)',
         paddingLeft: isAndroid ? '12px' : 'calc(env(safe-area-inset-left, 0px) + 12px)',
         paddingRight: isAndroid ? '12px' : 'calc(env(safe-area-inset-right, 0px) + 12px)',
       } : undefined}
@@ -79,13 +79,74 @@ export function OnlineSearchHeader({
             </div>
           </div>
 
+          {/* Android / Mobile Category Switcher (Books vs Manga) */}
+          {isMobile && preferences?.preferredContentType === 'both' && (
+            <div className="flex p-1 bg-secondary/60 dark:bg-secondary/40 rounded-2xl border border-border/40 mb-2 gap-1 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setCurrentView('online-books')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-xl transition-all duration-200 active:scale-95",
+                  kind === 'books'
+                    ? "bg-card text-foreground shadow-xs border border-border/60"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Books</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentView('online-manga')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 text-xs font-bold rounded-xl transition-all duration-200 active:scale-95",
+                  kind === 'manga'
+                    ? "bg-card text-foreground shadow-xs border border-border/60"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Manga</span>
+              </button>
+            </div>
+          )}
+
           <div className="relative group">
             {isMobile ? (
-              // Mobile Search Bar
-              <div className="flex items-center bg-card/85 backdrop-blur-xl border border-border/50 rounded-2xl p-1 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 transition-all duration-300 shadow-xs">
+              // Mobile / Android Search Bar: Spacious and balanced
+              <div className="flex items-center bg-card/90 backdrop-blur-xl border border-border/60 rounded-2xl p-1 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15 transition-all duration-300 shadow-xs">
                 
-                {/* Left side actions */}
-                <div className="flex items-center gap-1 pl-0.5 shrink-0">
+                {/* Search Icon */}
+                <div className="pl-2.5 pr-1 text-muted-foreground/70 shrink-0">
+                  <Search className="w-4 h-4 stroke-[2.2]" />
+                </div>
+                
+                {/* Input */}
+                <input
+                  value={searchValue}
+                  onChange={(e) => onSearchValueChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onSubmit();
+                  }}
+                  placeholder={kind === 'books' ? 'Search books by title, author...' : 'Search manga by title, author...'}
+                  className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-foreground placeholder:text-muted-foreground/50 focus:ring-0 py-1.5 px-1 min-w-0"
+                  disabled={disabled}
+                />
+                
+                {/* Clear Button */}
+                {searchValue && (
+                  <button
+                    type="button"
+                    onClick={() => onSearchValueChange('')}
+                    className="p-1 rounded-full text-muted-foreground hover:text-foreground active:scale-90 transition-transform mr-1"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Right side actions */}
+                <div className="flex items-center gap-1 shrink-0 pr-0.5">
                   {/* Filter Option */}
                   {(kind === 'books' || kind === 'manga') && (
                     <AppTooltip content="Filters" side="bottom">
@@ -93,9 +154,9 @@ export function OnlineSearchHeader({
                         onClick={() => kind === 'books' ? setAdvancedOpen(true) : onMobileFilterClick?.()}
                         aria-label="Filters"
                         className={cn(
-                          "w-8 h-8 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95",
+                          "w-7.5 h-7.5 rounded-xl flex items-center justify-center transition-all shrink-0 active:scale-95",
                           (kind === 'books' && hasFilters) || kind === 'manga'
-                            ? "bg-primary text-primary-foreground shadow-xs" 
+                            ? "bg-primary text-primary-foreground shadow-2xs" 
                             : "text-muted-foreground hover:text-foreground hover:bg-secondary/80 bg-secondary/40"
                         )}
                         disabled={disabled}
@@ -110,40 +171,17 @@ export function OnlineSearchHeader({
                     kind={kind} 
                     variant="ghost" 
                     iconOnly={true}
-                    className="w-8 h-8 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0" 
+                    className="w-7.5 h-7.5 p-0 rounded-xl flex items-center justify-center transition-all hover:bg-secondary/80 text-muted-foreground shrink-0" 
                   />
 
                   {/* Downloads Queue Option */}
-                  <DownloadsButton iconOnly className="w-8 h-8 rounded-xl shrink-0" />
-                </div>
-                
-                {/* Input */}
-                <input
-                  value={searchValue}
-                  onChange={(e) => onSearchValueChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onSubmit();
-                  }}
-                  placeholder={kind === 'books' ? 'Search books...' : 'Search manga...'}
-                  className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm font-semibold text-foreground placeholder:text-muted-foreground/60 focus:ring-0 py-1.5 px-2.5 min-w-0"
-                  disabled={disabled}
-                />
-                
-                {/* Right side actions */}
-                <div className="flex items-center pr-1 gap-1 shrink-0">
-                  {searchValue && (
-                    <button
-                      type="button"
-                      onClick={() => onSearchValueChange('')}
-                      className="p-1 rounded-full text-muted-foreground hover:text-foreground"
-                    >
-                      <Search className="w-3.5 h-3.5 opacity-0 pointer-events-none" />
-                    </button>
-                  )}
+                  <DownloadsButton iconOnly className="w-7.5 h-7.5 rounded-xl shrink-0" />
+
+                  {/* Submit Button */}
                   <button 
                     onClick={onSubmit} 
                     disabled={loading || disabled || !searchValue.trim()}
-                    className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs active:scale-95"
+                    className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-40 transition-all shadow-xs active:scale-95 shrink-0 ml-0.5"
                   >
                     Go
                   </button>
@@ -191,33 +229,6 @@ export function OnlineSearchHeader({
               </div>
             )}
           </div>
-
-          {isMobile && preferences?.preferredContentType === 'both' && (
-            <div className="flex px-2 gap-2 mt-2">
-              <button
-                onClick={() => setCurrentView('online-books')}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-semibold rounded-full transition-all relative overflow-hidden",
-                  kind === 'books'
-                    ? "text-primary-foreground bg-primary shadow-md shadow-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <Globe className="w-4 h-4" /> Books
-              </button>
-              <button
-                onClick={() => setCurrentView('online-manga')}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-3 text-[14px] font-semibold rounded-full transition-all relative overflow-hidden",
-                  kind === 'manga'
-                    ? "text-primary-foreground bg-primary shadow-md shadow-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-              >
-                <BookOpen className="w-4 h-4" /> Manga
-              </button>
-            </div>
-          )}
         </div>
 
         {kind === 'books' && (

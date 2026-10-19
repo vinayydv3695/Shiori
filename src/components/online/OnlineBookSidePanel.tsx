@@ -194,7 +194,7 @@ export function OnlineBookSidePanel({
               <motion.div className="relative pt-4 pb-6 px-4 sm:pt-6 sm:pb-8 sm:px-8 flex flex-col items-center border-b border-border/30" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                 <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-30 pointer-events-none" />
                 
-                <div className="relative w-36 sm:w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.35)] border border-border/50 mb-4 sm:mb-6 shrink-0">
+                <div className="relative w-28 sm:w-48 aspect-[2/3] rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.35)] border border-border/50 mb-3 sm:mb-6 shrink-0">
                   {proxyUrl && !imgError ? (
                     <img 
                       src={proxyUrl} 
@@ -212,44 +212,46 @@ export function OnlineBookSidePanel({
                   <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)] pointer-events-none" />
                 </div>
 
-                <h2 className="text-lg sm:text-2xl font-bold text-foreground text-center leading-snug mb-1 sm:mb-2 font-serif max-w-lg">
+                <h2 className="text-base sm:text-2xl font-bold text-foreground text-center leading-snug mb-1 sm:mb-2 font-serif max-w-lg">
                   {book.title}
                 </h2>
                 {book.author && (
-                  <p className="text-muted-foreground text-sm sm:text-base text-center mb-3 sm:mb-4">
+                  <p className="text-muted-foreground text-xs sm:text-base text-center mb-2.5 sm:mb-4">
                     {book.author}
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-3">
                   {book.format && (
-                    <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
+                    <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
                       {book.format}
                     </span>
                   )}
                   {book.language && (
-                    <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
+                    <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
                       {book.language}
                     </span>
                   )}
                   {book.size && (
-                    <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
+                    <span className="px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-muted/60 text-foreground/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider border border-border/50">
                       {book.size}
                     </span>
                   )}
                 </div>
               </motion.div>
 
-              {/* Actions (Main Download Button) */}
-              <motion.div className="p-4 sm:p-8 flex flex-col gap-3 sm:gap-4" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
-                <button 
-                  onClick={onDownload}
-                  className="w-full py-3 sm:py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-lg transition-all duration-300 text-sm sm:text-base active:scale-[0.98]"
-                >
-                  <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                  Download Now
-                </button>
-              </motion.div>
+              {/* Actions (Main Download Button - Desktop only since mobile has sticky action) */}
+              {!isMobile && (
+                <motion.div className="p-4 sm:p-8 flex flex-col gap-3 sm:gap-4" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                  <button 
+                    onClick={onDownload}
+                    className="w-full py-3 sm:py-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-lg transition-all duration-300 text-sm sm:text-base active:scale-[0.98]"
+                  >
+                    <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Download Now
+                  </button>
+                </motion.div>
+              )}
 
               {/* Download route status for Anna's Archive books */}
               {book.source === 'annas-archive' && aaSources && (

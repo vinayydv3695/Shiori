@@ -1,3 +1,14 @@
+# Release Notes (v1.0.22)
+
+## Online Manga & Online Books Mobile Redesign
+
+- **Fitted Mobile Sources Bottom Sheet** — Replaced the floating desktop dropdown menu with a native, slide-up bottom sheet drawer with tactile source cards, descriptive tags, and instant touch feedback.
+- **Sleek Android Category Switcher** — Redesigned the Books vs. Manga toggle with compact, elevated segmented pill controls and improved safe-area spacing.
+- **Cinematic 16:9 Spotlight Banners** — Optimized Featured Spotlight banners for mobile viewports with soft ambient gradient scrims, compact typography, and responsive carousel controls.
+- **Clean 2:3 Poster Cards** — Transitioned book and manga cards to modern 2:3 vertical posters with crisp typography and status badges neatly organized underneath the cover.
+- **Redesigned Manga & Book Detail Views** — Overhauled the mobile detail experience with blurred cover backdrops, floating poster thumbnails, compact horizontal action pill bars (`Read`, `Save`, `Download`), collapsible synopses, and clean chapter lists.
+- **Refined Book Details Panel** — Modernized the mobile book side panel with proper cover proportions and eliminated duplicate action buttons.
+
 # Release Notes (v1.0.21)
 
 ## Reader Navigation & Passage Spotlight

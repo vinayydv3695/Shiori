@@ -23,6 +23,7 @@ import { FeaturedContinueCard } from './FeaturedContinueCard'
 import { useLibraryStore, EMPTY_FILTERS } from '@/store/libraryStore'
 import { useShelfStore } from '@/store/shelfStore'
 import { useUIStore, type DomainView } from '@/store/uiStore'
+import { AndroidHomePage } from './AndroidHomePage'
 import type { Book, ReadingProgress } from '@/lib/tauri'
 import { api, isAndroid } from '@/lib/tauri'
 import { formatFileSize, isMangaDomain, proxyExternalCover, cn } from '@/lib/utils'
@@ -410,7 +411,33 @@ export function HomePage({
     setCurrentView('library');
   }
 
-  // ── Empty state ──────────────────────────────
+  // ── Dedicated Android Home Section (media_1792380762389_50df49f1.png) ──
+  if (isAndroid) {
+    return (
+      <AndroidHomePage
+        domain={domain}
+        groupedContinueReading={groupedContinueReading}
+        groupedRecentlyAdded={groupedRecentlyAdded}
+        groupedRecommended={groupedRecommended}
+        groupedFavorites={groupedFavorites}
+        groupedCompleted={groupedCompleted}
+        libraryStats={libraryStats}
+        progressMap={progressMap}
+        libraryBooks={libraryBooks}
+        onOpenBook={handleOpenBook}
+        onViewSeries={onViewSeries}
+        onViewRSS={onViewRSS}
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+        onOpenAdvancedFilter={onOpenAdvancedFilter}
+        onOpenSettings={onOpenSettings}
+        onFilterCollection={handleFilterCollection}
+        onViewLibrary={handleViewLibrary}
+      />
+    );
+  }
+
+  // ── Desktop Empty state ──────────────────────────────
   if (libraryStats && libraryStats.total_books === 0 && libraryStats.total_manga === 0) {
     return (
       <motion.div

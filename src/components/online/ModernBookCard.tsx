@@ -93,6 +93,140 @@ export const ModernBookCard = memo(function ModernBookCard({
     ? Math.min(100, Math.round((downloadState.downloaded_bytes / downloadState.total_bytes) * 100))
     : null;
 
+  // Android Layout: Clean 2:3 vertical poster card with typography neatly underneath
+  if (isAndroid) {
+    return (
+      <div 
+        onClick={onClick}
+        className="group relative flex flex-col h-full cursor-pointer select-none transition-all duration-200 active:scale-[0.97]"
+      >
+        {/* Cover Container */}
+        <div className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-secondary/30 border border-border/50 shadow-2xs group-hover:shadow-md transition-all duration-300">
+          {(!imgLoaded && !imgError && proxyUrl) && (
+            <div className="absolute inset-0 bg-muted/40 animate-pulse" />
+          )}
+
+          {proxyUrl && !imgError ? (
+            <img
+              src={proxyUrl}
+              alt={title}
+              className={cn(
+                "w-full h-full object-cover transition-all duration-500",
+                imgLoaded ? "opacity-100 scale-100" : "opacity-0 scale-105"
+              )}
+              loading="lazy"
+              decoding="async"
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col justify-center items-center p-3.5 bg-gradient-to-br from-primary/10 via-card to-secondary/40 text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-primary/15 rounded-full blur-xl pointer-events-none" />
+              <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-2 shadow-xs">
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <div className="text-[9px] font-extrabold text-primary uppercase tracking-wider mb-1">
+                {format || 'BOOK'}
+              </div>
+              <div className="font-serif font-bold text-xs text-foreground line-clamp-3 leading-snug">
+                {title}
+              </div>
+            </div>
+          )}
+
+          {/* Top Badges (Format / Year) */}
+          {(format || year) && (
+            <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10">
+              {format ? (
+                <span className="px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-border/60 text-[8px] font-extrabold uppercase text-foreground tracking-wider shadow-xs">
+                  {format}
+                </span>
+              ) : <span />}
+              {year && (
+                <span className="px-2 py-0.5 rounded-full bg-background/90 backdrop-blur-md border border-border/60 text-[8px] font-bold text-muted-foreground shadow-xs">
+                  {year}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Download State Badges & Overlays */}
+          {downloadState && (
+            <>
+              {downloadState.status === 'downloading' && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-30">
+                  <div className="relative w-10 h-10 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-white/20"
+                        strokeWidth="3.5"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      {progressPercent !== null ? (
+                        <path
+                          className="text-primary transition-all duration-300 ease-out"
+                          strokeDasharray={`${progressPercent}, 100`}
+                          strokeWidth="3.5"
+                          strokeLinecap="round"
+                          stroke="currentColor"
+                          fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                      ) : (
+                        <path
+                          className="text-primary animate-spin"
+                          strokeDasharray="25, 100"
+                          strokeWidth="3.5"
+                          strokeLinecap="round"
+                          stroke="currentColor"
+                          fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                      )}
+                    </svg>
+                    <div className="absolute text-white text-[10px] font-extrabold">
+                      {progressPercent !== null ? `${progressPercent}%` : '...'}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {downloadState.status === 'completed' && (
+                <div className="absolute top-2 right-2 z-20 pointer-events-none">
+                  <span className="p-1 rounded-full bg-emerald-500 text-white shadow-xs flex items-center justify-center">
+                    <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
+                  </span>
+                </div>
+              )}
+              
+              {downloadState.status === 'error' && (
+                <div className="absolute top-2 right-2 z-20 pointer-events-none">
+                  <span className="p-1 rounded-full bg-destructive text-white shadow-xs flex items-center justify-center">
+                    <AlertCircle className="w-3 h-3 stroke-[2.5]" />
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Clean Typography Underneath the Cover */}
+        <div className="pt-2 px-0.5 flex flex-col gap-0.5 min-w-0">
+          <h3 className="font-bold text-xs text-foreground leading-snug line-clamp-2">
+            {title}
+          </h3>
+          {author && author !== 'Unknown Author' && (
+            <p className="truncate text-muted-foreground font-medium text-[11px]">
+              {author}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div 
       onClick={onClick}

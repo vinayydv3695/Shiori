@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { save } from '@tauri-apps/plugin-dialog';
 import { writeTextFile } from '@tauri-apps/plugin-fs';
 import { useAIStore } from '@/store/aiStore';
+import { ReaderSettings } from './ReaderSettings';
 
 const HIGHLIGHT_COLORS = [
   { name: 'Yellow', value: '#fbbf24' },
@@ -852,15 +853,20 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
             ))}
           </div>
           
-          <motion.button
-            onClick={closeSidebar}
-            className="premium-sidebar-close"
-            aria-label="Close sidebar"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <X className="premium-sidebar-close-icon" />
-          </motion.button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {isAndroid && (
+              <ReaderSettings format="epub" />
+            )}
+            <motion.button
+              onClick={closeSidebar}
+              className="premium-sidebar-close"
+              aria-label="Close sidebar"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <X className="premium-sidebar-close-icon" />
+            </motion.button>
+          </div>
         </div>
         
         {/* Content */}

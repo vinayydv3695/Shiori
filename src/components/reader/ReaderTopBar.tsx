@@ -118,12 +118,12 @@ export function ReaderTopBar({
     const bookmarkChild = extraChildren.find(c => getLabel(c).includes('bookmark'));
     const searchChild = extraChildren.find(c => getLabel(c).includes('search'));
 
-    // The 2 extra children to show on topbar alongside ReaderSettings:
-    // Prefer TOC + Bookmark; if no Bookmark (like MOBI/PDF), use TOC + Search.
-    const chosen1 = tocChild || extraChildren[1] || extraChildren[0];
-    const chosen2 = bookmarkChild || (chosen1 !== searchChild ? searchChild : null) || extraChildren[0];
-
-    const primaryItems = [chosen1, chosen2].filter(Boolean) as React.ReactNode[];
+    // Matches media_1792380973427_dab28333.png:
+    // Right side displays exactly Bookmark followed by Table of Contents
+    const primaryItems = [
+      bookmarkChild || (tocChild !== searchChild ? searchChild : null) || extraChildren[0],
+      tocChild || extraChildren[1] || extraChildren[0]
+    ].filter(Boolean) as React.ReactNode[];
     const primarySet = new Set(primaryItems);
 
     const secondaryItems = extraChildren.filter(c => !primarySet.has(c));
@@ -140,14 +140,14 @@ export function ReaderTopBar({
 
   return (
     <div
-      className={`premium-top-bar ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''} ${isSidebarOpen ? 'premium-top-bar--sidebar-open' : ''}`}
+      className={`premium-top-bar ${isAndroid ? 'premium-top-bar--android' : ''} ${!isTopBarVisible ? 'premium-top-bar--hidden' : ''} ${isSidebarOpen ? 'premium-top-bar--sidebar-open' : ''}`}
       data-tauri-drag-region
       onClick={(e) => e.stopPropagation()}
       onTouchStart={(e) => e.stopPropagation()}
       onTouchEnd={(e) => e.stopPropagation()}
     >
       <div className="premium-top-bar-content">
-        {/* ── LEFT: Back Button + Uncropped Title & Subtitle ── */}
+        {/* ── LEFT: Back Button (Title & Subtitle hidden on Android per media_1792380973427_dab28333.png) ── */}
         <div className="premium-top-bar-left min-w-0 flex-1 md:max-w-[440px] lg:max-w-[560px]">
           <ReaderTooltip content="Back to library">
             <button
@@ -158,17 +158,19 @@ export function ReaderTopBar({
               <ArrowLeft className="premium-control-icon" />
             </button>
           </ReaderTooltip>
-          <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full py-0.5">
-            <ReaderTooltip content={title} side="bottom">
-              <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm">{title}</span>
-            </ReaderTooltip>
-            {subtitle && (
-              <ReaderTooltip content={subtitle} side="bottom">
-                <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5">{subtitle}</span>
+          {!isAndroid && (
+            <div className="flex flex-col min-w-0 overflow-hidden text-left justify-center h-full py-0.5">
+              <ReaderTooltip content={title} side="bottom">
+                <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm">{title}</span>
               </ReaderTooltip>
-            )}
-          </div>
-          {isHiatus && (
+              {subtitle && (
+                <ReaderTooltip content={subtitle} side="bottom">
+                  <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5">{subtitle}</span>
+                </ReaderTooltip>
+              )}
+            </div>
+          )}
+          {!isAndroid && isHiatus && (
             <ReaderTooltip content={`Hiatus: Last read ${daysAgo} days ago. Click for recap!`}>
               <button
                 type="button"
@@ -190,12 +192,11 @@ export function ReaderTopBar({
         )}
 
         {/* ── RIGHT: Streamlined Reading Tools ── */}
-        <div className="premium-top-bar-right flex items-center gap-1 shrink-0">
+        <div className="premium-top-bar-right flex items-center gap-2 shrink-0">
           {isAndroid ? (
-            /* Android: Exactly 3 primary options directly on the bar */
-            <div className="flex items-center gap-1">
+            /* Android: Bookmark & TOC matching media_1792380973427_dab28333.png */
+            <div className="flex items-center gap-2">
               {androidPrimary}
-              <ReaderSettings format={format} />
             </div>
           ) : (
             /* Desktop: Full toolbar controls */
@@ -253,21 +254,22 @@ export function ReaderTopBar({
             </div>
           )}
 
-          {/* More Options Dropdown */}
-          <div className="relative flex items-center">
-            <ReaderTooltip content="More options">
-              <button
-                className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
-                aria-label="More options"
-                onClick={() => {
-                  setIsMoreMenuOpen(!isMoreMenuOpen);
-                  setShowAmbientBar(false);
-                  setIsSleepTimerOpen(false);
-                }}
-              >
-                <MoreVertical className="premium-control-icon" />
-              </button>
-            </ReaderTooltip>
+          {/* More Options Dropdown (Desktop Only) */}
+          {!isAndroid && (
+            <div className="relative flex items-center">
+              <ReaderTooltip content="More options">
+                <button
+                  className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
+                  aria-label="More options"
+                  onClick={() => {
+                    setIsMoreMenuOpen(!isMoreMenuOpen);
+                    setShowAmbientBar(false);
+                    setIsSleepTimerOpen(false);
+                  }}
+                >
+                  <MoreVertical className="premium-control-icon" />
+                </button>
+              </ReaderTooltip>
 
             {/* Render SleepTimerDialog for Android when triggered via dropdown */}
             {isAndroid && (
@@ -427,6 +429,7 @@ export function ReaderTopBar({
               )}
             </AnimatePresence>
           </div>
+          )}
         </div>
       </div>
 

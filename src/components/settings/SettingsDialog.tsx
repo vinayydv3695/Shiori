@@ -329,7 +329,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* ── 1. MOBILE ROOT HEADER ── */}
           {isMobile && mobileView === 'root' && (
             <div 
-              className="px-5 pt-3 pb-3 border-b border-border/50 bg-card sticky top-0 z-20 shrink-0"
+              className="px-5 sm:px-6 pt-3 pb-3 bg-card sticky top-0 z-20 shrink-0"
               style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -356,7 +356,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   placeholder="Search settings..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-9 pl-9 pr-8 text-xs sm:text-sm font-medium rounded-xl bg-secondary/40 border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                  className="w-full h-10.5 pl-10 pr-9 text-xs sm:text-sm font-medium rounded-2xl bg-secondary/40 focus:ring-1 focus:ring-foreground/20 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
                   aria-label="Search settings"
                 />
                 {searchQuery && (
@@ -376,7 +376,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* ── 2. MOBILE DETAIL HEADER ── */}
           {isMobile && mobileView === 'detail' && (
             <div 
-              className="px-4 py-3 border-b border-border/50 bg-card sticky top-0 z-20 shrink-0 flex items-center justify-between gap-2"
+              className="px-4 sm:px-6 py-3 border-b border-border/30 bg-card sticky top-0 z-20 shrink-0 flex items-center justify-between gap-2"
               style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -391,7 +391,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 </Button>
                 <div className="flex items-center gap-2 truncate">
                   {selectedTabObj && (
-                    <div className="w-7 h-7 rounded-xl bg-secondary border border-border/60 flex items-center justify-center shrink-0 text-foreground">
+                    <div className="w-7 h-7 rounded-xl bg-secondary flex items-center justify-center shrink-0 text-foreground">
                       <selectedTabObj.icon className="w-3.5 h-3.5 stroke-[2]" />
                     </div>
                   )}
@@ -424,7 +424,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           >
             {/* ── 3. MOBILE CATEGORY LIST ── */}
             {isMobile && mobileView === 'root' ? (
-              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 space-y-2 pb-24">
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4 space-y-3 pb-28">
                 {filteredTabs.length > 0 ? (
                   filteredTabs.map((tab) => (
                     <button
@@ -435,17 +435,16 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         setActiveTab(tab.id);
                         setMobileView('detail');
                       }}
-                      className="w-full flex items-center justify-between p-3.5 rounded-2xl transition-all text-left bg-card hover:bg-secondary/30 border border-border/60 active:scale-[0.985] cursor-pointer group"
+                      className="w-full flex items-center p-4 rounded-2xl transition-all duration-150 text-left bg-secondary/35 hover:bg-secondary/60 active:bg-secondary/80 active:scale-[0.985] cursor-pointer group"
                     >
-                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        <div className="w-9 h-9 rounded-xl bg-secondary border border-border/60 flex items-center justify-center shrink-0 text-foreground">
-                          <tab.icon className="w-4.5 h-4.5 stroke-[2]" />
+                      <div className="flex items-center gap-4 min-w-0 flex-1">
+                        <div className="w-11 h-11 rounded-2xl bg-secondary flex items-center justify-center shrink-0 text-foreground shadow-2xs">
+                          <tab.icon className="w-5 h-5 stroke-[2]" />
                         </div>
-                        <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                        <span className="text-[15px] sm:text-base font-semibold text-foreground tracking-tight truncate">
                           {tab.name}
                         </span>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
                     </button>
                   ))
                 ) : (

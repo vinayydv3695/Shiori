@@ -235,10 +235,10 @@ export function MoreView({ onNavigateToView, onOpenSettings }: MoreViewProps) {
           variants={itemVariants}
           type="button"
           onClick={onOpenSettings}
-          className="w-full flex items-center justify-between p-4 rounded-2xl bg-card/85 hover:bg-card border border-border/60 shadow-xs active:scale-[0.98] transition-all cursor-pointer group"
+          className="w-full flex items-center p-4 rounded-2xl bg-secondary/35 hover:bg-secondary/60 active:scale-[0.98] transition-all cursor-pointer group"
         >
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[#4A443B]/10 dark:bg-[#D1C7B8]/15 text-[#4A443B] dark:text-[#D1C7B8] border border-[#4A443B]/20 dark:border-[#D1C7B8]/25 group-hover:scale-105 transition-transform shrink-0 shadow-xs">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[#4A443B]/10 dark:bg-[#D1C7B8]/15 text-[#4A443B] dark:text-[#D1C7B8] group-hover:scale-105 transition-transform shrink-0 shadow-xs">
               <Settings className="w-6 h-6 stroke-[2]" />
             </div>
             <div className="text-left min-w-0">
@@ -246,7 +246,6 @@ export function MoreView({ onNavigateToView, onOpenSettings }: MoreViewProps) {
               <div className="text-xs text-muted-foreground mt-0.5 truncate">Preferences, reader &amp; storage</div>
             </div>
           </div>
-          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
         </motion.button>
       </div>
 

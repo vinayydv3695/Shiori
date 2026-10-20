@@ -349,7 +349,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
               {/* Dedicated Search Input */}
               <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4.5 h-4.5" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4 h-4" />
                 <input
                   type="text"
                   inputMode="search"
@@ -387,7 +387,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                   className="w-8 h-8 rounded-full bg-secondary/60 shrink-0 hover:bg-secondary text-foreground active:scale-95 cursor-pointer"
                   aria-label="Back to settings categories"
                 >
-                  <ChevronLeft className="w-4.5 h-4.5 stroke-[2.2]" />
+                  <ChevronLeft className="w-4 h-4 stroke-[2.2]" />
                 </Button>
                 <div className="flex items-center gap-2 truncate">
                   {selectedTabObj && (
@@ -408,7 +408,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 className="w-8 h-8 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all shrink-0 cursor-pointer" 
                 aria-label="Close settings"
               >
-                <X className="w-4.5 h-4.5 stroke-[2]" />
+                <X className="w-4 h-4 stroke-[2]" />
               </Button>
             </div>
           )}
@@ -481,14 +481,14 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                     </div>
                   </div>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none w-3.5 h-3.5" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none w-4 h-4" />
                     <input
                       type="text"
                       inputMode="search"
                       placeholder="Search settings..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-9 pl-8.5 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                      className="w-full h-9 pl-9 pr-8 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
                     />
                     {searchQuery && (
                       <button
@@ -496,7 +496,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
                         onClick={() => setSearchQuery('')}
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -550,7 +550,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       className="w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/60 active:scale-95 cursor-pointer transition-colors"
                       aria-label="Close dialog"
                     >
-                      <X className="w-4.5 h-4.5 stroke-[2]" />
+                      <X className="w-4 h-4 stroke-[2]" />
                     </Button>
                   </Dialog.Close>
                 </div>

@@ -289,87 +289,15 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
 
   const tabs = [
-    {
-      id: 'general' as const,
-      name: 'General',
-      subtitle: 'Theme, display scale & window appearance',
-      icon: Palette,
-      accentBg: 'bg-rose-500/10 dark:bg-rose-500/15',
-      accentBorder: 'border-rose-500/25 dark:border-rose-500/35',
-      iconColor: 'text-rose-600 dark:text-rose-400',
-    },
-    {
-      id: 'ai' as const,
-      name: 'AI & Intelligence',
-      subtitle: 'Smart models, prompts & assistant',
-      icon: Brain,
-      accentBg: 'bg-indigo-500/10 dark:bg-indigo-500/15',
-      accentBorder: 'border-indigo-500/25 dark:border-indigo-500/35',
-      iconColor: 'text-indigo-600 dark:text-indigo-400',
-    },
-    {
-      id: 'cloud-sync' as const,
-      name: 'Cloud & WebDAV Sync',
-      subtitle: 'Multi-device library sync & WebDAV',
-      icon: Cloud,
-      accentBg: 'bg-sky-500/10 dark:bg-sky-500/15',
-      accentBorder: 'border-sky-500/25 dark:border-sky-500/35',
-      iconColor: 'text-sky-600 dark:text-sky-400',
-    },
-    {
-      id: 'book-reading' as const,
-      name: 'Reading (Books)',
-      subtitle: 'Typography, margins, pacing & TTS reader',
-      icon: BookOpen,
-      accentBg: 'bg-amber-500/10 dark:bg-amber-500/15',
-      accentBorder: 'border-amber-500/25 dark:border-amber-500/35',
-      iconColor: 'text-amber-600 dark:text-amber-400',
-    },
-    {
-      id: 'manga-reading' as const,
-      name: 'Reading (Manga)',
-      subtitle: 'Direction, split pages, webtoon & zoom',
-      icon: FileText,
-      accentBg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
-      accentBorder: 'border-emerald-500/25 dark:border-emerald-500/35',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
-    },
-    {
-      id: 'advanced' as const,
-      name: 'Advanced',
-      subtitle: 'Storage, cache limits & debug logs',
-      icon: Shield,
-      accentBg: 'bg-slate-500/10 dark:bg-slate-500/15',
-      accentBorder: 'border-slate-500/25 dark:border-slate-500/35',
-      iconColor: 'text-slate-600 dark:text-slate-400',
-    },
-    {
-      id: 'companion' as const,
-      name: 'Companion App',
-      subtitle: 'Wireless pairing & mobile phone sync',
-      icon: MonitorSmartphone,
-      accentBg: 'bg-purple-500/10 dark:bg-purple-500/15',
-      accentBorder: 'border-purple-500/25 dark:border-purple-500/35',
-      iconColor: 'text-purple-600 dark:text-purple-400',
-    },
-    {
-      id: 'community-plugins' as const,
-      name: 'Community Plugins',
-      subtitle: 'Third-party extensions, tools & scrapers',
-      icon: Puzzle,
-      accentBg: 'bg-orange-500/10 dark:bg-orange-500/15',
-      accentBorder: 'border-orange-500/25 dark:border-orange-500/35',
-      iconColor: 'text-orange-600 dark:text-orange-400',
-    },
-    {
-      id: 'about' as const,
-      name: 'About',
-      subtitle: 'Shiori v1.0.23, updates & licenses',
-      icon: Info,
-      accentBg: 'bg-teal-500/10 dark:bg-teal-500/15',
-      accentBorder: 'border-teal-500/25 dark:border-teal-500/35',
-      iconColor: 'text-teal-600 dark:text-teal-400',
-    },
+    { id: 'general' as const, name: 'General', icon: Palette },
+    { id: 'ai' as const, name: 'AI & Intelligence', icon: Brain },
+    { id: 'cloud-sync' as const, name: 'Cloud & WebDAV Sync', icon: Cloud },
+    { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
+    { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },
+    { id: 'advanced' as const, name: 'Advanced', icon: Shield },
+    { id: 'companion' as const, name: 'Companion App', icon: MonitorSmartphone },
+    { id: 'community-plugins' as const, name: 'Community Plugins', icon: Puzzle },
+    { id: 'about' as const, name: 'About', icon: Info },
   ]
 
   const filteredTabs = matchingTabs
@@ -391,9 +319,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           className={cn(
             "z-[var(--z-modal)] flex flex-col overflow-hidden focus:outline-none shadow-2xl",
             isMobile 
-              ? "fixed inset-0 w-full h-full rounded-none bg-background text-foreground" 
-              : "fixed left-[50%] top-[50%] -translate-x-1/2 -translate-y-1/2 border border-border/80 rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.5)] w-[95vw] max-w-5xl h-[90vh] bg-background text-foreground",
-            "bg-background text-foreground"
+              ? "fixed inset-0 w-full h-full rounded-none bg-card text-foreground" 
+              : "fixed left-[50%] top-[50%] -translate-x-1/2 -translate-y-1/2 border border-border/70 rounded-[28px] sm:rounded-[32px] shadow-[0_24px_70px_rgba(0,0,0,0.5)] w-[95vw] max-w-5xl h-[88vh] bg-card text-foreground"
           )}
         >
           {/* Accessible Title */}
@@ -402,39 +329,34 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* ── 1. MOBILE ROOT HEADER ── */}
           {isMobile && mobileView === 'root' && (
             <div 
-              className="px-5 pt-3 pb-3 border-b border-border/50 bg-background/95 backdrop-blur-md sticky top-0 z-20 shrink-0"
+              className="px-5 pt-3 pb-3 border-b border-border/50 bg-card sticky top-0 z-20 shrink-0"
               style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
             >
               <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-                    Settings
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Preferences, reader &amp; appearance
-                  </p>
-                </div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                  Settings
+                </h2>
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
-                  className="w-9 h-9 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer" 
+                  className="w-8 h-8 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer" 
                   aria-label="Close settings"
                 >
-                  <X className="w-5 h-5 stroke-[2]" />
+                  <X className="w-4.5 h-4.5 stroke-[2]" />
                 </Button>
               </div>
 
               {/* Dedicated Search Input */}
               <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4 h-4" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none w-4 h-4" />
                 <input
                   type="text"
                   inputMode="search"
                   placeholder="Search settings..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-10 pr-9 text-xs sm:text-sm font-medium rounded-2xl bg-card border border-border/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 shadow-2xs transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                  className="w-full h-9 pl-9 pr-8 text-xs sm:text-sm font-medium rounded-xl bg-secondary/40 border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
                   aria-label="Search settings"
                 />
                 {searchQuery && (
@@ -454,42 +376,40 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* ── 2. MOBILE DETAIL HEADER ── */}
           {isMobile && mobileView === 'detail' && (
             <div 
-              className="px-4 py-3 border-b border-border/50 bg-background/95 backdrop-blur-md sticky top-0 z-20 shrink-0"
+              className="px-4 py-3 border-b border-border/50 bg-card sticky top-0 z-20 shrink-0 flex items-center justify-between gap-2"
               style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
-                    className="w-9 h-9 rounded-full bg-secondary/60 shrink-0 hover:bg-secondary text-foreground active:scale-95 cursor-pointer"
-                    aria-label="Back to settings categories"
-                  >
-                    <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
-                  </Button>
-                  <div className="flex items-center gap-2 truncate">
-                    {selectedTabObj && (
-                      <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs', selectedTabObj.accentBg, selectedTabObj.accentBorder)}>
-                        <selectedTabObj.icon className={cn('w-4 h-4 stroke-[2.2]', selectedTabObj.iconColor)} />
-                      </div>
-                    )}
-                    <h2 className="text-base font-bold text-foreground tracking-tight truncate">
-                      {selectedTabObj?.name || 'Settings'}
-                    </h2>
-                  </div>
-                </div>
-
+              <div className="flex items-center gap-2.5 min-w-0">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
-                  className="w-9 h-9 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all shrink-0 cursor-pointer" 
-                  aria-label="Close settings"
+                  onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
+                  className="w-8 h-8 rounded-full bg-secondary/60 shrink-0 hover:bg-secondary text-foreground active:scale-95 cursor-pointer"
+                  aria-label="Back to settings categories"
                 >
-                  <X className="w-5 h-5 stroke-[2]" />
+                  <ChevronLeft className="w-4.5 h-4.5 stroke-[2.2]" />
                 </Button>
+                <div className="flex items-center gap-2 truncate">
+                  {selectedTabObj && (
+                    <div className="w-7 h-7 rounded-xl bg-secondary border border-border/60 flex items-center justify-center shrink-0 text-foreground">
+                      <selectedTabObj.icon className="w-3.5 h-3.5 stroke-[2]" />
+                    </div>
+                  )}
+                  <h2 className="text-base font-bold text-foreground tracking-tight truncate">
+                    {selectedTabObj?.name || 'Settings'}
+                  </h2>
+                </div>
               </div>
+
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
+                className="w-8 h-8 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all shrink-0 cursor-pointer" 
+                aria-label="Close settings"
+              >
+                <X className="w-4.5 h-4.5 stroke-[2]" />
+              </Button>
             </div>
           )}
 
@@ -504,7 +424,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           >
             {/* ── 3. MOBILE CATEGORY LIST ── */}
             {isMobile && mobileView === 'root' ? (
-              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 sm:px-5 space-y-2.5 pb-24">
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 space-y-2 pb-24">
                 {filteredTabs.length > 0 ? (
                   filteredTabs.map((tab) => (
                     <button
@@ -515,36 +435,17 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         setActiveTab(tab.id);
                         setMobileView('detail');
                       }}
-                      className={cn(
-                        'w-full flex items-center justify-between p-3.5 sm:p-4 rounded-2xl transition-all duration-200 text-left group',
-                        'bg-card hover:bg-card/90 border border-border/70 shadow-xs active:scale-[0.985] cursor-pointer'
-                      )}
+                      className="w-full flex items-center justify-between p-3.5 rounded-2xl transition-all text-left bg-card hover:bg-secondary/30 border border-border/60 active:scale-[0.985] cursor-pointer group"
                     >
                       <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        {/* Tonal Themed Squircle Icon Disc */}
-                        <div className={cn(
-                          'w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
-                          tab.accentBg,
-                          tab.accentBorder
-                        )}>
-                          <tab.icon className={cn('w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]', tab.iconColor)} />
+                        <div className="w-9 h-9 rounded-xl bg-secondary border border-border/60 flex items-center justify-center shrink-0 text-foreground">
+                          <tab.icon className="w-4.5 h-4.5 stroke-[2]" />
                         </div>
-
-                        {/* Title & Subtitle */}
-                        <div className="min-w-0 flex-1 text-left">
-                          <div className="text-[14px] sm:text-[15px] font-bold text-foreground tracking-tight truncate group-hover:text-primary transition-colors">
-                            {tab.name}
-                          </div>
-                          <div className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate mt-0.5">
-                            {tab.subtitle}
-                          </div>
-                        </div>
+                        <span className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                          {tab.name}
+                        </span>
                       </div>
-
-                      {/* Right Chevron */}
-                      <div className="ml-3 shrink-0 flex items-center">
-                        <ChevronRight className="w-4.5 h-4.5 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
                     </button>
                   ))
                 ) : (
@@ -569,26 +470,26 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               </div>
             ) : !isMobile ? (
               /* ── 4. DESKTOP SIDEBAR ── */
-              <div className="w-72 bg-card/40 border-r border-border/50 flex flex-col shrink-0 overflow-hidden">
+              <div className="w-60 lg:w-64 bg-card/40 border-r border-border/50 flex flex-col shrink-0 overflow-hidden">
                 {/* Brand & Search in Sidebar */}
                 <div className="p-4 pb-3 border-b border-border/40 shrink-0">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 px-1">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-black tracking-tight text-foreground">Settings</h2>
-                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px] tracking-wider uppercase border border-primary/20">
+                      <h2 className="text-base font-bold tracking-tight text-foreground">Settings</h2>
+                      <span className="px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-semibold text-[10px] tracking-wider uppercase border border-border/50">
                         v1.0.23
                       </span>
                     </div>
                   </div>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-3.5 h-3.5" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none w-3.5 h-3.5" />
                     <input
                       type="text"
                       inputMode="search"
                       placeholder="Search settings..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-8 pl-8 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 shadow-2xs transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                      className="w-full h-8 pl-8 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
                     />
                     {searchQuery && (
                       <button
@@ -603,7 +504,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                 </div>
 
                 {/* Sidebar Categories List */}
-                <Tabs.List className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1 flex flex-col">
+                <Tabs.List className="flex-1 overflow-y-auto custom-scrollbar p-2.5 space-y-1 flex flex-col">
                   {filteredTabs.map((tab) => {
                     const isActive = selectedTab === tab.id;
                     return (
@@ -611,24 +512,20 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                         key={tab.id}
                         value={tab.id}
                         className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left group relative',
-                          'cursor-pointer select-none',
+                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-150 text-left group relative',
+                          'cursor-pointer select-none text-xs sm:text-[13px]',
                           isActive
-                            ? 'bg-primary/10 text-primary font-bold border border-primary/25 shadow-2xs'
-                            : 'text-foreground/80 hover:bg-secondary/60 hover:text-foreground border border-transparent'
+                            ? 'bg-secondary text-foreground font-semibold shadow-2xs'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-secondary/40 font-medium'
                         )}
                       >
                         <div className={cn(
-                          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
-                          tab.accentBg,
-                          tab.accentBorder
+                          'w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-colors',
+                          isActive ? 'bg-card border border-border/60 text-foreground shadow-2xs' : 'text-muted-foreground group-hover:text-foreground'
                         )}>
-                          <tab.icon className={cn('w-4 h-4 stroke-[2.2]', tab.iconColor)} />
+                          <tab.icon className="w-4 h-4 stroke-[2]" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-bold truncate leading-tight">{tab.name}</div>
-                          <div className="text-[10px] text-muted-foreground truncate leading-tight font-normal mt-0.5">{tab.subtitle}</div>
-                        </div>
+                        <span className="truncate">{tab.name}</span>
                       </Tabs.Trigger>
                     );
                   })}
@@ -638,25 +535,22 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
             {/* ── 5. DETAIL CONTENT AREA ── */}
             <div className={cn(
-              "flex-1 relative bg-background overflow-hidden flex flex-col min-w-0",
+              "flex-1 relative bg-card overflow-hidden flex flex-col min-w-0",
               isMobile && mobileView === 'root' ? "hidden" : "flex"
             )}>
               {/* Desktop Header for Content Area */}
               {!isMobile && (
-                <div className="flex items-center justify-between px-8 py-4 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-10 shrink-0">
-                  <div className="flex items-center gap-3">
-                    {selectedTabObj && (
-                      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs', selectedTabObj.accentBg, selectedTabObj.accentBorder)}>
-                        <selectedTabObj.icon className={cn('w-5 h-5 stroke-[2.2]', selectedTabObj.iconColor)} />
-                      </div>
-                    )}
-                    <div>
-                      <h2 className="text-lg font-black tracking-tight text-foreground">{selectedTabObj?.name}</h2>
-                      <p className="text-xs text-muted-foreground">{selectedTabObj?.subtitle}</p>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between px-8 pt-8 pb-4 bg-card shrink-0">
+                  <h2 className="text-2xl font-bold tracking-tight text-foreground">
+                    {selectedTabObj?.name || 'Settings'}
+                  </h2>
                   <Dialog.Close asChild>
-                    <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground active:scale-95 cursor-pointer">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary/60 active:scale-95 cursor-pointer transition-colors"
+                      aria-label="Close dialog"
+                    >
                       <X className="w-4.5 h-4.5 stroke-[2]" />
                     </Button>
                   </Dialog.Close>
@@ -780,11 +674,11 @@ export const SettingSection = ({
   children: React.ReactNode
   onReset?: () => void
 }) => (
-  <motion.section variants={itemVariants} className="space-y-2.5 pb-6 mb-6 border-b border-border/30 last:border-0 last:pb-0 last:mb-0">
-    <div className="flex items-center justify-between px-1">
+  <motion.section variants={itemVariants} className="space-y-1.5 pb-6 mb-6 last:pb-0 last:mb-0">
+    <div className="flex items-center justify-between px-1 mb-1">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</h3>
-        {description && <p className="text-xs text-foreground/85 mt-0.5 font-medium">{description}</p>}
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+        {description && <p className="text-xs text-muted-foreground/80 mt-0.5">{description}</p>}
       </div>
       {onReset && (
         <Button variant="ghost" size="sm" onClick={onReset} className="gap-1.5 text-xs text-muted-foreground hover:text-foreground h-7 px-2.5 rounded-lg cursor-pointer">
@@ -793,7 +687,7 @@ export const SettingSection = ({
         </Button>
       )}
     </div>
-    <div className="bg-card border border-border/70 rounded-2xl p-2 sm:p-2.5 shadow-2xs divide-y divide-border/40">
+    <div className="divide-y divide-border/50 border-t border-b border-border/50">
       {children}
     </div>
   </motion.section>
@@ -812,18 +706,21 @@ export const SettingItem = ({
 }) => {
   const isMobile = useIsMobile();
   return (
-  <motion.div variants={itemVariants} className={cn(
-    "group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 px-3.5 rounded-xl hover:bg-secondary/40 transition-colors duration-150",
-    isMobile ? "py-3.5" : "py-3"
-  )}>
-    <div className="space-y-0.5 flex-1 md:pr-4">
-      <label htmlFor={labelId} className="text-[14px] sm:text-[15px] font-semibold tracking-tight text-foreground">{label}</label>
-      {description && <p className="text-xs text-muted-foreground leading-snug">{description}</p>}
-    </div>
-    <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[180px]">
-      {children}
-    </div>
-  </motion.div>
+    <motion.div
+      variants={itemVariants}
+      className={cn(
+        "group flex flex-col md:flex-row md:items-center justify-between gap-2.5 md:gap-6 px-1.5 sm:px-2 hover:bg-secondary/20 transition-colors duration-150",
+        isMobile ? "py-3.5" : "py-3.5"
+      )}
+    >
+      <div className="space-y-0.5 flex-1 md:pr-4">
+        <label htmlFor={labelId} className="text-sm font-medium tracking-tight text-foreground cursor-pointer">{label}</label>
+        {description && <p className="text-xs text-muted-foreground leading-normal">{description}</p>}
+      </div>
+      <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[180px]">
+        {children}
+      </div>
+    </motion.div>
   );
 }
 
@@ -974,55 +871,52 @@ const GeneralSettings = ({
     <div className="space-y-8">
       {isSectionVisible('Theme', ['Theme', 'Dark Theme', 'Light Theme', 'System Theme']) && (
         <SettingSection title="Theme" description="Choose how Shiori looks">
-          <div className="flex flex-wrap gap-2.5 p-1">
+          <div className="flex flex-wrap gap-2 py-3 px-1">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => updateTheme(option.value)}
                 className={cn(
-                  'relative group flex items-center gap-2.5 px-3.5 py-2 rounded-xl border transition-all duration-200 cursor-pointer active:scale-95',
+                  'relative group flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all duration-150 cursor-pointer active:scale-95',
                   preferences.theme === option.value
-                    ? 'border-primary bg-primary/15 text-primary shadow-2xs font-bold ring-1 ring-primary/30'
-                    : 'border-border/70 bg-secondary/30 hover:border-primary/40 hover:bg-secondary/70 text-foreground/80'
+                    ? 'border-border bg-secondary text-foreground font-semibold shadow-2xs'
+                    : 'border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40'
                 )}
                 aria-label={`${option.label} theme`}
               >
                 <option.icon className={cn(
-                  "w-4 h-4 transition-colors duration-200",
-                  preferences.theme === option.value ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  "w-3.5 h-3.5 transition-colors",
+                  preferences.theme === option.value ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
                 )} />
-                <span className={cn(
-                  "text-xs sm:text-[13px] font-semibold tracking-tight transition-colors duration-200",
-                  preferences.theme === option.value ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
-                )}>{option.label}</span>
+                <span>{option.label}</span>
               </button>
             ))}
           </div>
 
           {isSettingVisible('Theme Preview', 'Preview of current theme colors', 'Theme') && (
-            <div className="mt-6 p-5 rounded-2xl bg-muted/30 border border-border/40">
-              <p className="text-[12px] font-medium text-muted-foreground uppercase tracking-widest mb-4">Color Palette</p>
-              <div className="flex flex-wrap gap-4 items-center">
+            <div className="py-3 px-1">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">Color Palette</p>
+              <div className="flex flex-wrap gap-3 items-center">
                 <AppTooltip content="Primary">
-                  <div className="w-8 h-8 rounded-full bg-primary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Primary" />
+                  <div className="w-7 h-7 rounded-full bg-primary shadow-2xs ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Primary" />
                 </AppTooltip>
                 <AppTooltip content="Secondary">
-                  <div className="w-8 h-8 rounded-full bg-secondary shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Secondary" />
+                  <div className="w-7 h-7 rounded-full bg-secondary shadow-2xs ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Secondary" />
                 </AppTooltip>
                 <AppTooltip content="Accent">
-                  <div className="w-8 h-8 rounded-full bg-accent shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Accent" />
+                  <div className="w-7 h-7 rounded-full bg-accent shadow-2xs ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Accent" />
                 </AppTooltip>
                 <AppTooltip content="Muted">
-                  <div className="w-8 h-8 rounded-full bg-muted shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Muted" />
+                  <div className="w-7 h-7 rounded-full bg-muted shadow-2xs ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Muted" />
                 </AppTooltip>
                 <AppTooltip content="Destructive">
-                  <div className="w-8 h-8 rounded-full bg-destructive shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Destructive" />
+                  <div className="w-7 h-7 rounded-full bg-destructive shadow-2xs ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Destructive" />
                 </AppTooltip>
                 <AppTooltip content="Background">
-                  <div className="w-8 h-8 rounded-full bg-background shadow-sm ring-1 ring-border transition-transform hover:scale-110 cursor-default" aria-label="Background" />
+                  <div className="w-7 h-7 rounded-full bg-background shadow-2xs ring-1 ring-border transition-transform hover:scale-110 cursor-default" aria-label="Background" />
                 </AppTooltip>
                 <AppTooltip content="Foreground">
-                  <div className="w-8 h-8 rounded-full bg-foreground shadow-sm ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Foreground" />
+                  <div className="w-7 h-7 rounded-full bg-foreground shadow-2xs ring-1 ring-border/20 transition-transform hover:scale-110 cursor-default" aria-label="Foreground" />
                 </AppTooltip>
               </div>
             </div>
@@ -1073,10 +967,10 @@ const GeneralSettings = ({
                       type="button"
                       onClick={() => updateGeneralSettings({ uiScale: preset / 100 })}
                       className={cn(
-                        "text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition-all cursor-pointer",
+                        "text-[11px] px-2.5 py-1 rounded-xl border font-medium transition-all cursor-pointer",
                         scalePercent === preset
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60"
+                          ? "bg-secondary text-foreground font-semibold border-border shadow-2xs"
+                          : "bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40 border-border/60"
                       )}
                     >
                       {preset}%
@@ -1098,7 +992,7 @@ const GeneralSettings = ({
 
           {isSettingVisible('Cover Size', 'Book cover display size', 'Appearance') && (
             <SettingItem label="Cover Size" description="Book cover display size in library">
-              <div className="flex gap-2 w-full md:w-auto">
+              <div className="flex gap-1.5 w-full md:w-auto">
                 {([
                   { value: 'small' as const, label: 'Small' },
                   { value: 'medium' as const, label: 'Medium' },
@@ -1108,10 +1002,10 @@ const GeneralSettings = ({
                     key={size.value}
                     onClick={() => updateGeneralSettings({ coverSize: size.value })}
                     className={cn(
-                      'flex-1 md:flex-none px-3 py-1.5 rounded-md border text-sm transition-all',
+                      'flex-1 md:flex-none px-3 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer',
                       preferences.coverSize === size.value
-                        ? 'border-primary bg-primary/5 font-medium'
-                        : 'border-border hover:border-primary/50'
+                        ? 'bg-secondary text-foreground font-semibold border-border shadow-2xs'
+                        : 'bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40 border-border/60'
                     )}
                   >
                     {size.label}
@@ -1285,36 +1179,31 @@ const GeneralSettings = ({
 
       {!IS_STORE_BUILD && (
         <SettingSection title="Download Services" description="Configure cloud torrent and download services">
-          <div className="space-y-4">
-            <SettingItem
-              label="Debrid Provider"
-              description="Torbox is the active SHIORI x TORBOX provider for online downloads in this build."
+          <SettingItem
+            label="Debrid Provider"
+            description="Torbox is the active SHIORI x TORBOX provider for online downloads in this build."
+          >
+            <Select
+              value={preferredDebridProvider}
+              onValueChange={(val) => setPreferredDebridProvider(val as 'auto' | 'torbox')}
+              disabled
             >
-              <Select
-                value={preferredDebridProvider}
-                onValueChange={(val) => setPreferredDebridProvider(val as 'auto' | 'torbox')}
-                disabled
-              >
-                <SelectTrigger className="w-full md:w-[220px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto (Torbox)</SelectItem>
-                  <SelectItem value="torbox">Torbox</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingItem>
+              <SelectTrigger className="w-full md:w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto (Torbox)</SelectItem>
+                <SelectItem value="torbox">Torbox</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingItem>
 
-
-
-            <SettingItem
-              label="Torbox API Key"
-              description="Cloud torrent service to download and import media directly into Shiori."
-            >
-              <TorboxSettings />
-            </SettingItem>
-
-          </div>
+          <SettingItem
+            label="Torbox API Key"
+            description="Cloud torrent service to download and import media directly into Shiori."
+          >
+            <TorboxSettings />
+          </SettingItem>
         </SettingSection>
       )}
 
@@ -1722,16 +1611,16 @@ const MangaReadingSettings = ({
             })
           }}
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 py-3 px-1">
             {mangaModes.map((mode) => (
               <button
                 key={mode.value}
                 onClick={() => updateMangaDefaults({ mode: mode.value })}
                 className={cn(
-                  'p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-2',
+                  'p-3 rounded-xl border transition-all flex flex-col items-center gap-2 cursor-pointer',
                   preferences.manga.mode === mode.value
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
+                    ? 'border-border bg-secondary text-foreground font-semibold shadow-2xs'
+                    : 'border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40'
                 )}
                 aria-label={`${mode.label} reading mode`}
               >
@@ -1745,7 +1634,7 @@ const MangaReadingSettings = ({
 
       {isSectionVisible('Reading Direction', ['Reading Direction']) && (
         <SettingSection title="Reading Direction">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5 py-3 px-1">
             {([
               { value: 'ltr' as const, label: 'Left to Right' },
               { value: 'rtl' as const, label: 'Right to Left' },
@@ -1754,10 +1643,10 @@ const MangaReadingSettings = ({
                 key={option.value}
                 onClick={() => updateMangaDefaults({ direction: option.value })}
                 className={cn(
-                  'p-3 rounded-lg border-2 transition-all',
+                  'p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-medium',
                   preferences.manga.direction === option.value
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
+                    ? 'border-border bg-secondary text-foreground font-semibold shadow-2xs'
+                    : 'border-border/60 bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/40'
                 )}
                 aria-label={`${option.label} direction`}
               >
@@ -2265,21 +2154,21 @@ const AdvancedSettings = ({
     <div className="space-y-8">
       {isSectionVisible('Database', ['Export Database', 'Import Database', 'Clean Up Database', 'Reset Database', 'Reset Onboarding']) && (
         <SettingSection title="Database" description="Manage your library database">
-          <div className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+          <div className="flex flex-wrap gap-2.5 py-3 px-1">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="rounded-xl">
               {isExporting ? 'Exporting...' : 'Export Database'}
             </Button>
-            <Button variant="outline" onClick={handleImport}>
+            <Button variant="outline" size="sm" onClick={handleImport} className="rounded-xl">
               Import Database
             </Button>
-            <Button variant="outline" onClick={handleCleanUpDatabase} disabled={isCleaningUp}>
+            <Button variant="outline" size="sm" onClick={handleCleanUpDatabase} disabled={isCleaningUp} className="rounded-xl">
               {isCleaningUp ? 'Cleaning...' : 'Clean Up Database'}
             </Button>
-            <Button variant="destructive" onClick={handleReset} disabled={isResetting}>
+            <Button variant="destructive" size="sm" onClick={handleReset} disabled={isResetting} className="rounded-xl">
               {isResetting ? 'Resetting...' : 'Reset Database'}
             </Button>
             <div className="pt-2 w-full">
-              <Button variant="outline" onClick={handleResetOnboarding} className="w-full">
+              <Button variant="outline" size="sm" onClick={handleResetOnboarding} className="w-full rounded-xl">
                 Reset Onboarding Experience
               </Button>
             </div>
@@ -2361,21 +2250,19 @@ const AdvancedSettings = ({
       {isSectionVisible('Cache', ['Renderer Cache', 'Max Cache Size', 'Cache Clear Policy']) && (
         <SettingSection title="Cache" description="Manage cached data">
           {isSettingVisible('Renderer Cache', 'Temporary reading resources', 'Cache') && (
-            <div className="rounded-lg border p-4 space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="py-3 px-1 sm:px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
                 <span className="text-sm font-medium">Renderer Cache</span>
-                <Button variant="outline" size="sm" onClick={handleClearCache} className="gap-1.5">
-                  <Trash2 size={14} />
-                  Clear Cache
-                </Button>
+                {cacheStats && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Items: {cacheStats.item_count} &bull; Size: {formatBytes(cacheStats.total_size_bytes)} &bull; Hit rate: {(cacheStats.hit_rate * 100).toFixed(1)}%
+                  </div>
+                )}
               </div>
-              {cacheStats && (
-                <div className="text-sm text-muted-foreground">
-                  <div>Items: {cacheStats.item_count}</div>
-                  <div>Size: {formatBytes(cacheStats.total_size_bytes)}</div>
-                  <div>Hit rate: {(cacheStats.hit_rate * 100).toFixed(1)}%</div>
-                </div>
-              )}
+              <Button variant="outline" size="sm" onClick={handleClearCache} className="gap-1.5 self-start sm:self-auto rounded-xl">
+                <Trash2 size={13} />
+                Clear Cache
+              </Button>
             </div>
           )}
 

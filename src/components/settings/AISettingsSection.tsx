@@ -234,7 +234,7 @@ export function AISettingsSection() {
         title="AI Features"
         description="Enable or disable all AI-powered features across Shiori, including Book Copilot and text selection prompts."
       >
-        <div className="flex items-center justify-between p-4 rounded-xl border border-border/70 bg-card/50">
+        <div className="py-3.5 px-1 sm:px-2 flex items-center justify-between gap-4">
           <div className="space-y-0.5 pr-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-foreground">Enable AI Features</span>
@@ -242,7 +242,7 @@ export function AISettingsSection() {
                 className={cn(
                   'text-[11px] font-semibold px-2 py-0.5 rounded-full border',
                   enabled
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                    ? 'bg-secondary text-foreground border-border'
                     : 'bg-muted text-muted-foreground border-border'
                 )}
               >
@@ -259,11 +259,13 @@ export function AISettingsSection() {
         </div>
 
         {!enabled && (
-          <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300">
-            <Info size={16} className="shrink-0 mt-0.5" />
-            <span>
-              AI features are disabled by default. When disabled, no network requests are sent to AI providers, and reader AI tabs remain hidden. You can configure your provider credentials below before toggling this on.
-            </span>
+          <div className="py-3 px-1 sm:px-2">
+            <div className="p-3 rounded-xl bg-secondary/50 border border-border/70 flex items-start gap-2.5 text-xs text-muted-foreground">
+              <Info size={16} className="shrink-0 mt-0.5 text-foreground" />
+              <span>
+                AI features are disabled by default. When disabled, no network requests are sent to AI providers, and reader AI tabs remain hidden. You can configure your provider credentials below before toggling this on.
+              </span>
+            </div>
           </div>
         )}
       </SettingSection>
@@ -273,7 +275,7 @@ export function AISettingsSection() {
         title="AI Intelligence Provider"
         description="Choose which AI service powers book explanations, chapter summaries, character recall, and reading chat."
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 my-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 py-3 px-1">
           {providers.map((p) => {
             const meta = PROVIDER_METADATA[p];
             const isSelected = activeProvider === p;
@@ -285,22 +287,22 @@ export function AISettingsSection() {
                 type="button"
                 onClick={() => setActiveProvider(p)}
                 className={cn(
-                  'flex flex-col text-left p-3 rounded-xl border transition-all duration-200 cursor-pointer relative',
+                  'flex flex-col text-left p-3 rounded-xl border transition-all duration-150 cursor-pointer relative',
                   isSelected
-                    ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary/25'
-                    : 'border-border/60 bg-background hover:border-primary/40 hover:bg-muted/40 text-muted-foreground'
+                    ? 'border-border bg-secondary text-foreground font-semibold shadow-2xs'
+                    : 'border-border/60 bg-card hover:bg-secondary/40 text-muted-foreground'
                 )}
               >
                 <div className="flex items-center justify-between w-full mb-1">
-                  <span className={cn('text-xs font-semibold', isSelected ? 'text-primary' : 'text-foreground')}>
+                  <span className={cn('text-xs font-semibold', isSelected ? 'text-foreground' : 'text-foreground/90')}>
                     {meta.name.split(' ')[0]}
                   </span>
-                  {isSelected && <Check size={14} className="text-primary shrink-0" />}
+                  {isSelected && <Check size={14} className="text-foreground shrink-0" />}
                 </div>
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-[11px] text-muted-foreground/80 line-clamp-1">{meta.tag}</span>
+                  <span className="text-[11px] text-muted-foreground line-clamp-1">{meta.tag}</span>
                   {hasKey && !isSelected && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" aria-label="Configured" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" aria-label="Configured" />
                   )}
                 </div>
               </button>

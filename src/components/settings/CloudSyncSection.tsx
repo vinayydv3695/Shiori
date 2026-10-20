@@ -171,10 +171,10 @@ export function CloudSyncSection() {
         title="Cloud Backup (Upload)"
         description="Uploads this device's reading progress to your WebDAV server under a per-device file. Restoring is not automatic yet."
       >
-        <div className="p-4 rounded-xl border border-border/60 bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+        <div className="py-3.5 px-1 sm:px-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <ShieldCheck size={14} className="text-green-500" />
+              <ShieldCheck size={14} className="text-emerald-500" />
               Upload-Only Cloud Backup
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -198,97 +198,95 @@ export function CloudSyncSection() {
         title="WebDAV Server Credentials"
         description="Configure your self-hosted or cloud WebDAV account."
       >
-        <div className="space-y-4 mt-2">
-          <SettingItem
-            label="WebDAV Server URL"
-            description="The base WebDAV endpoint URL (e.g., https://cloud.example.com/remote.php/dav/files/user/)"
-          >
-            <div className="w-full sm:w-80">
-              <Input
-                type="url"
-                value={config.url}
-                onChange={(e) => setConfig({ ...config, url: e.target.value })}
-                placeholder="https://cloud.example.com/remote.php/dav/files/user/"
-                className="text-xs font-mono"
-              />
-            </div>
-          </SettingItem>
-
-          <SettingItem
-            label="Username"
-            description="Account username or email"
-          >
-            <div className="w-full sm:w-80">
-              <Input
-                type="text"
-                value={config.username}
-                onChange={(e) => setConfig({ ...config, username: e.target.value })}
-                placeholder="Username"
-                className="text-xs"
-              />
-            </div>
-          </SettingItem>
-
-          <SettingItem
-            label="App Password / Token"
-            description="Generated app password from your WebDAV provider security settings"
-          >
-            <div className="relative w-full sm:w-80">
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                value={config.password || ''}
-                onChange={(e) => setConfig({ ...config, password: e.target.value })}
-                placeholder="••••••••••••"
-                className="pr-10 text-xs font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-          </SettingItem>
-
-          <SettingItem
-            label="Remote Sync Folder"
-            description="Folder on server to store sync payloads (default: /ShioriSync/)"
-          >
-            <div className="w-full sm:w-80">
-              <Input
-                type="text"
-                value={config.syncFolder || '/ShioriSync/'}
-                onChange={(e) => setConfig({ ...config, syncFolder: e.target.value })}
-                placeholder="/ShioriSync/"
-                className="text-xs font-mono"
-              />
-            </div>
-          </SettingItem>
-
-          <div className="pt-2 flex items-center justify-end gap-2.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={testing}
-              onClick={handleTestConnection}
-              className="text-xs cursor-pointer"
-            >
-              {testing ? 'Testing...' : 'Test Connection'}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSaveConfig}
-              className="gap-1.5 text-xs cursor-pointer"
-            >
-              <Save size={14} />
-              Save Credentials
-            </Button>
+        <SettingItem
+          label="WebDAV Server URL"
+          description="The base WebDAV endpoint URL (e.g., https://cloud.example.com/remote.php/dav/files/user/)"
+        >
+          <div className="w-full sm:w-80">
+            <Input
+              type="url"
+              value={config.url}
+              onChange={(e) => setConfig({ ...config, url: e.target.value })}
+              placeholder="https://cloud.example.com/remote.php/dav/files/user/"
+              className="text-xs font-mono"
+            />
           </div>
+        </SettingItem>
+
+        <SettingItem
+          label="Username"
+          description="Account username or email"
+        >
+          <div className="w-full sm:w-80">
+            <Input
+              type="text"
+              value={config.username}
+              onChange={(e) => setConfig({ ...config, username: e.target.value })}
+              placeholder="Username"
+              className="text-xs"
+            />
+          </div>
+        </SettingItem>
+
+        <SettingItem
+          label="App Password / Token"
+          description="Generated app password from your WebDAV provider security settings"
+        >
+          <div className="relative w-full sm:w-80">
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              value={config.password || ''}
+              onChange={(e) => setConfig({ ...config, password: e.target.value })}
+              placeholder="••••••••••••"
+              className="pr-10 text-xs font-mono"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+              tabIndex={-1}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </SettingItem>
+
+        <SettingItem
+          label="Remote Sync Folder"
+          description="Folder on server to store sync payloads (default: /ShioriSync/)"
+        >
+          <div className="w-full sm:w-80">
+            <Input
+              type="text"
+              value={config.syncFolder || '/ShioriSync/'}
+              onChange={(e) => setConfig({ ...config, syncFolder: e.target.value })}
+              placeholder="/ShioriSync/"
+              className="text-xs font-mono"
+            />
+          </div>
+        </SettingItem>
+
+        <div className="py-3 px-1 sm:px-2 flex items-center justify-end gap-2.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={testing}
+            onClick={handleTestConnection}
+            className="text-xs cursor-pointer rounded-xl"
+          >
+            {testing ? 'Testing...' : 'Test Connection'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSaveConfig}
+            className="gap-1.5 text-xs cursor-pointer rounded-xl"
+          >
+            <Save size={14} />
+            Save Credentials
+          </Button>
         </div>
       </SettingSection>
     </div>

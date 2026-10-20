@@ -507,9 +507,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 sm:px-5 space-y-2.5 pb-24">
                 {filteredTabs.length > 0 ? (
                   filteredTabs.map((tab) => (
-                    <Tabs.Trigger
+                    <button
                       key={tab.id}
-                      value={tab.id}
+                      type="button"
                       onClick={() => {
                         triggerHaptic(30);
                         setActiveTab(tab.id);
@@ -545,7 +545,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       <div className="ml-3 shrink-0 flex items-center">
                         <ChevronRight className="w-4.5 h-4.5 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
                       </div>
-                    </Tabs.Trigger>
+                    </button>
                   ))
                 ) : (
                   <div className="py-16 text-center flex flex-col items-center justify-center px-4">
@@ -569,73 +569,71 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               </div>
             ) : !isMobile ? (
               /* ── 4. DESKTOP SIDEBAR ── */
-              <Tabs.List asChild>
-                <div className="w-72 bg-card/40 border-r border-border/50 flex flex-col shrink-0 overflow-hidden">
-                  {/* Brand & Search in Sidebar */}
-                  <div className="p-4 pb-3 border-b border-border/40 shrink-0">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-black tracking-tight text-foreground">Settings</h2>
-                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px] tracking-wider uppercase border border-primary/20">
-                          v1.0.23
-                        </span>
-                      </div>
-                    </div>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-3.5 h-3.5" />
-                      <input
-                        type="text"
-                        inputMode="search"
-                        placeholder="Search settings..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full h-8 pl-8 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 shadow-2xs transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
-                      />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
-                          onClick={() => setSearchQuery('')}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
+              <div className="w-72 bg-card/40 border-r border-border/50 flex flex-col shrink-0 overflow-hidden">
+                {/* Brand & Search in Sidebar */}
+                <div className="p-4 pb-3 border-b border-border/40 shrink-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-black tracking-tight text-foreground">Settings</h2>
+                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px] tracking-wider uppercase border border-primary/20">
+                        v1.0.23
+                      </span>
                     </div>
                   </div>
-
-                  {/* Sidebar Categories List */}
-                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-                    {filteredTabs.map((tab) => {
-                      const isActive = selectedTab === tab.id;
-                      return (
-                        <Tabs.Trigger
-                          key={tab.id}
-                          value={tab.id}
-                          className={cn(
-                            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left group relative',
-                            'cursor-pointer select-none',
-                            isActive
-                              ? 'bg-primary/10 text-primary font-bold border border-primary/25 shadow-2xs'
-                              : 'text-foreground/80 hover:bg-secondary/60 hover:text-foreground border border-transparent'
-                          )}
-                        >
-                          <div className={cn(
-                            'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
-                            tab.accentBg,
-                            tab.accentBorder
-                          )}>
-                            <tab.icon className={cn('w-4 h-4 stroke-[2.2]', tab.iconColor)} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-bold truncate leading-tight">{tab.name}</div>
-                            <div className="text-[10px] text-muted-foreground truncate leading-tight font-normal mt-0.5">{tab.subtitle}</div>
-                          </div>
-                        </Tabs.Trigger>
-                      );
-                    })}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-3.5 h-3.5" />
+                    <input
+                      type="text"
+                      inputMode="search"
+                      placeholder="Search settings..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full h-8 pl-8 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 shadow-2xs transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                        onClick={() => setSearchQuery('')}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
-              </Tabs.List>
+
+                {/* Sidebar Categories List */}
+                <Tabs.List className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1 flex flex-col">
+                  {filteredTabs.map((tab) => {
+                    const isActive = selectedTab === tab.id;
+                    return (
+                      <Tabs.Trigger
+                        key={tab.id}
+                        value={tab.id}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left group relative',
+                          'cursor-pointer select-none',
+                          isActive
+                            ? 'bg-primary/10 text-primary font-bold border border-primary/25 shadow-2xs'
+                            : 'text-foreground/80 hover:bg-secondary/60 hover:text-foreground border border-transparent'
+                        )}
+                      >
+                        <div className={cn(
+                          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
+                          tab.accentBg,
+                          tab.accentBorder
+                        )}>
+                          <tab.icon className={cn('w-4 h-4 stroke-[2.2]', tab.iconColor)} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-bold truncate leading-tight">{tab.name}</div>
+                          <div className="text-[10px] text-muted-foreground truncate leading-tight font-normal mt-0.5">{tab.subtitle}</div>
+                        </div>
+                      </Tabs.Trigger>
+                    );
+                  })}
+                </Tabs.List>
+              </div>
             ) : null}
 
             {/* ── 5. DETAIL CONTENT AREA ── */}

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { ArrowLeft, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
-import { Headphones, History, Moon } from 'lucide-react';
+import { Headphones, History, Moon, Settings } from 'lucide-react';
 import { ReaderTooltip } from './ReaderTooltip';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { AmbientSoundBar } from './AmbientSoundBar';
@@ -49,6 +49,7 @@ export function ReaderTopBar({
   const [showAmbientBar, setShowAmbientBar] = React.useState(false);
   const [isCatchUpOpen, setIsCatchUpOpen] = React.useState(false);
   const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const sleepTimerButtonRef = React.useRef<HTMLButtonElement>(null);
   const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
   const sleepTimerRemaining = useSleepTimerStore(state => state.remainingSeconds);
@@ -82,6 +83,7 @@ export function ReaderTopBar({
       setIsDesktopMenuOpen(false);
       setShowAmbientBar(false);
       setIsSleepTimerOpen(false);
+      setIsSettingsOpen(false);
     }
   }, [isTopBarVisible, isSidebarOpen]);
 
@@ -89,6 +91,8 @@ export function ReaderTopBar({
     setIsMoreMenuOpen(false);
     setIsDesktopMenuOpen(false);
     setShowAmbientBar(false);
+    setIsSleepTimerOpen(false);
+    setIsSettingsOpen(false);
   }, [bookId]);
 
   const extraChildren = React.Children.toArray(
@@ -97,9 +101,32 @@ export function ReaderTopBar({
       : rightExtra
   );
 
-  // Toolbar items: primary tools (Search, TOC, Bookmark) and overflow items (Highlights, Doodle, etc.)
-  const primaryToolbarItems = extraChildren.slice(0, 3);
-  const overflowToolbarItems = extraChildren.slice(3);
+  const getChildLabel = (child: React.ReactNode): string => {
+    if (!React.isValidElement(child)) return '';
+    const actualChild = (child.type === ReaderTooltip && (child.props as any).children)
+      ? (child.props as any).children
+      : child;
+    const label = (child.type === ReaderTooltip ? (child.props as any).content : '')
+      || actualChild.props?.['aria-label']
+      || actualChild.props?.title
+      || '';
+    return String(label).toLowerCase();
+  };
+
+  // Identify Search and Bookmark specifically for minimalist Android bar
+  const searchChild = extraChildren.find(c => getChildLabel(c).includes('search'));
+  const bookmarkChild = extraChildren.find(c => getChildLabel(c).includes('bookmark'));
+
+  // Android: Strictly Search & Bookmark as visible action buttons; all else into triple colons
+  const androidPrimaryItems = [searchChild, bookmarkChild].filter(Boolean);
+  const androidOverflowItems = extraChildren.filter(c => c !== searchChild && c !== bookmarkChild);
+
+  // Desktop: First 3 items (Search, TOC, Bookmark), remainder in overflow
+  const desktopPrimaryItems = extraChildren.slice(0, 3);
+  const desktopOverflowItems = extraChildren.slice(3);
+
+  const primaryToolbarItems = isAndroid ? androidPrimaryItems : desktopPrimaryItems;
+  const overflowToolbarItems = isAndroid ? androidOverflowItems : desktopOverflowItems;
 
   return (
     <div
@@ -155,75 +182,91 @@ export function ReaderTopBar({
         )}
 
         {/* ── RIGHT: Streamlined Reading Tools ── */}
-        <div className="premium-top-bar-right flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <div className="flex items-center gap-1">
+        <div className="premium-top-bar-right flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {primaryToolbarItems}
-            <ReaderSettings format={format} />
-            <ReaderTooltip content="Ambient Soundscapes">
-              <button
-                type="button"
-                className={`premium-control-button ${showAmbientBar ? 'premium-control-button--active' : ''}`}
-                aria-label="Ambient Soundscapes"
-                onClick={() => {
-                  setShowAmbientBar(!showAmbientBar);
-                  setIsMoreMenuOpen(false);
-                  setIsSleepTimerOpen(false);
-                }}
-              >
-                <Headphones className="premium-control-icon" />
-              </button>
-            </ReaderTooltip>
 
-            <div className="relative flex items-center">
-              <ReaderTooltip content={isSleepTimerActive ? `Sleep Timer: ${sleepTimerBadge} left` : "Bedtime Sleep Timer"}>
-                <button
-                  ref={sleepTimerButtonRef}
-                  type="button"
-                  className={`premium-control-button relative ${
-                    (isSleepTimerOpen || isSleepTimerActive) ? 'premium-control-button--active' : ''
-                  }`}
-                  aria-label="Sleep Timer"
-                  onClick={() => {
-                    setIsSleepTimerOpen(!isSleepTimerOpen);
-                    setIsMoreMenuOpen(false);
-                    setShowAmbientBar(false);
-                  }}
-                >
-                  <Moon className={`premium-control-icon transition-colors ${isSleepTimerActive ? 'text-[var(--ui-focus)]' : ''}`} />
-                  {isSleepTimerActive && (
-                    <span
-                      className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full text-[9px] font-black text-white shadow-xs pointer-events-none"
-                      style={{ background: 'var(--ui-focus, #eab308)' }}
+            {!isAndroid && (
+              <>
+                <ReaderSettings format={format} />
+                <ReaderTooltip content="Ambient Soundscapes">
+                  <button
+                    type="button"
+                    className={`premium-control-button ${showAmbientBar ? 'premium-control-button--active' : ''}`}
+                    aria-label="Ambient Soundscapes"
+                    onClick={() => {
+                      setShowAmbientBar(!showAmbientBar);
+                      setIsMoreMenuOpen(false);
+                      setIsSleepTimerOpen(false);
+                    }}
+                  >
+                    <Headphones className="premium-control-icon" />
+                  </button>
+                </ReaderTooltip>
+
+                <div className="relative flex items-center">
+                  <ReaderTooltip content={isSleepTimerActive ? `Sleep Timer: ${sleepTimerBadge} left` : "Bedtime Sleep Timer"}>
+                    <button
+                      ref={sleepTimerButtonRef}
+                      type="button"
+                      className={`premium-control-button relative ${
+                        (isSleepTimerOpen || isSleepTimerActive) ? 'premium-control-button--active' : ''
+                      }`}
+                      aria-label="Sleep Timer"
+                      onClick={() => {
+                        setIsSleepTimerOpen(!isSleepTimerOpen);
+                        setIsMoreMenuOpen(false);
+                        setShowAmbientBar(false);
+                      }}
                     >
-                      {sleepTimerBadge}
-                    </span>
-                  )}
-                </button>
-              </ReaderTooltip>
+                      <Moon className={`premium-control-icon transition-colors ${isSleepTimerActive ? 'text-[var(--ui-focus)]' : ''}`} />
+                      {isSleepTimerActive && (
+                        <span
+                          className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full text-[9px] font-black text-white shadow-xs pointer-events-none"
+                          style={{ background: 'var(--ui-focus, #eab308)' }}
+                        >
+                          {sleepTimerBadge}
+                        </span>
+                      )}
+                    </button>
+                  </ReaderTooltip>
+                </div>
+              </>
+            )}
 
-              <SleepTimerDialog
-                open={isSleepTimerOpen}
-                onClose={() => setIsSleepTimerOpen(false)}
-                buttonRef={sleepTimerButtonRef}
+            {/* Controlled ReaderSettings on Android — invisible trigger in bar, opens bottom sheet */}
+            {isAndroid && (
+              <ReaderSettings
+                format={format}
+                isOpen={isSettingsOpen}
+                onOpenChange={setIsSettingsOpen}
+                hideTrigger
               />
-            </div>
+            )}
           </div>
 
           {/* More Options Dropdown */}
           <div className="relative flex items-center">
-              <ReaderTooltip content="More options">
-                <button
-                  className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
-                  aria-label="More options"
-                  onClick={() => {
-                    setIsMoreMenuOpen(!isMoreMenuOpen);
-                    setShowAmbientBar(false);
-                    setIsSleepTimerOpen(false);
-                  }}
-                >
-                  <MoreVertical className="premium-control-icon" />
-                </button>
-              </ReaderTooltip>
+            <ReaderTooltip content="More options">
+              <button
+                className={`premium-control-button ${isMoreMenuOpen ? 'premium-control-button--active' : ''}`}
+                aria-label="More options"
+                onClick={() => {
+                  setIsMoreMenuOpen(!isMoreMenuOpen);
+                  setShowAmbientBar(false);
+                  setIsSleepTimerOpen(false);
+                }}
+              >
+                <MoreVertical className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            {/* SleepTimerDialog positioned relative to right area */}
+            <SleepTimerDialog
+              open={isSleepTimerOpen}
+              onClose={() => setIsSleepTimerOpen(false)}
+              buttonRef={sleepTimerButtonRef}
+            />
 
             <AnimatePresence>
               {isMoreMenuOpen && (
@@ -272,6 +315,23 @@ export function ReaderTopBar({
                           </motion.button>
                         );
                       })}
+
+                      {/* On Android: Reading Settings tucked into the 3-dots menu */}
+                      {isAndroid && (
+                        <motion.button
+                          type="button"
+                          variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+                          onClick={() => {
+                            setIsMoreMenuOpen(false);
+                            setIsSettingsOpen(true);
+                          }}
+                          className="premium-menu-item"
+                          aria-label="Reading Settings"
+                        >
+                          <Settings className="premium-control-icon" />
+                          <span className="premium-menu-item-label">Reading Settings</span>
+                        </motion.button>
+                      )}
 
                       {/* On Android: Ambient Soundscapes and Bedtime Sleep Timer are tucked neatly in the 3-dots menu */}
                       {isAndroid && (

@@ -109,11 +109,11 @@ export function MangaContentRow({
       ) : (
         <div
           ref={scrollRef}
-          className="flex gap-3 sm:gap-4 overflow-x-auto custom-scrollbar-none scroll-smooth pb-2 pt-1 -mx-3 px-3 sm:-mx-1 sm:px-1"
+          className="flex gap-3 sm:gap-4.5 overflow-x-auto custom-scrollbar-none scroll-smooth pb-3 pt-1 -mx-3 px-3 sm:-mx-1 sm:px-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {items.map((item) => (
-            <div key={item.id} className="w-[125px] sm:w-[150px] md:w-[165px] lg:w-[175px] flex-shrink-0">
+            <div key={item.id} className="w-[128px] sm:w-[150px] md:w-[165px] lg:w-[175px] flex-shrink-0">
               <ModernBookCard
                 id={item.id}
                 title={item.title}

@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import type { CarouselItem } from './ContentCarousel';
 import { cn } from '@/lib/utils';
-import { getProxyUrl, isAndroid } from '@/lib/tauri';
+import { getProxyUrl } from '@/lib/tauri';
+import { FallbackBookCover } from '@/components/library/FallbackBookCover';
 
 interface HeroBookBannerProps {
   items: CarouselItem[];
@@ -11,6 +12,27 @@ interface HeroBookBannerProps {
   onReadClick?: (item: CarouselItem) => void;
   actionLabel?: string;
   sourceId?: string;
+}
+
+function cleanBookTitle(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/;\s*or,\s*.*$/i, '')
+    .replace(/:\s+A Romance.*$/i, '')
+    .replace(/\s*\([^)]*edition[^)]*\)/gi, '')
+    .trim();
+}
+
+function formatAuthorName(raw?: string): string | undefined {
+  if (!raw || raw === 'Unknown Author') return undefined;
+  const trimmed = raw.trim();
+  if (trimmed.includes(',')) {
+    const parts = trimmed.split(',').map((p) => p.trim());
+    if (parts.length === 2) {
+      return `${parts[1]} ${parts[0]}`;
+    }
+  }
+  return trimmed;
 }
 
 export function HeroBookBanner({
@@ -21,6 +43,7 @@ export function HeroBookBanner({
   sourceId = 'gutenberg',
 }: HeroBookBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [imgError, setImgError] = useState(false);
 
   // Auto rotate every 8 seconds
   useEffect(() => {
@@ -31,12 +54,13 @@ export function HeroBookBanner({
     return () => clearInterval(interval);
   }, [items]);
 
+  useEffect(() => {
+    setImgError(false);
+  }, [currentIndex]);
+
   if (loading) {
     return (
-      <div className={cn(
-        "relative w-full rounded-2xl sm:rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse",
-        isAndroid ? "h-[190px] mb-5" : "h-[240px] sm:h-[300px] md:h-[360px] mb-6 sm:mb-8"
-      )} />
+      <div className="relative w-full h-[180px] sm:h-[220px] md:h-[250px] rounded-2xl sm:rounded-3xl overflow-hidden bg-card/40 border border-border/40 animate-pulse mb-6 sm:mb-8" />
     );
   }
 
@@ -45,232 +69,137 @@ export function HeroBookBanner({
   const current = items[currentIndex] || items[0];
   const rawCover = current?.coverUrl || null;
   const cover = rawCover ? getProxyUrl(sourceId, rawCover) : null;
-  const buttonLabel = actionLabel || 'Download Now';
+  const title = cleanBookTitle(current.title);
+  const author = formatAuthorName(current.subtitle);
+  const buttonLabel = actionLabel || 'Get Book';
 
-  // Dedicated Cinematic 16:9 Banner for Android
-  if (isAndroid) {
-    return (
-      <div className="relative w-full h-[190px] rounded-2xl overflow-hidden group border border-border/60 bg-card shadow-sm backdrop-blur-xl mb-5 select-none">
-        {cover && (
-          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-            {/* Ambient Blur */}
-            <div className="absolute inset-0 overflow-hidden">
-              <img
-                key={current.id + '-ambient-trail'}
-                src={cover}
-                alt=""
-                aria-hidden="true"
-                className="w-full h-full object-cover filter blur-2xl scale-125 opacity-35 dark:opacity-25 saturate-150 transition-all duration-700"
-              />
-            </div>
+  return (
+    <div className="relative w-full h-[190px] sm:h-[225px] md:h-[260px] rounded-2xl sm:rounded-3xl overflow-hidden group border border-border/50 bg-card/75 dark:bg-card/45 backdrop-blur-xl shadow-sm mb-6 sm:mb-8 select-none transition-all duration-300">
+      {/* Ambient background glow */}
+      {cover && !imgError && (
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <img
+            key={current.id + '-ambient'}
+            src={cover}
+            alt=""
+            aria-hidden="true"
+            className="w-full h-full object-cover filter blur-3xl scale-125 opacity-25 dark:opacity-20 saturate-150 transition-all duration-700"
+          />
+        </div>
+      )}
 
-            {/* Right side visible artwork with smooth fade */}
-            <div className="absolute right-0 top-0 bottom-0 w-[65%] h-full [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.3)_30%,black_85%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.3)_30%,black_85%)]">
-              <img
-                src={cover}
-                alt=""
-                className="w-full h-full object-cover object-top opacity-85 dark:opacity-75 transition-all duration-700"
-              />
-            </div>
+      {/* Directional contrast gradient scrim */}
+      <div className="absolute inset-0 bg-gradient-to-r from-card/95 via-card/85 to-card/25 dark:from-background/95 dark:via-background/85 dark:to-background/25 pointer-events-none z-0" />
 
-            {/* Contrast Gradient Scrim */}
-            <div className="absolute inset-0 bg-gradient-to-r from-card via-card/85 to-transparent dark:from-background dark:via-background/85 dark:to-transparent [mask-image:linear-gradient(to_right,black_0%,black_50%,transparent_95%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_50%,transparent_95%)]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-card/80 via-transparent to-card/20 dark:from-background/80 dark:via-transparent dark:to-background/20" />
-          </div>
-        )}
-
-        {/* Content Container */}
-        <div className="relative z-10 h-full p-4 flex flex-col justify-between">
-          {/* Top Tag & Index */}
+      {/* Content Container */}
+      <div className="relative z-10 h-full p-4 sm:p-6 md:p-8 flex items-center justify-between gap-3 sm:gap-6 md:gap-8">
+        {/* Left Side: Metadata & CTA */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between h-full py-0.5 sm:py-1">
+          {/* Top Tag */}
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25 text-[10px] font-black tracking-wider uppercase backdrop-blur-md shadow-xs">
-              Featured Book
-            </span>
-            <span className="text-[11px] font-bold text-muted-foreground/80">
-              #{currentIndex + 1} of {Math.min(items.length, 5)}
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] sm:text-xs font-bold tracking-wider uppercase">
+              Featured
             </span>
           </div>
 
-          {/* Title & Subtitle */}
-          <div className="max-w-[70%] space-y-1">
-            <h2 className="text-base font-extrabold text-foreground tracking-tight line-clamp-1 drop-shadow-sm">
-              {current.title}
+          {/* Title & Author */}
+          <div className="space-y-0.5 sm:space-y-1 my-auto">
+            <h2 className="text-base sm:text-xl md:text-2xl font-extrabold text-foreground tracking-tight line-clamp-2 leading-snug drop-shadow-xs">
+              {title}
             </h2>
-            {current.subtitle && (
-              <p className="text-xs font-semibold text-muted-foreground line-clamp-1">
-                {current.subtitle}
+            {author && (
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground line-clamp-1">
+                {author}
               </p>
             )}
           </div>
 
-          {/* Action & Dots */}
-          <div className="flex items-center justify-between pt-1">
+          {/* CTA Button */}
+          <div className="flex items-center gap-2.5 pt-1">
             <Button
               size="sm"
-              className="h-8 px-4 rounded-xl font-bold gap-1.5 shadow-sm shadow-primary/25 active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90 text-xs cursor-pointer"
               onClick={() => onReadClick?.(current)}
+              className="h-8 sm:h-9 px-3.5 sm:px-4 rounded-full font-bold gap-1.5 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-sm cursor-pointer active:scale-95 transition-all"
             >
               <Download className="w-3.5 h-3.5" />
-              {buttonLabel}
+              <span>{buttonLabel}</span>
             </Button>
-
-            {items.length > 1 && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-card/70 backdrop-blur-md border border-border/40">
-                {items.slice(0, 5).map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setCurrentIndex(i)}
-                    className={cn(
-                      "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
-                      i === currentIndex ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60"
-                    )}
-                    aria-label={`Go to slide ${i + 1}`}
-                  />
-                ))}
-              </div>
-            )}
           </div>
+        </div>
+
+        {/* Right Side: Elevated Book Cover */}
+        <div
+          onClick={() => onReadClick?.(current)}
+          className="relative h-[85%] sm:h-[90%] aspect-[2/3] rounded-xl sm:rounded-2xl overflow-hidden shadow-md border border-border/50 shrink-0 cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95 bg-secondary/40 flex items-center justify-center group/card"
+        >
+          {cover && !imgError ? (
+            <>
+              <img
+                src={cover}
+                alt={title}
+                onError={() => setImgError(true)}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/15 pointer-events-none" />
+            </>
+          ) : (
+            <FallbackBookCover
+              title={title}
+              author={author}
+              format="epub"
+              coverSize="small"
+            />
+          )}
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="relative w-full h-[240px] sm:h-[300px] md:h-[360px] rounded-2xl sm:rounded-3xl overflow-hidden group border border-border/60 bg-card shadow-lg backdrop-blur-xl mb-6 sm:mb-8 select-none">
-      {/* Seamless HD Background Artwork Layer with Ambient Color Trail */}
-      {cover && (
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {/* Ambient Color Trail Glow across the whole banner (gives the banner the book's palette) */}
-          <div className="absolute inset-0 overflow-hidden">
-            <img
-              key={current.id + '-ambient-trail'}
-              src={cover}
-              alt=""
-              aria-hidden="true"
-              className="w-full h-full object-cover object-center filter blur-3xl scale-125 opacity-40 dark:opacity-35 saturate-[1.8] transition-all duration-700 ease-out"
-            />
-          </div>
-
-          {/* Zoomed-out, natural-proportions HD artwork anchored to the right */}
-          <div className="absolute inset-0 flex justify-end items-center">
-            <div className="relative h-[110%] w-auto max-w-[65%] sm:max-w-[55%] md:max-w-[50%] flex items-center justify-end [mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_25%,rgba(0,0,0,0.85)_60%,black_90%)] [-webkit-mask-image:linear-gradient(to_right,transparent_0%,rgba(0,0,0,0.2)_25%,rgba(0,0,0,0.85)_60%,black_90%)]">
-              <img
-                key={current.id + '-bg'}
-                src={cover}
-                alt=""
-                className="h-full w-auto max-w-none object-contain filter contrast-[1.08] saturate-[1.12] brightness-[1.02] opacity-95 dark:opacity-85 transition-all duration-700 ease-out group-hover:scale-105"
-              />
-            </div>
-          </div>
-
-          {/* Smooth directional contrast scrim for crystal-clear typography readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-card/85 via-card/50 to-transparent dark:from-background/85 dark:via-background/50 dark:to-transparent [mask-image:linear-gradient(to_right,black_0%,black_45%,transparent_90%)] [-webkit-mask-image:linear-gradient(to_right,black_0%,black_45%,transparent_90%)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-card/40 via-transparent to-card/20 dark:from-background/40 dark:via-transparent dark:to-background/20" />
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <div className="relative z-10 h-full p-5 sm:p-7 md:p-9 flex items-center gap-6 md:gap-9">
-        {/* Elevated 3D Pop-Up Foreground Card */}
-        {cover && (
-          <div 
-            onClick={() => onReadClick?.(current)}
-            className="hidden sm:block flex-shrink-0 w-32 md:w-40 aspect-[2/3] rounded-2xl overflow-hidden cursor-pointer shadow-[0_20px_45px_-8px_rgba(0,0,0,0.6),0_6px_16px_rgba(0,0,0,0.35)] ring-1 ring-white/30 dark:ring-white/15 border border-white/20 transition-all duration-300 ease-out hover:scale-[1.05] hover:-translate-y-1.5 hover:shadow-[0_28px_55px_-10px_rgba(0,0,0,0.75)] bg-muted/40 relative group/card"
-          >
-            <img
-              src={cover}
-              alt={current.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
-            />
-            {/* Glossy sheen overlay & book spine crease for depth */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-black/25 via-transparent to-white/25 pointer-events-none" />
-            <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-r from-black/40 via-black/10 to-transparent pointer-events-none" />
-          </div>
-        )}
-
-        {/* Text Details */}
-        <div className="flex-1 min-w-0 max-w-2xl space-y-2.5 sm:space-y-3.5">
-          {/* Premium Spotlight Badge */}
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/15 text-primary border border-primary/30 text-[10px] sm:text-[11px] font-black tracking-wider uppercase backdrop-blur-md shadow-xs">
-              Featured Spotlight
-            </span>
-            <span className="text-xs font-bold text-muted-foreground/80">
-              #{currentIndex + 1} of {Math.min(items.length, 5)}
-            </span>
-          </div>
-
-          {/* Title */}
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground tracking-tight line-clamp-2 drop-shadow-sm">
-            {current.title}
-          </h1>
-
-          {/* Subtitle / Author */}
-          {current.subtitle && (
-            <p className="text-sm md:text-base font-semibold text-foreground/80 line-clamp-1">
-              {current.subtitle}
-            </p>
-          )}
-
-          {/* Action Buttons */}
-          <div className="pt-1.5 flex items-center gap-3">
-            <Button
-              size="default"
-              className="rounded-xl font-bold gap-2 shadow-md shadow-primary/20 hover:scale-105 transition-all duration-200 cursor-pointer active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90 px-5"
-              onClick={() => onReadClick?.(current)}
-            >
-              <Download className="w-4 h-4" />
-              {buttonLabel}
-            </Button>
-          </div>
-        </div>
-
-        {/* Carousel Navigation Controls */}
-        {items.length > 1 && (
-          <div className="absolute bottom-3 sm:bottom-4 right-4 sm:right-6 flex items-center gap-2 z-20">
+      {/* Slide Indicators / Navigation Controls */}
+      {items.length > 1 && (
+        <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-6 flex items-center gap-1.5 z-20">
+          <div className="hidden sm:flex items-center gap-1 mr-1">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setCurrentIndex((prev) => (prev - 1 + Math.min(items.length, 5)) % Math.min(items.length, 5));
               }}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-card/85 hover:bg-card border border-border/50 backdrop-blur-md flex items-center justify-center text-foreground transition-all active:scale-90 shadow-xs cursor-pointer"
-              aria-label="Previous featured book"
+              className="w-7 h-7 rounded-full bg-card/85 hover:bg-card border border-border/50 flex items-center justify-center text-foreground transition-all active:scale-90 shadow-2xs cursor-pointer"
+              aria-label="Previous"
             >
-              <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            
-            {/* Dots */}
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-card/60 backdrop-blur-md border border-border/40">
-              {items.slice(0, 5).map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setCurrentIndex(i)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
-                    i === currentIndex ? "w-4 sm:w-5 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60"
-                  )}
-                  aria-label={`Go to slide ${i + 1}`}
-                />
-              ))}
-            </div>
+          </div>
 
+          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-card/75 backdrop-blur-md border border-border/40 shadow-2xs">
+            {items.slice(0, 5).map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setCurrentIndex(i)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
+                  i === currentIndex ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60"
+                )}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1 ml-1">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setCurrentIndex((prev) => (prev + 1) % Math.min(items.length, 5));
               }}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-card/85 hover:bg-card border border-border/50 backdrop-blur-md flex items-center justify-center text-foreground transition-all active:scale-90 shadow-xs cursor-pointer"
-              aria-label="Next featured book"
+              className="w-7 h-7 rounded-full bg-card/85 hover:bg-card border border-border/50 flex items-center justify-center text-foreground transition-all active:scale-90 shadow-2xs cursor-pointer"
+              aria-label="Next"
             >
-              <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

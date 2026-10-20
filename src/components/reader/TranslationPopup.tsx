@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import type { DictionaryResponse, TranslationResponse } from '@/lib/tauri';
+import { isAndroid, type DictionaryResponse, type TranslationResponse } from '@/lib/tauri';
 import {
   Languages,
   BookOpen,
@@ -165,29 +165,41 @@ export function TranslationPopup({
       onMouseDown={(e) => e.stopPropagation()}
     >
       {/* ── CARD HEADER (Always pinned at top) ── */}
-      <div className="shrink-0 flex items-center justify-between pb-3 border-b border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] flex items-center justify-center shrink-0 shadow-2xs">
-            {mode === 'translate' ? (
-              <Languages size={15} strokeWidth={2.4} />
-            ) : (
-              <BookOpen size={15} strokeWidth={2.4} />
-            )}
-          </div>
-          <div>
-            <h3 className="font-bold text-sm tracking-tight text-[var(--text-primary)] leading-tight">
-              {mode === 'translate' ? 'Translation' : 'Dictionary'}
-            </h3>
-            <span className="text-[10px] font-medium text-[var(--text-tertiary)] block leading-none mt-0.5">
-              {mode === 'translate' ? 'Instant language translation' : 'Definition & vocabulary'}
-            </span>
-          </div>
-        </div>
+      {isAndroid ? (
+        <div className="shrink-0 space-y-2.5 pb-2.5 border-b border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)]">
+          {/* Top row: Title/Icon on left, Close button on right */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] flex items-center justify-center shrink-0 shadow-2xs">
+                {mode === 'translate' ? (
+                  <Languages size={16} strokeWidth={2.4} />
+                ) : (
+                  <BookOpen size={16} strokeWidth={2.4} />
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-sm tracking-tight text-[var(--text-primary)] leading-tight">
+                  {mode === 'translate' ? 'Translation' : 'Dictionary'}
+                </h3>
+                <span className="text-[10px] font-medium text-[var(--text-tertiary)] block leading-none mt-0.5">
+                  {mode === 'translate' ? 'Instant language translation' : 'Definition & vocabulary'}
+                </span>
+              </div>
+            </div>
 
-        <div className="flex items-center gap-2">
-          {/* Segmented Control Pill Switcher (Deep Inset Track & Elevated Pill like Fig 2) */}
-          <div className="relative grid grid-cols-2 p-1 bg-[color-mix(in_srgb,var(--text-primary)_9%,var(--bg-secondary))] border border-[color-mix(in_srgb,var(--ui-border)_75%,transparent)] rounded-2xl h-9 w-[210px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.14),inset_0_1px_2px_rgba(0,0,0,0.08)]">
-            {/* Smooth Local Sliding Pill Indicator (Never flies from outside) */}
+            {/* Close Button - ALWAYS visible on Android */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] active:scale-90 transition-all cursor-pointer"
+              aria-label="Close"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          {/* Second row: Full-width Segmented Switcher */}
+          <div className="relative grid grid-cols-2 p-1 bg-[color-mix(in_srgb,var(--text-primary)_8%,var(--bg-secondary))] border border-[color-mix(in_srgb,var(--ui-border)_75%,transparent)] rounded-2xl h-10 w-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.12)]">
             <motion.div
               className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-xl bg-gradient-to-b from-[var(--ui-focus)] via-[var(--ui-focus)] to-[color-mix(in_srgb,var(--ui-focus)_90%,black)] shadow-[0_2px_8px_rgba(0,0,0,0.25),0_1px_3px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.3)] border-t border-white/25 z-0 pointer-events-none"
               initial={false}
@@ -199,13 +211,13 @@ export function TranslationPopup({
               type="button"
               onClick={() => onSwitchMode('translate')}
               className={cn(
-                "relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-2.5",
+                "relative z-10 flex items-center justify-center gap-2 h-full text-xs font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-3",
                 mode === 'translate'
                   ? "!text-white font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
-              <Languages size={13} strokeWidth={2.4} />
+              <Languages size={14} strokeWidth={2.4} />
               <span>Translate</span>
             </button>
 
@@ -213,28 +225,89 @@ export function TranslationPopup({
               type="button"
               onClick={() => onSwitchMode('define')}
               className={cn(
-                "relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-2.5",
+                "relative z-10 flex items-center justify-center gap-2 h-full text-xs font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-3",
                 mode === 'define'
                   ? "!text-white font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
-              <BookOpen size={13} strokeWidth={2.4} />
+              <BookOpen size={14} strokeWidth={2.4} />
               <span>Define</span>
             </button>
           </div>
-
-          {/* Close Button */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-7 h-7 rounded-xl flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] transition-all cursor-pointer"
-            aria-label="Close"
-          >
-            <X size={14} />
-          </button>
         </div>
-      </div>
+      ) : (
+        <div className="shrink-0 flex items-center justify-between pb-3 border-b border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] flex items-center justify-center shrink-0 shadow-2xs">
+              {mode === 'translate' ? (
+                <Languages size={15} strokeWidth={2.4} />
+              ) : (
+                <BookOpen size={15} strokeWidth={2.4} />
+              )}
+            </div>
+            <div>
+              <h3 className="font-bold text-sm tracking-tight text-[var(--text-primary)] leading-tight">
+                {mode === 'translate' ? 'Translation' : 'Dictionary'}
+              </h3>
+              <span className="text-[10px] font-medium text-[var(--text-tertiary)] block leading-none mt-0.5">
+                {mode === 'translate' ? 'Instant language translation' : 'Definition & vocabulary'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Segmented Control Pill Switcher (Deep Inset Track & Elevated Pill like Fig 2) */}
+            <div className="relative grid grid-cols-2 p-1 bg-[color-mix(in_srgb,var(--text-primary)_9%,var(--bg-secondary))] border border-[color-mix(in_srgb,var(--ui-border)_75%,transparent)] rounded-2xl h-9 w-[210px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.14),inset_0_1px_2px_rgba(0,0,0,0.08)]">
+              {/* Smooth Local Sliding Pill Indicator (Never flies from outside) */}
+              <motion.div
+                className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded-xl bg-gradient-to-b from-[var(--ui-focus)] via-[var(--ui-focus)] to-[color-mix(in_srgb,var(--ui-focus)_90%,black)] shadow-[0_2px_8px_rgba(0,0,0,0.25),0_1px_3px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.3)] border-t border-white/25 z-0 pointer-events-none"
+                initial={false}
+                animate={{ x: mode === 'translate' ? '0%' : '100%' }}
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              />
+
+              <button
+                type="button"
+                onClick={() => onSwitchMode('translate')}
+                className={cn(
+                  "relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-2.5",
+                  mode === 'translate'
+                    ? "!text-white font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                )}
+              >
+                <Languages size={13} strokeWidth={2.4} />
+                <span>Translate</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSwitchMode('define')}
+                className={cn(
+                  "relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-xl transition-colors duration-200 cursor-pointer select-none px-2.5",
+                  mode === 'define'
+                    ? "!text-white font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                )}
+              >
+                <BookOpen size={13} strokeWidth={2.4} />
+                <span>Define</span>
+              </button>
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-7 h-7 rounded-xl flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] transition-all cursor-pointer"
+              aria-label="Close"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── SCROLLABLE BODY CONTENT (Autoscales to content, scrolls if large) ── */}
       <div className="flex-1 min-h-0 overflow-y-auto space-y-3 py-1 pr-0.5 translation-popup-scroll">
@@ -465,20 +538,26 @@ export function TranslationPopup({
       </div>
 
       {/* ── FOOTER ACTIONS (Pinned at bottom, ALWAYS 100% visible) ── */}
-      <div className="shrink-0 flex items-center justify-between pt-2.5 mt-auto border-t border-[color-mix(in_srgb,var(--ui-border)_40%,transparent)]">
-        <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-tertiary)] hidden sm:flex select-none">
-          <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shadow-2xs">
-            esc
-          </kbd>
-          <span>to close</span>
-        </div>
+      <div className={cn(
+        "shrink-0 flex items-center border-t border-[color-mix(in_srgb,var(--ui-border)_40%,transparent)]",
+        isAndroid ? "pt-2.5 gap-2.5 w-full justify-between" : "justify-between pt-2.5 mt-auto"
+      )}>
+        {!isAndroid && (
+          <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-tertiary)] hidden sm:flex select-none">
+            <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shadow-2xs">
+              esc
+            </kbd>
+            <span>to close</span>
+          </div>
+        )}
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className={cn("flex items-center gap-2", isAndroid ? "w-full justify-between" : "ml-auto")}>
           {/* Secondary Action: Copy Button with Instant Feedback */}
           <button
             type="button"
             className={cn(
-              "px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed",
+              "rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed",
+              isAndroid ? "flex-1 h-10 px-3" : "px-3.5 py-1.5",
               copied
                 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : "border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-secondary))] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)]"
@@ -486,7 +565,7 @@ export function TranslationPopup({
             onClick={handleCopyAll}
             disabled={loading || !!error || (!translationResult && !dictionaryResult)}
           >
-            {copied ? <Check size={13} strokeWidth={2.5} className="text-emerald-500" /> : <Copy size={13} strokeWidth={2} />}
+            {copied ? <Check size={14} strokeWidth={2.5} className="text-emerald-500" /> : <Copy size={14} strokeWidth={2} />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
           </button>
 
@@ -495,7 +574,8 @@ export function TranslationPopup({
             <button
               type="button"
               className={cn(
-                "text-selection-toolbar-btn--save-note px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-[0_3px_10px_-1px_rgba(0,0,0,0.22)] active:scale-95 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:shadow-none",
+                "text-selection-toolbar-btn--save-note rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-[0_3px_10px_-1px_rgba(0,0,0,0.22)] active:scale-95 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:shadow-none",
+                isAndroid ? "flex-1 h-10 px-3" : "px-4 py-1.5",
                 isSavedToVocab ? "bg-emerald-600 !text-white border-transparent" : ""
               )}
               onClick={handleSaveVocab}
@@ -503,12 +583,12 @@ export function TranslationPopup({
             >
               {isSavedToVocab ? (
                 <>
-                  <Check size={13} strokeWidth={2.5} className="text-white" />
+                  <Check size={14} strokeWidth={2.5} className="text-white" />
                   <span>Saved to Vocab</span>
                 </>
               ) : (
                 <>
-                  <BookmarkPlus size={13} strokeWidth={2.5} className="text-white" />
+                  <BookmarkPlus size={14} strokeWidth={2.5} className="text-white" />
                   <span>Save to Vocabulary</span>
                 </>
               )}

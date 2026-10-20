@@ -14,6 +14,9 @@ export type ReaderFormat = 'epub' | 'pdf' | 'mobi' | 'azw' | 'azw3' | 'manga' | 
 interface ReaderSettingsProps {
   /** Current book format — controls which settings are visible */
   format?: ReaderFormat;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 const PortalWrapper = ({ children, usePortal }: { children: React.ReactNode, usePortal: boolean }) => {
@@ -21,8 +24,22 @@ const PortalWrapper = ({ children, usePortal }: { children: React.ReactNode, use
   return createPortal(children, document.body);
 };
 
-export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function ReaderSettings({
+  format = 'epub',
+  isOpen: controlledIsOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: ReaderSettingsProps) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = controlledIsOpen !== undefined;
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+  const setIsOpen = (next: boolean | ((prev: boolean) => boolean)) => {
+    const nextVal = typeof next === 'function' ? next(isOpen) : next;
+    if (!isControlled) {
+      setInternalIsOpen(nextVal);
+    }
+    onOpenChange?.(nextVal);
+  };
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isMobile = useIsMobile();
@@ -99,9 +116,8 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
     const handleClickOutside = (e: MouseEvent) => {
       if (
         panelRef.current &&
-        buttonRef.current &&
         !panelRef.current.contains(e.target as Node) &&
-        !buttonRef.current.contains(e.target as Node)
+        (!buttonRef.current || !buttonRef.current.contains(e.target as Node))
       ) {
         setIsOpen(false);
       }
@@ -148,17 +164,19 @@ export function ReaderSettings({ format = 'epub' }: ReaderSettingsProps) {
   ];
 
   return (
-    <div className="premium-settings-container">
-      <ReaderTooltip content="Reading settings">
-        <button
-          ref={buttonRef}
-          onClick={() => setIsOpen(!isOpen)}
-          className={`premium-control-button ${isOpen ? 'premium-control-button--active' : ''}`}
-          aria-label="Reading settings"
-        >
-          <Settings className="premium-control-icon" />
-        </button>
-      </ReaderTooltip>
+    <div className={`premium-settings-container ${hideTrigger ? '!hidden' : ''}`}>
+      {!hideTrigger && (
+        <ReaderTooltip content="Reading settings">
+          <button
+            ref={buttonRef}
+            onClick={() => setIsOpen(!isOpen)}
+            className={`premium-control-button ${isOpen ? 'premium-control-button--active' : ''}`}
+            aria-label="Reading settings"
+          >
+            <Settings className="premium-control-icon" />
+          </button>
+        </ReaderTooltip>
+      )}
 
       <PortalWrapper usePortal={isMobile}>
         <AnimatePresence>

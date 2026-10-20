@@ -649,6 +649,9 @@ const translationClientCache = new Map<string, TranslationResponse>();
 const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
   const handleTranslate = useCallback(async () => {
+    if (isAndroid) {
+      window.getSelection()?.removeAllRanges();
+    }
     setShowTranslation(true);
     setTranslationMode('translate');
     setTranslationError(null);
@@ -685,6 +688,9 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
   }, [selectedText]);
 
   const handleDefine = useCallback(async () => {
+    if (isAndroid) {
+      window.getSelection()?.removeAllRanges();
+    }
     setShowTranslation(true);
     setTranslationMode('define');
     setTranslationError(null);
@@ -961,6 +967,9 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     className="text-selection-toolbar-android-btn flex items-center gap-3.5 w-full px-3.5 py-2.5 rounded-xl hover:bg-white/10 active:scale-98 transition-all cursor-pointer text-left"
                     onClick={() => {
                       hapticTick();
+                      if (isAndroid) {
+                        window.getSelection()?.removeAllRanges();
+                      }
                       setShowNoteInput(true);
                     }}
                   >
@@ -1182,19 +1191,27 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
               {/* Card Header */}
               <div className="flex items-center justify-between pb-2.5 border-b border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] flex items-center justify-center shrink-0 shadow-2xs">
-                    <StickyNote size={14} strokeWidth={2.4} />
+                  <div className="w-8 h-8 rounded-xl bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] flex items-center justify-center shrink-0 shadow-2xs">
+                    <StickyNote size={15} strokeWidth={2.4} />
                   </div>
                   <div>
                     <h3 className="font-bold text-sm tracking-tight text-[var(--text-primary)] leading-tight">
                       Add Note
                     </h3>
+                    {isAndroid && (
+                      <span className="text-[10px] font-medium text-[var(--text-tertiary)] block leading-none mt-0.5">
+                        Personal note or reflection
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setShowNoteInput(false); setNoteText(''); }}
-                  className="w-7 h-7 rounded-xl flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] transition-all cursor-pointer"
+                  className={cn(
+                    "flex items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] active:scale-90 transition-all cursor-pointer",
+                    isAndroid ? "w-8 h-8 rounded-full bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)]" : "w-7 h-7 rounded-xl hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)]"
+                  )}
                   aria-label="Close note"
                 >
                   <X size={14} />
@@ -1203,7 +1220,10 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
 
               {/* Selected Text Quote Preview */}
               {selectedText && (
-                <div className="relative rounded-2xl border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_3%,var(--bg-secondary))] px-3.5 py-2.5 transition-all select-none">
+                <div className={cn(
+                  "relative rounded-2xl border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_3%,var(--bg-secondary))] px-3.5 py-2.5 transition-all select-none",
+                  isAndroid ? "border-l-3 border-l-[var(--ui-focus)]" : ""
+                )}>
                   <div className="flex items-center gap-1.5 mb-1 text-[var(--ui-focus)]">
                     <Quote size={11} className="rotate-180 shrink-0 opacity-80" />
                     <span className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
@@ -1240,7 +1260,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                 autoFocus
               />
 
-              {/* Category Cards (Tactile depth, SVG icons, zero horizontal scrolling) */}
+              {/* Category Cards (Zero truncation on Android via responsive 2-col grid) */}
               {categories.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between px-0.5">
@@ -1258,7 +1278,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className={isAndroid ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"}>
                     {[
                       {
                         id: undefined as number | undefined,
@@ -1280,7 +1300,8 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                           type="button"
                           onClick={() => setSelectedCategoryId(isSelected && cat.id !== undefined ? undefined : cat.id)}
                           className={cn(
-                            "flex items-center gap-2 py-1.5 px-2.5 rounded-xl border text-left transition-all cursor-pointer select-none outline-none focus:outline-none",
+                            "flex items-center gap-2 rounded-xl border text-left transition-all cursor-pointer select-none outline-none focus:outline-none",
+                            isAndroid ? "py-2 px-2.5" : "py-1.5 px-2.5",
                             isSelected
                               ? "bg-[var(--ui-focus)] !text-white border-transparent shadow-[0_3px_8px_-1px_rgba(0,0,0,0.2)] font-bold active:scale-98"
                               : "border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-secondary))] text-[var(--text-primary)] hover:border-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_8%,var(--bg-secondary))] shadow-[0_2px_5px_-1px_rgba(0,0,0,0.12),0_1px_3px_-1px_rgba(0,0,0,0.06)] font-medium active:scale-98"
@@ -1309,7 +1330,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                           </span>
 
                           {isSelected && (
-                            <Check size={11} strokeWidth={3} className="!text-white shrink-0 ml-auto" />
+                            <Check size={12} strokeWidth={3} className="!text-white shrink-0 ml-auto" />
                           )}
                         </button>
                       );
@@ -1319,28 +1340,39 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
               )}
 
               {/* Footer Actions */}
-              <div className="flex items-center justify-between pt-1 border-t border-[color-mix(in_srgb,var(--ui-border)_40%,transparent)]">
-                <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-tertiary)] hidden sm:flex select-none">
-                  <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shadow-2xs">
-                    ⌘ ↵
-                  </kbd>
-                  <span>to save</span>
-                </div>
-                <div className="flex items-center gap-2 ml-auto">
+              <div className={cn(
+                "flex items-center border-t border-[color-mix(in_srgb,var(--ui-border)_40%,transparent)]",
+                isAndroid ? "pt-2 gap-2.5 w-full justify-between" : "pt-1 justify-between"
+              )}>
+                {!isAndroid && (
+                  <div className="flex items-center gap-1.5 text-[10.5px] text-[var(--text-tertiary)] hidden sm:flex select-none">
+                    <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shadow-2xs">
+                      ⌘ ↵
+                    </kbd>
+                    <span>to save</span>
+                  </div>
+                )}
+                <div className={cn("flex items-center gap-2", isAndroid ? "w-full justify-between" : "ml-auto")}>
                   <button
                     type="button"
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] active:scale-95 transition-all cursor-pointer"
+                    className={cn(
+                      "rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] active:scale-95 transition-all cursor-pointer",
+                      isAndroid ? "flex-1 h-10 border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] bg-[color-mix(in_srgb,var(--text-primary)_4%,var(--bg-secondary))] flex items-center justify-center" : "px-3.5 py-1.5"
+                    )}
                     onClick={() => { setShowNoteInput(false); setNoteText(''); }}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    className="text-selection-toolbar-btn--save-note px-4 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:shadow-none"
+                    className={cn(
+                      "text-selection-toolbar-btn--save-note rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:shadow-none shadow-xs active:scale-95",
+                      isAndroid ? "flex-1 h-10" : "px-4 py-1.5"
+                    )}
                     onClick={handleAddNote}
                     disabled={!noteText.trim()}
                   >
-                    <Check size={13} strokeWidth={2.5} className="text-white" />
+                    <Check size={14} strokeWidth={2.5} className="text-white" />
                     <span>Save Note</span>
                   </button>
                 </div>

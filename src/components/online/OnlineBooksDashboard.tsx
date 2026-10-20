@@ -38,6 +38,27 @@ function launchCacheSet<T>(key: string, data: T): void {
   } catch {}
 }
 
+function cleanBookTitle(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/;\s*or,\s*.*$/i, '')
+    .replace(/:\s+A Romance.*$/i, '')
+    .replace(/\s*\([^)]*edition[^)]*\)/gi, '')
+    .trim();
+}
+
+function formatAuthorName(raw?: string): string | undefined {
+  if (!raw || raw === 'Unknown Author') return undefined;
+  const trimmed = raw.trim();
+  if (trimmed.includes(',')) {
+    const parts = trimmed.split(',').map((p) => p.trim());
+    if (parts.length === 2) {
+      return `${parts[1]} ${parts[0]}`;
+    }
+  }
+  return trimmed;
+}
+
 const SPOTLIGHT_BANNER_ITEMS: CarouselItem[] = [
   {
     id: 'spotlight-1',
@@ -54,7 +75,7 @@ const SPOTLIGHT_BANNER_ITEMS: CarouselItem[] = [
   {
     id: 'spotlight-3',
     title: 'Frankenstein',
-    subtitle: 'Mary Wollstonecraft Shelley',
+    subtitle: 'Mary Shelley',
     coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
   },
   {
@@ -75,7 +96,7 @@ const DEFAULT_TRENDING_ITEMS: CarouselItem[] = [
   {
     id: 'gutenberg-84',
     title: 'Frankenstein',
-    subtitle: 'Mary Wollstonecraft Shelley',
+    subtitle: 'Mary Shelley',
     coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
   },
   {
@@ -104,7 +125,7 @@ const DEFAULT_TRENDING_ITEMS: CarouselItem[] = [
   },
   {
     id: 'gutenberg-1661',
-    title: 'The Adventures of Sherlock Holmes',
+    title: 'Sherlock Holmes',
     subtitle: 'Arthur Conan Doyle',
     coverUrl: 'https://www.gutenberg.org/cache/epub/1661/pg1661.cover.medium.jpg',
   },
@@ -116,7 +137,7 @@ const DEFAULT_TRENDING_ITEMS: CarouselItem[] = [
   },
   {
     id: 'gutenberg-2701',
-    title: 'Moby-Dick; or, The Whale',
+    title: 'Moby-Dick',
     subtitle: 'Herman Melville',
     coverUrl: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
   },
@@ -134,7 +155,7 @@ const DEFAULT_TRENDING_ITEMS: CarouselItem[] = [
   },
   {
     id: 'gutenberg-43',
-    title: 'The Strange Case of Dr. Jekyll and Mr. Hyde',
+    title: 'Dr. Jekyll and Mr. Hyde',
     subtitle: 'Robert Louis Stevenson',
     coverUrl: 'https://www.gutenberg.org/cache/epub/43/pg43.cover.medium.jpg',
   },
@@ -242,7 +263,7 @@ const DEFAULT_CLASSIC_ITEMS: CarouselItem[] = [
   },
   {
     id: 'gutenberg-2701',
-    title: 'Moby-Dick; or, The Whale',
+    title: 'Moby-Dick',
     subtitle: 'Herman Melville',
     coverUrl: 'https://www.gutenberg.org/cache/epub/2701/pg2701.cover.medium.jpg',
   },
@@ -261,7 +282,7 @@ const DEFAULT_CLASSIC_ITEMS: CarouselItem[] = [
   {
     id: 'gutenberg-84',
     title: 'Frankenstein',
-    subtitle: 'Mary Wollstonecraft Shelley',
+    subtitle: 'Mary Shelley',
     coverUrl: 'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
   },
   {
@@ -305,7 +326,7 @@ const DEFAULT_FANTASY_ITEMS: CarouselItem[] = [
   },
   {
     id: 'gutenberg-16',
-    title: 'Peter and Wendy (Peter Pan)',
+    title: 'Peter Pan',
     subtitle: 'J. M. Barrie',
     coverUrl: 'https://www.gutenberg.org/cache/epub/16/pg16.cover.medium.jpg',
   },
@@ -376,13 +397,18 @@ function toBookCarouselItems(works: any[]): CarouselItem[] {
 
   return works.map((book) => {
     if (book.id && book.coverUrl && !book.key) {
-      return book as CarouselItem;
+      return {
+        ...book,
+        title: cleanBookTitle(book.title),
+        subtitle: formatAuthorName(book.subtitle),
+      } as CarouselItem;
     }
 
     const coverId = book.cover_i || book.cover_id;
-    const authorName = Array.isArray(book.author_name)
+    const rawAuthor = Array.isArray(book.author_name)
       ? book.author_name[0]
       : (book.authors && book.authors[0]?.name) || book.author;
+    const authorName = formatAuthorName(rawAuthor);
 
     let gutenbergId = '';
     if (typeof book.key === 'string' && book.key.startsWith('gutenberg-')) {
@@ -401,7 +427,7 @@ function toBookCarouselItems(works: any[]): CarouselItem[] {
 
     return {
       id: book.key || (gutenbergId ? `gutenberg-${gutenbergId}` : book.id) || book.title,
-      title: book.title,
+      title: cleanBookTitle(book.title),
       subtitle: authorName || (book.first_publish_year ? String(book.first_publish_year) : undefined),
       coverUrl: directCover,
     };
@@ -762,7 +788,7 @@ export function OnlineBooksDashboard() {
               items={SPOTLIGHT_BANNER_ITEMS}
               loading={false}
               onReadClick={handleBookClick}
-              sourceId="generic"
+              sourceId="gutenberg"
             />
 
             {/* Trending Books Rail */}

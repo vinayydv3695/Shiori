@@ -9,16 +9,12 @@ export function getProxyUrl(sourceId: string, url: string): string {
   if (!isTauri) {
     return url;
   }
-  // Android: wry's custom-protocol pipe gives every shiori-proxy request a
-  // 30s cap (MAIN_PIPE_TIMEOUT*3 in wry/src/android/mod.rs) and requests are
-  // sequentialized — on mobile networks covers routinely stall and get
-  // dropped, leaving online sections full of dead images. Sources whose
-  // cover hosts are publicly fetchable (no hotlink protection) bypass the
-  // proxy entirely and load straight from https — the WebView loads those
-  // fine and the CSP already allows img-src https:.
+  // Sources whose cover hosts are publicly fetchable (no hotlink protection)
+  // bypass the proxy entirely and load straight from https — the WebView loads
+  // those fine and the CSP already allows img-src https:.
   if (
-    isAndroid &&
-    PUBLIC_COVER_SOURCES.has(sourceId) &&
+    (PUBLIC_COVER_SOURCES.has(sourceId) ||
+      /^https:\/\/(www\.)?(gutenberg\.org|covers\.openlibrary\.org|books\.google\.com)/i.test(url)) &&
     /^https:\/\//i.test(url)
   ) {
     return url;

@@ -2,7 +2,6 @@ import { Switch } from '@/components/ui/switch'
 import { useState, useEffect, useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
-import { Drawer } from 'vaul'
 import { motion, AnimatePresence, Variants } from 'framer-motion'
 import { openExternal } from '@/lib/externalLinks'
 
@@ -290,114 +289,209 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
 
   const tabs = [
-    { id: 'general' as const, name: 'General', icon: Palette },
-    // AI keys now persist on every platform via the keyring + DB fallback
-    // (docs/ai-audit.md F-02/F-03), so the settings tab is available on Android too.
-    { id: 'ai' as const, name: 'AI & Intelligence', icon: Brain },
-    { id: 'cloud-sync' as const, name: 'Cloud & WebDAV Sync', icon: Cloud },
-    { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
-    { id: 'manga-reading' as const, name: 'Reading (Manga)', icon: FileText },
-    { id: 'advanced' as const, name: 'Advanced', icon: Shield },
-    { id: 'companion' as const, name: 'Companion App', icon: MonitorSmartphone },
-    { id: 'community-plugins' as const, name: 'Community Plugins', icon: Puzzle },
-    { id: 'about' as const, name: 'About', icon: Info },
+    {
+      id: 'general' as const,
+      name: 'General',
+      subtitle: 'Theme, display scale & window appearance',
+      icon: Palette,
+      accentBg: 'bg-rose-500/10 dark:bg-rose-500/15',
+      accentBorder: 'border-rose-500/25 dark:border-rose-500/35',
+      iconColor: 'text-rose-600 dark:text-rose-400',
+    },
+    {
+      id: 'ai' as const,
+      name: 'AI & Intelligence',
+      subtitle: 'Smart models, prompts & assistant',
+      icon: Brain,
+      accentBg: 'bg-indigo-500/10 dark:bg-indigo-500/15',
+      accentBorder: 'border-indigo-500/25 dark:border-indigo-500/35',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+    },
+    {
+      id: 'cloud-sync' as const,
+      name: 'Cloud & WebDAV Sync',
+      subtitle: 'Multi-device library sync & WebDAV',
+      icon: Cloud,
+      accentBg: 'bg-sky-500/10 dark:bg-sky-500/15',
+      accentBorder: 'border-sky-500/25 dark:border-sky-500/35',
+      iconColor: 'text-sky-600 dark:text-sky-400',
+    },
+    {
+      id: 'book-reading' as const,
+      name: 'Reading (Books)',
+      subtitle: 'Typography, margins, pacing & TTS reader',
+      icon: BookOpen,
+      accentBg: 'bg-amber-500/10 dark:bg-amber-500/15',
+      accentBorder: 'border-amber-500/25 dark:border-amber-500/35',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+    },
+    {
+      id: 'manga-reading' as const,
+      name: 'Reading (Manga)',
+      subtitle: 'Direction, split pages, webtoon & zoom',
+      icon: FileText,
+      accentBg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
+      accentBorder: 'border-emerald-500/25 dark:border-emerald-500/35',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+    },
+    {
+      id: 'advanced' as const,
+      name: 'Advanced',
+      subtitle: 'Storage, cache limits & debug logs',
+      icon: Shield,
+      accentBg: 'bg-slate-500/10 dark:bg-slate-500/15',
+      accentBorder: 'border-slate-500/25 dark:border-slate-500/35',
+      iconColor: 'text-slate-600 dark:text-slate-400',
+    },
+    {
+      id: 'companion' as const,
+      name: 'Companion App',
+      subtitle: 'Wireless pairing & mobile phone sync',
+      icon: MonitorSmartphone,
+      accentBg: 'bg-purple-500/10 dark:bg-purple-500/15',
+      accentBorder: 'border-purple-500/25 dark:border-purple-500/35',
+      iconColor: 'text-purple-600 dark:text-purple-400',
+    },
+    {
+      id: 'community-plugins' as const,
+      name: 'Community Plugins',
+      subtitle: 'Third-party extensions, tools & scrapers',
+      icon: Puzzle,
+      accentBg: 'bg-orange-500/10 dark:bg-orange-500/15',
+      accentBorder: 'border-orange-500/25 dark:border-orange-500/35',
+      iconColor: 'text-orange-600 dark:text-orange-400',
+    },
+    {
+      id: 'about' as const,
+      name: 'About',
+      subtitle: 'Shiori v1.0.23, updates & licenses',
+      icon: Info,
+      accentBg: 'bg-teal-500/10 dark:bg-teal-500/15',
+      accentBorder: 'border-teal-500/25 dark:border-teal-500/35',
+      iconColor: 'text-teal-600 dark:text-teal-400',
+    },
   ]
 
   const filteredTabs = matchingTabs
     ? tabs.filter(tab => matchingTabs.has(tab.id) || tab.id === 'about')
     : tabs
 
-  const Wrapper: any = isMobile ? Drawer.Root : Dialog.Root;
-  const Portal: any = isMobile ? Drawer.Portal : Dialog.Portal;
-  const Overlay: any = isMobile ? Drawer.Overlay : Dialog.Overlay;
-  const Content: any = isMobile ? Drawer.Content : Dialog.Content;
-  const Title: any = isMobile ? Drawer.Title : Dialog.Title;
+  const selectedTabObj = tabs.find(t => t.id === selectedTab)
 
   return (
-    <Wrapper open={open} onOpenChange={onOpenChange}>
-      <Portal>
-        <Overlay className="dialog-overlay fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/40 backdrop-blur-md transition-all duration-300" />
-        <Content 
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="dialog-overlay fixed inset-0 z-[var(--z-modal-backdrop)] bg-black/70 backdrop-blur-md transition-all duration-300" />
+        <Dialog.Content 
           onOpenAutoFocus={(e: Event) => {
             if (isMobile) {
               e.preventDefault();
             }
           }}
           className={cn(
-          "z-[var(--z-modal)] flex flex-col overflow-hidden focus:outline-none",
-          isMobile 
-            ? "fixed inset-0 w-full h-full rounded-none" 
-            : "fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.2)] w-[95vw] max-w-5xl h-[90vh]",
-          // Transparent mode must stay near-opaque: at /80 the inner panels
-          // (bg-background/30 sidebar, /50 content) stacked on the /40 overlay
-          // let the app's icons show through the panel. /95 + heavy blur keeps
-          // the frosted look while making the background unreadable.
-          preferences?.transparentSettings ?? false ? "bg-background/95 backdrop-blur-2xl" : "bg-background"
-        )}>
-          {/* Clean Integrated Search Header */}
-          <div 
-            className="flex items-center gap-2.5 p-3.5 sm:p-4 border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-20"
-            style={{ paddingTop: isMobile ? 'max(env(safe-area-inset-top, 0px), 12px)' : undefined }}
-          >
-            {/* Left: Mobile Back Button if in Detail View */}
-            {isMobile && mobileView === 'detail' && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
-                className="rounded-full shrink-0 hover:bg-muted/80"
-                aria-label="Back to settings categories"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-            )}
+            "z-[var(--z-modal)] flex flex-col overflow-hidden focus:outline-none shadow-2xl",
+            isMobile 
+              ? "fixed inset-0 w-full h-full rounded-none bg-background text-foreground" 
+              : "fixed left-[50%] top-[50%] -translate-x-1/2 -translate-y-1/2 border border-border/80 rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.5)] w-[95vw] max-w-5xl h-[90vh] bg-background text-foreground",
+            "bg-background text-foreground"
+          )}
+        >
+          {/* Accessible Title */}
+          <Dialog.Title className="sr-only">Settings</Dialog.Title>
 
-            {/* Center: Premium Full-Width Search Input */}
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4 h-4" />
-              <input
-                type="text"
-                inputMode="search"
-                placeholder={isMobile && mobileView === 'detail' ? `Search ${tabs.find(t => t.id === selectedTab)?.name || 'settings'}...` : "Search settings..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-9 text-xs sm:text-sm font-medium rounded-xl sm:rounded-2xl bg-muted/40 hover:bg-muted/60 focus:bg-background border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
-                aria-label="Search settings"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Clear search"
+          {/* ── 1. MOBILE ROOT HEADER ── */}
+          {isMobile && mobileView === 'root' && (
+            <div 
+              className="px-5 pt-3 pb-3 border-b border-border/50 bg-background/95 backdrop-blur-md sticky top-0 z-20 shrink-0"
+              style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+                    Settings
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Preferences, reader &amp; appearance
+                  </p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
+                  className="w-9 h-9 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer" 
+                  aria-label="Close settings"
                 >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Hidden Title for Accessibility */}
-            <Title className="sr-only">Settings</Title>
-
-            {/* Right: Close Settings Button */}
-            {isMobile ? (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
-                className="rounded-full shrink-0 hover:bg-muted/80" 
-                aria-label="Close settings"
-              >
-                <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
-              </Button>
-            ) : (
-              <Dialog.Close asChild>
-                <Button variant="ghost" size="icon" className="rounded-full shrink-0 hover:bg-muted/80" aria-label="Close settings">
-                  <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                  <X className="w-5 h-5 stroke-[2]" />
                 </Button>
-              </Dialog.Close>
-            )}
-          </div>
+              </div>
+
+              {/* Dedicated Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4 h-4" />
+                <input
+                  type="text"
+                  inputMode="search"
+                  placeholder="Search settings..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-10 pl-10 pr-9 text-xs sm:text-sm font-medium rounded-2xl bg-card border border-border/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 shadow-2xs transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                  aria-label="Search settings"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── 2. MOBILE DETAIL HEADER ── */}
+          {isMobile && mobileView === 'detail' && (
+            <div 
+              className="px-4 py-3 border-b border-border/50 bg-background/95 backdrop-blur-md sticky top-0 z-20 shrink-0"
+              style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => { triggerHaptic(40); setMobileView('root'); }} 
+                    className="w-9 h-9 rounded-full bg-secondary/60 shrink-0 hover:bg-secondary text-foreground active:scale-95 cursor-pointer"
+                    aria-label="Back to settings categories"
+                  >
+                    <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
+                  </Button>
+                  <div className="flex items-center gap-2 truncate">
+                    {selectedTabObj && (
+                      <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs', selectedTabObj.accentBg, selectedTabObj.accentBorder)}>
+                        <selectedTabObj.icon className={cn('w-4 h-4 stroke-[2.2]', selectedTabObj.iconColor)} />
+                      </div>
+                    )}
+                    <h2 className="text-base font-bold text-foreground tracking-tight truncate">
+                      {selectedTabObj?.name || 'Settings'}
+                    </h2>
+                  </div>
+                </div>
+
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
+                  className="w-9 h-9 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all shrink-0 cursor-pointer" 
+                  aria-label="Close settings"
+                >
+                  <X className="w-5 h-5 stroke-[2]" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Tabs.Root
             value={selectedTab}
@@ -408,56 +502,169 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
             className="flex flex-1 overflow-hidden max-md:flex-col"
             orientation="vertical"
           >
-            <Tabs.List asChild>
-              <motion.div
-                className={cn(
-                  "w-64 bg-background/30 p-4 md:p-6 space-y-1.5 flex-shrink-0 overflow-y-auto custom-scrollbar",
-                  isMobile && mobileView === 'root' ? "w-full flex-1 max-md:pb-16 p-3 sm:p-4 space-y-2" : isMobile ? "hidden" : "block"
-                )}
-                aria-label="Settings categories"
-                initial="hidden"
-                animate="show"
-                variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } }}
-              >
-                {filteredTabs.map((tab) => (
-                  <motion.div key={tab.id} variants={{ hidden: { opacity: 0, x: -10 }, show: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } }}>
+            {/* ── 3. MOBILE CATEGORY LIST ── */}
+            {isMobile && mobileView === 'root' ? (
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 sm:px-5 space-y-2.5 pb-24">
+                {filteredTabs.length > 0 ? (
+                  filteredTabs.map((tab) => (
                     <Tabs.Trigger
+                      key={tab.id}
                       value={tab.id}
                       onClick={() => {
                         triggerHaptic(30);
-                        if (isMobile) setMobileView('detail');
+                        setActiveTab(tab.id);
+                        setMobileView('detail');
                       }}
                       className={cn(
-                        'w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 text-left font-medium text-[14px] group relative overflow-hidden',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
-                        'data-[state=active]:bg-primary/10 data-[state=active]:text-primary',
-                        'data-[state=inactive]:text-muted-foreground/80 data-[state=inactive]:hover:bg-muted/40 data-[state=inactive]:hover:text-foreground',
-                        isMobile && mobileView === 'root' && "py-3.5 px-4 rounded-2xl border border-border/50 bg-card/60 hover:bg-card/90 shadow-sm active:scale-[0.98]"
+                        'w-full flex items-center justify-between p-3.5 sm:p-4 rounded-2xl transition-all duration-200 text-left group',
+                        'bg-card hover:bg-card/90 border border-border/70 shadow-xs active:scale-[0.985] cursor-pointer'
                       )}
                     >
-                      <div className={cn(
-                        "p-2 rounded-xl flex items-center justify-center transition-colors shrink-0",
-                        isMobile ? "bg-primary/10 text-primary" : "text-muted-foreground group-hover:text-foreground"
-                      )}>
-                        <tab.icon className="w-5 h-5" />
-                      </div>
-                      <span className={cn(
-                        "font-sans font-medium tracking-wide block flex-1 truncate",
-                        isMobile && mobileView === 'root' && "text-[15px] font-semibold text-foreground"
-                      )}>{tab.name}</span>
-                      {isMobile && mobileView === 'root' && (
-                        <ChevronRight className="w-4.5 h-4.5 text-muted-foreground/60 shrink-0" />
-                      )}
-                    </Tabs.Trigger>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </Tabs.List>
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                        {/* Tonal Themed Squircle Icon Disc */}
+                        <div className={cn(
+                          'w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
+                          tab.accentBg,
+                          tab.accentBorder
+                        )}>
+                          <tab.icon className={cn('w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[2.2]', tab.iconColor)} />
+                        </div>
 
+                        {/* Title & Subtitle */}
+                        <div className="min-w-0 flex-1 text-left">
+                          <div className="text-[14px] sm:text-[15px] font-bold text-foreground tracking-tight truncate group-hover:text-primary transition-colors">
+                            {tab.name}
+                          </div>
+                          <div className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate mt-0.5">
+                            {tab.subtitle}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Chevron */}
+                      <div className="ml-3 shrink-0 flex items-center">
+                        <ChevronRight className="w-4.5 h-4.5 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                      </div>
+                    </Tabs.Trigger>
+                  ))
+                ) : (
+                  <div className="py-16 text-center flex flex-col items-center justify-center px-4">
+                    <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
+                      <Search className="w-6 h-6 stroke-[1.8]" />
+                    </div>
+                    <p className="text-sm font-bold text-foreground">No matching settings</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                      We couldn&apos;t find any settings matching &ldquo;{searchQuery}&rdquo;.
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSearchQuery('')}
+                      className="mt-3 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      Clear Search
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : !isMobile ? (
+              /* ── 4. DESKTOP SIDEBAR ── */
+              <Tabs.List asChild>
+                <div className="w-72 bg-card/40 border-r border-border/50 flex flex-col shrink-0 overflow-hidden">
+                  {/* Brand & Search in Sidebar */}
+                  <div className="p-4 pb-3 border-b border-border/40 shrink-0">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-black tracking-tight text-foreground">Settings</h2>
+                        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[10px] tracking-wider uppercase border border-primary/20">
+                          v1.0.23
+                        </span>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-3.5 h-3.5" />
+                      <input
+                        type="text"
+                        inputMode="search"
+                        placeholder="Search settings..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full h-8 pl-8 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 shadow-2xs transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+                          onClick={() => setSearchQuery('')}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sidebar Categories List */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
+                    {filteredTabs.map((tab) => {
+                      const isActive = selectedTab === tab.id;
+                      return (
+                        <Tabs.Trigger
+                          key={tab.id}
+                          value={tab.id}
+                          className={cn(
+                            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left group relative',
+                            'cursor-pointer select-none',
+                            isActive
+                              ? 'bg-primary/10 text-primary font-bold border border-primary/25 shadow-2xs'
+                              : 'text-foreground/80 hover:bg-secondary/60 hover:text-foreground border border-transparent'
+                          )}
+                        >
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-2xs transition-transform duration-200 group-hover:scale-105',
+                            tab.accentBg,
+                            tab.accentBorder
+                          )}>
+                            <tab.icon className={cn('w-4 h-4 stroke-[2.2]', tab.iconColor)} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold truncate leading-tight">{tab.name}</div>
+                            <div className="text-[10px] text-muted-foreground truncate leading-tight font-normal mt-0.5">{tab.subtitle}</div>
+                          </div>
+                        </Tabs.Trigger>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Tabs.List>
+            ) : null}
+
+            {/* ── 5. DETAIL CONTENT AREA ── */}
             <div className={cn(
-              "flex-1 relative bg-background/50",
-              isMobile && mobileView === 'root' ? "hidden" : "block"
+              "flex-1 relative bg-background overflow-hidden flex flex-col min-w-0",
+              isMobile && mobileView === 'root' ? "hidden" : "flex"
             )}>
+              {/* Desktop Header for Content Area */}
+              {!isMobile && (
+                <div className="flex items-center justify-between px-8 py-4 border-b border-border/40 bg-background/95 backdrop-blur-md sticky top-0 z-10 shrink-0">
+                  <div className="flex items-center gap-3">
+                    {selectedTabObj && (
+                      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-2xs', selectedTabObj.accentBg, selectedTabObj.accentBorder)}>
+                        <selectedTabObj.icon className={cn('w-5 h-5 stroke-[2.2]', selectedTabObj.iconColor)} />
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-lg font-black tracking-tight text-foreground">{selectedTabObj?.name}</h2>
+                      <p className="text-xs text-muted-foreground">{selectedTabObj?.subtitle}</p>
+                    </div>
+                  </div>
+                  <Dialog.Close asChild>
+                    <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full bg-secondary/60 hover:bg-secondary text-muted-foreground hover:text-foreground active:scale-95 cursor-pointer">
+                      <X className="w-4.5 h-4.5 stroke-[2]" />
+                    </Button>
+                  </Dialog.Close>
+                </div>
+              )}
+
               <AnimatePresence mode="wait">
                 <motion.div
                   key={selectedTab}
@@ -483,7 +690,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       transition: { duration: 0.2, staggerChildren: 0.05, delayChildren: 0.05 } 
                     }
                   }}
-                  className="absolute inset-0 p-4 md:p-8 pb-32 md:pb-8 overflow-y-auto custom-scrollbar"
+                  className="flex-1 p-4 md:p-8 pb-32 md:pb-12 overflow-y-auto custom-scrollbar"
                 >
                   {selectedTab === 'general' && (
                     <GeneralSettings
@@ -553,9 +760,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
               </AnimatePresence>
             </div>
           </Tabs.Root>
-        </Content>
-      </Portal>
-    </Wrapper>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 
@@ -575,20 +782,20 @@ export const SettingSection = ({
   children: React.ReactNode
   onReset?: () => void
 }) => (
-  <motion.section variants={itemVariants} className="space-y-4 pb-8 mb-8 border-b border-border/20 last:border-0 last:pb-0 last:mb-0">
-    <div className="flex items-center justify-between px-2">
+  <motion.section variants={itemVariants} className="space-y-2.5 pb-6 mb-6 border-b border-border/30 last:border-0 last:pb-0 last:mb-0">
+    <div className="flex items-center justify-between px-1">
       <div>
-        <h3 className="text-[1.15rem] font-medium tracking-tight text-foreground/90">{title}</h3>
-        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</h3>
+        {description && <p className="text-xs text-foreground/85 mt-0.5 font-medium">{description}</p>}
       </div>
       {onReset && (
-        <Button variant="ghost" size="sm" onClick={onReset} className="gap-1.5 text-muted-foreground hover:text-foreground">
-          <RotateCcw size={14} />
+        <Button variant="ghost" size="sm" onClick={onReset} className="gap-1.5 text-xs text-muted-foreground hover:text-foreground h-7 px-2.5 rounded-lg cursor-pointer">
+          <RotateCcw size={12} />
           Reset
         </Button>
       )}
     </div>
-    <div className="flex flex-col space-y-1">
+    <div className="bg-card border border-border/70 rounded-2xl p-2 sm:p-2.5 shadow-2xs divide-y divide-border/40">
       {children}
     </div>
   </motion.section>
@@ -608,14 +815,14 @@ export const SettingItem = ({
   const isMobile = useIsMobile();
   return (
   <motion.div variants={itemVariants} className={cn(
-    "group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 px-3 md:px-4 rounded-xl hover:bg-muted/40 transition-colors duration-200",
-    isMobile ? "py-4" : "py-3.5"
+    "group flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6 px-3.5 rounded-xl hover:bg-secondary/40 transition-colors duration-150",
+    isMobile ? "py-3.5" : "py-3"
   )}>
-    <div className="space-y-1 flex-1 md:pr-4">
-      <label htmlFor={labelId} className="text-[15px] font-medium tracking-tight text-foreground/90">{label}</label>
-      {description && <p className="text-[13px] text-muted-foreground/80 leading-snug">{description}</p>}
+    <div className="space-y-0.5 flex-1 md:pr-4">
+      <label htmlFor={labelId} className="text-[14px] sm:text-[15px] font-semibold tracking-tight text-foreground">{label}</label>
+      {description && <p className="text-xs text-muted-foreground leading-snug">{description}</p>}
     </div>
-    <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[200px]">
+    <div className="flex-shrink-0 flex items-center justify-start md:justify-end w-full md:w-auto md:min-w-[180px]">
       {children}
     </div>
   </motion.div>
@@ -769,25 +976,25 @@ const GeneralSettings = ({
     <div className="space-y-8">
       {isSectionVisible('Theme', ['Theme', 'Dark Theme', 'Light Theme', 'System Theme']) && (
         <SettingSection title="Theme" description="Choose how Shiori looks">
-          <div className="flex flex-wrap gap-3 mt-2">
+          <div className="flex flex-wrap gap-2.5 p-1">
             {themeOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => updateTheme(option.value)}
                 className={cn(
-                  'relative group flex items-center gap-2.5 px-4 py-2.5 rounded-full border transition-all duration-300',
+                  'relative group flex items-center gap-2.5 px-3.5 py-2 rounded-xl border transition-all duration-200 cursor-pointer active:scale-95',
                   preferences.theme === option.value
-                    ? 'border-primary bg-primary/10 shadow-sm'
-                    : 'border-border/60 bg-background hover:border-primary/40 hover:bg-muted/50'
+                    ? 'border-primary bg-primary/15 text-primary shadow-2xs font-bold ring-1 ring-primary/30'
+                    : 'border-border/70 bg-secondary/30 hover:border-primary/40 hover:bg-secondary/70 text-foreground/80'
                 )}
                 aria-label={`${option.label} theme`}
               >
                 <option.icon className={cn(
-                  "w-4 h-4 transition-colors duration-300",
+                  "w-4 h-4 transition-colors duration-200",
                   preferences.theme === option.value ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                 )} />
                 <span className={cn(
-                  "text-[14px] font-medium tracking-tight transition-colors duration-300",
+                  "text-xs sm:text-[13px] font-semibold tracking-tight transition-colors duration-200",
                   preferences.theme === option.value ? "text-primary" : "text-foreground/80 group-hover:text-foreground"
                 )}>{option.label}</span>
               </button>

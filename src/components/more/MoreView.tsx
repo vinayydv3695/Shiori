@@ -158,42 +158,32 @@ export function MoreView({ onNavigateToView, onOpenSettings }: MoreViewProps) {
       onClick: () => onNavigateToView('recycle-bin'),
     });
 
+    // Settings
+    items.push({
+      id: 'settings',
+      label: 'Settings',
+      subtitle: 'Preferences',
+      icon: Settings,
+      bgClass: 'bg-[#4A443B]/10 dark:bg-[#D1C7B8]/15 border border-[#4A443B]/25 dark:border-[#D1C7B8]/30 shadow-xs',
+      iconClass: 'text-[#4A443B] dark:text-[#D1C7B8]',
+      onClick: onOpenSettings,
+    });
+
     return items;
-  }, [preferredContentType, hasTorboxKey, isDark, toggleTheme, onNavigateToView]);
+  }, [preferredContentType, hasTorboxKey, isDark, toggleTheme, onNavigateToView, onOpenSettings]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground pb-28 select-none">
-      {/* ── HEADER ── */}
-      <header
-        className="px-6 pt-4 pb-3 flex items-center justify-between border-b border-border/40"
-        style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}
-      >
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-            More
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Library tools &amp; preferences
-          </p>
-        </div>
-
-        {/* Quick Settings Shortcut */}
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-secondary/60 text-foreground/80 hover:text-foreground active:scale-95 transition-all cursor-pointer"
-          aria-label="Settings"
-        >
-          <Settings className="w-5 h-5 stroke-[1.8]" />
-        </button>
-      </header>
-
-      {/* ── 3-COLUMN CIRCULAR ICON GRID SECTION ── */}
+    <div className="min-h-screen bg-background text-foreground select-none">
+      {/* ── 2-COLUMN CIRCULAR ICON GRID SECTION (Header removed per user request) ── */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-3 gap-y-7 gap-x-4 px-6 pt-7 pb-4 max-w-sm mx-auto w-full"
+        className="grid grid-cols-2 gap-y-7 gap-x-6 px-6 max-w-sm mx-auto w-full"
+        style={{
+          paddingTop: 'max(32px, env(safe-area-inset-top, 24px))',
+          paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 24px))',
+        }}
       >
         {moreItems.map((item) => {
           const Icon = item.icon;
@@ -203,52 +193,31 @@ export function MoreView({ onNavigateToView, onOpenSettings }: MoreViewProps) {
               variants={itemVariants}
               type="button"
               onClick={item.onClick}
-              className="flex flex-col items-center justify-center group cursor-pointer active:scale-95 transition-transform"
+              className="flex flex-col items-center justify-center group cursor-pointer active:scale-95 transition-transform py-1"
             >
               {/* Premium Tonal Theme-Matched Circle Bubble */}
               <div
                 className={cn(
-                  'w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105 active:scale-90',
+                  'w-[74px] h-[74px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105 active:scale-90',
                   item.bgClass
                 )}
               >
-                <Icon className={cn('w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2] transition-colors', item.iconClass)} />
+                <Icon className={cn('w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2] transition-colors', item.iconClass)} />
               </div>
 
               {/* Primary Label */}
-              <span className="text-xs sm:text-sm font-bold text-foreground tracking-tight mt-2.5 truncate max-w-[96px] text-center">
+              <span className="text-sm font-bold text-foreground tracking-tight mt-2.5 text-center">
                 {item.label}
               </span>
 
               {/* Subtitle / Status */}
-              <span className="text-[11px] font-medium text-muted-foreground mt-0.5 truncate max-w-[96px] text-center">
+              <span className="text-xs font-medium text-muted-foreground mt-0.5 text-center">
                 {item.subtitle}
               </span>
             </motion.button>
           );
         })}
       </motion.div>
-
-      {/* ── SETTINGS CARD ── */}
-      <div className="px-6 max-w-sm mx-auto w-full mt-2">
-        <motion.button
-          variants={itemVariants}
-          type="button"
-          onClick={onOpenSettings}
-          className="w-full flex items-center p-4 rounded-2xl bg-secondary/35 hover:bg-secondary/60 active:scale-[0.98] transition-all cursor-pointer group"
-        >
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[#4A443B]/10 dark:bg-[#D1C7B8]/15 text-[#4A443B] dark:text-[#D1C7B8] group-hover:scale-105 transition-transform shrink-0 shadow-xs">
-              <Settings className="w-6 h-6 stroke-[2]" />
-            </div>
-            <div className="text-left min-w-0">
-              <div className="text-sm font-bold text-foreground tracking-tight">Settings</div>
-              <div className="text-xs text-muted-foreground mt-0.5 truncate">Preferences, reader &amp; storage</div>
-            </div>
-          </div>
-        </motion.button>
-      </div>
-
     </div>
   );
 }

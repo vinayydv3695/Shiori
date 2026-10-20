@@ -1,3 +1,14 @@
+# Release Notes (v1.0.24)
+
+## Mobile Home Enhancements, Real Metadata & UI Polish
+
+- **Real Dynamic Book Metadata in Deep Dive** — Replaced hardcoded stats and placeholder descriptions in the Android book deep dive sheet with genuine database metadata (real page count, rating, reading progress %, format, file size, publication year, language, user notes count, and real synopsis/notes).
+- **Reduced Text & Icon-Rich Experience** — Streamlined Recently Played and Trending Books on Android by replacing plain text with compact icon badges (`BookOpen`, `Star`, `Calendar`, `CheckCircle2`) and adding live thumbnail reading progress indicators.
+- **Atmospheric Fade & Theme Contrast** — Refined the hero cover presentation with a gentle, soft atmospheric fog fade that blends seamlessly into the background while keeping the top cover art completely clear, vivid, and readable across both light and dark modes.
+- **Streamlined Deep Dive Layout** — Removed the redundant reading status row and integrated quick metadata enrichment directly into the About this Book synopsis section.
+- **More Section 2-Column Grid** — Transformed the Android More view into a spacious 2-column layout with circular bubbles, seamlessly integrating settings and eliminating top clutter.
+- **Android Reader & Text Selection Redesign** — Streamlined topbar actions to minimalist Search and Bookmark buttons with an overflow menu, revamped the Add Note modal and Translation/Definition sheet with clean segmented switcher and safe-area layout, and fixed text selection handle ghosting.
+
 # Release Notes (v1.0.23)
 
 ## Mobile Home Experience & Polish

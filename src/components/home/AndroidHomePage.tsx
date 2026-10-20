@@ -11,6 +11,10 @@ import {
   Pencil,
   FolderPlus,
   Trash2,
+  Star,
+  Calendar,
+  BookmarkCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -337,6 +341,7 @@ export function AndroidHomePage({
             {trendingItems.map((item) => {
               const book = extractBookFromItem(item);
               const coverUrl = getCoverUrl(book.cover_path);
+              const progress = book.id ? progressMap[book.id] : undefined;
               return (
                 <div
                   key={book.id || book.uuid}
@@ -363,6 +368,24 @@ export function AndroidHomePage({
                   <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-black text-white uppercase tracking-wider border border-white/15 pointer-events-none shadow-xs">
                     {book.file_format?.toUpperCase() || (book.domain === 'manga_comics' ? 'MANGA' : 'EPUB')}
                   </span>
+
+                  {/* Top-right rating badge (only if real rating exists) */}
+                  {book.rating && book.rating > 0 ? (
+                    <span className="absolute top-2.5 right-2.5 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold text-amber-400 flex items-center gap-0.5 border border-white/15 pointer-events-none shadow-xs">
+                      <Star className="w-2.5 h-2.5 fill-amber-400" />
+                      <span>{book.rating > 5 ? (book.rating / 2).toFixed(1) : book.rating.toFixed(1)}</span>
+                    </span>
+                  ) : null}
+
+                  {/* Bottom progress bar if user has started reading */}
+                  {progress && progress.progressPercent > 0 && (
+                    <div className="absolute bottom-0 inset-x-0 h-1 bg-black/60 pointer-events-none z-10">
+                      <div
+                        className="h-full bg-primary"
+                        style={{ width: `${Math.min(100, Math.round(progress.progressPercent))}%` }}
+                      />
+                    </div>
+                  )}
 
                   {/* Bottom-right circular white play button (Matches Reference Image) */}
                   <button
@@ -432,6 +455,14 @@ export function AndroidHomePage({
                       </div>
                     )}
                     <div className="absolute inset-y-0 left-0 w-2 bg-gradient-to-r from-black/35 to-transparent pointer-events-none" />
+                    {progress && progress.progressPercent > 0 && (
+                      <div className="absolute bottom-0 inset-x-0 h-1 bg-black/60 pointer-events-none">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${Math.min(100, Math.round(progress.progressPercent))}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Center Info */}
@@ -442,9 +473,47 @@ export function AndroidHomePage({
                     <p className="text-xs font-medium text-muted-foreground truncate mt-0.5">
                       {author || 'Unknown Author'}
                     </p>
-                    <p className="text-[11px] font-semibold text-muted-foreground/75 truncate mt-0.5">
-                      {meta}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {/* Format Pill */}
+                      <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-secondary/80 text-foreground/80 border border-border/50">
+                        {book.file_format?.toUpperCase() || (book.domain === 'manga_comics' ? 'MANGA' : 'EPUB')}
+                      </span>
+
+                      {/* Reading Progress */}
+                      {progress && progress.progressPercent > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-primary">
+                          <CheckCircle2 className="w-3 h-3 text-primary" />
+                          <span>{Math.round(progress.progressPercent)}%</span>
+                        </span>
+                      ) : null}
+
+                      {/* Real Page Count */}
+                      {book.page_count && book.page_count > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground/85">
+                          <BookOpen className="w-3 h-3 text-muted-foreground/70" />
+                          <span>{book.page_count}p</span>
+                        </span>
+                      ) : null}
+
+                      {/* Published Year */}
+                      {book.pubdate ? (() => {
+                        const match = book.pubdate.match(/\b(18|19|20)\d{2}\b/);
+                        return match ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground/75">
+                            <Calendar className="w-3 h-3 text-muted-foreground/60" />
+                            <span>{match[0]}</span>
+                          </span>
+                        ) : null;
+                      })() : null}
+
+                      {/* Real Rating */}
+                      {book.rating && book.rating > 0 ? (
+                        <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-500">
+                          <Star className="w-3 h-3 fill-amber-500" />
+                          <span>{book.rating > 5 ? (book.rating / 2).toFixed(1) : book.rating.toFixed(1)}</span>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {/* Right 3-dots Menu Button & Dropdown */}
@@ -560,8 +629,16 @@ export function AndroidHomePage({
               <div className="font-bold text-xs sm:text-sm text-white truncate tracking-tight group-hover:text-amber-200 transition-colors">
                 {activeBook.title}
               </div>
-              <div className="text-[11px] text-white/70 font-medium truncate mt-0.5">
-                {activeBook.authors?.map((a) => a.name).join(', ') || 'Unknown Author'}
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-[11px] text-white/70 font-medium truncate max-w-[130px] sm:max-w-[180px]">
+                  {activeBook.authors?.map((a) => a.name).join(', ') || 'Unknown Author'}
+                </span>
+                {activeBook.id && progressMap[activeBook.id]?.progressPercent > 0 && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-white/10 text-[10px] font-bold text-amber-300 border border-white/10 shrink-0">
+                    <BookmarkCheck className="w-2.5 h-2.5" />
+                    <span>{Math.round(progressMap[activeBook.id].progressPercent)}%</span>
+                  </span>
+                )}
               </div>
             </div>
 

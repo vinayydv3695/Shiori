@@ -329,44 +329,44 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
           {/* ── 1. MOBILE ROOT HEADER ── */}
           {isMobile && mobileView === 'root' && (
             <div 
-              className="px-5 sm:px-6 pt-3 pb-3 bg-card sticky top-0 z-20 shrink-0"
-              style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
+              className="px-5 sm:px-6 pt-4 pb-3.5 bg-card sticky top-0 z-20 shrink-0"
+              style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' }}
             >
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              <div className="flex items-center justify-between mb-3.5">
+                <h2 className="text-2xl font-bold tracking-tight text-foreground">
                   Settings
                 </h2>
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   onClick={() => { triggerHaptic(40); onOpenChange(false); }} 
-                  className="w-8 h-8 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer" 
+                  className="w-9 h-9 rounded-full bg-secondary/60 text-muted-foreground hover:text-foreground active:scale-95 transition-all cursor-pointer" 
                   aria-label="Close settings"
                 >
-                  <X className="w-4.5 h-4.5 stroke-[2]" />
+                  <X className="w-5 h-5 stroke-[2]" />
                 </Button>
               </div>
 
               {/* Dedicated Search Input */}
               <div className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 pointer-events-none w-4 h-4" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none w-4.5 h-4.5" />
                 <input
                   type="text"
                   inputMode="search"
                   placeholder="Search settings..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10.5 pl-10 pr-9 text-xs sm:text-sm font-medium rounded-2xl bg-secondary/40 focus:ring-1 focus:ring-foreground/20 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                  className="w-full h-12 pl-11 pr-10 text-sm font-medium rounded-2xl bg-secondary/50 focus:bg-secondary/70 focus:ring-2 focus:ring-foreground/15 transition-all outline-none text-foreground placeholder:text-muted-foreground/70"
                   aria-label="Search settings"
                 />
                 {searchQuery && (
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                     onClick={() => setSearchQuery('')}
                     aria-label="Clear search"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -488,7 +488,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       placeholder="Search settings..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full h-8 pl-8 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
+                      className="w-full h-9 pl-8.5 pr-7 text-xs font-medium rounded-xl bg-card border border-border/60 focus:border-foreground/30 focus:ring-1 focus:ring-foreground/10 transition-all outline-none text-foreground placeholder:text-muted-foreground/60"
                     />
                     {searchQuery && (
                       <button

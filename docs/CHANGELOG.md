@@ -1,3 +1,11 @@
+# Release Notes (v1.0.26)
+
+## CI Release Reliability & Android ARM64 Release Fix
+
+- **CI Android Release Upload Race Condition Fix** — Ensured the release shell on `Shiori-releases` is automatically verified and created if an Android builder completes ahead of desktop runners, preventing missing arm64 APK uploads.
+- **Windows Store Package Robustness** — Guarded bundle artifact directory checks in PowerShell to prevent failures during store package preparation.
+- **Enhanced Release Retries** — Added multi-attempt retry logic for all GitHub Release asset uploads.
+
 # Release Notes (v1.0.25)
 
 ## Android UI Overhaul: Tactile Domain Switcher, Modern More Screen & Reader Spacing

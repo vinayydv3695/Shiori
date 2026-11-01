@@ -1,3 +1,12 @@
+# Release Notes (v1.0.27)
+
+## Universal Series Assignment & Auto-Grouped Series Integration
+
+- **Universal "Add to Series" Action** — Enabled series assignment across all book types (EPUB light novels, PDFs, CBZ/CBR, and Manga) from desktop book cards, modern list view, bulk selection action bar, and mobile home context menus.
+- **Auto-Grouped Series Discovery** — The series assignment dialog now dynamically aggregates and lists automatically grouped series from library book titles alongside database manga series, complete with live book count badges and instant search.
+- **Automatic Volume & Index Parsing** — When assigning a book to a series, the volume or chapter index is automatically parsed from the book title and saved as `series_index`.
+- **Bulk Series Assignment** — Multi-select books in the library and assign them to any existing or newly created series in a single action.
+
 # Release Notes (v1.0.26)
 
 ## CI Release Reliability & Android ARM64 Release Fix

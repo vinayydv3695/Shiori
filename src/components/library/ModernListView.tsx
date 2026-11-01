@@ -1,10 +1,13 @@
-import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType, FolderPlus } from 'lucide-react'
+import { useState } from 'react'
+import { BookOpen, Star, Download, Edit, Trash2, Calendar, FileType, FolderPlus, Layers } from 'lucide-react'
 import { LibraryContextMenu, type LibraryMenuItem } from '@/components/ui/LibraryContextMenu'
 import { cn, formatFileSize, formatDate } from '@/lib/utils'
 import type { Book } from '@/lib/tauri'
 import { Badge } from '@/components/ui/badge'
 import { AppTooltip } from '@/components/ui/tooltip'
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
+import { useLibraryStore } from '@/store/libraryStore'
 
 function resolveCoverSrc(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) return path
@@ -34,6 +37,7 @@ export const ModernListView = ({
   onAddToShelf,
   onManageTags,
 }: ListViewProps) => {
+  const [assignSeriesBook, setAssignSeriesBook] = useState<Book | null>(null);
   if (books.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -55,6 +59,7 @@ export const ModernListView = ({
           { label: 'Open', icon: BookOpen, onClick: () => onOpenBook(book.id!) },
           { label: 'Edit Metadata', icon: Edit, onClick: () => onEditBook(book.id!) },
           ...(onAddToShelf ? [{ label: 'Add to Shelf...', icon: FolderPlus, onClick: () => onAddToShelf(book.id!) }] : []),
+          { label: 'Add to Series...', icon: Layers, onClick: () => setAssignSeriesBook(book) },
           { isSeparator: true as const },
           { label: 'Delete', icon: Trash2, onClick: () => onDeleteBook(book.id!), destructive: true },
         ];
@@ -233,6 +238,21 @@ export const ModernListView = ({
           </LibraryContextMenu>
         )
       })}
+
+      {assignSeriesBook && (
+        <SeriesAssignmentDialog
+          open={assignSeriesBook !== null}
+          onOpenChange={(open) => {
+            if (!open) setAssignSeriesBook(null);
+          }}
+          bookId={assignSeriesBook.id!}
+          bookTitle={assignSeriesBook.title}
+          currentSeries={assignSeriesBook.series}
+          onAssigned={() => {
+            void useLibraryStore.getState().refreshLibrary();
+          }}
+        />
+      )}
     </div>
   )
 }

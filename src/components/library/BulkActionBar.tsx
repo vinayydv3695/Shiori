@@ -13,7 +13,7 @@
  * clears the mobile bottom nav.
  */
 import { useCallback } from 'react';
-import { X, FileOutput, FolderPlus, CheckSquare, Square } from 'lucide-react';
+import { X, FileOutput, FolderPlus, Layers, CheckSquare, Square } from 'lucide-react';
 import { useLibraryStore } from '@/store/libraryStore';
 import { Button } from '@/components/ui/button';
 import { AppTooltip } from '@/components/ui/tooltip';
@@ -24,9 +24,10 @@ interface BulkActionBarProps {
   visibleBookIds: number[];
   onConvert: () => void;
   onAddToShelf: () => void;
+  onAddToSeries?: () => void;
 }
 
-export function BulkActionBar({ visibleBookIds, onConvert, onAddToShelf }: BulkActionBarProps) {
+export function BulkActionBar({ visibleBookIds, onConvert, onAddToShelf, onAddToSeries }: BulkActionBarProps) {
   const selectedBookIds = useLibraryStore((s) => s.selectedBookIds);
   const clearSelection = useLibraryStore((s) => s.clearSelection);
   const selectAllBooks = useLibraryStore((s) => s.selectAllBooks);
@@ -100,6 +101,21 @@ export function BulkActionBar({ visibleBookIds, onConvert, onAddToShelf }: BulkA
             <span className="md:hidden">Shelf</span>
           </Button>
         </AppTooltip>
+
+        {onAddToSeries && (
+          <AppTooltip content="Add selected books to a series" side="top">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddToSeries}
+              className="gap-1.5 h-9 rounded-lg text-sm"
+            >
+              <Layers className="w-4 h-4" />
+              <span className={cn('max-md:hidden')}>Add to Series…</span>
+              <span className="md:hidden">Series</span>
+            </Button>
+          </AppTooltip>
+        )}
 
         <div className="w-px h-6 bg-border/70 mx-0.5" />
 

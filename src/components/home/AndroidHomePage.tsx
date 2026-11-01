@@ -11,6 +11,7 @@ import {
   Info,
   Pencil,
   FolderPlus,
+  Layers,
   Trash2,
   Star,
   Calendar,
@@ -27,6 +28,7 @@ import {
 import { EditMetadataDialog } from '@/components/library/EditMetadataDialog';
 import { ShelfSelectDialog } from '@/components/library/ShelfSelectDialog';
 import { DeleteBookDialog } from '@/components/library/DeleteBookDialog';
+import { SeriesAssignmentDialog } from '@/components/library/SeriesAssignmentDialog';
 import { useUIStore, type DomainView } from '@/store/uiStore';
 import { useLibraryStore, EMPTY_FILTERS } from '@/store/libraryStore';
 import { usePreferencesStore } from '@/store/preferencesStore';
@@ -127,6 +129,7 @@ export function AndroidHomePage({
   // Action dialog states
   const [editingBookId, setEditingBookId] = useState<number | null>(null);
   const [shelfBookId, setShelfBookId] = useState<number | null>(null);
+  const [seriesBook, setSeriesBook] = useState<Book | null>(null);
   const [deleteBookInfo, setDeleteBookInfo] = useState<{ id: number; title: string } | null>(null);
 
   // Search overlay toggle
@@ -627,6 +630,17 @@ export function AndroidHomePage({
                         <span>Add to Shelf...</span>
                       </DropdownMenuItem>
 
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSeriesBook(book);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-secondary/70 focus:bg-secondary/70 text-foreground font-medium transition-colors select-none"
+                      >
+                        <Layers className="w-4 h-4 text-foreground/85 shrink-0" />
+                        <span>Add to Series...</span>
+                      </DropdownMenuItem>
+
                       <DropdownMenuSeparator className="h-px bg-border/50 my-1 mx-1" />
 
                       <DropdownMenuItem
@@ -722,6 +736,19 @@ export function AndroidHomePage({
           open={shelfBookId !== null}
           onOpenChange={(open) => !open && setShelfBookId(null)}
           bookId={shelfBookId}
+        />
+      )}
+
+      {seriesBook !== null && (
+        <SeriesAssignmentDialog
+          open={seriesBook !== null}
+          onOpenChange={(open) => !open && setSeriesBook(null)}
+          bookId={seriesBook.id!}
+          bookTitle={seriesBook.title}
+          currentSeries={seriesBook.series}
+          onAssigned={() => {
+            void useLibraryStore.getState().refreshLibrary();
+          }}
         />
       )}
 

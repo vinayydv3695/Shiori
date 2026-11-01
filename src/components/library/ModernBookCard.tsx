@@ -321,10 +321,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
       : []),
     { label: 'Edit Metadata', icon: Pencil, onClick: () => onEdit(book.id!) },
     ...(onAddToShelf ? [{ label: 'Add to Shelf...', icon: FolderPlus, onClick: () => onAddToShelf(book.id!) }] : []),
-    ...(isManga ? [
-      { isSeparator: true as const },
-      { label: 'Assign to Series...', icon: Layers, onClick: () => setAssignOpen(true) }
-    ] : []),
+    { label: 'Add to Series...', icon: Layers, onClick: () => setAssignOpen(true) },
     { isSeparator: true as const },
     { label: 'Delete', icon: Trash2, onClick: () => onDelete(book.id!), destructive: true },
   ];
@@ -503,14 +500,16 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           </motion.div>
       </LibraryContextMenu>
 
-      {isManga && (
-        <SeriesAssignmentDialog
-          open={assignOpen}
-          onOpenChange={setAssignOpen}
-          bookId={book.id!}
-          bookTitle={book.title}
-        />
-      )}
+      <SeriesAssignmentDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        bookId={book.id!}
+        bookTitle={book.title}
+        currentSeries={book.series}
+        onAssigned={() => {
+          void useLibraryStore.getState().refreshLibrary();
+        }}
+      />
 
       {convertBookId !== null && (
         <ConvertToEpubMenuItem

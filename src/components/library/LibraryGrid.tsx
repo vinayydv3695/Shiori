@@ -20,6 +20,7 @@ import { PremiumBookCard } from "./ModernBookCard";
 import { SeriesCard } from "./SeriesCard";
 import { BulkActionBar } from "./BulkActionBar";
 import { BulkShelfDialog } from "./BulkShelfDialog";
+import { SeriesAssignmentDialog } from "./SeriesAssignmentDialog";
 import { BatchConvertDialog } from "../conversion/BatchConvertDialog";
 import { useLibraryStore, countActiveFilterCriteria } from "@/store/libraryStore";
 import { Heart, BookOpen, CheckCircle2, PauseCircle, X, Filter } from "lucide-react";
@@ -181,13 +182,14 @@ export function LibraryGrid({
   const storeBooks = useLibraryStore((state) => state.books);
   const [bulkConvertOpen, setBulkConvertOpen] = useState(false);
   const [bulkShelfOpen, setBulkShelfOpen] = useState(false);
+  const [bulkSeriesOpen, setBulkSeriesOpen] = useState(false);
 
   // The grid only needs the selection *identity* for the batch dialogs below.
   // BulkActionBar holds its own subscription for the bar UI. Subscribing to the
   // whole Set here re-rendered the entire virtualized grid on every selection
   // toggle (the Set is recreated per mutation). When no batch dialog is open,
   // return a stable empty sentinel so toggles don't touch the grid at all.
-  const batchDialogsOpen = bulkConvertOpen || bulkShelfOpen;
+  const batchDialogsOpen = bulkConvertOpen || bulkShelfOpen || bulkSeriesOpen;
   const selectedBookIds = useLibraryStore((s) =>
     batchDialogsOpen ? s.selectedBookIds : EMPTY_SELECTION,
   );
@@ -615,6 +617,7 @@ export function LibraryGrid({
         visibleBookIds={visibleBookIds}
         onConvert={() => setBulkConvertOpen(true)}
         onAddToShelf={() => setBulkShelfOpen(true)}
+        onAddToSeries={() => setBulkSeriesOpen(true)}
       />
 
       <BatchConvertDialog
@@ -627,6 +630,16 @@ export function LibraryGrid({
         open={bulkShelfOpen}
         onOpenChange={setBulkShelfOpen}
         bookIds={selectedBookIdsList}
+      />
+
+      <SeriesAssignmentDialog
+        open={bulkSeriesOpen}
+        onOpenChange={setBulkSeriesOpen}
+        bookIds={selectedBookIdsList}
+        onAssigned={() => {
+          useLibraryStore.getState().clearSelection();
+          void useLibraryStore.getState().refreshLibrary();
+        }}
       />
 
       {isEmpty ? (

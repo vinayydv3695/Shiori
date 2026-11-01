@@ -1,4 +1,4 @@
-import { memo, useState, useMemo, useRef, useEffect } from 'react'
+import { memo, useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -575,29 +575,37 @@ export const SeriesView = memo(function SeriesView({
   const coverSize = usePreferencesStore((state) => state.preferences?.coverSize ?? 'medium')
 
   // ── Virtualization (slice F1) ────────────────────────────────────────
-  // The old render mapped every volume to a DOM card: a 1000-chapter series
-  // mounted 1000 cards (plus covers forced visible) in one frame. Now only
-  // visible rows + small overscan mount.
-  const scrollViewportRef = useRef<HTMLDivElement>(null)
+  // Track the real scroll viewport in state and ref so the virtualizer
+  // and ResizeObserver immediately bind on mount instead of waiting for a re-render.
+  const [scrollViewport, setScrollViewport] = useState<HTMLDivElement | null>(null)
+  const scrollViewportRef = useRef<HTMLDivElement | null>(null)
+
+  const handleViewportRef = useCallback((el: HTMLDivElement | null) => {
+    scrollViewportRef.current = el
+    setScrollViewport(el)
+  }, [])
+
   const [columns, setColumns] = useState(4)
   const [highlightId, setHighlightId] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!isOpen) return
-    const el = scrollViewportRef.current
-    if (!el) return
+    if (!isOpen || !scrollViewport) return
+    const width = scrollViewport.clientWidth
+    if (width > 0) {
+      setColumns(width < 520 ? 2 : width < 768 ? 3 : width < 1024 ? 4 : width < 1280 ? 5 : 6)
+    }
     let raf = 0
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width
-      if (!width) return
+      const w = entries[0]?.contentRect.width
+      if (!w) return
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        setColumns(width < 520 ? 2 : width < 768 ? 3 : width < 1024 ? 4 : width < 1280 ? 5 : 6)
+        setColumns(w < 520 ? 2 : w < 768 ? 3 : w < 1024 ? 4 : w < 1280 ? 5 : 6)
       })
     })
-    observer.observe(el)
+    observer.observe(scrollViewport)
     return () => { cancelAnimationFrame(raf); observer.disconnect() }
-  }, [isOpen])
+  }, [isOpen, scrollViewport])
 
   // Lean series fetch (slice F1/F2-a): the prop only carries books already
   // loaded in the library window. Fetch the full series as lightweight rows
@@ -698,11 +706,30 @@ export const SeriesView = memo(function SeriesView({
     : processedBooks.length
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
-    getScrollElement: () => scrollViewportRef.current,
+    getScrollElement: () => scrollViewport || scrollViewportRef.current,
     estimateSize: () => (viewMode === 'grid' ? gridRowHeight : 96),
-    overscan: 3,
+    overscan: 4,
+    initialRect: {
+      width: typeof window !== 'undefined' ? window.innerWidth : 1000,
+      height: typeof window !== 'undefined' ? window.innerHeight : 800,
+    },
   })
   const virtualRows = rowVirtualizer.getVirtualItems()
+
+  // Resilient row resolution: if virtualization measurement is mid-transition on
+  // the first frame, synthesize an initial render window so users NEVER experience a blank view.
+  const renderedRows = virtualRows.length > 0 ? virtualRows : (
+    rowCount > 0
+      ? Array.from({ length: Math.min(rowCount, 4) }, (_, idx) => ({
+          key: idx,
+          index: idx,
+          start: idx * (viewMode === 'grid' ? gridRowHeight : 96),
+          end: (idx + 1) * (viewMode === 'grid' ? gridRowHeight : 96),
+          size: viewMode === 'grid' ? gridRowHeight : 96,
+          lane: 0,
+        }))
+      : []
+  )
 
   if (!series) return null;
 
@@ -801,7 +828,7 @@ export const SeriesView = memo(function SeriesView({
             </Dialog.Close>
           </AppTooltip>
           
-          <ScrollArea className="flex-1 bg-background/50" viewportRef={scrollViewportRef}>
+          <ScrollArea className="flex-1 bg-background/50" viewportRef={handleViewportRef}>
             <div className="flex flex-col min-h-full pb-16 md:pb-8">
             <DesktopSeriesHeader 
               series={effectiveSeries} 
@@ -997,7 +1024,7 @@ export const SeriesView = memo(function SeriesView({
                   className="relative w-full"
                   style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
                 >
-                  {virtualRows.map((virtualRow) => {
+                  {renderedRows.map((virtualRow) => {
                     if (viewMode === 'grid') {
                       const start = virtualRow.index * columns
                       const rowBooks = processedBooks.slice(start, start + columns)

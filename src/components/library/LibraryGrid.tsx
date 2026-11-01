@@ -464,18 +464,18 @@ export function LibraryGrid({
     // parent's visible viewport must not wait for the observer's async
     // initial report (missed for wrappers mounted mid-scroll or replaced by
     // a refetch) — reveal it right away. Only NEW keys, batched into the same
-    // event shape the observer callback dispatches.
+    // event shape the observer callback dispatches. Use offset metrics to avoid
+    // layout thrashing (getBoundingClientRect forces synchronous reflow on every item).
     if (newlyObserved.length === 0) return;
-    const parentRect = parentEl.getBoundingClientRect();
+    const parentTop = parentEl.scrollTop;
+    const parentBottom = parentTop + parentEl.clientHeight;
     const ids: string[] = [];
     for (const { key, el } of newlyObserved) {
-      const rect = el.getBoundingClientRect();
-      const fullyInside =
-        rect.top >= parentRect.top &&
-        rect.bottom <= parentRect.bottom &&
-        rect.left >= parentRect.left &&
-        rect.right <= parentRect.right;
-      if (fullyInside) ids.push(key);
+      const top = el.offsetTop;
+      const bottom = top + el.offsetHeight;
+      if (bottom >= parentTop - 100 && top <= parentBottom + 100) {
+        ids.push(key);
+      }
     }
     if (ids.length > 0) {
       window.dispatchEvent(

@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
+  X,
   BookOpen,
   Heart,
   ChevronRight,
@@ -34,6 +35,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { proxyExternalCover, cn } from '@/lib/utils';
 import type { GroupedItem, SeriesGroup } from '@/hooks/useGroupedLibrary';
 import { AndroidBookDeepDive } from './AndroidBookDeepDive';
+import { IconBooks, IconManga } from '@/components/icons/ShioriIcons';
 
 function getCoverUrl(path: string | null | undefined): string {
   if (!path) return '';
@@ -224,68 +226,111 @@ export function AndroidHomePage({
         )}
       </AnimatePresence>
 
-      {/* ── 1. HEADER ROW: "Explore our Collection" with Domain Toggle & Search ── */}
+      {/* ── 1. HEADER ROW: Tactile Domain Switcher & Action Bar ── */}
       <header
-        className="px-5 pt-3 pb-2 flex items-center justify-between"
-        style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}
+        className="px-5 pt-3 pb-2 flex items-center justify-between gap-3"
+        style={{ paddingTop: 'max(14px, env(safe-area-inset-top, 0px))' }}
       >
-        <div className="flex flex-col">
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
-            Explore our Collection
-          </h1>
-          {/* Subtle Domain indicator / switcher if user reads both books and manga */}
-          {preferredContentType === 'both' && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <button
-                type="button"
-                onClick={() => setCurrentDomain('books')}
-                className={cn(
-                  'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer',
-                  currentDomain === 'books'
-                    ? 'bg-primary text-primary-foreground shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground bg-secondary/50'
-                )}
-              >
-                Books
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentDomain('manga_comics')}
-                className={cn(
-                  'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-all cursor-pointer',
-                  currentDomain === 'manga_comics'
-                    ? 'bg-primary text-primary-foreground shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground bg-secondary/50'
-                )}
-              >
-                Manga
-              </button>
-            </div>
-          )}
-        </div>
+        {preferredContentType === 'both' ? (
+          <div className="relative grid grid-cols-2 p-1 bg-secondary/80 dark:bg-muted/50 border border-border/60 rounded-full h-11 w-full max-w-[240px] shadow-[inset_0_2px_4px_rgba(0,0,0,0.1),inset_0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_2px_5px_rgba(0,0,0,0.4)] backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setCurrentDomain('books')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-full transition-colors duration-200 cursor-pointer select-none',
+                currentDomain === 'books'
+                  ? 'text-primary-foreground font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {currentDomain === 'books' && (
+                <motion.div
+                  layoutId="android-home-domain-indicator"
+                  className="absolute inset-0 rounded-full bg-gradient-to-b from-primary via-primary to-primary/90 shadow-[0_2px_8px_rgba(0,0,0,0.22),0_1px_3px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.25)] border-t border-white/20 ring-1 ring-primary/30 z-0"
+                  transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <IconBooks size={14} />
+                <span>Books</span>
+              </span>
+            </button>
 
-        <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCurrentDomain('manga_comics')}
+              className={cn(
+                'relative z-10 flex items-center justify-center gap-1.5 h-full text-xs font-bold rounded-full transition-colors duration-200 cursor-pointer select-none',
+                currentDomain === 'manga_comics'
+                  ? 'text-primary-foreground font-extrabold drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {currentDomain === 'manga_comics' && (
+                <motion.div
+                  layoutId="android-home-domain-indicator"
+                  className="absolute inset-0 rounded-full bg-gradient-to-b from-primary via-primary to-primary/90 shadow-[0_2px_8px_rgba(0,0,0,0.22),0_1px_3px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.25)] border-t border-white/20 ring-1 ring-primary/30 z-0"
+                  transition={{ type: 'spring', stiffness: 480, damping: 36 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5 whitespace-nowrap">
+                <IconManga size={14} />
+                <span>Manga</span>
+              </span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/80 dark:bg-muted/50 border border-border/60 text-xs font-extrabold text-foreground shadow-2xs backdrop-blur-md">
+              {preferredContentType === 'manga' ? (
+                <>
+                  <IconManga size={14} />
+                  <span>Manga</span>
+                </>
+              ) : (
+                <>
+                  <IconBooks size={14} />
+                  <span>Books</span>
+                </>
+              )}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 shrink-0">
           {/* Search Toggle Button */}
           <button
             type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-foreground/80 hover:text-foreground active:scale-95 transition-all cursor-pointer"
+            className={cn(
+              'w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer border shadow-2xs active:scale-95',
+              isSearchOpen
+                ? 'bg-primary text-primary-foreground border-primary/30 shadow-xs'
+                : 'bg-secondary/80 hover:bg-secondary text-foreground border-border/60 backdrop-blur-md'
+            )}
             aria-label="Search Collection"
           >
-            <Search className="w-5 h-5 stroke-[2]" />
+            <Search className="w-4 h-4 stroke-[2.2]" />
           </button>
 
-          {/* Favorites Quick Shortcut with badge */}
+          {/* Favorites Shortcut */}
           <button
             type="button"
             onClick={() => onFilterCollection('favorites')}
-            className="relative w-10 h-10 rounded-full flex items-center justify-center text-foreground/80 hover:text-foreground active:scale-95 transition-all cursor-pointer"
+            className="relative w-10 h-10 rounded-full bg-secondary/80 hover:bg-secondary text-foreground flex items-center justify-center border border-border/60 shadow-2xs active:scale-95 transition-all cursor-pointer backdrop-blur-md"
             aria-label="Favorites"
           >
-            <Heart className={cn('w-5 h-5 stroke-[2] transition-colors', favoriteBookIds.size > 0 && 'text-rose-500 fill-rose-500/20')} />
-            <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground font-black text-[9px] flex items-center justify-center shadow-xs">
-              {favoriteBookIds.size > 0 ? Math.min(favoriteBookIds.size, 99) : '0'}
-            </span>
+            <Heart
+              className={cn(
+                'w-4 h-4 stroke-[2.2] transition-colors',
+                favoriteBookIds.size > 0 && 'text-rose-500 fill-rose-500/20'
+              )}
+            />
+            {favoriteBookIds.size > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground font-black text-[10px] flex items-center justify-center shadow-xs border-2 border-background">
+                {favoriteBookIds.size > 99 ? '99+' : favoriteBookIds.size}
+              </span>
+            )}
           </button>
         </div>
       </header>
@@ -297,25 +342,30 @@ export function AndroidHomePage({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
             onSubmit={handleSearchSubmit}
-            className="px-5 overflow-hidden mb-3"
+            className="px-5 overflow-hidden mb-2 pt-1"
           >
             <div className="relative flex items-center">
+              <Search className="absolute left-3.5 text-muted-foreground w-4 h-4 pointer-events-none" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
                 placeholder="Search titles, authors, genres..."
-                className="w-full h-10 pl-4 pr-10 rounded-full bg-card border border-border/70 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-inner"
+                className="w-full h-11 pl-10 pr-10 rounded-2xl bg-card border border-border/60 text-sm font-medium text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-xs"
               />
-              <button
-                type="submit"
-                className="absolute right-2.5 text-primary p-1 active:scale-90 cursor-pointer"
-                aria-label="Submit search"
-              >
-                <Search className="w-4 h-4" />
-              </button>
+              {localSearch && (
+                <button
+                  type="button"
+                  onClick={() => setLocalSearch('')}
+                  className="absolute right-3 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </motion.form>
         )}

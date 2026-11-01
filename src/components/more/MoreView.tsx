@@ -1,7 +1,6 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, type Variants } from 'framer-motion';
 import {
-  BookOpen,
   BarChart2,
   History,
   NotebookPen,
@@ -10,68 +9,164 @@ import {
   Settings,
   Moon,
   Sun,
+  TrendingUp,
+  Library,
+  Timer,
+  HardDrive,
+  RefreshCw,
   ChevronRight,
 } from 'lucide-react';
-import { AniListIcon, TorboxIcon } from '@/components/icons';
+import { AniListIcon, TorboxIcon, BookshelfIcon } from '@/components/icons';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { useTorboxStore } from '@/store/useTorboxStore';
+import { useLibraryStore } from '@/store/libraryStore';
 import { useTheme } from '@/hooks/useTheme';
 import { IS_STORE_BUILD } from '@/lib/storeConfig';
-import type { CurrentView } from '@/store/uiStore';
+import { api, isTauri, type ReadingStreak } from '@/lib/tauri';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import type { CurrentView } from '@/store/uiStore';
 
 export interface MoreViewProps {
   onNavigateToView: (view: CurrentView) => void;
   onOpenSettings: () => void;
 }
 
-interface MoreItem {
+interface MoreCardItem {
   id: string;
   label: string;
   subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
-  bgClass: string;
-  iconClass: string;
+  badge?: string;
   onClick: () => void;
 }
 
-const containerVariants = {
+interface MoreCardSection {
+  id: string;
+  title: string;
+  items: MoreCardItem[];
+}
+
+const triggerHaptic = (ms = 25) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate(ms);
+    } catch {
+      // Ignore vibration errors on unsupported platforms
+    }
+  }
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const getTodayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 MB';
+  const gb = bytes / (1024 * 1024 * 1024);
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  const mb = bytes / (1024 * 1024);
+  return `${Math.round(mb)} MB`;
+}
+
+function formatMinutes(seconds: number): string {
+  if (!seconds || seconds <= 0) return '0m';
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.04,
-      delayChildren: 0.05,
+      staggerChildren: 0.03,
+      delayChildren: 0.02,
     },
   },
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 14, scale: 0.95 },
+const sectionVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
   visible: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    transition: { type: 'spring' as const, stiffness: 380, damping: 26 },
+    transition: { duration: 0.2, ease: 'easeOut' },
   },
 };
 
 export function MoreView({ onNavigateToView, onOpenSettings }: MoreViewProps) {
   const preferredContentType = usePreferencesStore((s) => s.preferences?.preferredContentType);
   const hasTorboxKey = useTorboxStore((s) => s.hasApiKey);
+  const totalCount = useLibraryStore((s) => s.totalCount || s.books.length);
   const { isDark, toggleTheme } = useTheme();
 
-  // Curated, 9 core library & extension tools (forms a clean 3x3 grid)
-  // Designed with theme-matched antique ink tones on soft warm translucent paper discs
-  const moreItems = useMemo(() => {
-    const items: MoreItem[] = [
+  // Snapshot and storage state
+  const [streak, setStreak] = useState<ReadingStreak | null>(null);
+  const [todaySeconds, setTodaySeconds] = useState(0);
+  const [storageBytes, setStorageBytes] = useState(0);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadData = async () => {
+      try {
+        const todayStr = getTodayStr();
+        const [libStats, userStreak, dailyStats] = await Promise.all([
+          api.getLibraryStats().catch(() => null),
+          api.getReadingStreak().catch(() => null),
+          api.getDailyReadingStats(7).catch(() => []),
+        ]);
+
+        if (!active) return;
+        if (libStats) setStorageBytes(libStats.total_size_bytes);
+        if (userStreak) setStreak(userStreak);
+        if (dailyStats && dailyStats.length > 0) {
+          const todayStat = dailyStats.find((s) => s.date === todayStr);
+          if (todayStat) setTodaySeconds(todayStat.total_seconds);
+        }
+      } catch {
+        // Ignore background stat load failures
+      }
+    };
+
+    void loadData();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleClearCache = async () => {
+    triggerHaptic(30);
+    setIsClearingCache(true);
+    try {
+      if (isTauri) {
+        await Promise.all([
+          api.clearOnlineCache('images').catch(() => {}),
+          api.clearOnlineCache('source').catch(() => {}),
+        ]);
+      }
+      toast.success('Cache cleaned successfully');
+    } catch {
+      toast.error('Failed to clean cache');
+    } finally {
+      setIsClearingCache(false);
+    }
+  };
+
+  const sections = useMemo<MoreCardSection[]>(() => {
+    // 1. Reading & Library tools
+    const readingItems: MoreCardItem[] = [
       {
         id: 'shelves',
-        label: 'Bookshelf',
-        subtitle: 'Shelves',
-        icon: BookOpen,
-        bgClass: 'bg-[#8C3A27]/10 dark:bg-[#E07A5F]/15 border border-[#8C3A27]/25 dark:border-[#E07A5F]/30 shadow-xs',
-        iconClass: 'text-[#8C3A27] dark:text-[#E07A5F]',
+        label: 'Bookshelves',
+        subtitle: 'Collections',
+        icon: BookshelfIcon,
         onClick: () => onNavigateToView('shelves'),
       },
       {
@@ -79,144 +174,283 @@ export function MoreView({ onNavigateToView, onOpenSettings }: MoreViewProps) {
         label: 'Statistics',
         subtitle: 'Insights',
         icon: BarChart2,
-        bgClass: 'bg-[#9E6D18]/10 dark:bg-[#E5B558]/15 border border-[#9E6D18]/25 dark:border-[#E5B558]/30 shadow-xs',
-        iconClass: 'text-[#9E6D18] dark:text-[#E5B558]',
         onClick: () => onNavigateToView('statistics'),
       },
       {
         id: 'history',
         label: 'History',
-        subtitle: 'Timeline',
+        subtitle: 'Activity',
         icon: History,
-        bgClass: 'bg-[#2D6646]/10 dark:bg-[#64B584]/15 border border-[#2D6646]/25 dark:border-[#64B584]/30 shadow-xs',
-        iconClass: 'text-[#2D6646] dark:text-[#64B584]',
         onClick: () => onNavigateToView('history'),
       },
       {
         id: 'annotations',
         label: 'Annotations',
-        subtitle: 'Notes',
+        subtitle: 'Notes & quotes',
         icon: NotebookPen,
-        bgClass: 'bg-[#1F6472]/10 dark:bg-[#56B3C2]/15 border border-[#1F6472]/25 dark:border-[#56B3C2]/30 shadow-xs',
-        iconClass: 'text-[#1F6472] dark:text-[#56B3C2]',
         onClick: () => onNavigateToView('annotations'),
-      },
-      {
-        id: 'rss',
-        label: 'RSS Feeds',
-        subtitle: 'News',
-        icon: Rss,
-        bgClass: 'bg-[#A34E17]/10 dark:bg-[#EF8E4E]/15 border border-[#A34E17]/25 dark:border-[#EF8E4E]/30 shadow-xs',
-        iconClass: 'text-[#A34E17] dark:text-[#EF8E4E]',
-        onClick: () => onNavigateToView('rss-articles'),
-      },
-      {
-        id: 'dark-mode',
-        label: 'Dark mode',
-        subtitle: isDark ? 'On' : 'Off',
-        icon: isDark ? Sun : Moon,
-        bgClass: 'bg-[#52497B]/10 dark:bg-[#A397D6]/15 border border-[#52497B]/25 dark:border-[#A397D6]/30 shadow-xs',
-        iconClass: 'text-[#52497B] dark:text-[#A397D6]',
-        onClick: () => toggleTheme(),
       },
     ];
 
-    // AniList Tracker (manga/both modes)
+    // 2. Extensions & Discovery
+    const extensionItems: MoreCardItem[] = [
+      {
+        id: 'rss',
+        label: 'RSS Feeds',
+        subtitle: 'Articles',
+        icon: Rss,
+        onClick: () => onNavigateToView('rss-articles'),
+      },
+    ];
+
     if (preferredContentType !== 'books') {
-      items.push({
+      extensionItems.push({
         id: 'anilist',
         label: 'AniList',
         subtitle: 'Tracker',
         icon: AniListIcon,
-        bgClass: 'bg-[#22537A]/10 dark:bg-[#6CAEE0]/15 border border-[#22537A]/25 dark:border-[#6CAEE0]/30 shadow-xs',
-        iconClass: 'text-[#22537A] dark:text-[#6CAEE0]',
         onClick: () => onNavigateToView('anilist'),
       });
     }
 
-    // Torbox Cloud Debrid (non-store builds)
     if (!IS_STORE_BUILD) {
-      items.push({
+      extensionItems.push({
         id: 'torbox',
         label: 'Torbox',
-        subtitle: hasTorboxKey ? 'Connected' : 'Discover',
+        subtitle: hasTorboxKey ? 'Connected' : 'Cloud debrid',
+        badge: hasTorboxKey ? 'Active' : undefined,
         icon: TorboxIcon,
-        bgClass: 'bg-[#6A3479]/10 dark:bg-[#C27DD7]/15 border border-[#6A3479]/25 dark:border-[#C27DD7]/30 shadow-xs',
-        iconClass: 'text-[#6A3479] dark:text-[#C27DD7]',
         onClick: () => onNavigateToView('torbox-discover'),
       });
     }
 
-    // Trash / Recycle Bin
-    items.push({
-      id: 'trash',
-      label: 'Trash',
-      subtitle: 'Bin',
-      icon: Trash2,
-      bgClass: 'bg-[#912930]/10 dark:bg-[#E56F77]/15 border border-[#912930]/25 dark:border-[#E56F77]/30 shadow-xs',
-      iconClass: 'text-[#912930] dark:text-[#E56F77]',
-      onClick: () => onNavigateToView('recycle-bin'),
+    // 3. App & System preferences
+    const systemItems: MoreCardItem[] = [
+      {
+        id: 'dark-mode',
+        label: 'Dark Mode',
+        subtitle: isDark ? 'On' : 'Off',
+        icon: isDark ? Sun : Moon,
+        onClick: () => {
+          triggerHaptic(30);
+          toggleTheme();
+        },
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        subtitle: 'Preferences',
+        icon: Settings,
+        onClick: onOpenSettings,
+      },
+      {
+        id: 'trash',
+        label: 'Recycle Bin',
+        subtitle: 'Trash',
+        icon: Trash2,
+        onClick: () => onNavigateToView('recycle-bin'),
+      },
+    ];
+
+    const result: MoreCardSection[] = [
+      {
+        id: 'reading',
+        title: 'Reading & Library',
+        items: readingItems,
+      },
+    ];
+
+    if (extensionItems.length > 0) {
+      result.push({
+        id: 'extensions',
+        title: 'Extensions',
+        items: extensionItems,
+      });
+    }
+
+    result.push({
+      id: 'system',
+      title: 'App & System',
+      items: systemItems,
     });
 
-    // Settings
-    items.push({
-      id: 'settings',
-      label: 'Settings',
-      subtitle: 'Preferences',
-      icon: Settings,
-      bgClass: 'bg-[#4A443B]/10 dark:bg-[#D1C7B8]/15 border border-[#4A443B]/25 dark:border-[#D1C7B8]/30 shadow-xs',
-      iconClass: 'text-[#4A443B] dark:text-[#D1C7B8]',
-      onClick: onOpenSettings,
-    });
-
-    return items;
+    return result;
   }, [preferredContentType, hasTorboxKey, isDark, toggleTheme, onNavigateToView, onOpenSettings]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground select-none">
-      {/* ── 2-COLUMN CIRCULAR ICON GRID SECTION (Header removed per user request) ── */}
+    <div className="min-h-screen bg-background text-foreground select-none overflow-y-auto custom-scrollbar">
+      {/* ── 2-COLUMN SPACIOUS NATIVE CARDS ── */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-2 gap-y-7 gap-x-6 px-6 max-w-sm mx-auto w-full"
+        className="px-4 sm:px-6 max-w-md sm:max-w-lg mx-auto w-full space-y-4 pt-1"
         style={{
-          paddingTop: 'max(32px, env(safe-area-inset-top, 24px))',
+          paddingTop: 'max(24px, env(safe-area-inset-top, 16px))',
           paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 24px))',
         }}
       >
-        {moreItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <motion.button
-              key={item.id}
-              variants={itemVariants}
+        {sections.map((section) => (
+          <motion.div key={section.id} variants={sectionVariants} className="space-y-1.5">
+            <h2 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75 px-1.5">
+              {section.title}
+            </h2>
+
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+              {section.items.map((item, idx) => {
+                const Icon = item.icon;
+                const isOddLast = idx === section.items.length - 1 && section.items.length % 2 === 1;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(25);
+                      item.onClick();
+                    }}
+                    className={cn(
+                      'flex items-center gap-3 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl transition-all duration-150 text-left cursor-pointer group',
+                      'bg-card dark:bg-card/90',
+                      'border border-border/60 dark:border-border/40',
+                      'shadow-[0_2px_8px_rgba(0,0,0,0.03),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_12px_rgba(0,0,0,0.35)]',
+                      'hover:bg-secondary/40 active:bg-secondary/70 active:scale-[0.98]',
+                      isOddLast ? 'col-span-2' : 'col-span-1'
+                    )}
+                  >
+                    {/* Native Theme Squircle Icon with Tactile Depth */}
+                    <div
+                      className={cn(
+                        'w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105',
+                        'bg-secondary/80 dark:bg-secondary/60 text-foreground',
+                        'border border-border/50 dark:border-border/40',
+                        'shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.5),0_1px_3px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.4)]'
+                      )}
+                    >
+                      <Icon className="w-5 h-5 sm:w-[22px] sm:h-[22px] stroke-[2.2]" />
+                    </div>
+
+                    {/* Typography */}
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-[13.5px] sm:text-sm font-bold text-foreground tracking-tight truncate">
+                        {item.label}
+                      </span>
+                      <span className="text-[11px] font-medium text-muted-foreground/80 truncate mt-0.5">
+                        {item.subtitle}
+                      </span>
+                    </div>
+
+                    {/* Optional Trailing Badge */}
+                    {item.badge && (
+                      <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        ))}
+
+        {/* ── 1. QUICK READING SNAPSHOT WIDGET ── */}
+        <motion.div variants={sectionVariants} className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between px-1.5">
+            <h2 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">
+              Reading Snapshot
+            </h2>
+            <button
               type="button"
-              onClick={item.onClick}
-              className="flex flex-col items-center justify-center group cursor-pointer active:scale-95 transition-transform py-1"
+              onClick={() => {
+                triggerHaptic(20);
+                onNavigateToView('statistics');
+              }}
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-0.5"
             >
-              {/* Premium Tonal Theme-Matched Circle Bubble */}
-              <div
-                className={cn(
-                  'w-[74px] h-[74px] sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all duration-200 group-hover:scale-105 active:scale-90',
-                  item.bgClass
-                )}
-              >
-                <Icon className={cn('w-7 h-7 sm:w-8 sm:h-8 stroke-[2.2] transition-colors', item.iconClass)} />
+              Details
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(25);
+              onNavigateToView('statistics');
+            }}
+            className="w-full p-4 rounded-2xl bg-card dark:bg-card/90 border border-border/60 dark:border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_12px_rgba(0,0,0,0.35)] hover:bg-secondary/40 active:bg-secondary/70 active:scale-[0.985] transition-all cursor-pointer text-left group"
+          >
+            <div className="grid grid-cols-3 divide-x divide-border/40 text-center">
+              {/* Daily Streak */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground/90 mb-1">
+                  <TrendingUp className="w-3.5 h-3.5 text-primary stroke-[2.2]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide">Streak</span>
+                </div>
+                <span className="text-base sm:text-lg font-black text-foreground tracking-tight">
+                  {streak?.current_streak ? `${streak.current_streak}d` : '0d'}
+                </span>
               </div>
 
-              {/* Primary Label */}
-              <span className="text-sm font-bold text-foreground tracking-tight mt-2.5 text-center">
-                {item.label}
-              </span>
+              {/* Library Count */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground/90 mb-1">
+                  <Library className="w-3.5 h-3.5 text-primary stroke-[2.2]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide">Library</span>
+                </div>
+                <span className="text-base sm:text-lg font-black text-foreground tracking-tight">
+                  {totalCount}
+                </span>
+              </div>
 
-              {/* Subtitle / Status */}
-              <span className="text-xs font-medium text-muted-foreground mt-0.5 text-center">
-                {item.subtitle}
-              </span>
-            </motion.button>
-          );
-        })}
+              {/* Reading Time Today */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <div className="flex items-center gap-1.5 text-muted-foreground/90 mb-1">
+                  <Timer className="w-3.5 h-3.5 text-primary stroke-[2.2]" />
+                  <span className="text-[11px] font-bold uppercase tracking-wide">Today</span>
+                </div>
+                <span className="text-base sm:text-lg font-black text-foreground tracking-tight">
+                  {formatMinutes(todaySeconds)}
+                </span>
+              </div>
+            </div>
+          </button>
+        </motion.div>
+
+        {/* ── 2. STORAGE & CACHE GLANCE CARD ── */}
+        <motion.div variants={sectionVariants} className="space-y-1.5 pt-1">
+          <h2 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75 px-1.5">
+            Storage &amp; Cache
+          </h2>
+
+          <div className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-card dark:bg-card/90 border border-border/60 dark:border-border/40 shadow-[0_2px_8px_rgba(0,0,0,0.03),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_12px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 bg-secondary/80 dark:bg-secondary/60 text-foreground border border-border/50 dark:border-border/40 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.5),0_1px_3px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_2px_6px_rgba(0,0,0,0.4)]">
+                <HardDrive className="w-5 h-5 sm:w-[22px] sm:h-[22px] stroke-[2.2]" />
+              </div>
+
+              <div className="flex flex-col min-w-0">
+                <span className="text-[13.5px] sm:text-sm font-bold text-foreground tracking-tight">
+                  Library Storage
+                </span>
+                <span className="text-[11px] font-medium text-muted-foreground/80 truncate mt-0.5">
+                  {formatBytes(storageBytes)} used
+                </span>
+              </div>
+            </div>
+
+            {/* Quick Action: Clean Cache */}
+            <button
+              type="button"
+              onClick={handleClearCache}
+              disabled={isClearingCache}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary/80 hover:bg-secondary text-foreground text-xs font-semibold border border-border/50 active:scale-95 transition-all cursor-pointer disabled:opacity-60 shrink-0"
+            >
+              <RefreshCw className={cn('w-3.5 h-3.5 text-primary', isClearingCache && 'animate-spin')} />
+              <span>{isClearingCache ? 'Cleaning...' : 'Clean Cache'}</span>
+            </button>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   );

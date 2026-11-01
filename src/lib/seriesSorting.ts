@@ -9,6 +9,10 @@ import type { Book } from '@/lib/tauri';
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
+const volumeNumberObjectCache = new WeakMap<object, number | null>();
+const volumeNumberStringCache = new Map<string, number | null>();
+const MAX_STRING_CACHE = 5000;
+
 /**
  * Extracts a numeric volume or chapter number from a Book's metadata, title, or filename.
  * Handles decimals (e.g. 1.1, 1.5, 105.5), prefixes (Vol, Ch, Episode, Book, #),
@@ -19,22 +23,33 @@ export function parseVolumeOrChapterNumber(
 ): number | null {
   if (!book) return null;
 
+  if (typeof book === 'object') {
+    const cached = volumeNumberObjectCache.get(book);
+    if (cached !== undefined) return cached;
+  }
+
+  let result: number | null = null;
+
   // 1. Direct series_index if present and valid
   if (typeof book.series_index === 'number' && Number.isFinite(book.series_index)) {
-    return book.series_index;
-  }
-
-  const rawTitle = (book.title || book.sort_title || '').trim();
-  if (!rawTitle) {
-    // Try filename without extension
-    if (book.file_path) {
-      const filename = book.file_path.split('/').pop()?.split('\\').pop()?.replace(/\.[^/.]+$/, '') || '';
-      return extractNumberFromString(filename);
+    result = book.series_index;
+  } else {
+    const rawTitle = (book.title || book.sort_title || '').trim();
+    if (!rawTitle) {
+      // Try filename without extension
+      if (book.file_path) {
+        const filename = book.file_path.split('/').pop()?.split('\\').pop()?.replace(/\.[^/.]+$/, '') || '';
+        result = extractNumberFromString(filename);
+      }
+    } else {
+      result = extractNumberFromString(rawTitle);
     }
-    return null;
   }
 
-  return extractNumberFromString(rawTitle);
+  if (typeof book === 'object') {
+    volumeNumberObjectCache.set(book, result);
+  }
+  return result;
 }
 
 /**
@@ -42,6 +57,11 @@ export function parseVolumeOrChapterNumber(
  */
 export function extractNumberFromString(text: string): number | null {
   if (!text) return null;
+
+  const cached = volumeNumberStringCache.get(text);
+  if (cached !== undefined) return cached;
+
+  let result: number | null = null;
 
   // Strip common noise like 4-digit release years "(2020)" or "[2021]" and tags like "(Digital)" or "[Scan]"
   const clean = text
@@ -55,26 +75,35 @@ export function extractNumberFromString(text: string): number | null {
   const keywordMatch = clean.match(keywordRegex);
   if (keywordMatch && keywordMatch[1]) {
     const parsed = parseFloat(keywordMatch[1]);
-    if (Number.isFinite(parsed)) return parsed;
+    if (Number.isFinite(parsed)) result = parsed;
   }
 
-  // Pattern 2: Trailing number after delimiter or whitespace: e.g. "Berserk - 09", "One Piece 105"
-  const trailingRegex = /(?:^|[\s\-_#v])(\d+(?:\.\d+)?)(?:\s*(?:\.cbz|\.cbr|\.epub|\.pdf|\.zip)?)$/i;
-  const trailingMatch = clean.match(trailingRegex);
-  if (trailingMatch && trailingMatch[1]) {
-    const parsed = parseFloat(trailingMatch[1]);
-    if (Number.isFinite(parsed)) return parsed;
+  if (result === null) {
+    // Pattern 2: Trailing number after delimiter or whitespace: e.g. "Berserk - 09", "One Piece 105"
+    const trailingRegex = /(?:^|[\s\-_#v])(\d+(?:\.\d+)?)(?:\s*(?:\.cbz|\.cbr|\.epub|\.pdf|\.zip)?)$/i;
+    const trailingMatch = clean.match(trailingRegex);
+    if (trailingMatch && trailingMatch[1]) {
+      const parsed = parseFloat(trailingMatch[1]);
+      if (Number.isFinite(parsed)) result = parsed;
+    }
   }
 
-  // Pattern 3: Look for all numeric tokens, pick the one most likely to be the chapter/volume number
-  const numbers = clean.match(/\d+(?:\.\d+)?/g);
-  if (numbers && numbers.length > 0) {
-    // Pick the last numeric sequence (standard naming puts volume/chapter near the end)
-    const candidate = parseFloat(numbers[numbers.length - 1]);
-    if (Number.isFinite(candidate)) return candidate;
+  if (result === null) {
+    // Pattern 3: Look for all numeric tokens, pick the one most likely to be the chapter/volume number
+    const numbers = clean.match(/\d+(?:\.\d+)?/g);
+    if (numbers && numbers.length > 0) {
+      // Pick the last numeric sequence (standard naming puts volume/chapter near the end)
+      const candidate = parseFloat(numbers[numbers.length - 1]);
+      if (Number.isFinite(candidate)) result = candidate;
+    }
   }
 
-  return null;
+  if (volumeNumberStringCache.size >= MAX_STRING_CACHE) {
+    volumeNumberStringCache.clear();
+  }
+  volumeNumberStringCache.set(text, result);
+
+  return result;
 }
 
 /**

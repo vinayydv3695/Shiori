@@ -1,13 +1,23 @@
+const seriesExtractCache = new Map<string, string | null>();
+const MAX_EXTRACT_CACHE = 5000;
+
 export function tryExtractSeries(title: string): string | null {
   if (!title) return null;
+  const cached = seriesExtractCache.get(title);
+  if (cached !== undefined) return cached;
+
   // Matches titles like "Harry Potter 1 - Harry Potter and the Sorcerer's Stone"
   // Mirroring the backend Rust MANGA_VOLUME_REGEX
   const seriesRegex = /^(?:\[[^\]]+\]\s*)?(.*?)\s*[-_#]?\s*(?:Vol\.?|Volume|v|Bk\.?|Book|Ch\.?|Chapter|Ep\.?|Episode|#)?\s*(\d+(?:\.\d+)?)\s*(?:\((?:Digital|Scan|Web)?\s*\)?\s*)?(?:\((?:\d{4})\))?.*$/i;
   
   const match = title.match(seriesRegex);
-  if (match && match[1].trim()) return match[1].trim();
-  
-  return null;
+  const result = (match && match[1].trim()) ? match[1].trim() : null;
+
+  if (seriesExtractCache.size >= MAX_EXTRACT_CACHE) {
+    seriesExtractCache.clear();
+  }
+  seriesExtractCache.set(title, result);
+  return result;
 }
 
 export function extractSeriesTitle(book: Book): string | null {

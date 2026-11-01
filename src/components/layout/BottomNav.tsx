@@ -131,9 +131,9 @@ export function BottomNav({
         onPointerLeave={handleNavPointerLeave}
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 select-none",
-          "bg-card/90 dark:bg-card/85 backdrop-blur-2xl",
-          "rounded-t-[28px] sm:rounded-t-[32px] border-t border-x border-b-0 border-border/40",
-          "shadow-[0_-8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_-12px_40px_rgba(0,0,0,0.5)]",
+          "bg-card dark:bg-card",
+          "rounded-t-[28px] sm:rounded-t-[32px] border-t border-x border-b-0 border-border/50",
+          "shadow-[0_-8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_-12px_40px_rgba(0,0,0,0.6)]",
           "overflow-hidden",
           !isVisible && "pointer-events-none"
         )}

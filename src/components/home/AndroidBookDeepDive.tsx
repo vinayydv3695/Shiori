@@ -429,7 +429,7 @@ export function AndroidBookDeepDive({
 
       {/* ── 7. FLOATING FIXED BOTTOM ACTION BAR ── */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-30 px-5 sm:px-6 pb-6 pt-3 bg-background/95 dark:bg-background/95 backdrop-blur-md border-t border-border/40 flex items-center gap-3.5 shadow-lg"
+        className="fixed bottom-0 left-0 right-0 z-30 px-5 sm:px-6 pb-6 pt-3 bg-background dark:bg-background border-t border-border/40 flex items-center gap-3.5 shadow-lg"
         style={{ paddingBottom: 'max(18px, env(safe-area-inset-bottom, 18px))' }}
       >
         {/* Headphone Audio / TTS Button */}

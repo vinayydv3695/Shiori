@@ -1,3 +1,13 @@
+# Release Notes (v1.0.25)
+
+## Android UI Overhaul: Tactile Domain Switcher, Modern More Screen & Reader Spacing
+
+- **Tactile Android Home Domain Switcher** — Replaced the bulky "Explore our Collection" header with a sleek, recessed Books / Manga pill switch featuring custom SVG icons (`IconBooks` & `IconManga`), active terracotta spring indicator, and matching circular action shortcuts for Search and Favorites.
+- **Modernized Android "More" Screen** — Redesigned the More section into a clean 2-column layout with tactile native-themed cards, inner specular highlights, and clean icon placement, eliminating walls of text and flat pastel buttons.
+- **Quick Reading Snapshot & Storage Glance** — Added personal glance cards to the More screen displaying reading streaks, library counts, today's reading time (jumping directly to Statistics), alongside library disk usage with a quick one-tap cache cleaning tool.
+- **Android Reader Topbar Polish** — Removed redundant top gaps and adjusted safe-area padding in manga and book reader navigation bars on Android devices.
+- **Series & Grouped Library Optimizations** — Polished series volume sorting and grouping consistency across mobile and desktop views.
+
 # Release Notes (v1.0.24)
 
 ## Mobile Home Enhancements, Real Metadata & UI Polish

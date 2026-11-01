@@ -522,23 +522,27 @@ jobs:
           New-Item -ItemType Directory -Force -Path "store-artifacts" | Out-Null
           
           # NSIS installer
-          $nsisFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -Exclude "*.sig"
-          if ($nsisFiles) {
-            $primaryExe = $nsisFiles | Select-Object -First 1
-            Copy-Item $primaryExe.FullName -Destination "store-artifacts\Shiori-Store-Setup.exe"
-            Copy-Item $primaryExe.FullName -Destination "store-artifacts\Shiori_${version}_Store_x64-setup.exe"
-            Write-Host "Created Shiori-Store-Setup.exe and Shiori_${version}_Store_x64-setup.exe"
-          } else {
-            Write-Warning "No NSIS installer executable found in src-tauri\target\release\bundle\nsis\"
+          if (Test-Path "src-tauri\target\release\bundle\nsis") {
+            $nsisFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\nsis\*.exe" -Exclude "*.sig"
+            if ($nsisFiles) {
+              $primaryExe = $nsisFiles | Select-Object -First 1
+              Copy-Item $primaryExe.FullName -Destination "store-artifacts\Shiori-Store-Setup.exe"
+              Copy-Item $primaryExe.FullName -Destination "store-artifacts\Shiori_${version}_Store_x64-setup.exe"
+              Write-Host "Created Shiori-Store-Setup.exe and Shiori_${version}_Store_x64-setup.exe"
+            } else {
+              Write-Warning "No NSIS installer executable found in src-tauri\target\release\bundle\nsis\"
+            }
           }
 
           # MSI installer (if generated)
-          $msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -Exclude "*.sig"
-          if ($msiFiles) {
-            $primaryMsi = $msiFiles | Select-Object -First 1
-            Copy-Item $primaryMsi.FullName -Destination "store-artifacts\Shiori-Store.msi"
-            Copy-Item $primaryMsi.FullName -Destination "store-artifacts\Shiori_${version}_Store_x64.msi"
-            Write-Host "Created Shiori-Store.msi"
+          if (Test-Path "src-tauri\target\release\bundle\msi") {
+            $msiFiles = Get-ChildItem -Path "src-tauri\target\release\bundle\msi\*.msi" -Exclude "*.sig"
+            if ($msiFiles) {
+              $primaryMsi = $msiFiles | Select-Object -First 1
+              Copy-Item $primaryMsi.FullName -Destination "store-artifacts\Shiori-Store.msi"
+              Copy-Item $primaryMsi.FullName -Destination "store-artifacts\Shiori_${version}_Store_x64.msi"
+              Write-Host "Created Shiori-Store.msi"
+            }
           }
 
       # ── Upload to GitHub Actions Artifacts ──
@@ -1005,9 +1009,23 @@ jobs:
         run: |
           VERSION="v${{ needs.check-version.outputs.version }}"
           APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
+
+          # Ensure the release exists on vinayydv3695/Shiori-releases so gh release upload succeeds even if Android finishes before desktop
+          if ! gh release view "$VERSION" --repo "vinayydv3695/Shiori-releases" >/dev/null 2>&1; then
+            echo "Release $VERSION not found yet on Shiori-releases. Creating release..."
+            gh release create "$VERSION" --repo "vinayydv3695/Shiori-releases" --title "Shiori $VERSION" --notes "Shiori $VERSION" || true
+          fi
+
           for apk in $(find "$APK_DIR" -name '*.apk' ! -name '*-unsigned.apk' -type f 2>/dev/null); do
             echo "Uploading: $apk"
-            gh release upload "$VERSION" "$apk" --repo "vinayydv3695/Shiori-releases" --clobber || true
+            # Retry up to 3 times in case of transient network issues
+            for attempt in 1 2 3; do
+              if gh release upload "$VERSION" "$apk" --repo "vinayydv3695/Shiori-releases" --clobber; then
+                break
+              fi
+              echo "Upload attempt $attempt failed, retrying in 5s..."
+              sleep 5
+            done
           done
 
 

@@ -1,3 +1,22 @@
+# Release Notes (v1.0.28)
+
+## Local Peer-to-Peer Sync (LocalSend-style) & Offline Dictionaries
+
+- **Local Peer-to-Peer Sync (Desktop ⇄ Phone)**:
+  - **Zero-Config Wi-Fi Sync (LocalSend-style)** — Shiori automatically detects companion desktop and phone devices via mDNS (`_shiori._tcp.local.`) without requiring cloud servers, accounts, or manual configuration.
+  - **Instant Bi-Directional Resume Sync** — Synchronize reading progress, current page/chapter, EPUB CFI locations, reading status, bookmarks, and reading streaks in a single fast roundtrip.
+  - **Robust Cross-Device Matching & LWW** — Multi-tier book resolution matching by `uuid`, `file_hash`, `isbn`, or normalized title, with Last-Write-Wins (LWW) conflict resolution based on `last_read`.
+  - **Automatic Streak & Session Merging** — Merges reading sessions by UUID, keeping daily goals, reading streaks, and statistics perfectly synchronized across devices.
+  - **Auto-Sync on App Open & Resume** — Automatically initiates a silent background resume sync whenever Shiori opens or refocuses while on the companion Wi-Fi network.
+  - **Tactile Companion UI** — Live device radar showing detected machines with platform icons (Linux, Windows, macOS, Android), 1-tap "Sync Now" cards, relative timestamps, and QR code / manual IP fallbacks.
+  - **Desktop Auto-Startup** — Desktop instances now automatically launch the sync server on port 8081 and start broadcasting on launch.
+
+- **Local Offline Dictionary & Japanese / Furigana Tooling**:
+  - **Built-in Offline Core Lexicon** — Integrated SQLite-backed offline English core lexicon and Japanese-English (JMdict core) dictionary with JLPT N1-N5 levels and Furigana/kana readings.
+  - **Custom Dictionary Importers** — Import StarDict (`.idx`/`.dict`/`.dict.dz`), Yomichan (`.zip`), and custom JSON dictionaries directly into local storage.
+  - **Resilient Reader Lookup & Caching** — Reader text selection strips punctuation and boundary quotes, queries local offline dictionaries with zero latency, falls back to Wiktionary/FreeDict when online, and caches online results locally.
+  - **Dictionaries Settings Section** — Manage installed dictionaries, toggle lexicons on/off, import custom files, and test live queries.
+
 # Release Notes (v1.0.27)
 
 ## Universal Series Assignment & Auto-Grouped Series Integration

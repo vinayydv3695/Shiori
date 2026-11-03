@@ -1104,7 +1104,28 @@ pub fn run() {
                 database.clone(),
                 Some(8081),
             )));
-            app.manage(sync_service);
+            app.manage(sync_service.clone());
+
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            {
+                let sync_for_start = sync_service.clone();
+                let discovery_for_start = discovery_service.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut s = sync_for_start.lock().await;
+                    if let Err(e) = s.start_server().await {
+                        log::warn!("Auto-starting sync server on desktop: {}", e);
+                    } else {
+                        log::info!("Auto-started local P2P sync server on port 8081");
+                    }
+                    drop(s);
+
+                    if let Err(e) = discovery_for_start.start_broadcast(8081).await {
+                        log::warn!("Auto-starting mDNS broadcast on desktop: {}", e);
+                    } else {
+                        log::info!("Auto-started mDNS broadcast for Shiori desktop");
+                    }
+                });
+            }
 
             // Online Metadata Enrichment Worker
             let (mut metadata_worker, metadata_rx) = MetadataWorker::new(database.clone());

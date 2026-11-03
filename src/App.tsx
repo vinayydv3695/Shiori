@@ -32,6 +32,7 @@ import { SwipeGestureHandler } from "./components/layout/SwipeGestureHandler"
 import { useBackButton } from "./hooks/useBackButton"
 import { useAndroidViewBackButton } from "./hooks/useAndroidViewBackButton"
 import { useAutoUpdate } from "./hooks/useAutoUpdate"
+import { usePeerAutoSync } from "./hooks/usePeerAutoSync"
 
 const ReaderLayout = lazy(() => import("./components/reader/ReaderLayout").then(m => ({ default: m.ReaderLayout })))
 const OnboardingWizard = lazy(() => import("./components/onboarding/OnboardingWizard").then(m => ({ default: m.OnboardingWizard })))
@@ -70,6 +71,9 @@ function App() {
 
   // ── Auto Updates ──
   useAutoUpdate()
+
+  // ── Peer-to-Peer Auto Sync (LocalSend-style) ──
+  usePeerAutoSync()
 
   // ── Navigation ──
   const currentView = useUIStore(s => s.currentView)

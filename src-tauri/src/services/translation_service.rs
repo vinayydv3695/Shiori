@@ -52,6 +52,12 @@ pub struct DictionaryResult {
     pub audio_url: Option<String>,
     pub meanings: Vec<DictionaryMeaning>,
     pub source_url: Option<String>,
+    #[serde(default)]
+    pub reading: Option<String>,
+    #[serde(default)]
+    pub jlpt_level: Option<u8>,
+    #[serde(default)]
+    pub is_offline: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,10 +202,55 @@ fn sanitize_definition_text(raw: &str) -> String {
     result.trim().to_string()
 }
 
-/// Look up a word, checking memory cache first, then querying Wiktionary (fast CDN)
-/// with immediate fallback to the Free Dictionary API.
+/// Clean a query term by stripping boundary quotes, punctuation, brackets, dashes, etc.
+pub fn clean_dictionary_term(word: &str) -> String {
+    let trimmed = word.trim();
+    let is_boundary_punct = |c: char| {
+        c.is_whitespace()
+            || matches!(
+                c,
+                '.' | ','
+                    | ';'
+                    | ':'
+                    | '!'
+                    | '?'
+                    | '"'
+                    | '\''
+                    | '`'
+                    | '“'
+                    | '”'
+                    | '‘'
+                    | '’'
+                    | '«'
+                    | '»'
+                    | '„'
+                    | '‟'
+                    | '('
+                    | ')'
+                    | '['
+                    | ']'
+                    | '{'
+                    | '}'
+                    | '—'
+                    | '–'
+                    | '-'
+                    | '_'
+                    | '/'
+                    | '\\'
+                    | '<'
+                    | '>'
+                    | '…'
+                    | '~'
+                    | '*'
+            )
+    };
+
+    trimmed.trim_matches(is_boundary_punct).trim().to_string()
+}
+
+/// Look up a word via online APIs (Wiktionary edge CDN with Free Dictionary API fallback).
 pub async fn dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
-    let clean_word = word.trim();
+    let clean_word = clean_dictionary_term(word);
     if clean_word.is_empty() {
         return Err(ShioriError::Other("Please provide a valid word".to_string()));
     }
@@ -209,24 +260,47 @@ pub async fn dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResul
         return Ok(cached.clone());
     }
 
-    // Primary: Wiktionary on Wikimedia Global CDN (~100-250ms)
-    let result = match wiktionary_lookup(clean_word, lang).await {
-        Ok(res) => res,
-        Err(wikt_err) => {
-            // Fallback: Free Dictionary API (tight 2.5s timeout)
-            match free_dictionary_lookup(clean_word, lang).await {
-                Ok(res) => res,
-                Err(_) => return Err(wikt_err),
-            }
-        }
+    // Try both the exact cleaned word and its lowercase variant
+    let candidates = if clean_word != clean_word.to_lowercase() {
+        vec![clean_word.to_lowercase(), clean_word.clone()]
+    } else {
+        vec![clean_word.clone()]
     };
 
-    get_dictionary_cache()
-        .lock()
-        .unwrap()
-        .insert(cache_key, result.clone());
+    let mut last_err = None;
+    for term in &candidates {
+        // Online Wiktionary on Wikimedia Global CDN (~100-250ms)
+        match wiktionary_lookup(term, lang).await {
+            Ok(res) => {
+                get_dictionary_cache()
+                    .lock()
+                    .unwrap()
+                    .insert(cache_key, res.clone());
+                return Ok(res);
+            }
+            Err(e) => {
+                last_err = Some(e);
+            }
+        }
+    }
 
-    Ok(result)
+    // Fallback: Free Dictionary API (tight 2.5s timeout)
+    for term in &candidates {
+        if let Ok(res) = free_dictionary_lookup(term, lang).await {
+            get_dictionary_cache()
+                .lock()
+                .unwrap()
+                .insert(cache_key, res.clone());
+            return Ok(res);
+        }
+    }
+
+    Err(last_err.unwrap_or_else(|| {
+        ShioriError::Other(format!(
+            "No definition found for \"{}\". Connect to the internet or import an offline dictionary in Settings.",
+            clean_word
+        ))
+    }))
 }
 
 /// Primary dictionary provider: Wiktionary's REST API on Wikimedia's edge CDN.
@@ -325,6 +399,9 @@ async fn wiktionary_lookup(word: &str, lang: &str) -> Result<DictionaryResult> {
         audio_url: None,
         meanings,
         source_url: Some(format!("https://en.wiktionary.org/wiki/{}", word)),
+        reading: None,
+        jlpt_level: None,
+        is_offline: Some(false),
     })
 }
 
@@ -407,6 +484,9 @@ async fn free_dictionary_lookup(word: &str, lang: &str) -> Result<DictionaryResu
         audio_url,
         meanings,
         source_url,
+        reading: None,
+        jlpt_level: None,
+        is_offline: Some(false),
     })
 }
 

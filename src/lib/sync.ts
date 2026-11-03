@@ -1,9 +1,20 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export interface SyncDevice {
+export interface CompanionInstance {
+  name: string;
   ip: string;
   port: number;
-  name: string;
+  os?: string;
+}
+
+export interface SyncResultSummary {
+  sent_books: number;
+  sent_sessions: number;
+  received_books: number;
+  received_sessions: number;
+  message: string;
+  host_device_name: string;
+  timestamp: string;
 }
 
 export class SyncClient {
@@ -37,8 +48,34 @@ export class SyncClient {
   }
 
   /**
+   * Checks if the sync server is currently running.
+   */
+  static async getServerStatus(): Promise<boolean> {
+    return invoke('get_sync_server_status');
+  }
+
+  /**
+   * Scans the local network for other Shiori companion devices via mDNS.
+   */
+  static async scanForCompanions(): Promise<CompanionInstance[]> {
+    return invoke('scan_for_companions');
+  }
+
+  /**
+   * Bi-directional LocalSend-style P2P sync with another companion device.
+   * Exchanges reading progress, bookmarks, and streaks/sessions in a single roundtrip.
+   */
+  static async syncWithCompanion(
+    ip: string,
+    port: number,
+    token: string,
+    since?: string
+  ): Promise<SyncResultSummary> {
+    return invoke('sync_with_companion', { ip, port, token, since });
+  }
+
+  /**
    * Pairs and syncs with the desktop (Host) using the Rust backend.
-   * This device acts as the "Client" (Android).
    */
   static async syncWithDesktop(ip: string, port: number, token: string): Promise<string> {
     return invoke('sync_with_desktop', { ip, port, token });

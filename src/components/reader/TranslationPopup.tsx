@@ -232,7 +232,7 @@ export function TranslationPopup({
               )}
             >
               <BookOpen size={14} strokeWidth={2.4} />
-              <span>Define</span>
+              <span>Dictionary</span>
             </button>
           </div>
         </div>
@@ -292,7 +292,7 @@ export function TranslationPopup({
                 )}
               >
                 <BookOpen size={13} strokeWidth={2.4} />
-                <span>Define</span>
+                <span>Dictionary</span>
               </button>
             </div>
 
@@ -428,12 +428,32 @@ export function TranslationPopup({
             <div className="relative rounded-2xl border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] bg-[color-mix(in_srgb,var(--bg-secondary)_70%,var(--bg-elevated))] p-3.5 shadow-[0_3px_10px_-2px_rgba(0,0,0,0.06),0_1px_3px_-1px_rgba(0,0,0,0.03)]">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-baseline gap-2.5 flex-wrap">
-                  <h4 className="font-serif text-2xl font-bold tracking-tight text-[var(--text-primary)] capitalize">
+                  <h4
+                    className={cn(
+                      "font-serif text-2xl font-bold tracking-tight text-[var(--text-primary)]",
+                      !/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(dictionaryResult.word) && "capitalize"
+                    )}
+                  >
                     {dictionaryResult.word}
                   </h4>
-                  {dictionaryResult.phonetic && (
+                  {dictionaryResult.reading && (
+                    <span className="text-xs font-semibold text-[var(--ui-focus)] px-2.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-elevated))] border border-[color-mix(in_srgb,var(--ui-focus)_30%,transparent)] shadow-2xs select-text">
+                      {dictionaryResult.reading}
+                    </span>
+                  )}
+                  {dictionaryResult.phonetic && !dictionaryResult.reading && (
                     <span className="text-xs font-mono text-[var(--text-secondary)] px-2.5 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--text-primary)_6%,var(--bg-elevated))] border border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] shadow-2xs select-text">
                       /{dictionaryResult.phonetic.replace(/^\/+|\/+$/g, '')}/
+                    </span>
+                  )}
+                  {dictionaryResult.jlpt_level && (
+                    <span className="text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/20 shadow-2xs">
+                      JLPT N{dictionaryResult.jlpt_level}
+                    </span>
+                  )}
+                  {dictionaryResult.is_offline && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-500 border border-emerald-500/20">
+                      Offline
                     </span>
                   )}
                 </div>

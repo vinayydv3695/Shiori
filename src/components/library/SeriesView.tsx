@@ -4,7 +4,8 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import {
   X, BookOpen, Layers, Search, SortDesc, SortAsc,
-  Clock, CheckCircle2, Edit2, Trash2, List, LayoutGrid, Check, Play, MoreVertical
+  Clock, CheckCircle2, Edit2, Trash2, List, LayoutGrid, Check, Play, MoreVertical,
+  Globe
 } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { usePreferencesStore } from '@/store/preferencesStore'
@@ -22,6 +23,7 @@ import { api, type Book } from '@/lib/tauri'
 import { useToast } from '@/store/toastStore'
 import { EditorialSeriesCover } from './SeriesCard'
 import { compareBooksNatural, parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
+import { FranchiseHubView } from './FranchiseHubView'
 
 function getBookReadStatus(book: Book) {
   return book.reading_status || 'planning';
@@ -181,56 +183,45 @@ const DesktopSeriesHeader = memo(function DesktopSeriesHeader({
               <span>{nextUnreadBook ? `Continue Vol. ${nextVolNum ?? ''}` : 'Read Again'}</span>
             </Button>
 
-            {/* Quick Action Icon Buttons */}
-            <div className="flex items-center gap-1.5">
-              <AppTooltip content="Mark All Volumes as Read" side="top">
-                <Button 
-                  variant="secondary" 
-                  size="lg" 
-                  onClick={onMarkAllRead} 
-                  aria-label="Mark All Volumes as Read"
-                  className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all" 
-                >
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                </Button>
+            {/* Overflow Options Button */}
+            <DropdownMenu.Root>
+              <AppTooltip content="Series Options" side="top">
+                <DropdownMenu.Trigger asChild>
+                  <Button 
+                    variant="secondary" 
+                    size="lg" 
+                    aria-label="Series Options"
+                    className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </Button>
+                </DropdownMenu.Trigger>
               </AppTooltip>
-              
-              <DropdownMenu.Root>
-                <AppTooltip content="More Options" side="top">
-                  <DropdownMenu.Trigger asChild>
-                    <Button 
-                      variant="secondary" 
-                      size="lg" 
-                      aria-label="More Options"
-                      className="w-11 h-11 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 hover:text-foreground border border-border/40 hover:border-border/70 backdrop-blur-xl shadow-xs hover:scale-105 active:scale-95 transition-all"
-                    >
-                      <MoreVertical className="w-5 h-5" />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                </AppTooltip>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content align="start" className="w-52 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
-                    <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-secondary rounded-lg transition-colors font-medium">
-                      <Edit2 className="w-4 h-4 text-primary" /> Edit Metadata
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content align="start" className="w-56 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100] animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
+                  <DropdownMenu.Item onSelect={onMarkAllRead} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-secondary rounded-lg transition-colors font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Mark All as Read
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-secondary rounded-lg transition-colors font-medium">
+                    <Edit2 className="w-4 h-4 text-primary" /> Edit Metadata
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator className="h-px bg-border/40 my-1" />
+                  {!showDeleteConfirm ? (
+                    <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-lg transition-colors font-medium">
+                      <Trash2 className="w-4 h-4" /> Ungroup Series
                     </DropdownMenu.Item>
-                    <DropdownMenu.Separator className="h-px bg-border/40 my-1" />
-                    {!showDeleteConfirm ? (
-                      <DropdownMenu.Item onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-destructive cursor-pointer outline-none hover:bg-destructive/10 rounded-lg transition-colors font-medium">
-                        <Trash2 className="w-4 h-4" /> Ungroup Series
-                      </DropdownMenu.Item>
-                    ) : (
-                      <div className="flex items-center justify-between p-2.5 bg-destructive/10 border border-destructive/20 rounded-lg">
-                        <span className="text-xs text-destructive font-bold">Delete Series?</span>
-                        <div className="flex gap-1.5">
-                          <Button variant="destructive" size="sm" onClick={onDelete} className="h-7 text-xs px-2.5 rounded-md font-bold">Yes</Button>
-                          <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-7 text-xs px-2.5 rounded-md hover:bg-destructive/20 text-destructive font-medium">No</Button>
-                        </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2.5 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <span className="text-xs text-destructive font-bold">Delete Series?</span>
+                      <div className="flex gap-1.5">
+                        <Button variant="destructive" size="sm" onClick={onDelete} className="h-7 text-xs px-2.5 rounded-md font-bold">Yes</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setShowDeleteConfirm(false)} className="h-7 text-xs px-2.5 rounded-md hover:bg-destructive/20 text-destructive font-medium">No</Button>
                       </div>
-                    )}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
+                    </div>
+                  )}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
 
             {/* Reading Progress Indicator (Compact & Contained) */}
             <div className="flex-1 min-w-[200px] max-w-xs flex flex-col justify-center gap-1.5 ml-auto bg-card/75 dark:bg-secondary/40 backdrop-blur-xl border border-border/40 rounded-xl px-3.5 py-2 shadow-xs">
@@ -376,31 +367,23 @@ const MobileSeriesHeader = memo(function MobileSeriesHeader({
               <Play className="w-3.5 h-3.5 fill-current" /> 
               <span>{nextUnreadBook ? `Continue Vol. ${nextVolNum ?? ''}` : 'Read Again'}</span>
             </Button>
-
-            <AppTooltip content="Mark All Read" side="top">
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                onClick={onMarkAllRead} 
-                aria-label="Mark All Read"
-                className="w-10 h-10 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 border border-border/40 backdrop-blur-xl shadow-xs transition-colors" 
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </Button>
-            </AppTooltip>
             
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <Button 
                   variant="secondary" 
                   size="lg" 
+                  aria-label="More Options"
                   className="w-10 h-10 shrink-0 px-0 rounded-xl bg-secondary/60 hover:bg-secondary text-foreground/90 border border-border/40 backdrop-blur-xl shadow-xs transition-colors"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content align="end" className="w-48 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100]">
+                <DropdownMenu.Content align="end" className="w-52 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-xl shadow-2xl p-1.5 z-[100]">
+                  <DropdownMenu.Item onSelect={onMarkAllRead} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground rounded-lg font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Mark All as Read
+                  </DropdownMenu.Item>
                   <DropdownMenu.Item onSelect={onFindMetadata} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground rounded-lg font-medium">
                     <Edit2 className="w-4 h-4 text-primary" /> Edit Metadata
                   </DropdownMenu.Item>
@@ -530,11 +513,18 @@ export const SeriesView = memo(function SeriesView({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchQuery, setSearchQuery] = useState('')
   const [jumpInput, setJumpInput] = useState('')
+  const [activeTab, setActiveTab] = useState<'volumes' | 'franchise'>('volumes')
   const isMobile = useIsMobile()
   const toast = useToast()
   const [metadataDialogOpen, setMetadataDialogOpen] = useState(false)
   const [metadataSeriesId, setMetadataSeriesId] = useState<number | null>(null)
   const [anilistBanner, setAnilistBanner] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab('volumes');
+    }
+  }, [isOpen, series?.title]);
 
   useEffect(() => {
     if (!series?.title) {
@@ -847,8 +837,67 @@ export const SeriesView = memo(function SeriesView({
               onOpenBook={onOpenBook}
             />
 
-          {/* Controls Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4 md:px-6 py-3 border-b border-border/60 bg-background/95 dark:bg-background/95 backdrop-blur-3xl shrink-0 sticky top-0 z-30 shadow-xs">
+            {/* Navigation Tabs: Volumes & Chapters vs Franchise Hub */}
+            <div className="flex items-center justify-start px-4 md:px-6 py-2.5 border-b border-border/50 bg-background/95 dark:bg-background/95 backdrop-blur-2xl shrink-0 sticky top-0 z-40">
+              <div className="inline-flex items-center p-1 bg-muted/80 backdrop-blur-xl border border-border/60 rounded-full shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('volumes')}
+                  className={cn(
+                    'px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer',
+                    activeTab === 'volumes'
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25 scale-[1.02]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
+                  )}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Volumes</span>
+                  <span
+                    className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold',
+                      activeTab === 'volumes'
+                        ? 'bg-primary-foreground/20 text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {sourceBooks.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('franchise')}
+                  className={cn(
+                    'px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 flex items-center gap-1.5 cursor-pointer',
+                    activeTab === 'franchise'
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/25 scale-[1.02]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
+                  )}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Franchise Hub</span>
+                </button>
+              </div>
+            </div>
+
+            {activeTab === 'franchise' ? (
+              <FranchiseHubView
+                seriesTitle={series.title}
+                currentBooks={sourceBooks}
+                onOpenBook={onOpenBook}
+                onSelectBook={onSelectBook}
+                onViewDetailsBook={onViewDetailsBook}
+                onEditBook={onEditBook}
+                onDeleteBook={onDeleteBook}
+                onFavoriteBook={onFavoriteBook}
+                selectedBookIds={selectedBookIds}
+                favoritedBookIds={favoritedBookIds}
+                coverSize={coverSize}
+              />
+            ) : (
+              <>
+                {/* Controls Bar */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4 md:px-6 py-3 border-b border-border/60 bg-background/95 dark:bg-background/95 backdrop-blur-3xl shrink-0 sticky top-[45px] z-30 shadow-xs">
             {/* Left: Search & Jump */}
             <div className="flex items-center gap-2.5 w-full md:w-auto">
               <div className="relative flex-1 md:w-72 group">
@@ -1101,8 +1150,10 @@ export const SeriesView = memo(function SeriesView({
                 </div>
               )}
             </div>
-            </div>
-          </ScrollArea>
+            </>
+          )}
+          </div>
+        </ScrollArea>
 
           {metadataSeriesId && (
             <MetadataSearchDialog

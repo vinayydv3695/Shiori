@@ -671,12 +671,27 @@ export interface DictionaryDefinition {
   antonyms: string[]
 }
 
+export interface OfflineDictionary {
+  id: number
+  name: string
+  lang_src: string
+  lang_target: string
+  format: string
+  file_path: string | null
+  entry_count: number
+  is_enabled: boolean
+  created_at: string
+}
+
 export interface DictionaryResponse {
   word: string
   phonetic: string | null
   audio_url: string | null
   meanings: DictionaryMeaning[]
   source_url: string | null
+  reading?: string | null
+  jlpt_level?: number | null
+  is_offline?: boolean | null
 }
 
 export interface TranslationResponse {
@@ -1876,6 +1891,22 @@ export const api = {
 
   async dictionaryLookup(word: string, lang?: string): Promise<DictionaryResponse> {
     return invoke("dictionary_lookup", { word, lang })
+  },
+
+  async getOfflineDictionaries(): Promise<OfflineDictionary[]> {
+    return invoke("get_offline_dictionaries")
+  },
+
+  async importDictionary(filePath: string): Promise<OfflineDictionary> {
+    return invoke("import_dictionary", { filePath })
+  },
+
+  async deleteOfflineDictionary(id: number): Promise<void> {
+    return invoke("delete_offline_dictionary", { id })
+  },
+
+  async toggleOfflineDictionary(id: number, enabled: boolean): Promise<void> {
+    return invoke("toggle_offline_dictionary", { id, enabled })
   },
 
   async translateText(text: string, targetLang: string, sourceLang?: string): Promise<TranslationResponse> {

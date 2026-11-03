@@ -256,6 +256,10 @@ macro_rules! generate_shiori_handlers {
             commands::discord::discord_clear_activity,
             commands::discord::discord_resolve_image,
             commands::translation::dictionary_lookup,
+            commands::translation::get_offline_dictionaries,
+            commands::translation::import_dictionary,
+            commands::translation::delete_offline_dictionary,
+            commands::translation::toggle_offline_dictionary,
             commands::translation::translate_text,
             // Folder watch commands
             commands::folder_watch::start_folder_watch,
@@ -353,9 +357,11 @@ macro_rules! generate_shiori_handlers {
             // Sync
             commands::sync::start_sync_server,
             commands::sync::stop_sync_server,
+            commands::sync::get_sync_server_status,
             commands::sync::get_sync_pairing_token,
             commands::sync::rotate_sync_pairing_token,
             commands::sync::sync_with_desktop,
+            commands::sync::sync_with_companion,
             commands::ai::ai_key_get,
             commands::ai::ai_key_set,
             commands::ai::ai_key_delete,

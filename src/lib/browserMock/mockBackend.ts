@@ -703,8 +703,30 @@ class MockBackendStore {
     if (cmd === 'extension_list' || cmd === 'extension_repo_list' || cmd === 'extension_check_updates') return [];
     if (cmd === 'list_book_shares') return [];
     if (cmd === 'cf_list_sessions') return [];
-    if (cmd === 'scan_for_companions') return [];
-    if (cmd === 'get_local_ips') return [];
+    if (cmd === 'scan_for_companions') {
+      return [
+        { name: 'Desktop (Mock)', ip: '192.168.1.100', port: 8081, os: 'linux' },
+      ];
+    }
+    if (cmd === 'get_local_ips') return [{ ip: '192.168.1.50' }];
+    if (cmd === 'get_sync_pairing_token') return 'mock-sync-token-1234567890abcdef';
+    if (cmd === 'rotate_sync_pairing_token') return 'mock-sync-token-rotated-987654';
+    if (cmd === 'get_sync_server_status') return true;
+    if (cmd === 'start_sync_server' || cmd === 'stop_sync_server') return null;
+    if (cmd === 'start_companion_broadcast' || cmd === 'stop_companion_broadcast') return null;
+    if (cmd === 'generate_pairing_qr') return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#fff"/><rect x="10" y="10" width="30" height="30" fill="#000"/><rect x="60" y="10" width="30" height="30" fill="#000"/><rect x="10" y="60" width="30" height="30" fill="#000"/></svg>';
+    if (cmd === 'sync_with_companion') {
+      return {
+        sent_books: 3,
+        sent_sessions: 5,
+        received_books: 3,
+        received_sessions: 5,
+        message: 'Mock sync completed successfully',
+        host_device_name: 'Desktop (Mock)',
+        timestamp: new Date().toISOString(),
+      };
+    }
+    if (cmd === 'sync_with_desktop') return 'Synced successfully';
 
     // Metadata search
     if (cmd === 'search_book_metadata' || cmd === 'search_manga_metadata' || cmd === 'search_manga_sources') return [];

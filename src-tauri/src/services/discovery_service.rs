@@ -53,6 +53,7 @@ impl DiscoveryService {
         let properties = HashMap::from([
             ("app".to_string(), "Shiori".to_string()),
             ("version".to_string(), env!("CARGO_PKG_VERSION").to_string()),
+            ("os".to_string(), std::env::consts::OS.to_string()),
         ]);
 
         let service_info = ServiceInfo::new(
@@ -109,10 +110,18 @@ impl DiscoveryService {
                         match event {
                             ServiceEvent::ServiceResolved(info) => {
                                 let ip = info.get_addresses().iter().next().map(|ip| ip.to_string()).unwrap_or_default();
+                                let os = info.get_property_val_str("os").map(|s| s.to_string());
+                                let raw_name = info.get_fullname();
+                                let clean_name = raw_name
+                                    .strip_suffix("._shiori._tcp.local.")
+                                    .unwrap_or(raw_name)
+                                    .replace('_', " ");
+
                                 instances.push(CompanionInstance {
-                                    name: info.get_fullname().to_string(),
+                                    name: clean_name,
                                     ip,
                                     port: info.get_port(),
+                                    os,
                                 });
                             }
                             _ => {}
@@ -131,9 +140,10 @@ impl DiscoveryService {
     }
 }
 
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct CompanionInstance {
     pub name: String,
     pub ip: String,
     pub port: u16,
+    pub os: Option<String>,
 }

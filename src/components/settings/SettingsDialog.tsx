@@ -10,10 +10,11 @@ import {
   Download, Upload, HardDrive, Archive, CheckCircle2, AlertTriangle,
   Search, FolderOpen, ExternalLink, RefreshCw, Trash2, Info,
   RotateCcw, Puzzle, MonitorSmartphone, Heart, Clock, Loader2,
-  ChevronLeft, ChevronRight, Cloud, Brain
+  ChevronLeft, ChevronRight, Cloud, Brain, BookA
 } from 'lucide-react'
 import { AISettingsSection } from './AISettingsSection'
 import { CloudSyncSection } from './CloudSyncSection'
+import { DictionarySettingsSection } from './DictionarySettingsSection'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -84,7 +85,7 @@ const TOOLBAR_ALL_ACTIONS = [
   { id: 'copy', label: 'Copy' },
   { id: 'note', label: 'Note' },
   { id: 'translate', label: 'Translate' },
-  { id: 'define', label: 'Define' },
+  { id: 'define', label: 'Dictionary' },
   { id: 'aloud', label: 'Read Aloud' },
 ]
 
@@ -134,7 +135,7 @@ function ToolbarActionsSelector() {
   )
 }
 
-type SettingsTab = 'general' | 'ai' | 'cloud-sync' | 'book-reading' | 'manga-reading' | 'companion' | 'advanced' | 'community-plugins' | 'about'
+type SettingsTab = 'general' | 'dictionaries' | 'ai' | 'cloud-sync' | 'book-reading' | 'manga-reading' | 'companion' | 'advanced' | 'community-plugins' | 'about'
 
 interface SettingDefinition {
   label: string
@@ -144,6 +145,8 @@ interface SettingDefinition {
 }
 
 const ALL_SETTINGS: SettingDefinition[] = [
+  { label: 'Offline Dictionaries', description: 'Configure offline dictionaries and Yomichan or StarDict imports', tab: 'dictionaries', section: 'Offline Dictionaries' },
+  { label: 'Japanese Lexicon', description: 'Built-in Japanese-English dictionary and Furigana helpers', tab: 'dictionaries', section: 'Offline Dictionaries' },
   { label: 'Theme', description: 'Choose how Shiori looks', tab: 'general', section: 'Theme' },
   { label: 'Dark Theme', description: 'Dark color scheme', tab: 'general', section: 'Theme' },
   { label: 'Light Theme', description: 'Light color scheme', tab: 'general', section: 'Theme' },
@@ -290,6 +293,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
 
   const tabs = [
     { id: 'general' as const, name: 'General', icon: Palette },
+    { id: 'dictionaries' as const, name: 'Dictionaries', icon: BookA },
     { id: 'ai' as const, name: 'AI & Intelligence', icon: Brain },
     { id: 'cloud-sync' as const, name: 'Cloud & WebDAV Sync', icon: Cloud },
     { id: 'book-reading' as const, name: 'Reading (Books)', icon: BookOpen },
@@ -591,6 +595,12 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps) => {
                       isSettingVisible={isSettingVisible}
                       isSectionVisible={isSectionVisible}
                     />
+                  )}
+
+                  {selectedTab === 'dictionaries' && (
+                    <div className="p-4 md:p-6 pb-20 max-md:pb-32 overflow-y-auto max-h-full scroll-smooth custom-scrollbar">
+                      <DictionarySettingsSection />
+                    </div>
                   )}
 
                   {selectedTab === 'ai' && (

@@ -698,15 +698,29 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
     setTranslationResult(null);
 
     try {
-      const cleanText = selectedText.replace(/[[\](){}0-9]/g, '').trim();
-      const word = cleanText.split(/\s+/).find(w => /^[a-zA-Z\u00C0-\u024F]+$/.test(w)) || cleanText.split(/\s+/)[0] || '';
-      if (!word || word.length < 2) {
-          setTranslationError('Please select a valid word to define');
-          setTranslationLoading(false);
-          return;
+      // 1. Strip surrounding boundary quotes, punctuation, brackets from selected text
+      const cleanBoundary = selectedText
+        .trim()
+        .replace(/^[\s"'“”‘’«».,;:!?()[\]{}—–-]+|[\s"'“”‘’«».,;:!?()[\]{}—–-]+$/g, '')
+        .trim();
+
+      const isJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(cleanBoundary);
+      const candidate = isJapanese
+        ? cleanBoundary.slice(0, 15)
+        : (cleanBoundary.split(/\s+/).find((w) => {
+            const stripped = w.replace(/^[\s"'“”‘’«».,;:!?()[\]{}—–-]+|[\s"'“”‘’«».,;:!?()[\]{}—–-]+$/g, '');
+            return /^[a-zA-Z\u00C0-\u024F]+$/.test(stripped);
+          }) || cleanBoundary.split(/\s+/)[0] || '');
+
+      const word = candidate.replace(/^[\s"'“”‘’«».,;:!?()[\]{}—–-]+|[\s"'“”‘’«».,;:!?()[\]{}—–-]+$/g, '').trim();
+
+      if (!word || (!isJapanese && word.length < 2)) {
+        setTranslationError('Please select a valid word to define');
+        setTranslationLoading(false);
+        return;
       }
 
-      const wordKey = word.toLowerCase();
+      const wordKey = `${isJapanese ? 'ja' : 'en'}:${word.toLowerCase()}`;
       if (dictionaryClientCache.has(wordKey)) {
         setDictionaryResult(dictionaryClientCache.get(wordKey)!);
         setTranslationLoading(false);
@@ -714,7 +728,7 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
       }
 
       setTranslationLoading(true);
-      const result = await api.dictionaryLookup(word);
+      const result = await api.dictionaryLookup(word, isJapanese ? 'ja' : 'en');
       dictionaryClientCache.set(wordKey, result);
       setDictionaryResult(result);
     } catch (err: any) {
@@ -1087,11 +1101,10 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
                     setShowColorPicker(false);
                     handleDefine();
                   }}
+                  title="Lookup in Offline & Online Dictionaries"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                  </svg>
-                  <span>Define</span>
+                  <BookOpen size={14} style={{ color: 'var(--text-primary)' }} />
+                  <span>Dictionary</span>
                 </button>
 
                 <span className="text-selection-toolbar-divider" />

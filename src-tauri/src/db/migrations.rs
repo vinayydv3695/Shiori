@@ -180,6 +180,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 52 {
             self.run_in_savepoint("v52", |mgr| mgr.migrate_to_v52())?;
         }
+        if current_version < 53 {
+            self.run_in_savepoint("v53", |mgr| mgr.migrate_to_v53())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -2972,6 +2975,58 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v52_books_manga_series_idx");
         self.record_migration(52, "books_manga_series_idx", &hash)?;
+        Ok(())
+    }
+
+    fn migrate_to_v53(&self) -> Result<()> {
+        log::info!("[Migration] Applying v53: offline_dictionaries and dictionary_entries tables");
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS offline_dictionaries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                lang_src TEXT NOT NULL,
+                lang_target TEXT NOT NULL,
+                format TEXT NOT NULL,
+                file_path TEXT,
+                entry_count INTEGER DEFAULT 0,
+                is_enabled INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS dictionary_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dictionary_id INTEGER,
+                word TEXT NOT NULL,
+                clean_word TEXT NOT NULL,
+                reading TEXT,
+                definitions_json TEXT NOT NULL,
+                jlpt_level INTEGER,
+                source TEXT NOT NULL DEFAULT 'offline',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (dictionary_id) REFERENCES offline_dictionaries(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_dict_clean_word ON dictionary_entries(clean_word)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_dict_reading ON dictionary_entries(reading)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_dict_dict_id ON dictionary_entries(dictionary_id)",
+            [],
+        )?;
+
+        let hash = Self::calculate_checksum("v53_offline_dictionaries");
+        self.record_migration(53, "offline_dictionaries", &hash)?;
         Ok(())
     }
 }

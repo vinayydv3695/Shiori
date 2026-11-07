@@ -179,16 +179,18 @@ export function getSemanticRelationship(quotes: { quote: string }[] = []): Seman
 
   const text = quotes.map((q) => q.quote).join(' ').toLowerCase();
 
-  const conflictScore = (text.match(/\b(rival|rivalry|enemy|opponent|nemesis|duel|clash|blade|fight|strike|attack|furious|battle|rage|destroy|death|hate|hatred|kill|hostile|threat|blood|challenge|spite)\b/g) || []).length;
-  const fealtyScore = (text.match(/\b(master|lord|lady|knight|servant|maid|contract|oath|swear|sworn|vow|serve|duty|pledge|obey|loyal|loyalty|liege|subordinate|protect|guard)\b/g) || []).length;
-  const bondScore = (text.match(/\b(love|beloved|fond|affection|cherish|tender|kiss|blush|embrace|sweetheart|darling|hug|adore|adoring|devoted|romance|romantic|sister|brother|father|mother|family|dear|smile)\b/g) || []).length;
-  const allyScore = (text.match(/\b(ally|allies|comrade|comrades|friend|friends|partner|companion|team|together|trust|rescue|save|support|nodded|agreed|cooperate|stand by)\b/g) || []).length;
+  // High-precision semantic indicators - strictly excludes common dialogue/narrative filler (smile, nodded, blade, agreed, lady, maid)
+  const conflictScore = (text.match(/\b(rival|rivalry|nemesis|enemy|opponent|antagonist|duel|feud|vendetta|clash|clashed|hate|hatred|despise|loathe|hostile|hostility|furious|wrath|rage|murder|murderous|slay|kill|spite)\b/g) || []).length;
+  const fealtyScore = (text.match(/\b(master|liege|retainer|vassal|servant|contract|contracted|oath|sworn|swear|vow|vowed|pledge|pledged|obey|obedience|subordinate|fealty|loyalty)\b/g) || []).length;
+  const bondScore = (text.match(/\b(love|beloved|affection|cherish|tenderly|kiss|kissed|kissing|blush|blushed|sweetheart|darling|hug|hugged|adore|adoring|devoted|romance|romantic|infatuation|sister|brother|father|mother|daughter|son|husband|wife|spouse)\b/g) || []).length;
+  const allyScore = (text.match(/\b(ally|allies|comrade|comrades|companion|companions|partner|partners|team|teamwork|alliance|cooperate|brother-in-arms|comradeship)\b/g) || []).length;
 
   const max = Math.max(conflictScore, fealtyScore, bondScore, allyScore);
-  if (max === 0) {
+  // Require at least 2 distinct semantic occurrences so incidental co-occurrences remain clean neutral theme lines
+  if (max < 2) {
     return {
       type: 'neutral',
-      label: 'Co-occurrence',
+      label: 'Acquaintances',
       color: 'var(--ui-focus)',
       glowColor: 'var(--ui-focus)',
     };
@@ -2655,6 +2657,7 @@ export function CharacterNetworkGraph({
                 const isConnectedToHover =
                   hoveredNodeId && (link.source.id === hoveredNodeId || link.target.id === hoveredNodeId);
                 const isThisEdgeSelected = selectedEdge === link;
+                const isThisEdgeHovered = hoveredEdge?.link === link;
                 const isExpandedSceneLink =
                   Boolean(expandedConnName) &&
                   selectedNodeId &&
@@ -2668,44 +2671,46 @@ export function CharacterNetworkGraph({
 
                 const rel = getSemanticRelationship(link.sampleQuotes);
                 const isBondFilterMatch = activeBondFilter ? rel.type === activeBondFilter : false;
-                const isLinkActive =
-                  isConnectedToFocus ||
-                  isConnectedToHover ||
-                  isThisEdgeSelected ||
-                  isExpandedSceneLink ||
-                  isPathEdge ||
-                  isBondFilterMatch;
 
-                // Subtle, elegant stroke dimensions matching Shiori parchment standards
+                // Subtle, elegant stroke dimensions matching Shiori parchment standards (Image 2 style)
                 const strokeWidth = isPathEdge
-                  ? 2.5
-                  : isExpandedSceneLink
-                  ? 2.4
-                  : isBondFilterMatch
                   ? 2.2
-                  : isLinkActive
-                  ? 1.6
-                  : 0.8;
+                  : isExpandedSceneLink
+                  ? 2.0
+                  : isThisEdgeSelected || isThisEdgeHovered
+                  ? 2.0
+                  : isBondFilterMatch
+                  ? 1.8
+                  : isConnectedToFocus || isConnectedToHover
+                  ? 1.25
+                  : 0.75;
 
                 const strokeOpacity = isPathEdge || isExpandedSceneLink
                   ? 0.95
                   : activeBondFilter
                   ? isBondFilterMatch
                     ? 0.92
-                    : 0.03
-                  : isLinkActive
-                  ? 0.85
+                    : 0.02
+                  : isThisEdgeSelected || isThisEdgeHovered
+                  ? 0.95
+                  : isConnectedToFocus || isConnectedToHover
+                  ? 0.72
                   : shortestPath
                   ? 0.02
                   : activeFocusId || hoveredNodeId
-                  ? 0.025
-                  : 0.16;
+                  ? 0.035
+                  : 0.22;
 
-                // Semantic bond coloring (Love & Affection, Rivals, Allies, Fealty) for active ties, quiet border for idle hairlines
+                // Default theme color for idle and focused constellation ties (Image 2 clean aesthetic);
+                // semantic bond color ONLY for inspected edge or active bond filter
                 const strokeColor = isPathEdge
                   ? '#eab308'
-                  : isLinkActive
+                  : isThisEdgeSelected || isThisEdgeHovered
                   ? rel.color
+                  : isBondFilterMatch
+                  ? rel.color
+                  : isConnectedToFocus || isConnectedToHover || isExpandedSceneLink
+                  ? 'var(--ui-focus)'
                   : 'var(--ui-border)';
 
                 return (
@@ -2740,7 +2745,7 @@ export function CharacterNetworkGraph({
                         y1={srcPos.y}
                         x2={tgtPos.x}
                         y2={tgtPos.y}
-                        stroke={isPathEdge ? '#eab308' : rel.color}
+                        stroke={isPathEdge ? '#eab308' : 'var(--ui-focus)'}
                         strokeWidth={strokeWidth + 2}
                         strokeOpacity={0.25}
                         strokeLinecap="round"
@@ -2767,7 +2772,7 @@ export function CharacterNetworkGraph({
                         y1={srcPos.y}
                         x2={tgtPos.x}
                         y2={tgtPos.y}
-                        stroke={isPathEdge ? '#eab308' : rel.color}
+                        stroke={isPathEdge ? '#eab308' : 'var(--ui-focus)'}
                         strokeWidth={strokeWidth}
                         strokeDasharray={isPathEdge ? '8 4' : '6 4'}
                         strokeLinecap="round"
@@ -3172,9 +3177,26 @@ export function CharacterNetworkGraph({
             </span>
             <span className="hidden sm:inline text-[var(--ui-divider)] shrink-0">|</span>
 
-            {/* Interactive Bond Filter Chips */}
+            {/* Interactive Bond Filter Chips: All (Clean Theme) + Focused Semantic Bonds */}
             <div className="flex items-center gap-1 shrink-0">
-              <ReaderTooltip content={activeBondFilter === 'bond' ? 'Show all bonds' : 'Filter Love & Affection ties'}>
+              <ReaderTooltip content={activeBondFilter === null ? 'Default theme view active' : 'Reset to default theme view'}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveBondFilter(null);
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeBondFilter === null
+                      ? 'bg-[var(--ui-focus)] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)]'
+                  }`}
+                >
+                  <span>All</span>
+                </button>
+              </ReaderTooltip>
+
+              <ReaderTooltip content={activeBondFilter === 'bond' ? 'Show all ties' : 'Isolate Love & Affection ties'}>
                 <button
                   type="button"
                   onClick={(e) => {

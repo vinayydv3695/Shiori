@@ -32,6 +32,8 @@ src-tauri/target
 # OS files
 Thumbs.db
 *~
+*.orig
+*.bak
 
 # User data (don't commit library databases)
 *.db

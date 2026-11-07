@@ -788,10 +788,50 @@ const dictionaryClientCache = new Map<string, DictionaryResponse>();
         vocabColor,
         vocabCategory.id
       );
+
+      // Save into Spaced Repetition Auto-Deck
+      try {
+        let sentenceContext = selectedText;
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const container = sel.getRangeAt(0).commonAncestorContainer;
+          const fullText = (container.nodeType === Node.TEXT_NODE ? container.parentElement?.textContent : container.textContent) || '';
+          const cleanedFull = fullText.replace(/\s+/g, ' ').trim();
+          if (cleanedFull.length > 0 && cleanedFull.length < 350) {
+            sentenceContext = cleanedFull;
+          } else if (cleanedFull.length >= 350) {
+            const idx = cleanedFull.indexOf(selectedText);
+            if (idx !== -1) {
+              const start = Math.max(0, idx - 80);
+              const end = Math.min(cleanedFull.length, idx + selectedText.length + 80);
+              sentenceContext = (start > 0 ? '...' : '') + cleanedFull.slice(start, end) + (end < cleanedFull.length ? '...' : '');
+            }
+          }
+        }
+
+        const defText = translationMode === 'define' && dictionaryResult
+          ? dictionaryResult.meanings.map(m => `[${m.part_of_speech.toUpperCase()}] ` + m.definitions.map((d, i) => `${i + 1}. ${d.definition}`).join('; ')).join('\n')
+          : (translationResult?.translated_text || 'Vocabulary item');
+
+        const reading = dictionaryResult?.phonetic || '';
+        const wordToSave = dictionaryResult?.word || selectedText.trim();
+
+        await api.addVocabularyWord({
+          bookId,
+          word: wordToSave,
+          cleanWord: wordToSave.toLowerCase(),
+          reading: reading || undefined,
+          definition: defText,
+          sentenceContext,
+        });
+      } catch (vocabErr) {
+        console.warn('[TextSelectionToolbar] Auto-deck recording fallback:', vocabErr);
+      }
+
       useToastStore.getState().addToast({
-        title: 'Added to vocabulary',
+        title: 'Added to vocabulary & Spaced Repetition Deck',
         variant: 'success',
-        duration: 2000,
+        duration: 2500,
       });
       notifyAnnotationsChanged();
       setShowTranslation(false);

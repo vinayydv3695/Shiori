@@ -29,6 +29,9 @@ class MockBackendStore {
     { id: 2, name: 'Note', color: '#3b82f6', icon: 'bookmark' },
     { id: 3, name: 'Quote', color: '#10b981', icon: 'quote' },
   ];
+  private bookMaps: Record<number, any[]> = {};
+  private mapPins: Record<number, any[]> = {};
+  private vocabWords: any[] = [];
 
   constructor() {
     this.loadFromStorage();
@@ -541,6 +544,173 @@ class MockBackendStore {
     if (cmd === 'delete_annotation_category') {
       this.annotationCategories = this.annotationCategories.filter(c => c.id !== Number(args.id));
       return null;
+    }
+
+    // ── Cartography ──────────────────────────────────────────────
+    if (cmd === 'get_book_maps') {
+      const bookId = Number(args.bookId);
+      return this.bookMaps[bookId] || [];
+    }
+
+    if (cmd === 'add_book_map') {
+      const bookId = Number(args.bookId);
+      if (!this.bookMaps[bookId]) this.bookMaps[bookId] = [];
+      const newMap = {
+        id: Date.now(),
+        bookId,
+        title: args.title || 'World Map',
+        imageUrl: args.imageUrl,
+        width: args.width || null,
+        height: args.height || null,
+        isAutoExtracted: false,
+        createdAt: new Date().toISOString(),
+      };
+      this.bookMaps[bookId].push(newMap);
+      return newMap;
+    }
+
+    if (cmd === 'delete_book_map') {
+      const mapId = Number(args.mapId);
+      for (const bId of Object.keys(this.bookMaps)) {
+        this.bookMaps[Number(bId)] = (this.bookMaps[Number(bId)] || []).filter(m => m.id !== mapId);
+      }
+      delete this.mapPins[mapId];
+      return null;
+    }
+
+    if (cmd === 'get_map_pins') {
+      const mapId = Number(args.mapId);
+      return this.mapPins[mapId] || [];
+    }
+
+    if (cmd === 'save_map_pin') {
+      const mapId = Number(args.mapId);
+      if (!this.mapPins[mapId]) this.mapPins[mapId] = [];
+      if (args.pinId) {
+        const existing = this.mapPins[mapId].find(p => p.id === Number(args.pinId));
+        if (existing) {
+          existing.label = args.label;
+          existing.notes = args.notes ?? null;
+          existing.chapterIndex = args.chapterIndex ?? null;
+          existing.xPercent = args.xPercent;
+          existing.yPercent = args.yPercent;
+          if (args.color) existing.color = args.color;
+          return existing;
+        }
+      }
+      const newPin = {
+        id: Date.now(),
+        mapId,
+        bookId: Number(args.bookId),
+        label: args.label,
+        notes: args.notes ?? null,
+        chapterIndex: args.chapterIndex ?? null,
+        xPercent: args.xPercent,
+        yPercent: args.yPercent,
+        color: args.color || '#e11d48',
+        createdAt: new Date().toISOString(),
+      };
+      this.mapPins[mapId].push(newPin);
+      return newPin;
+    }
+
+    if (cmd === 'delete_map_pin') {
+      const pinId = Number(args.pinId);
+      for (const mId of Object.keys(this.mapPins)) {
+        this.mapPins[Number(mId)] = (this.mapPins[Number(mId)] || []).filter(p => p.id !== pinId);
+      }
+      return null;
+    }
+
+    // ── Vocabulary & Spaced Repetition ───────────────────────────
+    if (cmd === 'add_vocabulary_word') {
+      const clean = (args.cleanWord || args.word || '').trim().toLowerCase();
+      const existing = this.vocabWords.find(w => w.cleanWord === clean);
+      if (existing) {
+        existing.word = args.word;
+        if (args.definition) existing.definition = args.definition;
+        if (args.reading) existing.reading = args.reading;
+        if (args.sentenceContext) existing.sentenceContext = args.sentenceContext;
+        return existing;
+      }
+      const newWord = {
+        id: Date.now(),
+        bookId: args.bookId ? Number(args.bookId) : null,
+        word: args.word,
+        cleanWord: clean,
+        reading: args.reading ?? null,
+        definition: args.definition,
+        sentenceContext: args.sentenceContext ?? null,
+        chapterTitle: args.chapterTitle ?? null,
+        tags: '',
+        reps: 0,
+        intervalDays: 0,
+        easeFactor: 2.5,
+        dueDate: new Date().toISOString().slice(0, 10),
+        createdAt: new Date().toISOString(),
+        lastReviewed: null,
+      };
+      this.vocabWords.push(newWord);
+      return newWord;
+    }
+
+    if (cmd === 'get_vocabulary_words') {
+      let list = [...this.vocabWords];
+      if (args.bookId) {
+        list = list.filter(w => w.bookId === Number(args.bookId));
+      }
+      if (args.dueOnly) {
+        const today = new Date().toISOString().slice(0, 10);
+        list = list.filter(w => w.dueDate <= today);
+      }
+      return list;
+    }
+
+    if (cmd === 'review_vocabulary_word') {
+      const card = this.vocabWords.find(w => w.id === Number(args.cardId));
+      if (card) {
+        const grade = Number(args.grade) || 3;
+        card.reps = (card.reps || 0) + 1;
+        card.lastReviewed = new Date().toISOString();
+        if (grade >= 3) {
+          card.intervalDays = card.reps === 1 ? 1 : card.reps === 2 ? 6 : Math.round((card.intervalDays || 6) * (card.easeFactor || 2.5));
+        } else {
+          card.intervalDays = 1;
+        }
+        const next = new Date();
+        next.setDate(next.getDate() + Math.max(1, Math.round(card.intervalDays)));
+        card.dueDate = next.toISOString().slice(0, 10);
+        return card;
+      }
+      return null;
+    }
+
+    if (cmd === 'delete_vocabulary_word') {
+      const cardId = Number(args.cardId);
+      this.vocabWords = this.vocabWords.filter(w => w.id !== cardId);
+      return null;
+    }
+
+    if (cmd === 'get_vocabulary_stats') {
+      const today = new Date().toISOString().slice(0, 10);
+      let list = [...this.vocabWords];
+      if (args.bookId) list = list.filter(w => w.bookId === Number(args.bookId));
+      return {
+        totalCards: list.length,
+        dueToday: list.filter(w => w.dueDate <= today).length,
+        learned: list.filter(w => (w.reps || 0) > 2).length,
+        newToday: list.filter(w => (w.reps || 0) === 0).length,
+      };
+    }
+
+    if (cmd === 'export_vocabulary_anki') {
+      const rows = [
+        '#separator:Tab',
+        '#html:true',
+        '#tags column:6',
+        ...this.vocabWords.map(w => `${w.word}\t${w.reading || ''}\t${w.definition}\t${w.sentenceContext || ''}\t${w.chapterTitle || ''}\tShiori`),
+      ];
+      return rows.join('\n');
     }
 
     if (cmd === 'get_all_annotations' || cmd === 'search_annotations_global') {

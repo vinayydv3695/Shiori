@@ -48,6 +48,8 @@ pub mod backup_service;
 // Translation/dictionary service
 pub mod translation_service;
 pub mod dictionary_service;
+pub mod cartography_service;
+pub mod vocabulary_service;
 
 // Folder watch service
 pub mod folder_watch;

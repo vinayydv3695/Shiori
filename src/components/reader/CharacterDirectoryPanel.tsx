@@ -898,10 +898,10 @@ export function CharacterDirectoryPanel({
             }}
             data-reader-theme={readerTheme}
             data-graph-fullscreen="true"
-            style={themeVars}
+            style={{ ...themeVars, backgroundColor: 'var(--bg-primary)' }}
             onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => e.stopPropagation()}
-            className="character-network-graph fixed inset-0 z-[999999] bg-[var(--bg-elevated)] text-[var(--text-primary)] flex flex-col w-screen h-screen overflow-hidden font-sans"
+            className="character-network-graph fixed inset-0 z-[999999] bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col w-screen h-screen overflow-hidden font-sans"
           >
             <CharacterNetworkGraph
               networkData={networkData}

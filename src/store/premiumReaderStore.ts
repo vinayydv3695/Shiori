@@ -120,6 +120,9 @@ interface ReadingSettings {
   // Adaptive Layout
   uiScale: number; // 0.8-1.4
 
+  // Physical Marginalia Mode (Wide-Margin Scriptorium)
+  marginaliaEnabled: boolean;
+
   // Actions
   setTheme: (theme: ReaderTheme) => void;
   toggleTheme: () => void;
@@ -146,6 +149,8 @@ interface ReadingSettings {
   setAnimationStyle: (style: 'slide' | 'fade' | 'curl' | 'none') => void;
   setPaperTextureIntensity: (intensity: number) => void;
   setUiScale: (scale: number) => void;
+  setMarginaliaEnabled: (enabled: boolean) => void;
+  toggleMarginalia: () => void;
   resetToDefaults: () => void;
 }
 
@@ -173,6 +178,7 @@ const defaultSettings = {
   animationStyle: 'slide' as const,
   paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
+  marginaliaEnabled: false,
 };
 
 const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark', 'sepia', 'dark'];
@@ -216,6 +222,8 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
   setPaperTextureIntensity: 0;
   setUiScale: 0;
   setKeepScreenOn: 0;
+  setMarginaliaEnabled: 0;
+  toggleMarginalia: 0;
   resetToDefaults: 0;
 }> => {
   const source = (raw && typeof raw === 'object') ? (raw as Partial<typeof defaultSettings>) : {};
@@ -244,6 +252,7 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     animationStyle: clampStringEnum(source.animationStyle, defaultSettings.animationStyle, ANIMATION_STYLE_OPTIONS),
     paperTextureIntensity: clampNumber(source.paperTextureIntensity, defaultSettings.paperTextureIntensity, 0, 0.2),
     uiScale: clampNumber(source.uiScale, defaultSettings.uiScale, 0.8, 1.4),
+    marginaliaEnabled: typeof source.marginaliaEnabled === 'boolean' ? source.marginaliaEnabled : defaultSettings.marginaliaEnabled,
   };
 };
 
@@ -402,6 +411,10 @@ export const useReadingSettings = create<ReadingSettings>()(
         set({ uiScale: clamped });
         applyUiScaleToDOM(clamped);
       },
+
+      setMarginaliaEnabled: (enabled) => set({ marginaliaEnabled: enabled }),
+
+      toggleMarginalia: () => set((state) => ({ marginaliaEnabled: !state.marginaliaEnabled })),
 
       resetToDefaults: () => set(defaultSettings),
     }),

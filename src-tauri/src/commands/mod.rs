@@ -30,6 +30,8 @@ pub mod sources;
 pub mod sync;
 pub mod torbox;
 pub mod translation;
+pub mod cartography;
+pub mod vocabulary;
 pub mod window;
 
 #[macro_export]
@@ -362,6 +364,20 @@ macro_rules! generate_shiori_handlers {
             commands::sync::rotate_sync_pairing_token,
             commands::sync::sync_with_desktop,
             commands::sync::sync_with_companion,
+            // Cartography & Maps
+            commands::cartography::get_book_maps,
+            commands::cartography::add_book_map,
+            commands::cartography::delete_book_map,
+            commands::cartography::get_map_pins,
+            commands::cartography::save_map_pin,
+            commands::cartography::delete_map_pin,
+            // Vocabulary & Spaced Repetition (Anki)
+            commands::vocabulary::add_vocabulary_word,
+            commands::vocabulary::get_vocabulary_words,
+            commands::vocabulary::review_vocabulary_word,
+            commands::vocabulary::delete_vocabulary_word,
+            commands::vocabulary::get_vocabulary_stats,
+            commands::vocabulary::export_vocabulary_anki,
             commands::ai::ai_key_get,
             commands::ai::ai_key_set,
             commands::ai::ai_key_delete,

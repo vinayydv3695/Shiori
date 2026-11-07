@@ -23,6 +23,12 @@ import {
   Download,
   Filter,
   Loader2,
+  Eye,
+  Network,
+  Play,
+  Pause,
+  Route,
+  Sparkles,
 } from 'lucide-react';
 import { useToastStore } from '@/store/toastStore';
 import { isTauri } from '@/lib/tauri';
@@ -152,6 +158,128 @@ function drawCanvasRoundRect(
   ctx.closePath();
 }
 
+export type RelationshipType = 'conflict' | 'fealty' | 'bond' | 'ally' | 'neutral';
+
+export interface SemanticRelationship {
+  type: RelationshipType;
+  label: string;
+  color: string;
+  glowColor: string;
+}
+
+export function getSemanticRelationship(quotes: { quote: string }[] = []): SemanticRelationship {
+  if (!quotes || quotes.length === 0) {
+    return {
+      type: 'neutral',
+      label: 'Acquaintances',
+      color: 'var(--ui-focus)',
+      glowColor: 'var(--ui-focus)',
+    };
+  }
+
+  const text = quotes.map((q) => q.quote).join(' ').toLowerCase();
+
+  const conflictScore = (text.match(/\b(rival|rivalry|enemy|opponent|nemesis|duel|clash|blade|fight|strike|attack|furious|battle|rage|destroy|death|hate|hatred|kill|hostile|threat|blood|challenge|spite)\b/g) || []).length;
+  const fealtyScore = (text.match(/\b(master|lord|lady|knight|servant|maid|contract|oath|swear|sworn|vow|serve|duty|pledge|obey|loyal|loyalty|liege|subordinate|protect|guard)\b/g) || []).length;
+  const bondScore = (text.match(/\b(love|beloved|fond|affection|cherish|tender|kiss|blush|embrace|sweetheart|darling|hug|adore|adoring|devoted|romance|romantic|sister|brother|father|mother|family|dear|smile)\b/g) || []).length;
+  const allyScore = (text.match(/\b(ally|allies|comrade|comrades|friend|friends|partner|companion|team|together|trust|rescue|save|support|nodded|agreed|cooperate|stand by)\b/g) || []).length;
+
+  const max = Math.max(conflictScore, fealtyScore, bondScore, allyScore);
+  if (max === 0) {
+    return {
+      type: 'neutral',
+      label: 'Co-occurrence',
+      color: 'var(--ui-focus)',
+      glowColor: 'var(--ui-focus)',
+    };
+  }
+
+  if (bondScore === max) {
+    return {
+      type: 'bond',
+      label: 'Love & Affection',
+      color: '#d94677',
+      glowColor: 'rgba(217, 70, 119, 0.25)',
+    };
+  }
+  if (conflictScore === max) {
+    return {
+      type: 'conflict',
+      label: 'Rivals & Conflict',
+      color: '#c2410c',
+      glowColor: 'rgba(194, 65, 12, 0.25)',
+    };
+  }
+  if (fealtyScore === max) {
+    return {
+      type: 'fealty',
+      label: 'Fealty & Devotion',
+      color: '#b45309',
+      glowColor: 'rgba(180, 83, 9, 0.25)',
+    };
+  }
+  return {
+    type: 'ally',
+    label: 'Comrades & Allies',
+    color: '#2e7d32',
+    glowColor: 'rgba(46, 125, 50, 0.25)',
+  };
+}
+
+export function findShortestPath(
+  startId: string,
+  endId: string,
+  links: SimLink[]
+): { pathNodes: string[]; pathEdges: Set<string> } | null {
+  if (startId === endId) return { pathNodes: [startId], pathEdges: new Set() };
+
+  const adj = new Map<string, { neighbor: string; edgeKey: string }[]>();
+  for (const link of links) {
+    const s = link.source.id;
+    const t = link.target.id;
+    const edgeKey = `${s}:::${t}`;
+    const edgeKeyRev = `${t}:::${s}`;
+
+    if (!adj.has(s)) adj.set(s, []);
+    if (!adj.has(t)) adj.set(t, []);
+    adj.get(s)!.push({ neighbor: t, edgeKey });
+    adj.get(t)!.push({ neighbor: s, edgeKey: edgeKeyRev });
+  }
+
+  const queue: string[] = [startId];
+  const visited = new Set<string>([startId]);
+  const parentMap = new Map<string, { prev: string; edgeKey: string }>();
+
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    if (curr === endId) {
+      const pathNodes: string[] = [endId];
+      const pathEdges = new Set<string>();
+      let step = endId;
+      while (step !== startId) {
+        const info = parentMap.get(step)!;
+        pathEdges.add(info.edgeKey);
+        const [a, b] = step.localeCompare(info.prev) < 0 ? [step, info.prev] : [info.prev, step];
+        pathEdges.add(`${a}:::${b}`);
+        pathNodes.unshift(info.prev);
+        step = info.prev;
+      }
+      return { pathNodes, pathEdges };
+    }
+
+    const neighbors = adj.get(curr) || [];
+    for (const { neighbor, edgeKey } of neighbors) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        parentMap.set(neighbor, { prev: curr, edgeKey });
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return null;
+}
+
 interface SimNode {
   id: string;
   name: string;
@@ -188,8 +316,8 @@ const staggerContainerVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1, // 0.1s stagger between children
-      delayChildren: 0.05,
+      staggerChildren: 0.025, // Snappy stagger for rich scene lists
+      delayChildren: 0.02,
     },
   },
 };
@@ -254,14 +382,34 @@ export function CharacterNetworkGraph({
   const [expandedConnName, setExpandedConnName] = useState<string | null>(null);
   const [entityFilter, setEntityFilter] = useState<'all' | 'individuals' | 'major'>('all');
   const [hoveredEdge, setHoveredEdge] = useState<{ link: SimLink; x: number; y: number } | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [activeBondFilter, setActiveBondFilter] = useState<RelationshipType | null>(null);
   const [sidebarSort, setSidebarSort] = useState<'scenes' | 'alphabetical' | 'chapters'>('scenes');
   const [sidebarSearch, setSidebarSearch] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Reset expanded connection when switching character focus
+  // Pathfinder: Shortest relationship bridge between two characters
+  const [pathfinderTargetId, setPathfinderTargetId] = useState<string | null>(null);
+
+  // Storyline Horizon Playback ("Story Recap Mode")
+  const [isPlayingRecap, setIsPlayingRecap] = useState(false);
+
+  // Mini Hover Codex Card for zero-click character inspection
+  const [hoverCodex, setHoverCodex] = useState<{ node: SimNode; x: number; y: number } | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Layout cache key for instant 0ms recall of settled coordinates
+  const layoutCacheKey = useMemo(() => {
+    return bookTitle
+      ? `shiori-char-layout-${bookTitle.slice(0, 36).replace(/[^a-zA-Z0-9_-]/g, '_')}`
+      : null;
+  }, [bookTitle]);
+
+  // Reset expanded connection and pathfinder target when switching character focus
   useEffect(() => {
     setExpandedConnName(null);
+    setPathfinderTargetId(null);
   }, [selectedNodeId]);
 
   // Portrait cache state for nodes and cards
@@ -282,15 +430,28 @@ export function CharacterNetworkGraph({
     });
   }, [networkData.characters, bookTitle]);
 
-  // Close fullscreen on Escape
+  // Tiered dismiss on Escape (Scenes -> Edge Dossier -> Pathfinder -> Bond Filter -> Character -> Fullscreen)
   useEffect(() => {
-    if (!isFullscreen || !onToggleFullscreen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onToggleFullscreen();
+      if (e.key === 'Escape') {
+        if (expandedConnName) {
+          setExpandedConnName(null);
+        } else if (selectedEdge) {
+          setSelectedEdge(null);
+        } else if (pathfinderTargetId) {
+          setPathfinderTargetId(null);
+        } else if (activeBondFilter) {
+          setActiveBondFilter(null);
+        } else if (selectedNodeId) {
+          setSelectedNodeId(null);
+        } else if (isFullscreen && onToggleFullscreen) {
+          onToggleFullscreen();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, onToggleFullscreen]);
+  }, [expandedConnName, selectedEdge, pathfinderTargetId, activeBondFilter, selectedNodeId, isFullscreen, onToggleFullscreen]);
 
   // Pan & Zoom transform state
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -316,6 +477,24 @@ export function CharacterNetworkGraph({
   const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const dragStartPos = useRef({ x: 0, y: 0 });
+  const isInteracting = isPanning || Boolean(draggingNodeId);
+
+  // Storyline Horizon Playback timer
+  useEffect(() => {
+    if (!isPlayingRecap) return;
+
+    const interval = setInterval(() => {
+      setMaxChapter((prev) => {
+        if (prev >= (totalChapters || 1)) {
+          setIsPlayingRecap(false);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 480);
+
+    return () => clearInterval(interval);
+  }, [isPlayingRecap, totalChapters]);
 
   // Update slider if reader moves to a later chapter
   useEffect(() => {
@@ -420,8 +599,28 @@ export function CharacterNetworkGraph({
     // Sort by prominence (mentions) so lead characters are at the center
     const sorted = [...visibleNodes].sort((a, b) => b.totalMentions - a.totalMentions);
 
-    // Initial golden ratio phyllotaxis distribution with comfortable spacing
+    // 0. Check localStorage layout cache for instant 0ms settled coordinates
+    let cachedPositions: Record<string, { x: number; y: number }> | null = null;
+    if (layoutCacheKey) {
+      try {
+        const raw = localStorage.getItem(layoutCacheKey);
+        if (raw) cachedPositions = JSON.parse(raw);
+      } catch {}
+    }
+
+    const isFullyCached = Boolean(cachedPositions && sorted.every((n) => cachedPositions![n.id] !== undefined));
+
+    // Initial golden ratio phyllotaxis distribution with comfortable spacing (or cached seed)
     const nodeState = sorted.map((n, i) => {
+      if (cachedPositions && cachedPositions[n.id]) {
+        return {
+          ...n,
+          x: cachedPositions[n.id].x,
+          y: cachedPositions[n.id].y,
+          vx: 0,
+          vy: 0,
+        };
+      }
       if (i === 0) {
         return { ...n, x: 0, y: 0, vx: 0, vy: 0 };
       }
@@ -437,9 +636,10 @@ export function CharacterNetworkGraph({
     });
 
     const nodeIndexMap = new Map(nodeState.map((n, i) => [n.id, i]));
+    const maxIters = isFullyCached ? 10 : 150;
 
-    // Fast synchronous convergence loop (150 iterations in pure JS math takes < 4ms)
-    for (let iter = 0; iter < 150; iter++) {
+    // Fast synchronous convergence loop (instant when cached, ~3ms on initial layout)
+    for (let iter = 0; iter < maxIters; iter++) {
       const alpha = Math.max(0.06, 1 - iter / 150);
 
       // 1. Center gravity pull (gentle, keeps graph centered without crushing)
@@ -547,8 +747,13 @@ export function CharacterNetworkGraph({
     for (const n of nodeState) {
       posMap[n.id] = { x: Math.round(n.x), y: Math.round(n.y) };
     }
+    if (layoutCacheKey && Object.keys(posMap).length > 0) {
+      try {
+        localStorage.setItem(layoutCacheKey, JSON.stringify(posMap));
+      } catch {}
+    }
     return posMap;
-  }, [visibleNodes, visibleLinks]);
+  }, [visibleNodes, visibleLinks, layoutCacheKey]);
 
   // Position resolver combining static placement with user drag offsets
   const getNodePos = useCallback(
@@ -575,6 +780,29 @@ export function CharacterNetworkGraph({
     }
     return set;
   }, [activeFocusId, visibleLinks]);
+
+  // Compute connected neighbors for currently hovered node
+  const hoveredNeighborIds = useMemo(() => {
+    if (!hoveredNodeId) return null;
+
+    const set = new Set<string>([hoveredNodeId]);
+    for (const link of visibleLinks) {
+      if (link.source.id === hoveredNodeId) set.add(link.target.id);
+      if (link.target.id === hoveredNodeId) set.add(link.source.id);
+    }
+    return set;
+  }, [hoveredNodeId, visibleLinks]);
+
+  // Compute Pathfinder shortest connection bridge between selected character and target
+  const shortestPath = useMemo(() => {
+    if (!selectedNodeId || !pathfinderTargetId) return null;
+    return findShortestPath(selectedNodeId, pathfinderTargetId, visibleLinks);
+  }, [selectedNodeId, pathfinderTargetId, visibleLinks]);
+
+  const pathNodeSet = useMemo(() => {
+    if (!shortestPath) return null;
+    return new Set(shortestPath.pathNodes);
+  }, [shortestPath]);
 
   // Canvas dimensions in SVG user coordinate space
   const viewBoxW = isFullscreen ? 1200 : 900;
@@ -927,7 +1155,7 @@ export function CharacterNetworkGraph({
           // Base Circle
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fillStyle = node.avatarColor || '#6366f1';
+          ctx.fillStyle = node.avatarColor?.match(/#(?:[0-9a-fA-F]{3,8})/)?.[0] || '#6366f1';
           ctx.fill();
 
           // Image or Bold Initials
@@ -1363,12 +1591,30 @@ export function CharacterNetworkGraph({
                   {edge.target.name}
                 </button>
               </h4>
-              <p className="text-[10.5px] text-[var(--text-tertiary)] my-0.5 flex items-center gap-1">
-                <MessageSquare size={11} className="text-[var(--ui-focus)] opacity-80" />
-                <span>
-                  {sceneCount} shared {sceneCount === 1 ? 'scene' : 'scenes'} across {edge.chapters.length} {edge.chapters.length === 1 ? 'chapter' : 'chapters'}
+              <div className="flex items-center gap-2 my-0.5 flex-wrap">
+                {(() => {
+                  const rel = getSemanticRelationship(edge.sampleQuotes);
+                  return (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 shrink-0"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${rel.color} 14%, var(--bg-elevated))`,
+                        color: rel.color,
+                        border: `1px solid color-mix(in srgb, ${rel.color} 30%, transparent)`,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rel.color }} />
+                      {rel.label}
+                    </span>
+                  );
+                })()}
+                <span className="text-[10.5px] text-[var(--text-tertiary)] flex items-center gap-1">
+                  <MessageSquare size={11} className="text-[var(--ui-focus)] opacity-80" />
+                  <span>
+                    {sceneCount} shared {sceneCount === 1 ? 'scene' : 'scenes'} across {edge.chapters.length} {edge.chapters.length === 1 ? 'chapter' : 'chapters'}
+                  </span>
                 </span>
-              </p>
+              </div>
             </div>
           </div>
           <ReaderTooltip content="Close connection dossier">
@@ -1770,11 +2016,26 @@ export function CharacterNetworkGraph({
                                 {conn.otherNode.name}
                               </div>
                               <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                                <span className="font-semibold text-[var(--ui-focus)]">
-                                  {conn.sharedScenes} shared {conn.sharedScenes === 1 ? 'scene' : 'scenes'}
-                                </span>
+                                {(() => {
+                                  const rel = getSemanticRelationship(conn.link.sampleQuotes);
+                                  return (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[9.5px]"
+                                      style={{
+                                        backgroundColor: `color-mix(in srgb, ${rel.color} 12%, var(--bg-secondary))`,
+                                        color: rel.color,
+                                        border: `1px solid color-mix(in srgb, ${rel.color} 25%, transparent)`,
+                                      }}
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rel.color }} />
+                                      {rel.label}
+                                    </span>
+                                  );
+                                })()}
                                 <span>•</span>
-                                <span>{conn.chapters.length} {conn.chapters.length === 1 ? 'chapter' : 'chapters'}</span>
+                                <span className="font-semibold text-[var(--text-secondary)]">
+                                  {conn.sharedScenes} {conn.sharedScenes === 1 ? 'scene' : 'scenes'}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1797,6 +2058,21 @@ export function CharacterNetworkGraph({
                                 </button>
                               </ReaderTooltip>
                             )}
+
+                            <ReaderTooltip content={pathfinderTargetId === conn.otherNode.id ? 'Clear path' : `Trace connection path to ${conn.otherNode.name}`}>
+                              <button
+                                type="button"
+                                onClick={() => setPathfinderTargetId((prev) => (prev === conn.otherNode.id ? null : conn.otherNode.id))}
+                                className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                                  pathfinderTargetId === conn.otherNode.id
+                                    ? 'bg-[#eab308] text-white shadow-2xs font-bold'
+                                    : 'text-[var(--text-tertiary)] hover:text-[#eab308] hover:bg-[color-mix(in_srgb,#eab308_15%,transparent)]'
+                                }`}
+                                aria-label={`Trace connection path to ${conn.otherNode.name}`}
+                              >
+                                <Route size={12} />
+                              </button>
+                            </ReaderTooltip>
 
                             <ReaderTooltip content={`Focus graph on ${conn.otherNode.name}`}>
                               <button
@@ -1993,53 +2269,94 @@ export function CharacterNetworkGraph({
         e.stopPropagation();
       }}
       className={`character-network-graph relative w-full overflow-hidden flex flex-col font-sans select-none ${
-        isFullscreen ? 'h-full bg-[var(--bg-elevated)]' : 'h-[560px] rounded-2xl bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)]'
+        isFullscreen ? 'h-full bg-[var(--bg-primary)]' : 'h-[560px] rounded-2xl bg-[var(--bg-primary)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)]'
       }`}
+      style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      {/* ─── Premium Spacious Top Control Bar ─── */}
-      <div className="flex items-center justify-between gap-4 px-5 py-3.5 border-b border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,var(--bg-secondary))] z-20 shrink-0 flex-wrap min-h-[64px]">
-        {/* Left: Back button & Title */}
-        <div className="flex items-center gap-3 shrink-0">
+      {/* ─── Premium Elegant Top Control Bar ─── */}
+      <div className="flex items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-[color-mix(in_srgb,var(--ui-border)_55%,transparent)] bg-[color-mix(in_srgb,var(--bg-elevated)_95%,var(--bg-secondary))] z-20 shrink-0 min-h-[50px] shadow-2xs">
+        {/* Left: Back button & Title Context */}
+        <div className="flex items-center gap-2.5 shrink-0">
           {isFullscreen && onToggleFullscreen && (
-            <ReaderTooltip content="Exit Relationship Web">
+            <ReaderTooltip content="Exit Relationship Web (Esc)">
               <button
                 type="button"
                 onClick={onToggleFullscreen}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--bg-elevated)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_15%,var(--bg-elevated))] text-xs font-bold text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--ui-hover)] text-xs font-semibold text-[var(--text-primary)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] transition-all cursor-pointer shadow-2xs active:scale-95"
               >
-                <ArrowLeft size={15} />
-                <span>Back to Reader</span>
+                <ArrowLeft size={13} className="text-[var(--text-secondary)]" />
+                <span className="hidden sm:inline">Back</span>
               </button>
             </ReaderTooltip>
           )}
 
-          <div className="hidden sm:flex flex-col min-w-0 pr-1">
-            <span className="text-xs font-extrabold text-[var(--text-primary)] truncate tracking-tight">
-              Character Constellation
-            </span>
-            <span className="text-[11px] text-[var(--text-tertiary)] truncate">
-              {bookTitle || 'Network & Relationships'}
-            </span>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[var(--text-primary)] tracking-tight whitespace-nowrap">
+                Character Constellation
+              </span>
+              <span className="hidden xl:inline text-[10.5px] text-[var(--text-tertiary)] font-mono">
+                · {visibleNodes.length} cast · {visibleLinks.length} ties
+              </span>
+            </div>
+            {bookTitle && (
+              <span
+                className="text-[10.5px] text-[var(--text-tertiary)] truncate max-w-[130px] sm:max-w-[180px] md:max-w-[240px]"
+                title={bookTitle}
+              >
+                {bookTitle}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Center: Story Progress & Spoiler Guard Control Pod */}
-        <div className="flex items-center gap-3.5 px-4 py-2 rounded-2xl bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] shadow-2xs flex-1 max-w-xl min-w-[240px]">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-xl bg-[var(--bg-secondary)]/90 border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] shadow-2xs shrink-0 max-w-full">
+          <ReaderTooltip
+            content={
+              isPlayingRecap
+                ? 'Pause story recap'
+                : 'Play Storyline Horizon (Animates character network chapter-by-chapter)'
+            }
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (!isPlayingRecap && maxChapter >= (totalChapters || 1)) {
+                  setMaxChapter(1);
+                }
+                setIsPlayingRecap(!isPlayingRecap);
+              }}
+              className={`p-1 rounded-md transition-all cursor-pointer ${
+                isPlayingRecap
+                  ? 'bg-[var(--ui-focus)] text-white animate-pulse shadow-2xs'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]'
+              }`}
+              aria-label={isPlayingRecap ? 'Pause recap' : 'Play recap'}
+            >
+              {isPlayingRecap ? <Pause size={11} strokeWidth={2.5} /> : <Play size={11} strokeWidth={2.5} />}
+            </button>
+          </ReaderTooltip>
+
           <ReaderTooltip
             content={
               maxChapter > currentChapterIndex + 1
-                ? 'Spoiler Warning: Extended beyond reading progress!'
+                ? 'Spoiler Warning: Showing beyond current reading progress'
                 : 'Spoiler Guard Active: Future chapter interactions are hidden'
             }
           >
             <div
-              className={`px-2.5 py-1 rounded-xl flex items-center gap-1.5 text-xs font-bold shrink-0 cursor-default ${
+              className={`px-2 py-0.5 rounded-md flex items-center gap-1.5 text-[11px] font-bold shrink-0 cursor-default transition-colors ${
                 maxChapter > currentChapterIndex + 1
-                  ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25'
                   : 'bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)]'
               }`}
             >
-              {maxChapter > currentChapterIndex + 1 ? <Unlock size={13} /> : <ShieldCheck size={13} />}
+              {maxChapter > currentChapterIndex + 1 ? (
+                <Unlock size={11} strokeWidth={2.4} />
+              ) : (
+                <ShieldCheck size={11} strokeWidth={2.4} />
+              )}
               <span>Ch. {maxChapter}</span>
             </div>
           </ReaderTooltip>
@@ -2050,117 +2367,149 @@ export function CharacterNetworkGraph({
             max={Math.max(1, totalChapters)}
             value={maxChapter}
             onChange={(e) => setMaxChapter(Number(e.target.value))}
-            className="flex-1 h-2 rounded-lg accent-[var(--ui-focus)] bg-[color-mix(in_srgb,var(--ui-border)_80%,transparent)] cursor-pointer"
+            className="w-16 sm:w-24 md:w-32 lg:w-40 min-w-[50px] h-1.5 rounded-full accent-[var(--ui-focus)] bg-[color-mix(in_srgb,var(--ui-border)_80%,transparent)] cursor-pointer shrink transition-all"
+            style={{
+              background: `linear-gradient(to right, var(--ui-focus) 0%, var(--ui-focus) ${
+                totalChapters > 1 ? ((maxChapter - 1) / (totalChapters - 1)) * 100 : 100
+              }%, color-mix(in srgb, var(--ui-border) 80%, transparent) ${
+                totalChapters > 1 ? ((maxChapter - 1) / (totalChapters - 1)) * 100 : 100
+              }%, color-mix(in srgb, var(--ui-border) 80%, transparent) 100%)`,
+            }}
           />
 
-          <span className="text-xs text-[var(--text-secondary)] font-mono font-semibold shrink-0">
+          <span className="text-[11px] text-[var(--text-tertiary)] font-mono font-medium shrink-0">
             /{totalChapters}
           </span>
 
           {maxChapter < (totalChapters || 1) ? (
-            <button
-              type="button"
-              onClick={() => setMaxChapter(totalChapters || 1)}
-              className="text-[10.5px] font-bold px-2 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--ui-focus)] hover:text-white border border-[var(--ui-border)] text-[var(--text-secondary)] transition-all cursor-pointer shrink-0"
-              title="View all chapters in this book"
-            >
-              Show All
-            </button>
+            <ReaderTooltip content="Show all interactions across the entire book">
+              <button
+                type="button"
+                onClick={() => setMaxChapter(totalChapters || 1)}
+                className="text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-[var(--bg-elevated)] hover:bg-[var(--ui-focus)] hover:text-white border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] text-[var(--text-secondary)] transition-all cursor-pointer shrink-0 whitespace-nowrap active:scale-95 shadow-2xs inline-flex items-center gap-1"
+                title="View all chapters in this book"
+              >
+                <Eye size={11} strokeWidth={2.2} />
+                <span className="hidden sm:inline">Show All</span>
+              </button>
+            </ReaderTooltip>
           ) : currentChapterIndex > 0 ? (
-            <button
-              type="button"
-              onClick={() => setMaxChapter(currentChapterIndex + 1)}
-              className="text-[10.5px] font-bold px-2 py-1 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--ui-focus)] hover:text-white border border-[var(--ui-border)] text-[var(--text-secondary)] transition-all cursor-pointer shrink-0"
-              title="Clamp to current reading chapter"
-            >
-              Sync Ch.{currentChapterIndex + 1}
-            </button>
+            <ReaderTooltip content={`Reset to current reading chapter (${currentChapterIndex + 1}) to prevent spoilers`}>
+              <button
+                type="button"
+                onClick={() => setMaxChapter(currentChapterIndex + 1)}
+                className="text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-[var(--bg-elevated)] hover:bg-[var(--ui-focus)] hover:text-white border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] text-[var(--text-secondary)] transition-all cursor-pointer shrink-0 whitespace-nowrap active:scale-95 shadow-2xs inline-flex items-center gap-1"
+                title="Clamp to current reading chapter"
+              >
+                <RotateCcw size={10} strokeWidth={2.2} />
+                <span className="hidden sm:inline">Sync Ch.{currentChapterIndex + 1}</span>
+              </button>
+            </ReaderTooltip>
           ) : null}
         </div>
 
-        {/* Right: Search, Stats & View Control Buttons */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        {/* Right: Search, Unified Filters & Tools */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Search Input */}
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" />
+            <Search
+              size={12}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none"
+            />
             <input
               type="text"
               placeholder="Find character..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-36 sm:w-48 pl-9 pr-7 py-2 rounded-xl text-xs bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_70%,transparent)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--ui-focus)] shadow-2xs transition-all"
+              className="w-24 sm:w-32 md:w-36 lg:w-40 pl-7 pr-6 py-1 rounded-lg text-xs bg-[var(--bg-secondary)]/90 focus:bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_60%,transparent)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--ui-focus)] shadow-2xs transition-all"
             />
             {searchQuery && (
               <ReaderTooltip content="Clear search">
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer p-0.5"
                 >
-                  <X size={12} />
+                  <X size={11} />
                 </button>
               </ReaderTooltip>
             )}
           </div>
 
-          {/* Entity Filter Segmented Control */}
-          <div className="hidden md:flex items-center p-0.5 rounded-xl bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] text-[11px] font-semibold shadow-2xs">
+          {/* Entity Filter Segmented Control (Cleverly omits redundant Individuals button when count equals All) */}
+          <div className="hidden md:flex items-center p-0.5 rounded-lg bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_55%,transparent)] text-[11px] shadow-2xs">
             <button
               type="button"
               onClick={() => setEntityFilter('all')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
                 entityFilter === 'all'
-                  ? 'bg-[var(--ui-focus)] text-white shadow-2xs font-bold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-2xs font-bold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
               }`}
             >
               All ({entityCounts.all})
             </button>
-            <button
-              type="button"
-              onClick={() => setEntityFilter('individuals')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                entityFilter === 'individuals'
-                  ? 'bg-[var(--ui-focus)] text-white shadow-2xs font-bold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              Individuals ({entityCounts.individuals})
-            </button>
+            {entityCounts.individuals < entityCounts.all && (
+              <button
+                type="button"
+                onClick={() => setEntityFilter('individuals')}
+                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
+                  entityFilter === 'individuals'
+                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-2xs font-bold'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
+                }`}
+              >
+                Individuals ({entityCounts.individuals})
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setEntityFilter('major')}
-              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded-md transition-all cursor-pointer whitespace-nowrap ${
                 entityFilter === 'major'
-                  ? 'bg-[var(--ui-focus)] text-white shadow-2xs font-bold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-2xs font-bold'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
               }`}
             >
               Key Figures ({entityCounts.major})
             </button>
           </div>
 
-          {/* Graph Stats Pill */}
-          <div className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] text-xs font-medium text-[var(--text-secondary)] shadow-2xs">
-            <Users size={14} className="text-[var(--ui-focus)]" />
-            <span>{visibleNodes.length} characters</span>
-            <span className="text-[var(--ui-divider)]">•</span>
-            <span>{visibleLinks.length} connections</span>
-          </div>
+          {/* Connection Tie Filter: One-click toggle between All Ties and Key Ties (2+) */}
+          <ReaderTooltip
+            content={
+              minWeight >= 2
+                ? 'Showing key ties (2+ shared scenes). Click to show all ties.'
+                : 'Showing all ties. Click to filter only key ties (2+ shared scenes) to reduce clutter.'
+            }
+          >
+            <button
+              type="button"
+              onClick={() => setMinWeight((prev) => (prev >= 2 ? 1 : 2))}
+              className={`hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                minWeight >= 2
+                  ? 'bg-[var(--ui-focus)] text-white font-bold'
+                  : 'bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_55%,transparent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium'
+              }`}
+            >
+              <Network size={12} strokeWidth={minWeight >= 2 ? 2.5 : 2} />
+              <span>{minWeight >= 2 ? 'Key Ties (2+)' : 'All Ties'}</span>
+            </button>
+          </ReaderTooltip>
 
           {/* View Tools Dock */}
-          <div className="flex items-center gap-0.5 p-1 rounded-xl bg-[var(--bg-elevated)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] shadow-2xs">
-            <ReaderTooltip content={isExporting ? 'Generating constellation poster...' : 'Export constellation poster (PNG)'}>
+          <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_55%,transparent)] shadow-2xs">
+            <ReaderTooltip content={isExporting ? 'Generating poster...' : 'Export constellation (PNG)'}>
               <button
                 type="button"
                 onClick={handleExportPoster}
                 disabled={isExporting}
-                className={`p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] transition-colors cursor-pointer ${
+                className={`p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--ui-focus)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer ${
                   isExporting ? 'opacity-60 cursor-not-allowed' : ''
                 }`}
                 aria-label="Export poster"
               >
-                {isExporting ? <Loader2 size={15} className="animate-spin text-[var(--ui-focus)]" /> : <Download size={15} />}
+                {isExporting ? <Loader2 size={13} className="animate-spin text-[var(--ui-focus)]" /> : <Download size={13} />}
               </button>
             </ReaderTooltip>
 
@@ -2168,21 +2517,10 @@ export function CharacterNetworkGraph({
               <button
                 type="button"
                 onClick={() => handleFitView(true)}
-                className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] transition-colors cursor-pointer"
+                className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--ui-focus)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
                 aria-label="Fit constellation"
               >
-                <Focus size={15} />
-              </button>
-            </ReaderTooltip>
-
-            <ReaderTooltip content="Reset View">
-              <button
-                type="button"
-                onClick={handleResetZoom}
-                className="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] transition-colors cursor-pointer"
-                aria-label="Reset zoom"
-              >
-                <RotateCcw size={15} />
+                <Focus size={13} />
               </button>
             </ReaderTooltip>
 
@@ -2191,10 +2529,10 @@ export function CharacterNetworkGraph({
                 <button
                   type="button"
                   onClick={onToggleFullscreen}
-                  className="p-2 rounded-lg text-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-md text-[var(--ui-focus)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
                   aria-label="Toggle fullscreen"
                 >
-                  {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                  {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
                 </button>
               </ReaderTooltip>
             )}
@@ -2207,7 +2545,8 @@ export function CharacterNetworkGraph({
         {/* Interactive Force-Directed Canvas */}
         <div
           id="graph-canvas-bg"
-          className="flex-1 h-full relative cursor-grab active:cursor-grabbing overflow-hidden min-w-0"
+          className="flex-1 h-full relative cursor-grab active:cursor-grabbing overflow-hidden min-w-0 bg-[var(--bg-primary)]"
+          style={{ backgroundColor: 'var(--bg-primary)' }}
           onPointerDown={handleBackgroundPointerDown}
           onPointerMove={handleBackgroundPointerMove}
           onPointerUp={handleBackgroundPointerUp}
@@ -2218,6 +2557,28 @@ export function CharacterNetworkGraph({
             handleFitView(true);
           }}
         >
+          {/* ─── Pathfinder Shortest Connection Banner ─── */}
+          {shortestPath && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--bg-elevated)]/95 backdrop-blur-md border border-[var(--ui-focus)] text-xs font-semibold shadow-lg select-none">
+              <Route size={14} className="text-[#eab308] shrink-0" />
+              <span className="text-[var(--text-secondary)]">Pathfinder:</span>
+              <span className="text-[var(--text-primary)] font-bold">
+                {shortestPath.pathNodes.join(' ➔ ')}
+              </span>
+              <span className="text-[var(--text-tertiary)] text-[11px] font-mono">
+                ({shortestPath.pathNodes.length - 1} {shortestPath.pathNodes.length - 1 === 1 ? 'step' : 'steps'})
+              </span>
+              <button
+                type="button"
+                onClick={() => setPathfinderTargetId(null)}
+                className="p-1 rounded-full hover:bg-[var(--ui-hover)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] cursor-pointer ml-1"
+                title="Clear path"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
           <svg
             ref={svgRef}
             className="w-full h-full pointer-events-none"
@@ -2237,9 +2598,9 @@ export function CharacterNetworkGraph({
                 <stop offset="100%" stopColor="var(--ui-focus)" stopOpacity="0" />
               </radialGradient>
 
-              {/* 3D Node Elevation Drop Shadow */}
+              {/* 3D Node Elevation Drop Shadow (Disabled dynamically during pan/drag for 60fps) */}
               <filter id="graph-node-shadow" x="-30%" y="-30%" width="160%" height="160%">
-                <feDropShadow dx="0" dy="3" stdDeviation="5" floodOpacity="0.25" />
+                <feDropShadow dx="0" dy="3" stdDeviation={isInteracting ? "0" : "5"} floodOpacity={isInteracting ? "0" : "0.25"} />
               </filter>
 
               {/* Luminous Edge Glow for Active Connections */}
@@ -2260,44 +2621,92 @@ export function CharacterNetworkGraph({
                   </clipPath>
                 );
               })}
+
+              {/* Node Avatar Linear Gradients for Rich Theme-Adaptive SVG Circles */}
+              {visibleNodes.map((node) => {
+                const safeId = `avatar-grad-${node.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                const hexMatches = node.avatarColor?.match(/#(?:[0-9a-fA-F]{3,8})/g);
+                const col1 = hexMatches?.[0] || '#8B6914';
+                const col2 = hexMatches?.[1] || '#6E5310';
+
+                return (
+                  <linearGradient key={safeId} id={safeId} x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor={col1} />
+                    <stop offset="100%" stopColor={col2} />
+                  </linearGradient>
+                );
+              })}
             </defs>
 
+            {/* Solid Opaque Background: Guarantees zero bleed-through from underlying reader or home desktop views */}
+            <rect x={viewBoxX} y={viewBoxY} width={viewBoxW} height={viewBoxH} fill="var(--bg-primary)" />
             {/* Backdrop: Ambient Spotlight & Constellation Grid */}
             <rect x={viewBoxX} y={viewBoxY} width={viewBoxW} height={viewBoxH} fill="url(#graph-ambient-glow)" pointerEvents="none" />
             <rect x={viewBoxX} y={viewBoxY} width={viewBoxW} height={viewBoxH} fill="url(#graph-constellation-grid)" pointerEvents="none" />
 
             <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
-              {/* ─── Edges: Subtle Hairlines by Default, Illuminated on Focus / Scene Link ─── */}
+              {/* ─── Edges: Subtle Hairlines by Default, Illuminated on Focus / Hover / Scene Link ─── */}
               {visibleLinks.map((link, idx) => {
                 const srcPos = getNodePos(link.source.id, link.source.x, link.source.y);
                 const tgtPos = getNodePos(link.target.id, link.target.x, link.target.y);
 
                 const isConnectedToFocus =
                   activeFocusId && (link.source.id === activeFocusId || link.target.id === activeFocusId);
+                const isConnectedToHover =
+                  hoveredNodeId && (link.source.id === hoveredNodeId || link.target.id === hoveredNodeId);
                 const isThisEdgeSelected = selectedEdge === link;
                 const isExpandedSceneLink =
                   Boolean(expandedConnName) &&
                   selectedNodeId &&
                   ((link.source.id === selectedNodeId && link.target.id === expandedConnName) ||
                     (link.target.id === selectedNodeId && link.source.id === expandedConnName));
-                const isLinkActive = isConnectedToFocus || isThisEdgeSelected || isExpandedSceneLink;
+                const isPathEdge = Boolean(
+                  shortestPath &&
+                  (shortestPath.pathEdges.has(`${link.source.id}:::${link.target.id}`) ||
+                   shortestPath.pathEdges.has(`${link.target.id}:::${link.source.id}`))
+                );
 
-                const sceneWeight = Math.min(10, Math.max(1, link.sampleQuotes.length || link.weight));
-                const strokeWidth = isExpandedSceneLink
-                  ? Math.min(6.5, 3.5 + sceneWeight * 0.35)
-                  : isLinkActive
-                  ? Math.min(4.8, 1.8 + sceneWeight * 0.3)
-                  : Math.min(2.4, 0.75 + sceneWeight * 0.16);
+                const rel = getSemanticRelationship(link.sampleQuotes);
+                const isBondFilterMatch = activeBondFilter ? rel.type === activeBondFilter : false;
+                const isLinkActive =
+                  isConnectedToFocus ||
+                  isConnectedToHover ||
+                  isThisEdgeSelected ||
+                  isExpandedSceneLink ||
+                  isPathEdge ||
+                  isBondFilterMatch;
 
-                const strokeOpacity = isExpandedSceneLink
-                  ? 1
+                // Subtle, elegant stroke dimensions matching Shiori parchment standards
+                const strokeWidth = isPathEdge
+                  ? 2.5
+                  : isExpandedSceneLink
+                  ? 2.4
+                  : isBondFilterMatch
+                  ? 2.2
                   : isLinkActive
-                  ? Math.min(0.98, 0.7 + sceneWeight * 0.04)
-                  : activeFocusId
+                  ? 1.6
+                  : 0.8;
+
+                const strokeOpacity = isPathEdge || isExpandedSceneLink
+                  ? 0.95
+                  : activeBondFilter
+                  ? isBondFilterMatch
+                    ? 0.92
+                    : 0.03
+                  : isLinkActive
+                  ? 0.85
+                  : shortestPath
+                  ? 0.02
+                  : activeFocusId || hoveredNodeId
                   ? 0.025
-                  : Math.min(0.35, 0.1 + sceneWeight * 0.03);
+                  : 0.16;
 
-                const strokeColor = isLinkActive ? 'var(--ui-focus)' : 'var(--text-secondary)';
+                // Semantic bond coloring (Love & Affection, Rivals, Allies, Fealty) for active ties, quiet border for idle hairlines
+                const strokeColor = isPathEdge
+                  ? '#eab308'
+                  : isLinkActive
+                  ? rel.color
+                  : 'var(--ui-border)';
 
                 return (
                   <g key={`${link.source.id}-${link.target.id}-${idx}`} className="pointer-events-auto">
@@ -2324,22 +2733,21 @@ export function CharacterNetworkGraph({
                       }}
                     />
 
-                    {/* Luminous glow underlay for active links */}
-                    {isLinkActive && (
+                    {/* Subtle warm accent underlay ONLY for expanded active scene link or path edge */}
+                    {(isExpandedSceneLink || isPathEdge) && !isInteracting && (
                       <line
                         x1={srcPos.x}
                         y1={srcPos.y}
                         x2={tgtPos.x}
                         y2={tgtPos.y}
-                        stroke="var(--ui-focus)"
-                        strokeWidth={isExpandedSceneLink ? 12 : strokeWidth + 4}
-                        strokeOpacity={isExpandedSceneLink ? 0.55 : 0.3}
+                        stroke={isPathEdge ? '#eab308' : rel.color}
+                        strokeWidth={strokeWidth + 2}
+                        strokeOpacity={0.25}
                         strokeLinecap="round"
-                        filter="url(#graph-edge-glow)"
                       />
                     )}
 
-                    {/* Connection line: hairline by default, glowing when selected */}
+                    {/* Connection line: subtle hairline by default, elegant semantic color when selected */}
                     <line
                       x1={srcPos.x}
                       y1={srcPos.y}
@@ -2352,16 +2760,16 @@ export function CharacterNetworkGraph({
                       className="transition-[stroke-opacity,stroke-width] duration-200"
                     />
 
-                    {/* Flowing animated pulse for active connection */}
-                    {isLinkActive && (
+                    {/* Flowing animated dash ONLY on focused inspection pair or path */}
+                    {(isPathEdge || isExpandedSceneLink) && (
                       <line
                         x1={srcPos.x}
                         y1={srcPos.y}
                         x2={tgtPos.x}
                         y2={tgtPos.y}
-                        stroke="var(--ui-focus)"
+                        stroke={isPathEdge ? '#eab308' : rel.color}
                         strokeWidth={strokeWidth}
-                        strokeDasharray={isExpandedSceneLink ? '8 4' : '6 4'}
+                        strokeDasharray={isPathEdge ? '8 4' : '6 4'}
                         strokeLinecap="round"
                         className="graph-flow-edge"
                       />
@@ -2377,27 +2785,36 @@ export function CharacterNetworkGraph({
                   className="pointer-events-none select-none z-30"
                 >
                   <rect
-                    x={-80}
+                    x={-85}
                     y={-14}
-                    width={160}
+                    width={170}
                     height={28}
                     rx={14}
                     fill="var(--bg-elevated)"
                     stroke="var(--ui-focus)"
-                    strokeWidth={1.5}
-                    filter="drop-shadow(0 4px 14px rgba(0,0,0,0.18))"
+                    strokeWidth={1.2}
+                    filter="drop-shadow(0 2px 8px rgba(0,0,0,0.12))"
                   />
-                  <text
-                    textAnchor="middle"
-                    y={4.5}
-                    fontSize={10.5}
-                    fontWeight="bold"
-                    fill="var(--text-primary)"
-                    fontFamily="sans-serif"
-                  >
-                    {hoveredEdge.link.sampleQuotes.length || hoveredEdge.link.weight}{' '}
-                    {(hoveredEdge.link.sampleQuotes.length || hoveredEdge.link.weight) === 1 ? 'shared scene' : 'shared scenes'}
-                  </text>
+                  {(() => {
+                    const rel = getSemanticRelationship(hoveredEdge.link.sampleQuotes);
+                    const count = hoveredEdge.link.sampleQuotes.length || hoveredEdge.link.weight;
+                    return (
+                      <g>
+                        <circle cx={-68} cy={0} r={4.5} fill={rel.color} />
+                        <text
+                          textAnchor="start"
+                          x={-56}
+                          y={4}
+                          fontSize={10.5}
+                          fontWeight="bold"
+                          fill="var(--text-primary)"
+                          fontFamily="sans-serif"
+                        >
+                          {rel.label} · {count} {count === 1 ? 'scene' : 'scenes'}
+                        </text>
+                      </g>
+                    );
+                  })()}
                 </g>
               )}
 
@@ -2407,10 +2824,31 @@ export function CharacterNetworkGraph({
                 const isMatch = !searchQuery || node.name.toLowerCase().includes(searchQuery.toLowerCase());
                 const isSelected = selectedNodeId === node.id;
                 const isScenePartner = expandedConnName === node.id;
-                const isConnectedNeighbor = highlightedNodeIds ? highlightedNodeIds.has(node.id) : false;
-                const isDimmed = (highlightedNodeIds && !highlightedNodeIds.has(node.id)) || !isMatch;
+                const isHovered = hoveredNodeId === node.id;
+                const isConnectedNeighbor = highlightedNodeIds
+                  ? highlightedNodeIds.has(node.id)
+                  : hoveredNeighborIds
+                  ? hoveredNeighborIds.has(node.id)
+                  : false;
+                const isPathNode = Boolean(pathNodeSet?.has(node.id));
+                const isNodeInBondFilter = activeBondFilter
+                  ? visibleLinks.some(
+                      (l) =>
+                        (l.source.id === node.id || l.target.id === node.id) &&
+                        getSemanticRelationship(l.sampleQuotes).type === activeBondFilter
+                    )
+                  : true;
+                const isDimmed =
+                  shortestPath
+                    ? !isPathNode
+                    : activeBondFilter
+                    ? !isNodeInBondFilter
+                    : (highlightedNodeIds && !highlightedNodeIds.has(node.id)) ||
+                      (hoveredNeighborIds && !hoveredNeighborIds.has(node.id)) ||
+                      !isMatch;
                 const portrait = portraitMap[node.name] || getCachedCharacterPortrait(node.name, bookTitle);
                 const safeId = `clip-${node.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+                const gradId = `avatar-grad-${node.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
                 const hasImg = Boolean(portrait?.imageUrl);
 
                 return (
@@ -2419,8 +2857,24 @@ export function CharacterNetworkGraph({
                     transform={`translate(${pos.x}, ${pos.y})`}
                     className="pointer-events-auto cursor-pointer"
                     opacity={isDimmed ? 0.12 : 1}
+                    onPointerEnter={() => {
+                      setHoveredNodeId(node.id);
+                      if (!isInteracting) {
+                        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                        hoverTimerRef.current = setTimeout(() => {
+                          setHoverCodex({ node, x: pos.x, y: pos.y });
+                        }, 220);
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      setHoveredNodeId(null);
+                      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                      setHoverCodex(null);
+                    }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                      setHoverCodex(null);
                       handleSelectNode(node.id);
                     }}
                     onDoubleClick={(e) => {
@@ -2432,6 +2886,8 @@ export function CharacterNetworkGraph({
                     }}
                     onPointerDown={(e) => {
                       e.stopPropagation();
+                      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                      setHoverCodex(null);
                       if (animFrameRef.current) {
                         cancelAnimationFrame(animFrameRef.current);
                         animFrameRef.current = null;
@@ -2457,6 +2913,24 @@ export function CharacterNetworkGraph({
                       </>
                     )}
 
+                    {/* Pathfinder Route Node Highlight */}
+                    {isPathNode && !isSelected && (
+                      <>
+                        <circle
+                          r={node.radius + 10}
+                          fill="rgba(234, 179, 8, 0.18)"
+                        />
+                        <circle
+                          r={node.radius + 5}
+                          fill="none"
+                          stroke="#eab308"
+                          strokeWidth={2.5}
+                          strokeDasharray="4 2"
+                          className="graph-flow-edge"
+                        />
+                      </>
+                    )}
+
                     {/* Active Scene Partner Highlight */}
                     {isScenePartner && !isSelected && (
                       <>
@@ -2476,7 +2950,7 @@ export function CharacterNetworkGraph({
                     )}
 
                     {/* Connected Neighbor Subtle Accent Rim (only when another character is selected) */}
-                    {isConnectedNeighbor && !isSelected && !isScenePartner && (
+                    {isConnectedNeighbor && !isSelected && !isScenePartner && !isPathNode && (
                       <circle
                         r={node.radius + 4}
                         fill="none"
@@ -2486,8 +2960,8 @@ export function CharacterNetworkGraph({
                       />
                     )}
 
-                    {/* 3D Elevated Node Body */}
-                    <g filter="url(#graph-node-shadow)">
+                    {/* 3D Elevated Node Body (Filter disabled during drag/pan for 60fps) */}
+                    <g filter={isInteracting ? undefined : "url(#graph-node-shadow)"}>
                       {hasImg ? (
                         <>
                           <circle
@@ -2506,8 +2980,8 @@ export function CharacterNetworkGraph({
                           <circle
                             r={node.radius}
                             fill="none"
-                            stroke={isSelected || isScenePartner ? 'var(--ui-focus)' : 'var(--bg-elevated)'}
-                            strokeWidth={isSelected ? 3.5 : isScenePartner ? 3 : 2.5}
+                            stroke={isPathNode ? '#eab308' : isSelected || isScenePartner ? 'var(--ui-focus)' : 'var(--bg-elevated)'}
+                            strokeWidth={isPathNode ? 3.5 : isSelected ? 3.5 : isScenePartner ? 3 : 2.5}
                             className="transition-colors duration-200"
                           />
                         </>
@@ -2515,19 +2989,19 @@ export function CharacterNetworkGraph({
                         <>
                           <circle
                             r={node.radius}
-                            fill={node.avatarColor}
-                            stroke={isSelected || isScenePartner ? 'var(--ui-focus)' : 'var(--bg-elevated)'}
-                            strokeWidth={isSelected ? 3.5 : isScenePartner ? 3 : 2.5}
+                            fill={`url(#${gradId})`}
+                            stroke={isPathNode ? '#eab308' : isSelected || isScenePartner || isHovered ? 'var(--ui-focus)' : 'var(--bg-elevated)'}
+                            strokeWidth={isPathNode ? 3.5 : isSelected ? 3.5 : isScenePartner || isHovered ? 3 : 2.5}
                             className="transition-colors duration-200"
                           />
                           <text
                             textAnchor="middle"
                             dy="4.5"
                             fontSize={Math.max(10, node.radius * 0.44)}
-                            fontWeight="900"
+                            fontWeight="800"
                             fill="#ffffff"
                             fontFamily="serif"
-                            className="select-none pointer-events-none drop-shadow-xs"
+                            className="select-none pointer-events-none drop-shadow-sm"
                           >
                             {node.name.slice(0, 2).toUpperCase()}
                           </text>
@@ -2594,33 +3068,28 @@ export function CharacterNetworkGraph({
                       </g>
                     ) : (
                       <g transform={`translate(0, ${node.radius + 15})`}>
-                        {/* Background halo outline: fill="none" guarantees stroke never encroaches inside letters */}
+                        {/* Background pill badge for clean legibility against crossing lines */}
+                        <rect
+                          x={-(Math.max(32, node.name.length * 3.6 + 8))}
+                          y={-8.5}
+                          width={Math.max(64, node.name.length * 7.2 + 16)}
+                          height={17}
+                          rx={8.5}
+                          fill="var(--bg-elevated)"
+                          fillOpacity={0.92}
+                          stroke={isHovered || isConnectedNeighbor ? 'var(--ui-focus)' : 'color-mix(in srgb, var(--ui-border) 60%, transparent)'}
+                          strokeWidth={isHovered ? 1.2 : 0.8}
+                          className="pointer-events-none select-none shadow-2xs"
+                        />
                         <text
                           textAnchor="middle"
-                          fontSize={12}
-                          fontWeight={isConnectedNeighbor ? '700' : '600'}
-                          fill="none"
-                          stroke="var(--bg-elevated)"
-                          strokeWidth={2.4}
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
+                          dy="3.2"
+                          fontSize={10.5}
+                          fontWeight={isConnectedNeighbor || isHovered ? '700' : '600'}
+                          fill={isConnectedNeighbor || isHovered ? 'var(--text-primary)' : 'var(--text-secondary)'}
                           style={{
                             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            letterSpacing: '0.025em',
-                          }}
-                          className="select-none pointer-events-none"
-                        >
-                          {node.name}
-                        </text>
-                        {/* Crisp foreground text with comfortable letter spacing and zero smudging */}
-                        <text
-                          textAnchor="middle"
-                          fontSize={12}
-                          fontWeight={isConnectedNeighbor ? '700' : '600'}
-                          fill={isConnectedNeighbor ? 'var(--text-primary)' : 'var(--text-secondary)'}
-                          style={{
-                            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                            letterSpacing: '0.025em',
+                            letterSpacing: '0.015em',
                           }}
                           className="select-none pointer-events-none"
                         >
@@ -2631,17 +3100,152 @@ export function CharacterNetworkGraph({
                   </g>
                 );
               })}
+
+              {/* Mini Hover Codex Tooltip Card */}
+              {hoverCodex && !selectedNodeId && !selectedEdge && !isInteracting && (
+                <g
+                  transform={`translate(${hoverCodex.x}, ${hoverCodex.y - hoverCodex.node.radius - 82})`}
+                  className="pointer-events-none select-none z-40 transition-all duration-150"
+                >
+                  <rect
+                    x={-105}
+                    y={-12}
+                    width={210}
+                    height={78}
+                    rx={14}
+                    fill="var(--bg-elevated)"
+                    stroke="color-mix(in srgb, var(--ui-border) 80%, transparent)"
+                    strokeWidth={1}
+                    filter={isInteracting ? undefined : "url(#graph-node-shadow)"}
+                  />
+                  <polygon
+                    points="-6,66 6,66 0,73"
+                    fill="var(--bg-elevated)"
+                    stroke="color-mix(in srgb, var(--ui-border) 80%, transparent)"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={0}
+                    y={12}
+                    textAnchor="middle"
+                    fontSize={12}
+                    fontWeight="bold"
+                    fill="var(--text-primary)"
+                    fontFamily="sans-serif"
+                  >
+                    {hoverCodex.node.name}
+                  </text>
+                  <text
+                    x={0}
+                    y={31}
+                    textAnchor="middle"
+                    fontSize={10.5}
+                    fill="var(--text-tertiary)"
+                    fontFamily="sans-serif"
+                  >
+                    First seen Ch. {hoverCodex.node.firstChapter + 1} • {hoverCodex.node.totalMentions} mentions
+                  </text>
+                  <text
+                    x={0}
+                    y={50}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fill="var(--ui-focus)"
+                    fontWeight="600"
+                    fontFamily="sans-serif"
+                  >
+                    Click to view dossier & scenes
+                  </text>
+                </g>
+              )}
             </g>
           </svg>
 
-          {/* ─── Legend / Hint Overlay ─── */}
-          <div className="absolute bottom-3 left-3 pointer-events-none text-[10.5px] text-[var(--text-tertiary)] flex items-center gap-2.5 bg-[var(--bg-elevated)]/85 backdrop-blur-xs px-3.5 py-1.5 rounded-full border border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)] shadow-xs">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[var(--ui-focus)]" />
-              <span>Click character to focus ties</span>
+          {/* ─── Interactive Bond Legend & Metrics Dock ─── */}
+          <div className="absolute bottom-3 left-3 flex items-center gap-1.5 sm:gap-2 bg-[var(--bg-elevated)]/95 backdrop-blur-md p-1 sm:px-3 sm:py-1.5 rounded-2xl border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] shadow-md select-none text-[10.5px] z-20 max-w-[calc(100vw-120px)] overflow-x-auto scrollbar-none">
+            {/* Cast & Ties Counter */}
+            <span className="hidden sm:flex items-center gap-1.5 font-medium text-[var(--text-secondary)] shrink-0">
+              <Users size={12} className="text-[var(--ui-focus)]" />
+              <span>{visibleNodes.length} cast</span>
+              <span className="text-[var(--ui-divider)]">•</span>
+              <span>{visibleLinks.length} ties</span>
             </span>
-            <span>•</span>
-            <span>Drag to reposition</span>
+            <span className="hidden sm:inline text-[var(--ui-divider)] shrink-0">|</span>
+
+            {/* Interactive Bond Filter Chips */}
+            <div className="flex items-center gap-1 shrink-0">
+              <ReaderTooltip content={activeBondFilter === 'bond' ? 'Show all bonds' : 'Filter Love & Affection ties'}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveBondFilter(activeBondFilter === 'bond' ? null : 'bond');
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeBondFilter === 'bond'
+                      ? 'bg-[#d94677] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)]'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#d94677]" />
+                  <span>Love</span>
+                </button>
+              </ReaderTooltip>
+
+              <ReaderTooltip content={activeBondFilter === 'conflict' ? 'Show all bonds' : 'Filter Rivals & Conflict ties'}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveBondFilter(activeBondFilter === 'conflict' ? null : 'conflict');
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeBondFilter === 'conflict'
+                      ? 'bg-[#c2410c] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)]'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c2410c]" />
+                  <span>Rivals</span>
+                </button>
+              </ReaderTooltip>
+
+              <ReaderTooltip content={activeBondFilter === 'ally' ? 'Show all bonds' : 'Filter Comrades & Allies ties'}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveBondFilter(activeBondFilter === 'ally' ? null : 'ally');
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeBondFilter === 'ally'
+                      ? 'bg-[#2e7d32] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)]'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2e7d32]" />
+                  <span>Allies</span>
+                </button>
+              </ReaderTooltip>
+
+              <ReaderTooltip content={activeBondFilter === 'fealty' ? 'Show all bonds' : 'Filter Fealty & Devotion ties'}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveBondFilter(activeBondFilter === 'fealty' ? null : 'fealty');
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg font-medium transition-all cursor-pointer ${
+                    activeBondFilter === 'fealty'
+                      ? 'bg-[#b45309] text-white shadow-xs font-bold'
+                      : 'text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)]'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#b45309]" />
+                  <span>Fealty</span>
+                </button>
+              </ReaderTooltip>
+            </div>
           </div>
 
           {/* ─── Floating Canvas Quick-Controls Dock ─── */}

@@ -42,7 +42,17 @@ import type { ReaderContent } from './readerContent';
 import '@/styles/premium-reader.css';
 import '@/styles/themes/paper-theme.css';
 import '@/styles/page-flip.css';
+import '@/styles/marginalia.css';
 import { TTSControlBar } from './TTSControlBar';
+import { Compass, Brain, Calendar } from 'lucide-react';
+import { CartographyHUD } from './CartographyHUD';
+import { VocabularyReviewModal } from './VocabularyReviewModal';
+import {
+  detectEraFromTitle,
+  getNextPovChapter,
+  getPrevPovChapter,
+  getPovArcProgress,
+} from '@/lib/povChronology';
 
 interface PremiumEpubReaderProps {
   bookPath: string;
@@ -69,6 +79,22 @@ function sanitizeChapterHtml(content: string): string {
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
     ALLOWED_URI_REGEXP: EPUB_SAFE_URI_REGEXP,
   });
+}
+
+function parseNotePreview(noteContent?: string): string {
+  if (!noteContent) return '';
+  try {
+    const parsed = JSON.parse(noteContent);
+    if (parsed.type === 'define' && parsed.data?.meanings) {
+      return parsed.data.meanings.map((m: any) => m.definitions?.[0]?.definition).filter(Boolean).join('; ');
+    }
+    if (parsed.type === 'translate' && parsed.data?.translated_text) {
+      return parsed.data.translated_text;
+    }
+  } catch {
+    // Plain text note
+  }
+  return noteContent;
 }
 
 /**
@@ -679,7 +705,7 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
   const readingSettings = useReadingSettings();
-  const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle, fontSize, uiScale, margin, paperTextureIntensity } = readingSettings;
+  const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle, fontSize, uiScale, margin, paperTextureIntensity, marginaliaEnabled } = readingSettings;
 
   /** Signature of everything that changes how pagination lays out. When it
    *  changes, the paginated page cache must be rebuilt (F2). Initialised to
@@ -741,6 +767,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchHighlight, setSearchHighlight] = useState<string | null>(null); // NEW: Store search term for highlighting
+
+  // Next-Gen Reader Features State (Cartography, Spaced Repetition, Multi-POV Arc)
+  const [isMapHUDOpen, setIsMapHUDOpen] = useState(false);
+  const [isVocabModalOpen, setIsVocabModalOpen] = useState(false);
+  const [activePovCharacter, setActivePovCharacter] = useState<string | null>(null);
+  const [povChapterIndices, setPovChapterIndices] = useState<number[]>([]);
 
   // Word count for current chapter and book pacing calculations
   const chapterWordCount = useMemo(() => {
@@ -1202,13 +1234,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // (desktop hover over the top bar / its dropdowns) is active; re-arm 2s
   // after they clear.
   useEffect(() => {
-    if (!isTopBarVisible || isSidebarOpen || isReaderSettingsOpen || isPointerOverTopBar) {
+    if (!isTopBarVisible || isSidebarOpen || isReaderSettingsOpen || isPointerOverTopBar || isMapHUDOpen || isVocabModalOpen) {
       cancelTopBarHide();
       return;
     }
     scheduleTopBarHide();
     return cancelTopBarHide;
-  }, [isTopBarVisible, isSidebarOpen, isReaderSettingsOpen, isPointerOverTopBar, scheduleTopBarHide, cancelTopBarHide]);
+  }, [isTopBarVisible, isSidebarOpen, isReaderSettingsOpen, isPointerOverTopBar, isMapHUDOpen, isVocabModalOpen, scheduleTopBarHide, cancelTopBarHide]);
+
+  // Automatically hide reader top bar when Cartography HUD or Vocabulary Review modal opens
+  useEffect(() => {
+    if (isMapHUDOpen || isVocabModalOpen) {
+      setTopBarVisible(false);
+    }
+  }, [isMapHUDOpen, isVocabModalOpen, setTopBarVisible]);
 
   // ────────────────────────────────────────────────────────────
   // SCROLL PROGRESS TRACKING (optimized)
@@ -1582,16 +1621,30 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   // ────────────────────────────────────────────────────────────
   const nextChapter = useCallback(() => {
     if (!metadata) return;
+    if (activePovCharacter && povChapterIndices.length > 0) {
+      const nextIdx = getNextPovChapter(currentIndex, povChapterIndices);
+      if (nextIdx !== null) {
+        loadChapter(nextIdx, null, 0);
+        return;
+      }
+    }
     if (currentIndex < metadata.total_chapters - 1) {
       loadChapter(currentIndex + 1, null, 0); // Start at beginning of next chapter
     }
-  }, [metadata, currentIndex, loadChapter]);
+  }, [metadata, currentIndex, loadChapter, activePovCharacter, povChapterIndices]);
 
   const prevChapter = useCallback((startAtEnd = false) => {
+    if (activePovCharacter && povChapterIndices.length > 0) {
+      const prevIdx = getPrevPovChapter(currentIndex, povChapterIndices);
+      if (prevIdx !== null) {
+        loadChapter(prevIdx, null, startAtEnd ? 1.0 : 0);
+        return;
+      }
+    }
     if (currentIndex > 0) {
       loadChapter(currentIndex - 1, null, startAtEnd ? 1.0 : 0); // If paging backward, start at end of previous chapter
     }
-  }, [currentIndex, loadChapter]);
+  }, [currentIndex, loadChapter, activePovCharacter, povChapterIndices]);
 
   useEffect(() => {
     if (!hasLoadedChapterRef.current) {
@@ -2126,6 +2179,20 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
     onScrollBottom: scrollToBottom,
     onToggleFullscreen: toggleFullscreen,
     onToggleBookmark: handleToggleBookmark,
+    onToggleMapHUD: () => {
+      setIsMapHUDOpen(prev => {
+        const next = !prev;
+        if (next) setTopBarVisible(false);
+        return next;
+      });
+    },
+    onToggleVocabModal: () => {
+      setIsVocabModalOpen(prev => {
+        const next = !prev;
+        if (next) setTopBarVisible(false);
+        return next;
+      });
+    },
     isPaginatedOrTwoPage: isHorizontalPaging,
     pageFlipEnabled: pageFlipEnabled && !isHorizontalPaging,
   });
@@ -2524,6 +2591,32 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   }, []);
 
   // ────────────────────────────────────────────────────────────
+  // RENDER COMPUTATIONS (Hooks must be called before early returns)
+  // ────────────────────────────────────────────────────────────
+
+  const progressPercentage = metadata
+    ? ((currentIndex + 1) / metadata.total_chapters) * 100
+    : 0;
+
+  // Use the TOC to resolve readable chapter names instead of the renderer's manifest ID.
+  const chapterSubtitle =
+    findCurrentTocEntry(toc, currentIndex)?.label?.trim() ||
+    (metadata ? `Chapter ${currentIndex + 1} of ${metadata.total_chapters}` : currentChapter?.title || '');
+
+  const detectedEra = useMemo(() => {
+    return detectEraFromTitle(chapterSubtitle);
+  }, [chapterSubtitle]);
+
+  const chapterMarginNotes = useMemo(() => {
+    const chapterLoc = `chapter_${currentIndex}`;
+    return currentAnnotations.filter(
+      (a) =>
+        (a.location === chapterLoc || a.location.startsWith(`${chapterLoc}:`)) &&
+        ((a.noteContent && a.noteContent.trim().length > 0) || a.annotationType === 'note')
+    );
+  }, [currentAnnotations, currentIndex]);
+
+  // ────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────
 
@@ -2549,15 +2642,6 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   if (!currentChapter) {
     return null;
   }
-
-  const progressPercentage = metadata
-    ? ((currentIndex + 1) / metadata.total_chapters) * 100
-    : 0;
-
-  // Use the TOC to resolve readable chapter names instead of the renderer's manifest ID.
-  const chapterSubtitle =
-    findCurrentTocEntry(toc, currentIndex)?.label?.trim() ||
-    (metadata ? `Chapter ${currentIndex + 1} of ${metadata.total_chapters}` : currentChapter.title);
 
   return (
     <div 
@@ -2673,6 +2757,34 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
             </button>
+
+            <ReaderTooltip content="Book Map & Cartography HUD (M)">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMapHUDOpen(true);
+                  setTopBarVisible(false);
+                }}
+                className={`premium-control-button ${isMapHUDOpen ? 'premium-control-button--active' : ''}`}
+                aria-label="Book Map & Cartography HUD"
+              >
+                <Compass className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
+
+            <ReaderTooltip content="Vocabulary Spaced Repetition (V)">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVocabModalOpen(true);
+                  setTopBarVisible(false);
+                }}
+                className={`premium-control-button ${isVocabModalOpen ? 'premium-control-button--active' : ''}`}
+                aria-label="Vocabulary Review Deck"
+              >
+                <Brain className="premium-control-icon" />
+              </button>
+            </ReaderTooltip>
           </>
         }
         />
@@ -2717,9 +2829,10 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
           onClick={handleCanvasClick}
           className={`premium-reading-canvas ${isFocusMode ? 'premium-reading-canvas--focus-mode' : ''} ${twoPageView ? 'premium-reading-canvas--two-page' : isPaginated ? 'premium-reading-canvas--paginated' : ''} ${isLoading ? 'opacity-50 pointer-events-none transition-opacity duration-300' : 'opacity-100 transition-opacity duration-300'}`}
         >
-          <div
-            ref={contentContainerRef}
-            onClick={(e) => {
+          <div className="marginalia-wrapper justify-center">
+            <div
+              ref={contentContainerRef}
+              onClick={(e) => {
               // External links (http/https/mailto) → system browser; internal
               // links (anchors, epubcfi, relative) bubble on untouched.
               if (handleExternalLinkClick(e.nativeEvent, contentContainerRef.current)) {
@@ -2780,17 +2893,58 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
                 className={`premium-chapter-page ${currentIndex === 0 ? 'premium-chapter-page--first' : ''}`}
                 data-chapter-index={currentIndex}
               >
+                {detectedEra && (
+                  <div className="flex justify-center mb-3">
+                    <div className="reader-in-universe-era-badge">
+                      <Calendar size={13} className="text-amber-500 shrink-0" />
+                      <span>{detectedEra}</span>
+                    </div>
+                  </div>
+                )}
                 <ChapterHtml content={currentChapter.content} isFirstPage={currentIndex === 0} />
               </div>
             )}
 
-          {/* Doodle Canvas Overlay — must be inside the scrolling container to match its height */}
-          {isDoodleMode && (
-            <DoodleCanvas
-              bookId={bookId}
-              pageId={currentPageId}
-              containerRef={contentContainerRef}
-            />
+            {/* Doodle Canvas Overlay — must be inside the scrolling container to match its height */}
+            {isDoodleMode && (
+              <DoodleCanvas
+                bookId={bookId}
+                pageId={currentPageId}
+                containerRef={contentContainerRef}
+              />
+            )}
+          </div>
+
+          {/* Wide-Margin Marginalia Rail (Physical Scriptorium Mode) */}
+          {marginaliaEnabled && !isAndroid && chapterMarginNotes.length > 0 && (
+            <aside className="marginalia-rail shrink-0" aria-label="Margin Notes">
+              {chapterMarginNotes.map((note) => (
+                <div
+                  key={note.id}
+                  className="marginalia-note-card cursor-pointer"
+                  onClick={() => {
+                    if (note.id) {
+                      scrollToAnnotationMark(contentContainerRef.current || document.body, note.id);
+                    }
+                  }}
+                >
+                  <div className="marginalia-card-header">
+                    <span className="marginalia-tag">
+                      <span className="marginalia-color-dot" style={{ backgroundColor: note.color }} />
+                      <span>{note.annotationType}</span>
+                    </span>
+                  </div>
+                  {note.selectedText && (
+                    <div className="marginalia-quote">
+                      "{note.selectedText}"
+                    </div>
+                  )}
+                  <div className="marginalia-note-text">
+                    {parseNotePreview(note.noteContent)}
+                  </div>
+                </div>
+              ))}
+            </aside>
           )}
         </div>
       </div>
@@ -2882,7 +3036,19 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         currentIndex={currentIndex}
         totalChapters={metadata?.total_chapters}
         bookTitle={metadata?.title || readerContent?.title}
+        activePovCharacter={activePovCharacter}
         onNavigate={loadChapter}
+        onStartSinglePovArc={(char, indices) => {
+          setActivePovCharacter(char);
+          setPovChapterIndices(indices);
+          if (!indices.includes(currentIndex) && indices.length > 0) {
+            void loadChapter(indices[0]);
+          }
+        }}
+        onExitSinglePovArc={() => {
+          setActivePovCharacter(null);
+          setPovChapterIndices([]);
+        }}
       />
 
       {/* TTS Audiobook UI */}
@@ -2915,6 +3081,43 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
 
       {/* Bedtime Sleep Timer Screen Dimmer & Night Veil */}
       <BedtimeNightVeil onCloseReader={handleClose} />
+
+      {/* Single-POV Arc Floating Pill */}
+      {activePovCharacter && povChapterIndices.length > 0 && (
+        <div className="reader-pov-arc-pill shadow-xl">
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--ui-focus,#eab308)] animate-pulse shrink-0" />
+          <span>
+            POV Arc: <strong>{activePovCharacter}</strong> ({getPovArcProgress(currentIndex, povChapterIndices).currentStep} of {povChapterIndices.length})
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setActivePovCharacter(null);
+              setPovChapterIndices([]);
+            }}
+            className="ml-2 px-2.5 py-0.5 rounded-full bg-gradient-to-b from-[var(--ui-focus)] via-[var(--ui-focus)] to-[color-mix(in_srgb,var(--ui-focus)_88%,black)] text-white text-[11px] font-bold hover:brightness-105 transition-all shadow-xs cursor-pointer border-t border-white/20"
+          >
+            Exit Arc
+          </button>
+        </div>
+      )}
+
+      {/* Slide-Over Cartography HUD (Interactive Book Map Viewer) */}
+      <CartographyHUD
+        bookId={bookId}
+        bookTitle={metadata?.title || readerContent?.title}
+        currentChapterIndex={currentIndex}
+        isOpen={isMapHUDOpen}
+        onClose={() => setIsMapHUDOpen(false)}
+      />
+
+      {/* Spaced Repetition Vocabulary Review Modal */}
+      <VocabularyReviewModal
+        bookId={bookId}
+        bookTitle={metadata?.title || readerContent?.title}
+        isOpen={isVocabModalOpen}
+        onClose={() => setIsVocabModalOpen(false)}
+      />
     </div>
   );
 }

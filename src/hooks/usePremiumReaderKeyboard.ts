@@ -12,6 +12,8 @@ export interface PremiumReaderKeyboardHandlers {
   onScrollBottom?: () => void;
   onToggleFullscreen?: () => void;
   onToggleBookmark?: () => void;
+  onToggleMapHUD?: () => void;
+  onToggleVocabModal?: () => void;
   isPaginatedOrTwoPage?: boolean;
   pageFlipEnabled?: boolean;
 }
@@ -110,6 +112,20 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
       if (!isMod && (key === 'b' || key === 'B')) {
         e.preventDefault();
         handlersRef.current.onToggleBookmark?.();
+        return;
+      }
+
+      // m / M: Toggle Book Map & Cartography HUD (without Mod key)
+      if (!isMod && (key === 'm' || key === 'M')) {
+        e.preventDefault();
+        handlersRef.current.onToggleMapHUD?.();
+        return;
+      }
+
+      // v / V: Toggle Vocabulary Deck & Spaced Repetition Review (without Mod key)
+      if (!isMod && (key === 'v' || key === 'V')) {
+        e.preventDefault();
+        handlersRef.current.onToggleVocabModal?.();
         return;
       }
 

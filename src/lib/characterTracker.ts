@@ -79,18 +79,29 @@ const COMMON_NON_NAMES = new Set([
   'except', 'inside', 'outside', 'through', 'toward', 'towards', 'under', 'within', 'without',
 ]);
 
-// Theme-harmonized avatar palettes
+// Common nouns, anatomical parts, food, materials, sins/authorities, concepts, collective nouns
+const NON_CHARACTER_NOUNS = new Set([
+  'heart', 'mind', 'soul', 'spirit', 'body', 'head', 'face', 'eyes', 'ears', 'mouth', 'throat', 'chest', 'stomach', 'belly', 'breath', 'blood', 'flesh', 'bone', 'bones',
+  'lye', 'salt', 'sugar', 'bread', 'meat', 'water', 'wine', 'beer', 'tea', 'coffee', 'fire', 'ice', 'stone', 'earth', 'wind', 'shadow', 'light', 'darkness', 'thunder',
+  'gluttony', 'sloth', 'lust', 'wrath', 'pride', 'greed', 'envy', 'vanity', 'vainglory', 'melancholy',
+  'cor leonis', 'al shamak', 'minya', 'murak', 'ur goa', 'el goa',
+  'soldiers', 'guards', 'knights', 'officers', 'citizens', 'villagers', 'bandits', 'monsters', 'beasts', 'servants', 'people', 'maids', 'children',
+]);
+
+const PLURAL_OR_COLLECTIVE_HONORIFIC = /^(?:Mr|Mrs|Ms|Miss|Dr|Lord|Lady|Sir|Captain|Professor)\.?\s+(?:soldiers|guards|knights|officers|citizens|villagers|bandits|monsters|beasts|servants|people|men|women|children|maids)\b/i;
+
+// Theme-harmonized avatar palettes — rich antique bookplate & parchment leather tones
 const AVATAR_PALETTES = [
-  'linear-gradient(135deg, #475569, #334155)',
-  'linear-gradient(135deg, #64748b, #475569)',
-  'linear-gradient(135deg, #0d9488, #0f766e)',
-  'linear-gradient(135deg, #0284c7, #0369a1)',
-  'linear-gradient(135deg, #6366f1, #4f46e5)',
-  'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-  'linear-gradient(135deg, #d97706, #b45309)',
-  'linear-gradient(135deg, #ea580c, #c2410c)',
-  'linear-gradient(135deg, #e11d48, #be123c)',
-  'linear-gradient(135deg, #059669, #047857)',
+  'linear-gradient(135deg, #8B6914, #6E5310)', // Antique Gold
+  'linear-gradient(135deg, #7C5C2D, #5C411B)', // Warm Saddle Bronze
+  'linear-gradient(135deg, #6E3B46, #522730)', // Vintage Burgundy Wine
+  'linear-gradient(135deg, #4A5868, #364352)', // Muted Book Slate
+  'linear-gradient(135deg, #4C5E4A, #374635)', // Deep Forest Olive
+  'linear-gradient(135deg, #8A523A, #6C3C28)', // Warm Terracotta Clay
+  'linear-gradient(135deg, #634C68, #4B3650)', // Antique Plum Velvet
+  'linear-gradient(135deg, #5A4036, #422D24)', // Deep Mahogany Umber
+  'linear-gradient(135deg, #736340, #56482B)', // Aged Bookbinder Bronze
+  'linear-gradient(135deg, #423F3C, #2E2B29)', // Warm Charcoal Iron
 ];
 
 export function getAvatarColor(name: string): string {
@@ -184,6 +195,17 @@ function escapeRegex(s: string): string {
 }
 
 /**
+ * Clear in-memory character network cache (useful for testing or cache refreshes)
+ */
+export function clearCharacterNetworkMemoryCache(bookId?: number): void {
+  if (bookId !== undefined) {
+    networkMemoryCache.delete(bookId);
+  } else {
+    networkMemoryCache.clear();
+  }
+}
+
+/**
  * Scan and return full character network graph data (nodes + interaction edges).
  * This is the primary, authoritative character and relationship scanning pipeline.
  */
@@ -201,8 +223,14 @@ export async function scanBookCharacterNetwork(
     }
   }
 
-  // 2. Persistent storage cache check (v12 to flush stale 0-edge poison)
-  const networkCacheKey = `shiori-char-network-v12-${bookId}`;
+  // 2. Persistent storage cache check (v14 to flush legacy false-positive non-characters)
+  const networkCacheKey = `shiori-char-network-v14-${bookId}`;
+  try {
+    localStorage.removeItem(`shiori-char-network-v13-${bookId}`);
+    localStorage.removeItem(`shiori-char-network-v12-${bookId}`);
+  } catch {
+    // Ignore legacy cleanup errors
+  }
   try {
     const cached = localStorage.getItem(networkCacheKey);
     if (cached) {
@@ -306,10 +334,12 @@ export async function scanBookCharacterNetwork(
         const parts = lower.split(/\s+/);
 
         // Discard pronouns, single stopwords, or calendar words
-        if (parts.length === 1 && (PRONOUNS.has(parts[0]) || COMMON_NON_NAMES.has(parts[0]))) continue;
+        if (parts.length === 1 && (PRONOUNS.has(parts[0]) || COMMON_NON_NAMES.has(parts[0]) || NON_CHARACTER_NOUNS.has(parts[0]))) continue;
         if (parts.some((p) => PRONOUNS.has(p) || COMMON_NON_NAMES.has(p))) continue;
         if (CALENDAR_WORDS.has(lower) || CALENDAR_WORDS.has(parts[0])) continue;
+        if (NON_CHARACTER_NOUNS.has(lower)) continue;
         if (OBJECT_OR_LOCATION_SUFFIXES.has(parts[parts.length - 1])) continue;
+        if (parts[0].endsWith('ing') && parts[0].length >= 5) continue;
         if (rawName.length < 3 || rawName.length > 30) continue;
 
         // Verify that single-word candidates aren't just common lowercase vocabulary
@@ -350,6 +380,8 @@ export async function scanBookCharacterNetwork(
       while ((match = honoredNameRegex.exec(plain)) !== null) {
         const rawName = match[0].trim().replace(/^["'“‘]+|["'”’.,:;!?]+$/g, '').replace(/(?:'s|’s)$/i, '').trim();
         if (rawName.length < 3 || rawName.length > 30) continue;
+        if (PLURAL_OR_COLLECTIVE_HONORIFIC.test(rawName)) continue;
+        if (NON_CHARACTER_NOUNS.has(rawName.toLowerCase())) continue;
 
         const sentence = extractCleanSentence(plain, match.index, rawName.length);
         let entry = characterMap.get(rawName);
@@ -384,6 +416,13 @@ export async function scanBookCharacterNetwork(
   // Filter raw candidates:
   const rawList: TrackedCharacter[] = [];
   for (const [name, data] of characterMap.entries()) {
+    const lower = name.toLowerCase();
+    if (NON_CHARACTER_NOUNS.has(lower)) continue;
+    const parts = lower.split(/\s+/);
+    if (parts.length === 1 && NON_CHARACTER_NOUNS.has(parts[0])) continue;
+    if (parts[0].endsWith('ing') && parts[0].length >= 5) continue;
+    if (PLURAL_OR_COLLECTIVE_HONORIFIC.test(name)) continue;
+
     const isHonored = /^(Mr|Mrs|Ms|Miss|Dr|Lord|Lady|Sir|Captain|Professor)\b/i.test(name);
     if ((data.midSentenceMentions >= 2 && data.hasHumanSignals) || isHonored) {
       rawList.push({
@@ -546,7 +585,8 @@ export async function scanBookCharacterNetwork(
               edge.chapters.add(chapIdx);
             }
 
-            if (edge.sampleQuotes.length < 5) {
+            // Allow all authentic shared scenes without the artificial 5-scene bottleneck (up to 250 safety ceiling)
+            if (edge.sampleQuotes.length < 250) {
               const quoteSnippet = app.text.slice(0, 240).trim() + (app.text.length > 240 ? '...' : '');
               if (!edge.sampleQuotes.some((q) => q.quote === quoteSnippet)) {
                 edge.sampleQuotes.push({ chapterIndex: chapIdx, quote: quoteSnippet });
@@ -586,7 +626,8 @@ export async function scanBookCharacterNetwork(
               edge.chapters.add(chapIdx);
             }
 
-            if (edge.sampleQuotes.length < 5) {
+            // Allow all authentic shared scenes without the artificial 5-scene bottleneck (up to 250 safety ceiling)
+            if (edge.sampleQuotes.length < 250) {
               const combinedText = `${pAppearances[i].text.slice(0, 140)} ... ${pAppearances[j].text.slice(0, 140)}`.trim();
               if (!edge.sampleQuotes.some((q) => q.quote.includes(pAppearances[i].text.slice(0, 60)))) {
                 edge.sampleQuotes.push({ chapterIndex: chapIdx, quote: combinedText });

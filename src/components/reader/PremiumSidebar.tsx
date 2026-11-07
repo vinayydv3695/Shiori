@@ -5,10 +5,11 @@ import { api, isAndroid } from '@/lib/tauri';
 import { logger } from '@/lib/logger';
 import type { TocEntry, Annotation, BookSearchResult, AnnotationCategory } from '@/lib/tauri';
 import { X, BookOpen, Highlighter, FileText, Search, Loader2, Trash2, Edit2, Download, Bookmark } from '@/components/icons';
-import { StickyNote, ListTree, SearchX, Brain, BookA, Languages, Quote, ChevronRight, History, Volume2, LayoutGrid, List, Users } from 'lucide-react';
+import { StickyNote, ListTree, SearchX, Brain, BookA, Languages, Quote, ChevronRight, History, Volume2, LayoutGrid, List, Users, GitBranch } from 'lucide-react';
 import { SidebarAICopilot } from './SidebarAICopilot';
 import { ChapterVisualCard } from './ChapterVisualCard';
 import { CharacterDirectoryPanel } from './CharacterDirectoryPanel';
+import { ChronologyPOVNavigator } from './ChronologyPOVNavigator';
 import { ReaderTooltip } from './ReaderTooltip';
 import { parseTocLocationToIndex, findCurrentTocEntry } from '@/lib/toc';
 import { notifyAnnotationsChanged } from '@/lib/annotationEvents';
@@ -68,7 +69,10 @@ interface PremiumSidebarProps {
   currentIndex: number;
   totalChapters?: number;
   bookTitle?: string;
+  activePovCharacter?: string | null;
   onNavigate: (chapterIndex: number, searchTerm?: string | null, snippet?: string | null) => void;
+  onStartSinglePovArc?: (character: string, chapterIndices: number[]) => void;
+  onExitSinglePovArc?: () => void;
 }
 
 /** Highlight search query matches in a snippet (case-insensitive) */
@@ -105,7 +109,16 @@ function isRetryableTocError(err: unknown): boolean {
   return (err as { kind?: string } | null)?.kind === 'not_found';
 }
 
-export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle, onNavigate }: PremiumSidebarProps) {
+export function PremiumSidebar({
+  bookId,
+  currentIndex,
+  totalChapters,
+  bookTitle,
+  activePovCharacter,
+  onNavigate,
+  onStartSinglePovArc,
+  onExitSinglePovArc,
+}: PremiumSidebarProps) {
   const isSidebarOpen = useReaderUIStore(state => state.isSidebarOpen);
   const sidebarTab = useReaderUIStore(state => state.sidebarTab);
   const closeSidebar = useReaderUIStore(state => state.closeSidebar);
@@ -120,8 +133,8 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
   // Tab data states
   const [toc, setToc] = useState<TocEntry[]>([]);
   const [tocFilter, setTocFilter] = useState('');
-  const [tocViewMode, setTocViewMode] = useState<'list' | 'cards'>(() => {
-    return (localStorage.getItem('shiori-toc-view-mode') as 'list' | 'cards') || 'cards';
+  const [tocViewMode, setTocViewMode] = useState<'list' | 'cards' | 'chronology'>(() => {
+    return (localStorage.getItem('shiori-toc-view-mode') as 'list' | 'cards' | 'chronology') || 'cards';
   });
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
@@ -938,6 +951,24 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
                         <List size={13} />
                       </button>
                     </ReaderTooltip>
+                    <ReaderTooltip content="POV & Chronology Branching view">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTocViewMode('chronology');
+                          localStorage.setItem('shiori-toc-view-mode', 'chronology');
+                        }}
+                        className={cn(
+                          "p-1.5 rounded-lg transition-colors cursor-pointer",
+                          tocViewMode === 'chronology'
+                            ? "bg-[var(--bg-elevated)] text-[var(--ui-focus)] shadow-xs"
+                            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                        )}
+                        aria-label="POV & Chronology Branching view"
+                      >
+                        <GitBranch size={13} />
+                      </button>
+                    </ReaderTooltip>
                   </div>
                 </div>
               )}
@@ -953,6 +984,23 @@ export function PremiumSidebar({ bookId, currentIndex, totalChapters, bookTitle,
                   icon={ListTree}
                   title={tocFilter ? "No sections match" : "No Table of Contents"}
                   description={tocFilter ? `No chapter matched "${tocFilter}".` : "This book doesn't include an embedded chapter outline."}
+                />
+              ) : tocViewMode === 'chronology' ? (
+                <ChronologyPOVNavigator
+                  toc={toc}
+                  bookId={bookId}
+                  currentIndex={currentIndex}
+                  activePovCharacter={activePovCharacter || null}
+                  onNavigate={(idx) => {
+                    onNavigate(idx);
+                    if (isMobile) closeSidebar();
+                  }}
+                  onStartSinglePovArc={(char, indices) => {
+                    onStartSinglePovArc?.(char, indices);
+                  }}
+                  onExitSinglePovArc={() => {
+                    onExitSinglePovArc?.();
+                  }}
                 />
               ) : tocViewMode === 'cards' ? (
                 <div className="grid grid-cols-1 gap-2.5 pb-4">

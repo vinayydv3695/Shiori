@@ -382,6 +382,55 @@ export interface AnnotationSearchResult {
   book_author: string;
 }
 
+export interface BookMap {
+  id: number;
+  bookId: number;
+  title: string;
+  imageUrl: string;
+  width?: number | null;
+  height?: number | null;
+  isAutoExtracted: boolean;
+  createdAt: string;
+}
+
+export interface BookMapPin {
+  id: number;
+  mapId: number;
+  bookId: number;
+  label: string;
+  notes?: string | null;
+  chapterIndex?: number | null;
+  xPercent: number;
+  yPercent: number;
+  color: string;
+  createdAt: string;
+}
+
+export interface VocabularyWord {
+  id: number;
+  bookId?: number | null;
+  word: string;
+  cleanWord: string;
+  reading?: string | null;
+  definition: string;
+  sentenceContext?: string | null;
+  chapterTitle?: string | null;
+  tags: string;
+  reps: number;
+  intervalDays: number;
+  easeFactor: number;
+  dueDate: string;
+  createdAt: string;
+  lastReviewed?: string | null;
+}
+
+export interface VocabularyStats {
+  totalCards: number;
+  dueToday: number;
+  learned: number;
+  newToday: number;
+}
+
 export interface ReaderSettings {
   id?: number
   userId: string
@@ -2243,6 +2292,100 @@ export const api = {
 
   async synthesizeSpeech(text: string, voiceId: string): Promise<string> {
     return invoke("synthesize_speech", { text, voiceId })
+  },
+
+  // ── Cartography (Book Maps & Journey Pins) ───────────────────────
+
+  async getBookMaps(bookId: number): Promise<BookMap[]> {
+    return invoke("get_book_maps", { bookId })
+  },
+
+  async addBookMap(
+    bookId: number,
+    title: string,
+    imageUrl: string,
+    width?: number,
+    height?: number
+  ): Promise<BookMap> {
+    return invoke("add_book_map", { bookId, title, imageUrl, width, height })
+  },
+
+  async deleteBookMap(mapId: number): Promise<void> {
+    return invoke("delete_book_map", { mapId })
+  },
+
+  async getMapPins(mapId: number): Promise<BookMapPin[]> {
+    return invoke("get_map_pins", { mapId })
+  },
+
+  async saveMapPin(params: {
+    pinId?: number
+    mapId: number
+    bookId: number
+    label: string
+    notes?: string
+    chapterIndex?: number
+    xPercent: number
+    yPercent: number
+    color?: string
+  }): Promise<BookMapPin> {
+    return invoke("save_map_pin", {
+      pinId: params.pinId,
+      mapId: params.mapId,
+      bookId: params.bookId,
+      label: params.label,
+      notes: params.notes,
+      chapterIndex: params.chapterIndex,
+      xPercent: params.xPercent,
+      yPercent: params.yPercent,
+      color: params.color,
+    })
+  },
+
+  async deleteMapPin(pinId: number): Promise<void> {
+    return invoke("delete_map_pin", { pinId })
+  },
+
+  // ── Vocabulary & Spaced Repetition Auto-Deck ────────────────────
+
+  async addVocabularyWord(params: {
+    bookId?: number
+    word: string
+    cleanWord?: string
+    reading?: string
+    definition: string
+    sentenceContext?: string
+    chapterTitle?: string
+  }): Promise<VocabularyWord> {
+    return invoke("add_vocabulary_word", {
+      bookId: params.bookId,
+      word: params.word,
+      cleanWord: params.cleanWord || params.word.toLowerCase(),
+      reading: params.reading,
+      definition: params.definition,
+      sentenceContext: params.sentenceContext,
+      chapterTitle: params.chapterTitle,
+    })
+  },
+
+  async getVocabularyWords(bookId?: number, dueOnly = false): Promise<VocabularyWord[]> {
+    return invoke("get_vocabulary_words", { bookId, dueOnly })
+  },
+
+  async reviewVocabularyWord(cardId: number, grade: number): Promise<VocabularyWord> {
+    return invoke("review_vocabulary_word", { cardId, grade })
+  },
+
+  async deleteVocabularyWord(cardId: number): Promise<void> {
+    return invoke("delete_vocabulary_word", { cardId })
+  },
+
+  async getVocabularyStats(bookId?: number): Promise<VocabularyStats> {
+    return invoke("get_vocabulary_stats", { bookId })
+  },
+
+  async exportVocabularyAnki(bookId?: number): Promise<string> {
+    return invoke("export_vocabulary_anki", { bookId })
   },
 }
 

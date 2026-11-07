@@ -183,6 +183,9 @@ impl<'a> MigrationManager<'a> {
         if current_version < 53 {
             self.run_in_savepoint("v53", |mgr| mgr.migrate_to_v53())?;
         }
+        if current_version < 54 {
+            self.run_in_savepoint("v54", |mgr| mgr.migrate_to_v54())?;
+        }
 
         // Always ensure the FTS table has the correct schema.
         // Previous buggy code in initialize_schema would drop and recreate
@@ -3027,6 +3030,98 @@ impl<'a> MigrationManager<'a> {
 
         let hash = Self::calculate_checksum("v53_offline_dictionaries");
         self.record_migration(53, "offline_dictionaries", &hash)?;
+        Ok(())
+    }
+
+    fn migrate_to_v54(&self) -> Result<()> {
+        log::info!("[Migration] Applying v54: book_maps, book_map_pins, and vocabulary_deck tables");
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS book_maps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                image_url TEXT NOT NULL,
+                width INTEGER,
+                height INTEGER,
+                is_auto_extracted INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS book_map_pins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                map_id INTEGER NOT NULL,
+                book_id INTEGER NOT NULL,
+                label TEXT NOT NULL,
+                notes TEXT,
+                chapter_index INTEGER,
+                x_percent REAL NOT NULL,
+                y_percent REAL NOT NULL,
+                color TEXT DEFAULT '#ef4444',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (map_id) REFERENCES book_maps(id) ON DELETE CASCADE,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_map_pins_map ON book_map_pins(map_id)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_book_maps_book ON book_maps(book_id)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS vocabulary_deck (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER,
+                word TEXT NOT NULL,
+                clean_word TEXT NOT NULL,
+                reading TEXT,
+                definition TEXT NOT NULL,
+                sentence_context TEXT,
+                chapter_title TEXT,
+                tags TEXT DEFAULT 'reader',
+                reps INTEGER DEFAULT 0,
+                interval_days REAL DEFAULT 0,
+                ease_factor REAL DEFAULT 2.5,
+                due_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_reviewed DATETIME,
+                FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_vocab_due ON vocabulary_deck(due_date)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_vocab_book ON vocabulary_deck(book_id)",
+            [],
+        )?;
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_vocab_clean_word ON vocabulary_deck(clean_word)",
+            [],
+        )?;
+
+        if self.table_exists("user_preferences")? && !self.column_exists("user_preferences", "marginalia_enabled")? {
+            let _ = self.conn.execute(
+                "ALTER TABLE user_preferences ADD COLUMN marginalia_enabled BOOLEAN DEFAULT 1",
+                [],
+            );
+        }
+
+        let hash = Self::calculate_checksum("v54_cartography_vocabulary_marginalia");
+        self.record_migration(54, "cartography_vocabulary_marginalia", &hash)?;
         Ok(())
     }
 }

@@ -1,3 +1,28 @@
+# Release Notes (v1.0.29)
+
+## Character Constellation & Semantic Bonds, Cartography HUD, POV Chronology & Spaced Repetition
+
+- **Character Constellation & Semantic Relationship Web**:
+  - **Semantic Relationship Classification** — Automatically detects dynamic character bonds from narrative dialogue and scene co-occurrence: **Love & Affection** (rose), **Rivals & Conflict** (terracotta carmine), **Comrades & Allies** (forest emerald), and **Fealty & Devotion** (warm bronze).
+  - **Interactive Bond Legend & Filter Dock** — Quick-filter chips in the bottom dock allowing readers to isolate all romantic bonds, rivalries, or alliances across the cast with a single tap.
+  - **Canvas Opacity & Zero Bleed Guarantee** — Hardened background opacity across the SVG canvas and modal viewport to prevent underlying desktop or home views from leaking through.
+  - **Eliminated 5-Scene Bottleneck** — Uncapped scene extraction up to 250 verified quotes per relationship pair, indexing dialogue and shared scenes across the entire book.
+  - **False-Positive Character Suppression** — Intelligent rejection of non-character nouns (e.g. food, anatomical terms, spells, abstract concepts) and plural collective honorifics.
+  - **Antique Bookplate Avatars** — Replaced neon placeholder discs with rich embossed bookplate tones (antique gold, saddle bronze, burgundy wine, deep olive, slate).
+  - **Tiered Escape Navigation** — Natural progressive dismissal on Escape (scenes drawer ➔ edge dossier ➔ pathfinder ➔ bond filter ➔ character focus ➔ fullscreen).
+
+- **Interactive Cartography HUD & Map Discovery**:
+  - **Automatic Fantasy Map Detection** — Automatically scans, identifies, and pins in-book fantasy/narrative maps.
+  - **Interactive Map Viewer** — Full-pan, zoom, and location inspection HUD directly accessible from the reading environment.
+
+- **POV Chronology & Multi-Perspective Navigator**:
+  - **Perspective Tracking** — Automatically detects and indexes narrative point-of-view across chapters.
+  - **Follow Character Arc** — Dedicated sequential route navigation mode that jumps between chapters told from a specific character's perspective.
+
+- **Vocabulary Review & Spaced Repetition (SRS)**:
+  - **Spaced Repetition Review** — SM-2 spaced repetition modal (Again, Hard, Good, Easy) for mastered vocabulary review.
+  - **Grammar Tags & Structured Dictionaries** — Clean parsing of parts of speech (`[NOUN]`, `[VERB]`, etc.), meanings, and sample sentences.
+
 # Release Notes (v1.0.28)
 
 ## Local Peer-to-Peer Sync (LocalSend-style) & Offline Dictionaries

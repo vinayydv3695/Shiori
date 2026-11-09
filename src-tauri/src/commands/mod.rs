@@ -341,6 +341,8 @@ macro_rules! generate_shiori_handlers {
             crate::services::piper_service::download_voice,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             crate::services::piper_service::synthesize_speech,
+            // Edge Neural TTS command (all platforms)
+            crate::services::edge_tts_service::synthesize_edge_tts,
             // Discovery commands
             commands::discovery::start_companion_broadcast,
             commands::discovery::stop_companion_broadcast,

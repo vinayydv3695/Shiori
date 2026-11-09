@@ -71,4 +71,5 @@ pub mod discord_service;
 pub mod discovery_service;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub mod piper_service;
+pub mod edge_tts_service;
 pub mod sync_service;

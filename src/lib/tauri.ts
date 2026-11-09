@@ -2294,6 +2294,15 @@ export const api = {
     return invoke("synthesize_speech", { text, voiceId })
   },
 
+  async synthesizeEdgeTts(
+    text: string,
+    voice?: string,
+    rate?: number,
+    pitch?: number
+  ): Promise<number[]> {
+    return invoke("synthesize_edge_tts", { text, voice, rate, pitch })
+  },
+
   // ── Cartography (Book Maps & Journey Pins) ───────────────────────
 
   async getBookMaps(bookId: number): Promise<BookMap[]> {

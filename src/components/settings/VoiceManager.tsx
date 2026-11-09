@@ -1,9 +1,28 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ttsEngine } from '@/lib/ttsEngine';
 import { usePreferencesStore } from '@/store/preferencesStore';
 import { useToastStore } from '@/store/toastStore';
-import { Settings2, Volume2, Globe, ExternalLink, Download, Loader2, Search, Check, Filter } from 'lucide-react';
+import {
+  Settings2,
+  Volume2,
+  Globe,
+  ExternalLink,
+  Download,
+  Loader2,
+  Search,
+  Check,
+  Filter,
+  Sparkles,
+  Key,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Play,
+  Square,
+  ArrowUpRight,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -15,6 +34,8 @@ import { isAndroid, isTauri, isLinux, api, VoiceInfo } from '@/lib/tauri';
 import { getErrorMessage } from '@/lib/errors';
 import { open as openUrl } from '@tauri-apps/plugin-shell';
 import { getVoices as nativeGetVoices } from 'tauri-plugin-tts-api';
+import { useElevenLabsStore } from '@/store/elevenLabsStore';
+import { ELEVENLABS_MODELS, ELEVENLABS_SIGNUP_URL, formatQuotaProgress } from '@/lib/elevenLabs';
 
 import { listen } from '@tauri-apps/api/event';
 
@@ -85,6 +106,77 @@ export function VoiceManager() {
   const [downloadingVoice, setDownloadingVoice] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, { downloadedBytes: number; totalBytes: number }>>({});
   const [testingVoice, setTestingVoice] = useState<string | null>(null);
+
+  // ElevenLabs integration state
+  const elevenLabs = useElevenLabsStore();
+  const [apiKeyDraft, setApiKeyDraft] = useState(elevenLabs.apiKey);
+  const [showKey, setShowKey] = useState(false);
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    setApiKeyDraft(elevenLabs.apiKey);
+  }, [elevenLabs.apiKey]);
+
+  const handleSaveElevenKey = async () => {
+    setIsSavingKey(true);
+    try {
+      await elevenLabs.setApiKey(apiKeyDraft);
+      useToastStore.getState().addToast({
+        title: 'ElevenLabs Connected',
+        description: 'Successfully verified API key and refreshed voices.',
+        variant: 'success',
+      });
+    } catch (e) {
+      useToastStore.getState().addToast({
+        title: 'ElevenLabs Error',
+        description: getErrorMessage(e),
+        variant: 'error',
+      });
+    } finally {
+      setIsSavingKey(false);
+    }
+  };
+
+  const handlePlayVoicePreview = (voiceId: string, previewUrl?: string) => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+
+    if (previewingVoiceId === voiceId) {
+      setPreviewingVoiceId(null);
+      return;
+    }
+
+    if (!previewUrl) return;
+
+    const audio = new Audio(previewUrl);
+    previewAudioRef.current = audio;
+    setPreviewingVoiceId(voiceId);
+
+    audio.onended = () => {
+      setPreviewingVoiceId(null);
+      previewAudioRef.current = null;
+    };
+    audio.onerror = () => {
+      setPreviewingVoiceId(null);
+      previewAudioRef.current = null;
+    };
+    audio.play().catch(() => {
+      setPreviewingVoiceId(null);
+      previewAudioRef.current = null;
+    });
+  };
+
+  const elevenQuota = useMemo(() => {
+    if (!elevenLabs.subscription) return null;
+    return formatQuotaProgress(
+      elevenLabs.subscription.character_count,
+      elevenLabs.subscription.character_limit
+    );
+  }, [elevenLabs.subscription]);
 
   useEffect(() => {
     if (!isTauri || isAndroid) return;
@@ -359,6 +451,202 @@ export function VoiceManager() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ─── ElevenLabs AI Voices & Free Tier ─── */}
+      <div className="mt-8 space-y-4 rounded-xl border border-border/60 bg-card p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight flex items-center gap-2 text-foreground">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              ElevenLabs AI Voices
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Studio-grade neural narration with emotional depth. Free tier gives 10,000 characters/month (no credit card required).
+            </p>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs font-semibold gap-1.5 shrink-0 self-start sm:self-auto border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer"
+            onClick={() => openUrl(ELEVENLABS_SIGNUP_URL)}
+          >
+            <span>Get Free Key (10k chars/mo)</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        {/* API Key Input */}
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+            <Key className="w-3.5 h-3.5" />
+            ElevenLabs API Key
+          </label>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                type={showKey ? 'text' : 'password'}
+                value={apiKeyDraft}
+                onChange={(e) => setApiKeyDraft(e.target.value)}
+                placeholder="xi-..."
+                className="h-9 text-xs font-mono pr-9"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <Button
+              size="sm"
+              disabled={isSavingKey || apiKeyDraft === elevenLabs.apiKey}
+              onClick={handleSaveElevenKey}
+              className="text-xs font-semibold gap-1 h-9 px-3 cursor-pointer"
+            >
+              {isSavingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save Key'}
+            </Button>
+            {elevenLabs.apiKey && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => elevenLabs.clearApiKey()}
+                className="text-xs text-muted-foreground hover:text-destructive h-9 px-2 cursor-pointer"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Live Quota Meter */}
+        {elevenQuota && (
+          <div className="p-3 rounded-lg bg-muted/40 border border-border/40 space-y-2">
+            <div className="flex items-center justify-between text-xs font-medium">
+              <span className="flex items-center gap-1.5 text-foreground">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Plan: <strong className="capitalize">{elevenLabs.subscription?.tier || 'Free'}</strong>
+              </span>
+              <span className="text-muted-foreground font-mono text-[11px]">
+                {elevenQuota.formatted}
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-300 rounded-full ${
+                  elevenQuota.isExceeded
+                    ? 'bg-destructive'
+                    : elevenQuota.isNearLimit
+                    ? 'bg-amber-500'
+                    : 'bg-primary'
+                }`}
+                style={{ width: `${elevenQuota.percent}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Model Selector */}
+        {elevenLabs.apiKey && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Default Model</label>
+              <Select
+                value={elevenLabs.selectedModel}
+                onValueChange={(m) => elevenLabs.setSelectedModel(m)}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ELEVENLABS_MODELS.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      {m.name} {m.badge && `• ${m.badge}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5 flex flex-col justify-end">
+              <div className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded-lg border border-border/30">
+                <strong>Flash v2.5:</strong> Costs 50% fewer credits to stretch your 10,000 free credits to ~20,000 characters!
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ElevenLabs Voices List */}
+        {elevenLabs.cachedVoices.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+              <span>Your ElevenLabs Voices ({elevenLabs.cachedVoices.length})</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => elevenLabs.refreshVoices()}
+                className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Refresh
+              </Button>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-border/50 divide-y divide-border/30 bg-card">
+              {elevenLabs.cachedVoices.map((v) => {
+                const isSelected = currentVoiceUri === `elevenlabs:${v.voice_id}`;
+                const isPreviewing = previewingVoiceId === v.voice_id;
+
+                return (
+                  <div
+                    key={v.voice_id}
+                    className={`flex items-center justify-between p-2.5 text-xs transition-colors ${
+                      isSelected ? 'bg-primary/5' : 'hover:bg-muted/30'
+                    }`}
+                  >
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <span className="font-semibold truncate">
+                        {v.name} {v.category === 'cloned' && <span className="text-[10px] text-primary font-normal">(Cloned)</span>}
+                      </span>
+                      {v.labels && Object.keys(v.labels).length > 0 && (
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {Object.values(v.labels).filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {v.preview_url && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePlayVoicePreview(v.voice_id, v.preview_url)}
+                          className="h-7 px-2 text-xs cursor-pointer"
+                        >
+                          {isPreviewing ? (
+                            <Square className="w-3 h-3 fill-current text-primary" />
+                          ) : (
+                            <Play className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </Button>
+                      )}
+                      <Button
+                        variant={isSelected ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => updateTtsDefaults({ voice: `elevenlabs:${v.voice_id}` })}
+                        className="h-7 px-2.5 text-xs font-semibold cursor-pointer"
+                      >
+                        {isSelected ? 'Selected' : 'Select'}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {isTauri && !isAndroid && (piperVoices.length > 0 || piperLoadError !== null) && (

@@ -10,6 +10,7 @@ import { SleepTimerDialog } from './SleepTimerDialog';
 import { useSleepTimerStore } from '@/store/sleepTimerStore';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
+import { ConvertToAudiobookMenuItem } from '@/components/audiobook/ConvertToAudiobookMenuItem';
 import { checkHiatus } from '@/lib/catchUpService';
 import { ChapterCatchUpModal } from './ChapterCatchUpModal';
 import { api, isAndroid } from '@/lib/tauri';
@@ -427,6 +428,18 @@ export function ReaderTopBar({
                           format={format}
                           variant="menu"
                           reopenOnSuccess
+                        />
+                      </motion.div>
+
+                      <motion.div
+                        variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
+                        onClick={() => setIsMoreMenuOpen(false)}
+                      >
+                        <ConvertToAudiobookMenuItem
+                          bookId={bookId}
+                          bookTitle={title}
+                          format={format}
+                          variant="menu"
                         />
                       </motion.div>
                     </motion.div>

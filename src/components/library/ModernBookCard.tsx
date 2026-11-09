@@ -27,9 +27,10 @@ import { useLibraryStore } from '@/store/libraryStore'
 import { useCoverImage } from '../common/hooks/useCoverImage'
 import { LibraryContextMenu, type LibraryMenuItem } from '@/components/ui/LibraryContextMenu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, AppTooltip } from '@/components/ui/tooltip'
-import { Edit2, Pencil, Trash2, Layers, Globe, FolderPlus, Tag as TagIcon, BookOpen, FileOutput } from 'lucide-react'
+import { Edit2, Pencil, Trash2, Layers, Globe, FolderPlus, Tag as TagIcon, BookOpen, FileOutput, Headphones } from 'lucide-react'
 import { SeriesAssignmentDialog } from './SeriesAssignmentDialog'
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem'
+import { AudiobookConvertDialog } from '@/components/audiobook/AudiobookConvertDialog'
 import { FallbackBookCover } from './FallbackBookCover'
 
 // ─── Format Badge ─────────────────────────────
@@ -274,6 +275,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const [visible, setVisible] = useState(forceVisible)
   const [assignOpen, setAssignOpen] = useState(false)
   const [convertBookId, setConvertBookId] = useState<number | null>(null)
+  const [audiobookOpen, setAudiobookOpen] = useState(false)
 
   // Cover is only requested once the card is visible in the viewport.
   // The coverCache batcher groups all cards visible in the same render
@@ -318,6 +320,9 @@ export const PremiumBookCard = memo(function PremiumBookCard({
     ...(onViewDetails ? [{ label: 'View Details', icon: Info, onClick: () => onViewDetails(book.id!) }] : []),
     ...(book.file_format && !['epub', 'online-manga', 'cbz', 'cbr'].includes(book.file_format.toLowerCase())
       ? [{ label: 'Convert to EPUB', icon: FileOutput, onClick: () => setConvertBookId(book.id!) }]
+      : []),
+    ...(!['online-manga', 'cbz', 'cbr'].includes(book.file_format?.toLowerCase() || '')
+      ? [{ label: 'Convert to Audiobook...', icon: Headphones, onClick: () => setAudiobookOpen(true) }]
       : []),
     { label: 'Edit Metadata', icon: Pencil, onClick: () => onEdit(book.id!) },
     ...(onAddToShelf ? [{ label: 'Add to Shelf...', icon: FolderPlus, onClick: () => onAddToShelf(book.id!) }] : []),
@@ -518,6 +523,17 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           format={book.file_format}
           variant="overlay"
           onDone={() => setConvertBookId(null)}
+        />
+      )}
+
+      {audiobookOpen && (
+        <AudiobookConvertDialog
+          bookId={book.id!}
+          bookTitle={book.title}
+          bookAuthor={authorStr}
+          coverUrl={coverUrl}
+          isOpen={audiobookOpen}
+          onClose={() => setAudiobookOpen(false)}
         />
       )}
     </>

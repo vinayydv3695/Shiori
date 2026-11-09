@@ -18,6 +18,7 @@ import { pageCountLabel, cn } from '@/lib/utils';
 import { FallbackBookCover } from './FallbackBookCover';
 import { useLibraryStore } from '../../store/libraryStore';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
+import { ConvertToAudiobookMenuItem } from '@/components/audiobook/ConvertToAudiobookMenuItem';
 import { AppTooltip } from '@/components/ui/tooltip';
 
 function resolveCoverSrc(path: string): string {
@@ -368,6 +369,20 @@ export const BookDetailsDialog = ({
                     </div>
                   )}
 
+                  {/* Convert to Audiobook */}
+                  {!['online-manga', 'cbz', 'cbr'].includes(book.file_format?.toLowerCase() || '') && (
+                    <div className="w-full max-w-[280px] sm:max-w-[320px] mx-auto">
+                      <ConvertToAudiobookMenuItem
+                        bookId={bookId}
+                        bookTitle={book.title}
+                        bookAuthor={book.authors?.map((a) => a.name).join(', ')}
+                        coverUrl={coverSrc}
+                        format={book.file_format}
+                        variant="button"
+                      />
+                    </div>
+                  )}
+
                   {/* Unified Metadata Strip */}
                   <div className="flex items-center justify-center gap-2.5 py-2 px-3.5 rounded-xl bg-background/80 dark:bg-muted/60 border border-border/50 text-[11px] font-semibold text-muted-foreground w-full max-w-[280px] sm:max-w-[320px] mx-auto">
                     {book.file_size ? (
@@ -461,6 +476,17 @@ export const BookDetailsDialog = ({
                         format={book.file_format}
                         variant="button"
                         onDone={() => { void loadBook(); }}
+                      />
+                    )}
+
+                    {!['online-manga', 'cbz', 'cbr'].includes(book.file_format?.toLowerCase() || '') && (
+                      <ConvertToAudiobookMenuItem
+                        bookId={bookId}
+                        bookTitle={book.title}
+                        bookAuthor={book.authors?.map((a) => a.name).join(', ')}
+                        coverUrl={coverSrc}
+                        format={book.file_format}
+                        variant="button"
                       />
                     )}
                   </div>

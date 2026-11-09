@@ -26,6 +26,8 @@ import { useToastStore } from '@/store/toastStore';
 import { extractTextFromDOM } from '@/lib/textExtractor';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { synthesizeEdgeSpeech, POPULAR_EDGE_VOICES } from '@/lib/edgeTTS';
+import { synthesizeElevenLabsWithTimestamps, isQuotaExceededError } from '@/lib/elevenLabs';
+import { useElevenLabsStore } from '@/store/elevenLabsStore';
 // Native TTS support (Tauri plugin)
 import { speak as nativeSpeak, stop as nativeStop, getVoices as nativeGetVoices, onSpeechEvent, pauseSpeaking } from 'tauri-plugin-tts-api';
 
@@ -94,7 +96,7 @@ const cleanupAudioElement = (audio: HTMLAudioElement | null) => {
 /** Strip cloud/local URI prefixes so native engines only ever receive plain voice ids. */
 const resolveNativeVoiceId = (voice: string | null | undefined): string | null => {
   if (!voice || voice === 'default') return null;
-  if (voice.startsWith('edge:') || voice.startsWith('piper:')) return null;
+  if (voice.startsWith('edge:') || voice.startsWith('piper:') || voice.startsWith('elevenlabs:')) return null;
   return voice;
 };
 
@@ -282,7 +284,8 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
       if (isTauri && !isAndroid) {
         piper = await loadPiperVoicesForPicker();
       }
-      availableVoices = buildVoicePickerItems(availableVoices, piper, POPULAR_EDGE_VOICES);
+      const elevenLabsVoices = useElevenLabsStore.getState().cachedVoices;
+      availableVoices = buildVoicePickerItems(availableVoices, piper, POPULAR_EDGE_VOICES, elevenLabsVoices);
 
       setVoices(availableVoices);
       setNoVoices(availableVoices.length === 0);
@@ -454,8 +457,116 @@ export function useTTS({ contentRef, onChapterEnd, contentKey }: UseTTSOptions):
 
     const preferences = usePreferencesStore.getState().preferences;
     const preferredVoice = preferences?.tts?.voice;
+    const isElevenLabs = preferredVoice && preferredVoice.startsWith('elevenlabs:');
     const isEdge = preferredVoice && preferredVoice.startsWith('edge:');
     const isPiper = preferredVoice && preferredVoice.startsWith('piper:');
+
+    if (isElevenLabs) {
+      const voiceId = preferredVoice.replace('elevenlabs:', '');
+      const { apiKey, selectedModel } = useElevenLabsStore.getState();
+
+      if (!apiKey) {
+        useToastStore.getState().addToast({
+          title: 'ElevenLabs Key Missing',
+          description: 'Please set your ElevenLabs API key in Settings → Audio / Voice Manager.',
+          variant: 'error',
+          duration: 4000,
+        });
+        setState('idle');
+        return;
+      }
+
+      setState('speaking');
+      setCurrentSentenceIndex(index);
+      currentIndexRef.current = index;
+
+      synthesizeElevenLabsWithTimestamps({
+        text: sentence,
+        voiceId,
+        modelId: selectedModel,
+        apiKey,
+      })
+        .then(({ audioBlob }) => {
+          if (gen !== generationRef.current) return;
+
+          revokeTrackedBlobUrl(blobUrlRef);
+          const audioUrl = URL.createObjectURL(audioBlob);
+          blobUrlRef.current = audioUrl;
+          const audio = new Audio(audioUrl);
+          audio.playbackRate = rate;
+          piperAudioRef.current = audio;
+
+          const words = getSentenceWords(sentence);
+          audio.ontimeupdate = () => {
+            if (!audio.duration || audio.duration <= 0 || words.length === 0) return;
+            const progress = Math.max(0, Math.min(1, audio.currentTime / audio.duration));
+            const wordIdx = Math.min(words.length - 1, Math.floor(progress * words.length));
+            highlightActiveWord(contentRef.current, wordIdx);
+          };
+
+          audio.onended = () => {
+            if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            if (gen !== generationRef.current) return;
+            const nextIndex = currentIndexRef.current + 1;
+            if (nextIndex < sentencesRef.current.length) {
+              speakSentenceAtIndexRef.current(nextIndex);
+            } else {
+              setState('idle');
+              setCurrentSentenceIndex(0);
+              currentIndexRef.current = 0;
+              if (cleanupHighlightRef.current) {
+                cleanupHighlightRef.current();
+                cleanupHighlightRef.current = null;
+              }
+              onChapterEnd?.();
+            }
+          };
+
+          audio.onerror = (e) => {
+            if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            if (gen !== generationRef.current) return;
+            logger.warn('ElevenLabs audio playback error:', e);
+            piperAudioRef.current = null;
+            setState('idle');
+          };
+
+          audio.play().catch((e) => {
+            if (blobUrlRef.current === audioUrl) blobUrlRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            if (gen !== generationRef.current) return;
+            logger.warn('ElevenLabs audio play() rejected:', e);
+            piperAudioRef.current = null;
+            setState('idle');
+          });
+        })
+        .catch((err) => {
+          if (gen !== generationRef.current) return;
+          logger.warn('ElevenLabs synthesis failed:', err);
+
+          // User decision A4: Seamless fallback to Free Edge Neural TTS without losing progress
+          if (isQuotaExceededError(err)) {
+            useToastStore.getState().addToast({
+              title: 'ElevenLabs Quota Reached',
+              description: 'Switched seamlessly to 100% Free Edge Neural TTS so your reading continues uninterrupted.',
+              variant: 'info',
+              duration: 5000,
+            });
+            void usePreferencesStore.getState().updateTtsDefaults({ voice: 'edge:en-US-GuyNeural' });
+            speakSentenceAtIndexRef.current(index);
+          } else {
+            setState('idle');
+            useToastStore.getState().addToast({
+              title: 'ElevenLabs TTS Error',
+              description: err instanceof Error ? err.message : 'Failed to synthesize audio with ElevenLabs.',
+              variant: 'error',
+              duration: 4000,
+            });
+          }
+        });
+      return;
+    }
 
     if (isEdge) {
       const voiceId = preferredVoice.replace('edge:', '');

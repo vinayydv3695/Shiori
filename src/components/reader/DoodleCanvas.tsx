@@ -49,9 +49,15 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     useEffect(() => {
         if (!bookId || !pageId) return;
 
+        const isPageDirty = useDoodleStore.getState().isDirtyMap[pageId];
+        if (isPageDirty) return; // Never overwrite unsaved in-memory strokes
+
         const loadFromDb = async () => {
             try {
                 const doodle = await api.getDoodle(bookId, pageId);
+                // Check dirty state again after async fetch
+                if (useDoodleStore.getState().isDirtyMap[pageId]) return;
+
                 if (doodle && doodle.strokes_json) {
                     const parsed = JSON.parse(doodle.strokes_json) as DoodleStroke[];
                     loadStrokes(pageId, parsed);
@@ -66,6 +72,13 @@ export const DoodleCanvas = memo(function DoodleCanvas({
 
         loadFromDb();
     }, [bookId, pageId, loadStrokes]);
+
+    // Synchronize active page when in doodle mode
+    useEffect(() => {
+        if (isDoodleMode && pageId) {
+            setActivePage(pageId);
+        }
+    }, [isDoodleMode, pageId, setActivePage]);
 
     // ────────────────────────────────────────────────────────────
     // DEBOUNCED SAVE & UNMOUNT FLUSH
@@ -99,6 +112,19 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     useEffect(() => {
         flushRef.current = flushSave;
     }, [flushSave]);
+
+    // Immediately flush changes when exiting doodle mode
+    const prevDoodleModeRef = useRef(isDoodleMode);
+    useEffect(() => {
+        if (prevDoodleModeRef.current && !isDoodleMode && isDirty) {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+            }
+            void flushRef.current(bookId, pageId);
+        }
+        prevDoodleModeRef.current = isDoodleMode;
+    }, [isDoodleMode, isDirty, bookId, pageId]);
 
     useEffect(() => {
         if (!isDirty) return;
@@ -257,6 +283,8 @@ export const DoodleCanvas = memo(function DoodleCanvas({
     // RENDER
     // ────────────────────────────────────────────────────────────
 
+    const maskId = `eraser-mask-${pageId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+
     return (
         <svg
             ref={localSvgRef}
@@ -269,7 +297,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 left: 0,
                 width: '100%',
                 height: '100%',
-                zIndex: isDoodleMode ? 100 : 5,
+                zIndex: isDoodleMode ? 100 : 10,
                 pointerEvents: isDoodleMode ? 'auto' : 'none',
                 cursor: isDoodleMode
                     ? tool === 'eraser'
@@ -284,7 +312,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
             onPointerCancel={handlePointerUp}
         >
             <defs>
-                <mask id={`eraser-mask-${pageId}`}>
+                <mask id={maskId}>
                     <rect x="0" y="0" width="100" height="100" fill="white" />
                     {eraserStrokes.map(stroke => (
                         <path
@@ -301,7 +329,7 @@ export const DoodleCanvas = memo(function DoodleCanvas({
                 </mask>
             </defs>
 
-            <g mask={`url(#eraser-mask-${pageId})`}>
+            <g mask={`url(#${maskId})`}>
                 {penStrokes.map(stroke => (
                     <path
                         key={stroke.id}

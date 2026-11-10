@@ -852,13 +852,11 @@ export function ContinuousEpubView({
             >
               <ChapterHtml content={ch.content} isFirstPage={ch.index === 0} />
               
-              {isDoodleMode && (
-                <DoodleCanvas
-                  bookId={bookId}
-                  pageId={`epub-${bookId}-${ch.index}`}
-                  containerRef={{ current: chapterRefs.current.get(ch.index) || null } as React.RefObject<HTMLDivElement>}
-                />
-              )}
+              <DoodleCanvas
+                bookId={bookId}
+                pageId={`chapter_${ch.index}`}
+                containerRef={{ current: chapterRefs.current.get(ch.index) || null } as React.RefObject<HTMLDivElement>}
+              />
             </div>
 
             {/* Seamless separator between chapters */}

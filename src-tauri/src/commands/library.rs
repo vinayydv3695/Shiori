@@ -615,6 +615,192 @@ pub async fn import_books(
 }
 
 #[tauri::command]
+pub async fn prepare_audiobook_file(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    filename: String,
+) -> Result<String> {
+    validate::require_non_empty(&filename, "filename")?;
+    let prefs = crate::commands::preferences::get_user_preferences(state.clone()).await?;
+    let audio_dir = if !prefs.default_import_path.is_empty()
+        && !prefs.default_import_path.starts_with("content://")
+    {
+        std::path::PathBuf::from(&prefs.default_import_path).join("Audiobooks")
+    } else {
+        let app_dir = app_handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| crate::error::ShioriError::Other(format!("Failed to get app dir: {}", e)))?;
+        app_dir.join("storage").join("audiobooks")
+    };
+    std::fs::create_dir_all(&audio_dir)?;
+
+    let clean_filename = filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+    let dest_path = audio_dir.join(&clean_filename);
+    let _ = std::fs::File::create(&dest_path)?;
+    Ok(dest_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn append_audiobook_chunk(
+    dest_path: String,
+    bytes: Vec<u8>,
+) -> Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&dest_path)?;
+    file.write_all(&bytes)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn save_audiobook_to_library(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    source_book_id: Option<i64>,
+    title: String,
+    author: Option<String>,
+    filename: String,
+    bytes: Option<Vec<u8>>,
+    file_path: Option<String>,
+    duration_seconds: Option<f64>,
+    notes: Option<String>,
+) -> Result<Book> {
+    validate::require_non_empty(&title, "title")?;
+    validate::require_non_empty(&filename, "filename")?;
+
+    let dest_path_str = if let Some(fp) = file_path {
+        fp
+    } else {
+        let prefs = crate::commands::preferences::get_user_preferences(state.clone()).await?;
+        let audio_dir = if !prefs.default_import_path.is_empty()
+            && !prefs.default_import_path.starts_with("content://")
+        {
+            std::path::PathBuf::from(&prefs.default_import_path).join("Audiobooks")
+        } else {
+            let app_dir = app_handle
+                .path()
+                .app_data_dir()
+                .map_err(|e| crate::error::ShioriError::Other(format!("Failed to get app dir: {}", e)))?;
+            app_dir.join("storage").join("audiobooks")
+        };
+        std::fs::create_dir_all(&audio_dir)?;
+
+        let clean_filename = filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+        let dest_path = audio_dir.join(&clean_filename);
+        if let Some(ref b) = bytes {
+            std::fs::write(&dest_path, b)?;
+        }
+        dest_path.to_string_lossy().to_string()
+    };
+
+    let db = state.db.clone();
+    let covers_dir = state.covers_dir.clone();
+    let import_path = dest_path_str.clone();
+
+    tokio::task::spawn_blocking(move || {
+        library_service::import_books(&db, vec![import_path], &covers_dir)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(e.to_string()))??;
+
+    // Link source book cover and metadata if available
+    let conn = state.db.get_connection()?;
+    if let Some(src_id) = source_book_id {
+        let source_meta: Option<(Option<String>, Option<String>, Option<String>, Option<f64>)> = conn
+            .query_row(
+                "SELECT cover_path, series, publisher, series_index FROM books WHERE id = ?1",
+                rusqlite::params![src_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .ok();
+
+        if let Some((src_cover, src_series, src_pub, src_idx)) = source_meta {
+            conn.execute(
+                "UPDATE books SET 
+                    title = ?1, 
+                    cover_path = COALESCE(?2, cover_path), 
+                    series = COALESCE(?3, series), 
+                    publisher = COALESCE(?4, publisher), 
+                    series_index = COALESCE(?5, series_index),
+                    duration = ?6,
+                    origin = ?7,
+                    notes = ?8
+                 WHERE file_path = ?9",
+                rusqlite::params![
+                    title,
+                    src_cover,
+                    src_series,
+                    src_pub,
+                    src_idx,
+                    duration_seconds.unwrap_or(0.0),
+                    format!("audiobook:{}", src_id),
+                    notes,
+                    dest_path_str
+                ],
+            )?;
+        }
+    } else {
+        conn.execute(
+            "UPDATE books SET title = ?1, duration = ?2, notes = ?3 WHERE file_path = ?4",
+            rusqlite::params![title, duration_seconds.unwrap_or(0.0), notes, dest_path_str],
+        )?;
+    }
+
+    // Link author if provided
+    if let Some(ref auth_name) = author {
+        if !auth_name.trim().is_empty() {
+            let book_id: Option<i64> = conn
+                .query_row(
+                    "SELECT id FROM books WHERE file_path = ?1",
+                    rusqlite::params![dest_path_str],
+                    |r| r.get(0),
+                )
+                .ok();
+
+            if let Some(b_id) = book_id {
+                let author_id = library_service::get_or_create_author(&conn, auth_name.trim())?;
+                let _ = conn.execute(
+                    "INSERT OR IGNORE INTO books_authors (book_id, author_id) VALUES (?1, ?2)",
+                    rusqlite::params![b_id, author_id],
+                );
+            }
+        }
+    }
+
+    let imported_books = library_service::get_books_by_paths(&state.db, vec![dest_path_str])?;
+    let book = imported_books.into_iter().next().ok_or_else(|| {
+        crate::error::ShioriError::Other("Failed to retrieve imported audiobook".to_string())
+    })?;
+
+    let _ = app_handle.emit(
+        "library-updated",
+        LibraryUpdatedPayload {
+            kind: "books-imported",
+            ids: vec![book.id.unwrap_or(0)],
+        },
+    );
+
+    Ok(book)
+}
+
+#[tauri::command]
+pub async fn read_book_binary(
+    file_path: String,
+) -> Result<Vec<u8>> {
+    validate::require_safe_path(&file_path, "file_path")?;
+    let path = std::path::PathBuf::from(&file_path);
+    if !path.exists() {
+        return Err(crate::error::ShioriError::FileNotFound { path: file_path });
+    }
+    tokio::fs::read(&path)
+        .await
+        .map_err(crate::error::ShioriError::Io)
+}
+
+#[tauri::command]
 pub async fn scan_folder_unified(
     state: State<'_, AppState>,
     metadata_state: State<'_, crate::MetadataState>,

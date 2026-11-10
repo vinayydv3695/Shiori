@@ -135,7 +135,6 @@ pub fn decode_text_scored(raw: &[u8]) -> (String, String, f32) {
         let mut repl = 0usize;
         let mut ctrl = 0usize;
         let mut letters = 0usize;
-        let mut lower = 0usize;
         let mut upper = 0usize;
         let mut kana = 0usize;
         let mut hangul = 0usize;
@@ -147,9 +146,7 @@ pub fn decode_text_scored(raw: &[u8]) -> (String, String, f32) {
                 ctrl += 1;
             } else if c.is_alphabetic() {
                 letters += 1;
-                if c.is_lowercase() {
-                    lower += 1;
-                } else if c.is_uppercase() {
+                if c.is_uppercase() {
                     upper += 1;
                 }
                 let cp = c as u32;

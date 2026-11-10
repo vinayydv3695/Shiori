@@ -1,3 +1,22 @@
+# Release Notes (v1.0.30)
+
+## Background Audiobook Synthesis, ElevenLabs Integration, Edge Neural TTS Restoration & Reader Refinements
+
+- **Background Audiobook Synthesis & Seamless Reading**:
+  - **Non-blocking Background Conversion** — Convert entire books or selected chapters to audiobooks while continuing to read seamlessly. The conversion lifecycle is fully decoupled from the modal dialog.
+  - **Discreet Floating Progress Pill** — An interactive tactile status pill pinned to the bottom of the reading canvas displays real-time chapter narration progress, percentage, and activity. Clicking restores the full conversion view; a dedicated abort button cancels gracefully.
+  - **Large Book IPC Streaming & Chunked Disk Writes** — Audio data streams in 1MB slices directly to disk (`append_audiobook_chunk`), eliminating memory spikes and unexpected exits when generating massive 300MB+ multi-chapter audiobooks.
+  - **Enhanced Edge Narrator Formatting** — Cleanly formats and displays all international edge voices with complete language and accent descriptors (e.g. German, Italian, Portuguese (Brazil), Korean, Hindi, US Audiobook Narrator).
+  - **Auto-Import to Shiori Library** — Completed conversions automatically register in the library with extracted cover art and metadata, ready for playback in the dedicated Audiobook Player.
+
+- **Dual-Engine TTS Architecture**:
+  - **Microsoft Edge Neural TTS (Sec-MS-GEC v2)** — Restored high-speed, 100% free neural voice generation with updated Microsoft Edge authentication handshakes and backend emulation.
+  - **ElevenLabs AI Voice Integration** — Studio-grade emotional synthesis with real-time monthly character quota tracking, custom voice models, and automatic fallback safeguards.
+
+- **EPUB & Reader Experience Enhancements**:
+  - **Tactile Reader Top Bar** — Streamlined and modernized reader navigation bar with responsive controls, quick-access popovers, and active background synthesis indicators.
+  - **Mobi & PDF Engine Hardening** — Improved PalmDOC/Huffman decompression, geometry preservation, and cover extraction fallbacks.
+
 # Release Notes (v1.0.29)
 
 ## Character Constellation & Semantic Bonds, Cartography HUD, POV Chronology & Spaced Repetition

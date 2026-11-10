@@ -843,6 +843,8 @@ fn extract_cover_image(path: &Path) -> Option<OebImage> {
     }
     None
 }
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

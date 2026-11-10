@@ -213,14 +213,6 @@ pub async fn convert_to_epub_into(
     let source_size = std::fs::metadata(input_path).map(|m| m.len()).unwrap_or(0);
     let source_sha256 = streamed_sha256(input_path)?;
 
-    // Deterministic `dcterms:modified`: the source file's mtime in UTC.
-    let modified = std::fs::metadata(input_path)
-        .and_then(|m| m.modified())
-        .ok()
-        .map(|t| -> String {
-            let d: chrono::DateTime<chrono::Utc> = t.into();
-            d.format("%Y-%m-%dT%H:%M:%SZ").to_string()
-        });
     let ext = input_path
         .extension()
         .and_then(|e| e.to_str())
@@ -378,7 +370,7 @@ pub async fn convert_to_epub_into(
 
         // All book formats go through the OEB pipeline: real parser →
         // sanitize → epub_builder (high-fidelity structure/TOC/images).
-        "pdf" | "mobi" | "azw" | "azw3" | "prc" | "docx" | "fb2" | "fbz" | "txt" | "rtf"
+        "pdf" | "mobi" | "azw" | "azw3" | "prc" | "docx" | "fb2" | "txt" | "rtf"
         | "html" | "htm" | "xhtml" | "md" | "markdown" => {
             let stage = format!("Parsing {}", ext.to_uppercase());
             report_to_progress(&stage, 10);

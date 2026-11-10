@@ -219,7 +219,8 @@ export const useAIStore = create<AIState>()(
           const stored = await invoke<string[]>('ai_key_list', { providers });
           const keys: Record<AIProvider, string> = { ...get().apiKeys };
           const storedProviders: AIProvider[] = [];
-          for (const provider of stored) {
+          const providerList = Array.isArray(stored) ? stored : [];
+          for (const provider of providerList) {
             if (!providers.includes(provider as AIProvider)) continue;
             storedProviders.push(provider as AIProvider);
           }

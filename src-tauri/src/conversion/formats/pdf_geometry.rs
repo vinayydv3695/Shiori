@@ -24,6 +24,7 @@ fn pdftohtml_available() -> bool {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct Word {
     x0: f32,
     y0: f32,
@@ -33,6 +34,7 @@ struct Word {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct Line {
     y0: f32,
     x0: f32,
@@ -41,6 +43,7 @@ struct Line {
     words: Vec<Word>,
 }
 
+#[allow(dead_code)]
 impl Line {
     fn text(&self) -> String {
         self.words
@@ -163,6 +166,7 @@ fn parse_pages(xml: &[u8]) -> Vec<PageGeom> {
 }
 
 /// Bucket words into lines by y (tolerance = half median word height).
+#[allow(dead_code)]
 fn words_to_lines(words: &[Word]) -> Vec<Line> {
     if words.is_empty() {
         return Vec::new();
@@ -204,6 +208,7 @@ fn words_to_lines(words: &[Word]) -> Vec<Line> {
 }
 
 /// 1-D clustering of line x0 into columns (min separation = 25% width).
+#[allow(dead_code)]
 fn assign_columns(lines: &mut [Line], page_width: f32) -> Vec<usize> {
     let mut xs: Vec<f32> = lines.iter().map(|l| l.x0).collect();
     xs.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -232,6 +237,7 @@ fn assign_columns(lines: &mut [Line], page_width: f32) -> Vec<usize> {
 
 /// Group a run of aligned lines into a table. `aligned` means: every line in
 /// the run shares ≥2 word x-center positions within tolerance.
+#[allow(dead_code)]
 fn aligned_centers(a: &[f32], b: &[f32], tol: f32) -> bool {
     if a.is_empty() || b.is_empty() {
         return false;
@@ -244,6 +250,7 @@ fn aligned_centers(a: &[f32], b: &[f32], tol: f32) -> bool {
 }
 
 /// Split a line's words into cells at the shared column centers.
+#[allow(dead_code)]
 fn cells_at_centers(line: &Line, centers: &[f32], tol: f32) -> Vec<String> {
     let mut cells: Vec<String> = vec![String::new(); centers.len()];
     for w in &line.words {

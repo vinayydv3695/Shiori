@@ -14,6 +14,9 @@ use crate::sources::{
 };
 
 const MIRRORS: &[&str] = &[
+    "https://annas-archive.org",
+    "https://annas-archive.se",
+    "https://annas-archive.li",
     "https://annas-archive.gl",
     "https://annas-archive.gd",
     "https://annas-archive.pk",

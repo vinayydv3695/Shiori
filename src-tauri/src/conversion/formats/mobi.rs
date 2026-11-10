@@ -709,7 +709,7 @@ mod drm_tests {
         if !p.exists() {
             return;
         }
-        let mut book = crate::conversion::formats::mobi::parse(p).unwrap();
+        let book = crate::conversion::formats::mobi::parse(p).unwrap();
         assert!(!book.chapters.is_empty());
         assert!(mobi_drm_info(&std::fs::read(p).unwrap()).is_none());
     }

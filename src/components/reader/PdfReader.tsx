@@ -1248,13 +1248,11 @@ export function PdfReader({ bookPath, bookId, readerContent, onClose }: PdfReade
 
       <ReaderAnnotationTooltip />
 
-      {isDoodleMode && (
-        <DoodleCanvas
-          bookId={bookId}
-          pageId={`page-${pageNumber}`}
-          containerRef={containerRef}
-        />
-      )}
+      <DoodleCanvas
+        bookId={bookId}
+        pageId={`page-${pageNumber}`}
+        containerRef={containerRef}
+      />
 
       {isDoodleMode && <DoodleToolbar />}
     </div>

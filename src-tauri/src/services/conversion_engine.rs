@@ -1352,7 +1352,7 @@ impl ConversionEngine {
         let line_height = Mm(5.0);
         let page_bottom = Mm(BOTTOM_Y);
         let mut page_number = 1usize;
-        let mut last_page_index = page1;
+        let last_page_index = page1;
 
         // New page helper — inlined (printpdf refs are value-based).
         macro_rules! new_page {

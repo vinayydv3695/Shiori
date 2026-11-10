@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useReaderUIStore } from '@/store/premiumReaderStore';
 import { ArrowLeft, Maximize2, Minimize2, MoreVertical } from '@/components/icons';
-import { Headphones, History, Moon, Settings } from 'lucide-react';
+import { Headphones, History, Moon } from 'lucide-react';
 import { ReaderTooltip } from './ReaderTooltip';
 import { ReaderSettings, type ReaderFormat } from './ReaderSettings';
 import { AmbientSoundBar } from './AmbientSoundBar';
@@ -10,7 +10,9 @@ import { SleepTimerDialog } from './SleepTimerDialog';
 import { useSleepTimerStore } from '@/store/sleepTimerStore';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { ConvertToEpubMenuItem } from '@/components/conversion/ConvertToEpubMenuItem';
-import { ConvertToAudiobookMenuItem } from '@/components/audiobook/ConvertToAudiobookMenuItem';
+import { AudiobookConvertDialog } from '@/components/audiobook/AudiobookConvertDialog';
+import { AudiobookConversionFloatingPill } from '@/components/audiobook/AudiobookConversionFloatingPill';
+import { useAudiobookConversionStore } from '@/store/audiobookConversionStore';
 import { checkHiatus } from '@/lib/catchUpService';
 import { ChapterCatchUpModal } from './ChapterCatchUpModal';
 import { api, isAndroid } from '@/lib/tauri';
@@ -26,6 +28,8 @@ interface ReaderTopBarProps {
   rightExtra?: React.ReactNode;
   currentChapterIndex?: number;
   lastRead?: string;
+  bookAuthor?: string;
+  coverUrl?: string | null;
   onNavigateToChapter?: (chapterIndex: number) => void;
 }
 
@@ -40,6 +44,8 @@ export function ReaderTopBar({
   rightExtra,
   currentChapterIndex = 0,
   lastRead,
+  bookAuthor,
+  coverUrl,
   onNavigateToChapter,
 }: ReaderTopBarProps) {
   const isTopBarVisible = useReaderUIStore(state => state.isTopBarVisible);
@@ -51,6 +57,15 @@ export function ReaderTopBar({
   const [isCatchUpOpen, setIsCatchUpOpen] = React.useState(false);
   const [isSleepTimerOpen, setIsSleepTimerOpen] = React.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const storeDialogOpen = useAudiobookConversionStore(s => s.isDialogOpen);
+  const isAudiobookConverting = useAudiobookConversionStore(s => s.isConverting);
+  const openAudiobookDialog = useAudiobookConversionStore(s => s.openDialog);
+  const closeAudiobookDialog = useAudiobookConversionStore(s => s.closeDialog);
+  const [isAudiobookConvertOpen, setIsAudiobookConvertOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsAudiobookConvertOpen(storeDialogOpen);
+  }, [storeDialogOpen]);
   const sleepTimerButtonRef = React.useRef<HTMLButtonElement>(null);
   const isSleepTimerActive = useSleepTimerStore(state => state.isActive);
   const sleepTimerRemaining = useSleepTimerStore(state => state.remainingSeconds);
@@ -114,6 +129,23 @@ export function ReaderTopBar({
     return String(label).toLowerCase();
   };
 
+  const getShortcutForLabel = (rawLabel: string): string | null => {
+    const lower = rawLabel.toLowerCase();
+    if (lower.includes('cartograph') || lower.includes('map')) return 'M';
+    if (lower.includes('vocab')) return 'V';
+    if (lower.includes('draw') || lower.includes('doodle')) return 'D';
+    if (lower.includes('fullscreen')) return 'F11';
+    return null;
+  };
+
+  const cleanMenuLabel = (label: string): string => {
+    let clean = label.replace(/\s*\([A-Za-z0-9+]+\)$/, '').trim();
+    if (clean === 'Book Map & Cartography HUD') {
+      clean = 'Book Map & Cartography';
+    }
+    return clean;
+  };
+
   // Identify Search and Bookmark specifically for minimalist Android bar
   const searchChild = extraChildren.find(c => getChildLabel(c).includes('search'));
   const bookmarkChild = extraChildren.find(c => getChildLabel(c).includes('bookmark'));
@@ -155,8 +187,22 @@ export function ReaderTopBar({
                 <span className="premium-book-title truncate block w-full leading-tight font-extrabold text-xs sm:text-sm">{title}</span>
               </ReaderTooltip>
               {subtitle && (
-                <ReaderTooltip content={subtitle} side="bottom">
-                  <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5">{subtitle}</span>
+                <ReaderTooltip
+                  content={
+                    typeof progress === 'number' && progress > 0
+                      ? `${subtitle} • ${Math.round(progress)}% completed`
+                      : subtitle
+                  }
+                  side="bottom"
+                >
+                  <span className="premium-chapter-indicator truncate block w-full leading-tight text-[10px] sm:text-xs opacity-75 font-medium mt-0.5">
+                    {subtitle}
+                    {typeof progress === 'number' && progress > 0 && (
+                      <span className="opacity-60 ml-1.5 font-normal tracking-tight">
+                        • {Math.round(progress)}%
+                      </span>
+                    )}
+                  </span>
                 </ReaderTooltip>
               )}
             </div>
@@ -183,13 +229,19 @@ export function ReaderTopBar({
         )}
 
         {/* ── RIGHT: Streamlined Reading Tools ── */}
-        <div className="premium-top-bar-right flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <div className="flex items-center gap-1 sm:gap-1.5">
+        <div className="premium-top-bar-right flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-1">
             {primaryToolbarItems}
+          </div>
 
-            {!isAndroid && (
-              <>
+          {!isAndroid && (
+            <>
+              <span className="premium-top-bar-divider" />
+              <div className="flex items-center">
                 <ReaderSettings format={format} />
+              </div>
+              <span className="premium-top-bar-divider" />
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 <ReaderTooltip content="Ambient Soundscapes">
                   <button
                     type="button"
@@ -232,19 +284,20 @@ export function ReaderTopBar({
                     </button>
                   </ReaderTooltip>
                 </div>
-              </>
-            )}
+              </div>
+              <span className="premium-top-bar-divider" />
+            </>
+          )}
 
-            {/* Controlled ReaderSettings on Android — invisible trigger in bar, opens bottom sheet */}
-            {isAndroid && (
-              <ReaderSettings
-                format={format}
-                isOpen={isSettingsOpen}
-                onOpenChange={setIsSettingsOpen}
-                hideTrigger
-              />
-            )}
-          </div>
+          {/* Controlled ReaderSettings on Android — invisible trigger in bar, opens bottom sheet */}
+          {isAndroid && (
+            <ReaderSettings
+              format={format}
+              isOpen={isSettingsOpen}
+              onOpenChange={setIsSettingsOpen}
+              hideTrigger
+            />
+          )}
 
           {/* More Options Dropdown */}
           <div className="relative flex items-center">
@@ -298,7 +351,14 @@ export function ReaderTopBar({
                         const actualChild = (child.type === ReaderTooltip && (child.props as any).children)
                           ? (child.props as any).children
                           : child;
-                        const label = actualChild.props?.['aria-label'] || actualChild.props?.title || ((child.type === ReaderTooltip) ? (child.props as any).content : '');
+                        const rawLabel = String(
+                          actualChild.props?.['aria-label'] ||
+                          actualChild.props?.title ||
+                          ((child.type === ReaderTooltip) ? (child.props as any).content : '') ||
+                          ''
+                        );
+                        const cleanLabel = cleanMenuLabel(rawLabel);
+                        const shortcut = getShortcutForLabel(rawLabel);
 
                         return (
                           <motion.button
@@ -312,7 +372,8 @@ export function ReaderTopBar({
                             className="premium-menu-item"
                           >
                             {actualChild.props?.children}
-                            {label && <span className="premium-menu-item-label">{label}</span>}
+                            {cleanLabel && <span className="premium-menu-item-label">{cleanLabel}</span>}
+                            {shortcut && <kbd className="premium-menu-item-shortcut">{shortcut}</kbd>}
                           </motion.button>
                         );
                       })}
@@ -327,10 +388,10 @@ export function ReaderTopBar({
                             setIsSettingsOpen(true);
                           }}
                           className="premium-menu-item"
-                          aria-label="Reading Settings"
+                          aria-label="Appearance & Layout"
                         >
-                          <Settings className="premium-control-icon" />
-                          <span className="premium-menu-item-label">Reading Settings</span>
+                          <span className="font-serif font-bold text-[13px] tracking-tight leading-none select-none text-[var(--text-secondary)] w-[17px] text-center">Aa</span>
+                          <span className="premium-menu-item-label">Appearance & Layout</span>
                         </motion.button>
                       )}
 
@@ -397,6 +458,7 @@ export function ReaderTopBar({
                           <span className="premium-menu-item-label">
                             {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                           </span>
+                          <kbd className="premium-menu-item-shortcut">F11</kbd>
                         </motion.button>
                       )}
 
@@ -431,17 +493,24 @@ export function ReaderTopBar({
                         />
                       </motion.div>
 
-                      <motion.div
+                      <motion.button
+                        type="button"
                         variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } }}
-                        onClick={() => setIsMoreMenuOpen(false)}
+                        onClick={() => {
+                          setIsMoreMenuOpen(false);
+                          openAudiobookDialog({ bookId, bookTitle: title, bookAuthor, coverUrl });
+                        }}
+                        className="premium-menu-item"
+                        aria-label="Convert to Audiobook"
                       >
-                        <ConvertToAudiobookMenuItem
-                          bookId={bookId}
-                          bookTitle={title}
-                          format={format}
-                          variant="menu"
-                        />
-                      </motion.div>
+                        <Headphones className={`premium-control-icon ${isAudiobookConverting ? 'text-primary animate-pulse' : 'text-amber-600 dark:text-amber-400'}`} />
+                        <span className="premium-menu-item-label">
+                          {isAudiobookConverting ? 'View Conversion Progress...' : 'Convert to Audiobook...'}
+                        </span>
+                        {isAudiobookConverting && (
+                          <span className="w-2 h-2 rounded-full bg-primary animate-ping ml-auto" />
+                        )}
+                      </motion.button>
                     </motion.div>
                   </motion.div>
                 </>
@@ -450,6 +519,16 @@ export function ReaderTopBar({
           </div>
         </div>
       </div>
+
+      {/* Hairline Reading Progress indicator along bottom edge of topbar pill */}
+      {typeof progress === 'number' && progress > 0 && (
+        <div className="absolute bottom-0 inset-x-6 h-[2px] overflow-hidden rounded-full pointer-events-none opacity-80">
+          <div
+            className="h-full bg-[var(--progress-bar,#3b82f6)] transition-all duration-300 rounded-full"
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          />
+        </div>
+      )}
 
       <AmbientSoundBar open={showAmbientBar} onClose={() => setShowAmbientBar(false)} />
 
@@ -465,6 +544,20 @@ export function ReaderTopBar({
           onNavigateToChapter?.(idx);
         }}
       />
+
+      <AudiobookConvertDialog
+        bookId={bookId}
+        bookTitle={title}
+        bookAuthor={bookAuthor}
+        coverUrl={coverUrl}
+        isOpen={isAudiobookConvertOpen}
+        onClose={() => {
+          closeAudiobookDialog();
+          setIsAudiobookConvertOpen(false);
+        }}
+      />
+
+      <AudiobookConversionFloatingPill />
     </div>
   );
 }

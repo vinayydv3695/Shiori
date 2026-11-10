@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { api, isAndroid, getEpubResourceUrl } from '@/lib/tauri';
 import type { Annotation, BookMetadata, Chapter, TocEntry } from '@/lib/tauri';
 import { findCurrentTocEntry } from '@/lib/toc';
@@ -1204,7 +1205,9 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const [isReaderSettingsOpen, setIsReaderSettingsOpen] = useState(false);
   useEffect(() => {
     const check = () => {
-      const open = Boolean(document.querySelector('.premium-settings-panel'));
+      const open = Boolean(
+        document.querySelector('.premium-settings-panel, [role="dialog"], [data-radix-portal]')
+      );
       setIsReaderSettingsOpen(prev => (prev === open ? prev : open));
     };
     check();
@@ -2693,6 +2696,8 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
         format="epub"
         onClose={handleClose}
         currentChapterIndex={currentIndex}
+        bookAuthor={metadata?.author || undefined}
+        coverUrl={metadata?.cover_path ? convertFileSrc(metadata.cover_path.replace(/\\/g, '/')) : undefined}
         onNavigateToChapter={(idx) => void loadChapter(idx)}
         rightExtra={
           <>
@@ -2905,14 +2910,12 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
               </div>
             )}
 
-            {/* Doodle Canvas Overlay — must be inside the scrolling container to match its height */}
-            {isDoodleMode && (
-              <DoodleCanvas
-                bookId={bookId}
-                pageId={currentPageId}
-                containerRef={contentContainerRef}
-              />
-            )}
+            {/* Doodle Canvas Overlay — remains mounted so drawings stay visible when not in drawing mode */}
+            <DoodleCanvas
+              bookId={bookId}
+              pageId={currentPageId}
+              containerRef={contentContainerRef}
+            />
           </div>
 
           {/* Wide-Margin Marginalia Rail (Physical Scriptorium Mode) */}

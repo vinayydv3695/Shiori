@@ -769,13 +769,11 @@ export function GenericHtmlReader({ bookPath, bookId, format, readerContent, onC
             />
 
             {/* Doodle Canvas Overlay (mirrors PremiumEpubReader/PdfReader) */}
-            {isDoodleMode && (
-                <DoodleCanvas
-                    bookId={bookId}
-                    pageId={`${locationPrefix}-chapter-${currentChapter}`}
-                    containerRef={containerRef}
-                />
-            )}
+            <DoodleCanvas
+                bookId={bookId}
+                pageId={`${locationPrefix}-chapter-${currentChapter}`}
+                containerRef={containerRef}
+            />
 
             {/* Doodle Toolbar (floating, only when active) */}
             {isDoodleMode && <DoodleToolbar />}

@@ -252,11 +252,15 @@ export function ConvertToEpubMenuItem({
         type="button"
         onClick={handleConvert}
         disabled={isConverting}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-foreground/90 hover:bg-accent hover:text-accent-foreground transition-colors duration-150 disabled:opacity-50"
+        className="premium-menu-item"
         title="Create an EPUB copy of this book (the original file is kept)"
       >
-        {isConverting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileOutput className="w-4 h-4" />}
-        Convert to EPUB
+        {isConverting ? (
+          <Loader2 className="premium-control-icon animate-spin" />
+        ) : (
+          <FileOutput className="premium-control-icon text-indigo-500" />
+        )}
+        <span className="premium-menu-item-label">Convert to EPUB...</span>
       </button>
       {overlay}
     </>

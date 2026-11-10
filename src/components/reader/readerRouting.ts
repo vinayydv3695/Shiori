@@ -12,7 +12,7 @@
  *   mobi/azw/azw3/docx/fb2/txt → GenericHtmlReader
  *   html / htm / md / markdown  → GenericHtmlReader
  */
-export type ReaderKind = 'epub' | 'pdf' | 'manga' | 'html';
+export type ReaderKind = 'epub' | 'pdf' | 'manga' | 'html' | 'audiobook';
 
 export const NATIVE_READER_FORMATS: Record<string, ReaderKind> = {
   epub: 'epub',
@@ -22,6 +22,15 @@ export const NATIVE_READER_FORMATS: Record<string, ReaderKind> = {
   cbr: 'manga',
   zip: 'manga',
   rar: 'manga',
+  // Audio formats → AudiobookPlayer
+  mp3: 'audiobook',
+  m4a: 'audiobook',
+  m4b: 'audiobook',
+  ogg: 'audiobook',
+  flac: 'audiobook',
+  wav: 'audiobook',
+  audio: 'audiobook',
+  audiobook: 'audiobook',
   // HTML-rendered text formats → GenericHtmlReader
   mobi: 'html',
   azw: 'html',

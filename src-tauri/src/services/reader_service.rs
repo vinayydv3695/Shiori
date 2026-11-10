@@ -1574,6 +1574,13 @@ pub fn is_native_readable_format(ext: &str) -> bool {
             | "xhtml"
             | "md"
             | "markdown"
+            | "mp3"
+            | "m4b"
+            | "m4a"
+            | "ogg"
+            | "flac"
+            | "wav"
+            | "audio"
     )
 }
 

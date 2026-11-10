@@ -1035,6 +1035,41 @@ export const api = {
     }
   },
 
+  async prepareAudiobookFile(filename: string): Promise<string> {
+    return invoke<string>("prepare_audiobook_file", { filename });
+  },
+
+  async appendAudiobookChunk(destPath: string, bytes: number[]): Promise<void> {
+    return invoke<void>("append_audiobook_chunk", { destPath, bytes });
+  },
+
+  async saveAudiobookToLibrary(params: {
+    sourceBookId?: number | null;
+    title: string;
+    author?: string | null;
+    filename: string;
+    bytes?: number[] | null;
+    filePath?: string | null;
+    durationSeconds?: number | null;
+    notes?: string | null;
+  }): Promise<Book> {
+    logger.debug('[API] saveAudiobookToLibrary called for:', params.title);
+    return invoke<Book>("save_audiobook_to_library", {
+      sourceBookId: params.sourceBookId ?? null,
+      title: params.title,
+      author: params.author ?? null,
+      filename: params.filename,
+      bytes: params.bytes ?? null,
+      filePath: params.filePath ?? null,
+      durationSeconds: params.durationSeconds ?? null,
+      notes: params.notes ?? null,
+    });
+  },
+
+  async readBookBinary(filePath: string): Promise<number[]> {
+    return invoke<number[]>("read_book_binary", { filePath });
+  },
+
   async enrichBookMetadata(bookId: number): Promise<boolean> {
     return invoke("enrich_book_metadata", { bookId })
   },

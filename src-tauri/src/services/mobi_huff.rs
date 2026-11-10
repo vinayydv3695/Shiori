@@ -145,7 +145,7 @@ fn load_huff(huff: &[u8]) -> HuffmanResult<(CodeDictionary, MinCodesMapping, Max
 
     // First value is ignored, since code_len > 0.
     let mut min_codes = [0; 32];
-    let mut max_codes = [u32::max_value(); 32];
+    let mut max_codes = [u32::MAX; 32];
 
     // Fill all other values.
     for code_len in 1..=32 {

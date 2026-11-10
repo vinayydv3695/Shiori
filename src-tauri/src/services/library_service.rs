@@ -1882,7 +1882,9 @@ pub fn scan_and_import_folder(
 // DOMAIN-SEPARATED IMPORT (Books vs Manga)
 // ═══════════════════════════════════════════════════════════
 
-const BOOK_FORMATS: &[&str] = &["epub", "pdf", "mobi", "azw3", "fb2", "txt", "docx", "html"];
+const BOOK_FORMATS: &[&str] = &[
+    "epub", "pdf", "mobi", "azw3", "fb2", "txt", "docx", "html", "mp3", "m4b", "m4a", "ogg", "flac", "wav",
+];
 const MANGA_FORMATS: &[&str] = &["cbz", "cbr", "zip"];
 const COMICS_FORMATS: &[&str] = &["cbz", "cbr", "zip"];
 
@@ -2221,6 +2223,10 @@ fn get_tags_for_book(conn: &rusqlite::Connection, book_id: i64) -> Result<Vec<Ta
 /// Transaction-compatible version (Transaction derefs to Connection)
 fn get_or_create_author_tx(tx: &rusqlite::Transaction, name: &str) -> Result<i64> {
     get_or_create_author_impl(tx, name)
+}
+
+pub fn get_or_create_author(conn: &rusqlite::Connection, name: &str) -> Result<i64> {
+    get_or_create_author_impl(conn, name)
 }
 
 fn get_or_create_author_impl(conn: &rusqlite::Connection, name: &str) -> Result<i64> {

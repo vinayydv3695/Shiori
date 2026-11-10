@@ -168,14 +168,16 @@ export function ReaderSettings({
   return (
     <div className={`premium-settings-container ${hideTrigger ? '!hidden' : ''}`}>
       {!hideTrigger && (
-        <ReaderTooltip content="Reading settings">
+        <ReaderTooltip content="Appearance & Layout (Aa)">
           <button
             ref={buttonRef}
             onClick={() => setIsOpen(!isOpen)}
             className={`premium-control-button ${isOpen ? 'premium-control-button--active' : ''}`}
-            aria-label="Reading settings"
+            aria-label="Appearance & Layout"
           >
-            <Settings className="premium-control-icon" />
+            <span className="font-serif font-bold text-[13px] tracking-tight leading-none select-none text-current">
+              Aa
+            </span>
           </button>
         </ReaderTooltip>
       )}

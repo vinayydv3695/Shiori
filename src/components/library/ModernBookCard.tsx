@@ -47,6 +47,11 @@ const fmtColors: Record<string, string> = {
   MARKDOWN: 'bg-emerald-600 text-white border-emerald-700 shadow-sm',
   CBZ: 'bg-[var(--manga-accent,#ec4899)] text-white border-pink-700 shadow-sm',
   CBR: 'bg-[var(--manga-accent,#ec4899)] text-white border-pink-700 shadow-sm',
+  MP3: 'bg-amber-500 text-white border-amber-600 shadow-sm',
+  M4B: 'bg-amber-500 text-white border-amber-600 shadow-sm',
+  M4A: 'bg-amber-500 text-white border-amber-600 shadow-sm',
+  AUDIO: 'bg-amber-500 text-white border-amber-600 shadow-sm',
+  AUDIOBOOK: 'bg-amber-500 text-white border-amber-600 shadow-sm',
 }
 
 
@@ -115,6 +120,17 @@ const FormatPill = ({
 
   const fmt = format.toUpperCase()
   const isManga = fmt === 'CBZ' || fmt === 'CBR'
+  const isAudio = ['MP3', 'M4B', 'M4A', 'AUDIO', 'AUDIOBOOK'].includes(fmt)
+
+  if (isAudio) {
+    return (
+      <span className="flex items-center gap-1 px-2 py-[3px] text-[10px] font-extrabold rounded-full tracking-wide shadow-md opacity-100 border border-amber-600 bg-amber-500 text-white select-none">
+        <Headphones size={10} className="shrink-0" />
+        <span>AUDIO</span>
+      </span>
+    )
+  }
+
   const cls = fmtColors[fmt] ?? 'bg-secondary text-secondary-foreground border border-border shadow-sm'
   return (
     <span className={cn(
@@ -134,9 +150,10 @@ interface OverlayProps {
   onEdit: () => void
   onDelete: () => void
   isManga: boolean
+  isAudio?: boolean
 }
 
-const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: OverlayProps) => {
+const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga, isAudio }: OverlayProps) => {
   const ActionTooltip = ({ content, children }: { content: string, children: React.ReactNode }) => (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -161,23 +178,29 @@ const HoverOverlay = ({ onOpen, onViewDetails, onEdit, onDelete, isManga }: Over
         )}
       >
         <div className="flex flex-col items-center justify-center gap-2.5 scale-95 group-hover:scale-100 transition-transform duration-250 ease-out">
-          {/* Primary Action: Tactile "Read" / "Read Manga" Pill */}
-          <ActionTooltip content={isManga ? 'Read manga' : 'Open book'}>
+          {/* Primary Action: Tactile "Listen" / "Read" / "Read Manga" Pill */}
+          <ActionTooltip content={isAudio ? 'Listen to audiobook' : isManga ? 'Read manga' : 'Open book'}>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpen() }}
               className={cn(
                 'group/btn relative flex items-center gap-2 px-5 py-2 rounded-full',
-                'bg-gradient-to-b from-primary via-primary to-[color-mix(in_srgb,var(--primary)_82%,black)]',
-                'text-primary-foreground font-bold text-xs tracking-wide select-none',
+                isAudio
+                  ? 'bg-gradient-to-b from-amber-500 via-amber-500 to-amber-600 text-white'
+                  : 'bg-gradient-to-b from-primary via-primary to-[color-mix(in_srgb,var(--primary)_82%,black)] text-primary-foreground',
+                'font-bold text-xs tracking-wide select-none',
                 'border-t border-white/30',
                 'shadow-[0_4px_16px_rgba(0,0,0,0.4),0_1px_2px_rgba(0,0,0,0.2)]',
                 'hover:shadow-[0_6px_22px_rgba(0,0,0,0.5)] hover:scale-105 hover:brightness-105',
                 'active:scale-95 transition-all duration-150 cursor-pointer'
               )}
             >
-              <BookOpen size={15} strokeWidth={2.4} className="transition-transform duration-200 group-hover/btn:scale-110" />
-              <span>{isManga ? 'Read Manga' : 'Read'}</span>
+              {isAudio ? (
+                <Headphones size={15} strokeWidth={2.4} className="transition-transform duration-200 group-hover/btn:scale-110" />
+              ) : (
+                <BookOpen size={15} strokeWidth={2.4} className="transition-transform duration-200 group-hover/btn:scale-110" />
+              )}
+              <span>{isAudio ? 'Listen' : isManga ? 'Read Manga' : 'Read'}</span>
             </button>
           </ActionTooltip>
 
@@ -314,14 +337,15 @@ export const PremiumBookCard = memo(function PremiumBookCard({
   const parsedTitle = formatRssOrDateTitle(book.title);
   const hue = (book.id || 0) * 137.508 % 360;
   const coverColor = `hsl(${hue}, 40%, 30%)`;
+  const isAudio = ['mp3', 'm4b', 'm4a', 'ogg', 'flac', 'wav', 'audio', 'audiobook'].includes(book.file_format?.toLowerCase() || '');
 
   const menuItems: LibraryMenuItem[] = [
-    { label: 'Open', icon: BookOpen, onClick: () => onOpen(book.id!) },
+    { label: isAudio ? 'Listen' : 'Open', icon: isAudio ? Headphones : BookOpen, onClick: () => onOpen(book.id!) },
     ...(onViewDetails ? [{ label: 'View Details', icon: Info, onClick: () => onViewDetails(book.id!) }] : []),
-    ...(book.file_format && !['epub', 'online-manga', 'cbz', 'cbr'].includes(book.file_format.toLowerCase())
+    ...(book.file_format && !isAudio && !['epub', 'online-manga', 'cbz', 'cbr'].includes(book.file_format.toLowerCase())
       ? [{ label: 'Convert to EPUB', icon: FileOutput, onClick: () => setConvertBookId(book.id!) }]
       : []),
-    ...(!['online-manga', 'cbz', 'cbr'].includes(book.file_format?.toLowerCase() || '')
+    ...(!isAudio && !['online-manga', 'cbz', 'cbr'].includes(book.file_format?.toLowerCase() || '')
       ? [{ label: 'Convert to Audiobook...', icon: Headphones, onClick: () => setAudiobookOpen(true) }]
       : []),
     { label: 'Edit Metadata', icon: Pencil, onClick: () => onEdit(book.id!) },
@@ -399,6 +423,7 @@ export const PremiumBookCard = memo(function PremiumBookCard({
           onEdit={() => onEdit(book.id!)}
           onDelete={() => onDelete(book.id!)}
           isManga={isManga}
+          isAudio={isAudio}
         />
 
         {/* Top-Left: Selection Checkbox & Format Pill */}

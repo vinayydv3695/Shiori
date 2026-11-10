@@ -2377,6 +2377,11 @@ impl<'a> MigrationManager<'a> {
             )?;
         }
 
+        let hash = Self::calculate_checksum("v31_torrent_network_config");
+        self.record_migration(31, "torrent_network_config", &hash)?;
+        self.set_schema_version(31)?;
+
+        log::info!("[Migration] v31 applied successfully");
         Ok(())
     }
 

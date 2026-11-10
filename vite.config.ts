@@ -82,7 +82,6 @@ export default defineConfig({
         generatedCode: { constBindings: true },
         manualChunks: {
           pdfjs: ['react-pdf', 'pdfjs-dist'],
-          epubjs: ['epubjs'],
           vendor: ['react', 'react-dom', 'framer-motion']
         }
       },

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useReaderUIStore, useReadingSettings } from '@/store/premiumReaderStore';
+import { useDoodleStore } from '@/store/doodleStore';
 
 export interface PremiumReaderKeyboardHandlers {
   onPrevChapter?: () => void;
@@ -126,6 +127,13 @@ export function usePremiumReaderKeyboard(handlers: PremiumReaderKeyboardHandlers
       if (!isMod && (key === 'v' || key === 'V')) {
         e.preventDefault();
         handlersRef.current.onToggleVocabModal?.();
+        return;
+      }
+
+      // d / D: Toggle drawing/doodle mode (without Mod key)
+      if (!isMod && (key === 'd' || key === 'D')) {
+        e.preventDefault();
+        useDoodleStore.getState().toggleDoodleMode();
         return;
       }
 

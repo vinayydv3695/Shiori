@@ -31,6 +31,11 @@
   --manga-accent-dim: rgba(232, 93, 74, 0.15);
 
   /* White theme is defined in index.css (Premium Light) */
+  --bg-primary: hsl(var(--background));
+  --bg-secondary: hsl(var(--secondary));
+  --bg-elevated: hsl(var(--card));
+  --text-primary: hsl(var(--foreground));
+  --border-primary: hsl(var(--border));
 
   /* ==================== INTERACTIVE / OVERLAY TOKENS ==================== */
   --overlay-bg: rgba(250, 250, 250, 0.85);

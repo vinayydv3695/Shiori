@@ -20,9 +20,17 @@ const ALL_FILE_FORMATS = [
   'htm',
   'md',
   'markdown',
+  'mp3',
+  'm4a',
+  'm4b',
+  'ogg',
+  'flac',
+  'wav',
+  'audio',
+  'audiobook',
 ] as const;
 
-const READER_KINDS: ReaderKind[] = ['epub', 'pdf', 'manga', 'html'];
+const READER_KINDS: ReaderKind[] = ['epub', 'pdf', 'manga', 'html', 'audiobook'];
 
 describe('NATIVE_READER_FORMATS (native routing map)', () => {
   it('routes every supported file format to a reader — nothing falls through', () => {
@@ -40,6 +48,9 @@ describe('NATIVE_READER_FORMATS (native routing map)', () => {
     }
     for (const text of ['mobi', 'azw', 'azw3', 'docx', 'fb2', 'txt', 'html', 'htm', 'md', 'markdown']) {
       expect(NATIVE_READER_FORMATS[text]).toBe('html');
+    }
+    for (const audio of ['mp3', 'm4a', 'm4b', 'ogg', 'flac', 'wav', 'audio', 'audiobook']) {
+      expect(NATIVE_READER_FORMATS[audio]).toBe('audiobook');
     }
   });
 

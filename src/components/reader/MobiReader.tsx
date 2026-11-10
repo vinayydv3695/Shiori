@@ -793,13 +793,11 @@ export function MobiReader({ bookPath, bookId, onClose }: MobiReaderProps) {
             <ReaderAnnotationTooltip />
 
             {/* Doodle */}
-            {isDoodleMode && (
-                <DoodleCanvas
-                    bookId={bookId}
-                    pageId={currentPageId}
-                    containerRef={containerRef}
-                />
-            )}
+            <DoodleCanvas
+                bookId={bookId}
+                pageId={currentPageId}
+                containerRef={containerRef}
+            />
             {isDoodleMode && <DoodleToolbar />}
         </div>
     );

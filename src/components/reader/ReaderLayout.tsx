@@ -7,6 +7,7 @@ import { PremiumEpubReader } from './PremiumEpubReader';
 import { PdfReader } from './PdfReader';
 import { GenericHtmlReader } from './GenericHtmlReader';
 import { MangaReader } from '@/components/manga/MangaReader';
+import { AudiobookPlayer } from '@/components/audiobook/AudiobookPlayer';
 import { ReaderErrorBoundary, parseReaderError } from './ReaderErrorBoundary';
 import { getReaderKind } from './readerRouting';
 import { useKeepScreenOn } from '@/hooks/useKeepScreenOn';
@@ -81,15 +82,23 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         ]);
         if (requestId !== loadRequestId) return; // superseded — bail before any commit
 
+        if (!filePath) {
+          throw new Error('Book file path could not be resolved or file is missing.');
+        }
+
         const ext = filePath.split('.').pop()?.toLowerCase() || '';
         let effectiveFormat = ext;
-        if (!['epub', 'pdf', 'cbz', 'cbr', 'zip', 'rar', 'mobi', 'azw3', 'fb2', 'txt', 'docx'].includes(effectiveFormat)) {
+        if (!['epub', 'pdf', 'cbz', 'cbr', 'zip', 'rar', 'mobi', 'azw3', 'fb2', 'txt', 'docx', 'mp3', 'm4a', 'm4b', 'ogg', 'flac', 'wav', 'audio'].includes(effectiveFormat)) {
           try {
             effectiveFormat = (await api.detectBookFormat(filePath)).toLowerCase();
           } catch {
             effectiveFormat = 'epub';
           }
           if (requestId !== loadRequestId) return; // superseded during format detection
+        }
+
+        if (!startupData || !startupData.book) {
+          throw new Error('Book metadata could not be loaded.');
         }
 
         const { book, progress, annotations } = startupData;
@@ -248,6 +257,14 @@ export function ReaderLayout({ bookId, onClose }: ReaderLayoutProps) {
         )}
         {currentBookPath && readerKind === 'manga' && (
           <MangaReader mode="local" bookId={bookId} bookPath={currentBookPath} onClose={handleClose} onNextChapter={handleNextChapter} />
+        )}
+        {currentBookPath && readerKind === 'audiobook' && (
+          <AudiobookPlayer
+            bookId={bookId}
+            bookPath={currentBookPath}
+            readerContent={currentContent}
+            onClose={handleClose}
+          />
         )}
         {currentBookPath && readerKind === 'html' && (
           <GenericHtmlReader

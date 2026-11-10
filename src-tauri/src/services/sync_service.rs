@@ -887,7 +887,7 @@ mod tests {
     #[test]
     fn test_sync_extract_and_apply() {
         let mut host_conn = setup_test_db();
-        let mut client_conn = setup_test_db();
+        let client_conn = setup_test_db();
 
         // Host has Book A
         host_conn.execute(

@@ -59,10 +59,10 @@ export function ConvertToAudiobookMenuItem({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/50 rounded-md transition-colors text-left"
+          className="premium-menu-item"
         >
-          <Headphones className="w-3.5 h-3.5 text-primary shrink-0" />
-          <span>Convert to Audiobook...</span>
+          <Headphones className="premium-control-icon text-primary shrink-0" />
+          <span className="premium-menu-item-label">Convert to Audiobook...</span>
         </button>
       )}
 

@@ -206,7 +206,6 @@ impl RssScheduler {
 mod tests {
     use super::*;
     use crate::db::Database;
-    use std::path::PathBuf;
 
     #[tokio::test]
     async fn test_scheduler_creation() {

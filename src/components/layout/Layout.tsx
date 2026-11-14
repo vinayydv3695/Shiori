@@ -24,6 +24,7 @@ import { FilterPanel } from '../library/FilterPanel'
 import { BottomNav } from './BottomNav'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { DuplicateFinderDialog } from '../library/DuplicateFinderDialog'
+import { LibraryHealthDialog } from '../library/LibraryHealthDialog'
 import { ImportDialog } from '../library/ImportDialog'
 import { CreateShelfDialog } from '../shelves/CreateShelfDialog'
 import { cn } from '@/lib/utils'
@@ -135,7 +136,8 @@ export function Layout({
   onDomainChange = () => { },
 }: LayoutProps) {
   const isMobile = useIsMobile()
-  const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
+const [duplicateFinderOpen, setDuplicateFinderOpen] = useState(false)
+const [libraryHealthOpen, setLibraryHealthOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [createShelfOpen, setCreateShelfOpen] = useState(false)
@@ -445,7 +447,8 @@ export function Layout({
           onOpenAdvancedFilter={onOpenAdvancedFilter}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onGoHome={onGoHome}
-          onAutoGroupManga={onAutoGroupManga}
+ onAutoGroupManga={onAutoGroupManga}
+ onOpenLibraryHealth={() => setLibraryHealthOpen(true)}
           currentView={currentView}
           onNavigateToView={onNavigateToView}
           activeFilterCount={activeFilterCount}
@@ -615,10 +618,11 @@ export function Layout({
       )}
 
       {/* ── Duplicate Finder Dialog ── */}
-      <DuplicateFinderDialog
+ <DuplicateFinderDialog
         open={duplicateFinderOpen}
         onOpenChange={setDuplicateFinderOpen}
-      />
+ />
+ {libraryHealthOpen && <LibraryHealthDialog open={libraryHealthOpen} onOpenChange={setLibraryHealthOpen} />}
 
       <CreateShelfDialog
         open={createShelfOpen}

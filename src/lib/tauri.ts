@@ -901,7 +901,25 @@ export interface ConversionReportPayload {
   toc_entries?: number
 }
 
+export interface LibraryMetadataImportPreview {
+  fingerprint: string
+  total: number
+  matched: number
+  unmatched: number
+  wouldUpdate: number
+  updated: number
+  unchanged: number
+}
+
 export const api = {
+  async previewLibraryMetadataImport(filePath: string): Promise<LibraryMetadataImportPreview> {
+    return invoke("preview_library_metadata_import", { filePath })
+  },
+
+  async importLibraryMetadata(filePath: string, expectedFingerprint: string): Promise<LibraryMetadataImportPreview> {
+    return invoke("import_library_metadata", { filePath, expectedFingerprint })
+  },
+
   // Library operations
   async getBooks(limit: number = 50, offset: number = 0): Promise<BookSummary[]> {
     if (!hasTauriOrMock()) {
@@ -2453,4 +2471,3 @@ export async function setNativeZoom(scale: number): Promise<void> {
     }
   }
 }
-

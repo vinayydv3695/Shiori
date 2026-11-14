@@ -1,3 +1,14 @@
+# Release Notes (v1.0.31)
+
+## Metadata Import, Library Health & Document Reliability
+
+- **Metadata Import** — Preview JSON exports and fill missing metadata for matching local books without overwriting existing values or restoring files. Imports validate input, check preview fingerprints, and apply updates transactionally.
+- **Library Health** — Added an on-demand, read-only desktop library check for missing and unreadable local files. Unsupported and remote paths are skipped.
+- **RSS Digests** — Prevent concurrent duplicate digest generation, track delivered articles, surface library-import failures, and allow manual retries after repeated feed failures.
+- **Document Adapters** — Read embedded PDF metadata with improved text fallbacks, retaining safe page-based navigation. Preserve DOCX table content and avoid decompressing unrelated entries in the ZIP fallback.
+- **Export Compatibility** — Corrected author and reading-progress queries to match the database schema.
+- **TTS Data Paths** — Normalize direct espeak data-directory overrides and reject incomplete data installations.
+
 # Release Notes (v1.0.30)
 
 ## Background Audiobook Synthesis, ElevenLabs Integration, Edge Neural TTS Restoration & Reader Refinements

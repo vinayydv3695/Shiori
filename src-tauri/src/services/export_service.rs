@@ -5,6 +5,160 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
 
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataImportReport {
+    pub fingerprint: String,
+    pub total: usize,
+    pub matched: usize,
+    pub unmatched: usize,
+    pub would_update: usize,
+    pub updated: usize,
+    pub unchanged: usize,
+}
+
+fn metadata_input(path: &str) -> Result<(Vec<ExportedBook>, String)> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let invalid = |message: &str| crate::error::ShioriError::InvalidOperation(message.into());
+    // Reject special files before open, since opening a FIFO can block.
+    if !std::fs::metadata(path)?.is_file() {
+        return Err(invalid("Metadata input must be a regular file"));
+    }
+    let file = File::open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(invalid("Metadata input must be a regular file"));
+    }
+    let mut bytes = Vec::new();
+    file.take(32 * 1024 * 1024 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > 32 * 1024 * 1024 {
+        return Err(invalid("Metadata input exceeds 32 MiB"));
+    }
+    let books: Vec<ExportedBook> = serde_json::from_slice(&bytes)?;
+    if books.len() > 100_000 {
+        return Err(invalid("Metadata input exceeds 100000 records"));
+    }
+    let mut paths = std::collections::HashSet::new();
+    for book in &books {
+        if !paths.insert(&book.file_path) {
+            return Err(invalid("Duplicate metadata file_path"));
+        }
+        let strings = [
+            &book.title,
+            &book.authors,
+            &book.file_format,
+            &book.file_path,
+            &book.language,
+            &book.tags,
+            &book.added_date,
+        ];
+        if strings.iter().any(|s| s.len() > 16 * 1024)
+            || [
+                &book.isbn,
+                &book.publisher,
+                &book.pubdate,
+                &book.series,
+                &book.shelves,
+            ]
+            .iter()
+            .any(|s| s.as_ref().is_some_and(|s| s.len() > 16 * 1024))
+        {
+            return Err(invalid("Metadata string exceeds 16 KiB"));
+        }
+        if [book.series_index, book.rating, book.reading_progress]
+            .iter()
+            .flatten()
+            .any(|n| !n.is_finite())
+            || book.rating.is_some_and(|n| !(0.0..=10.0).contains(&n))
+        {
+            return Err(invalid("Invalid metadata number or rating"));
+        }
+    }
+    Ok((books, format!("{:x}", Sha256::digest(&bytes))))
+}
+
+pub fn import_library_metadata(
+    db: &Database,
+    file_path: &str,
+    expected_fingerprint: Option<&str>,
+) -> Result<MetadataImportReport> {
+    let (books, fingerprint) = metadata_input(file_path)?;
+    if expected_fingerprint.is_some_and(|expected| expected != fingerprint) {
+        return Err(crate::error::ShioriError::InvalidOperation(
+            "Metadata file changed since preview".into(),
+        ));
+    }
+    let apply = expected_fingerprint.is_some();
+    let mut conn = db.get_connection()?;
+    let tx = conn.transaction()?;
+    let mut report = MetadataImportReport {
+        fingerprint,
+        total: books.len(),
+        ..Default::default()
+    };
+    {
+        let mut lookup = tx.prepare("SELECT isbn,publisher,pubdate,series,series_index,rating,language FROM books WHERE file_path=?1")?;
+        let mut update = tx.prepare("UPDATE books SET isbn=?2,publisher=?3,pubdate=?4,series=?5,series_index=?6,rating=?7,language=?8 WHERE file_path=?1")?;
+        for book in books {
+            let mut rows = lookup.query([&book.file_path])?;
+            let Some(row) = rows.next()? else {
+                report.unmatched += 1;
+                continue;
+            };
+            report.matched += 1;
+            let mut changed = false;
+            let mut text = Vec::new();
+            for (index, incoming) in [
+                (0, book.isbn),
+                (1, book.publisher),
+                (2, book.pubdate),
+                (3, book.series),
+                (6, Some(book.language)),
+            ] {
+                let old: Option<String> = row.get(index)?;
+                let value = if old.as_ref().map_or(true, |s| s.is_empty()) {
+                    match incoming.filter(|s| !s.is_empty()) {
+                        Some(value) => {
+                            changed = true;
+                            Some(value)
+                        }
+                        None => old,
+                    }
+                } else {
+                    old
+                };
+                text.push(value);
+            }
+            let old_series: Option<f64> = row.get(4)?;
+            let old_rating: Option<f64> = row.get(5)?;
+            changed |= old_series.is_none() && book.series_index.is_some();
+            changed |= old_rating.is_none() && book.rating.is_some();
+            if changed {
+                report.would_update += 1;
+                if apply {
+                    update.execute(params![
+                        book.file_path,
+                        text[0],
+                        text[1],
+                        text[2],
+                        text[3],
+                        old_series.or(book.series_index),
+                        old_rating.or(book.rating),
+                        text[4]
+                    ])?;
+                    report.updated += 1;
+                }
+            } else {
+                report.unchanged += 1;
+            }
+        }
+    }
+    if apply {
+        tx.commit()?;
+    }
+    Ok(report)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExportOptions {
     pub format: ExportFormat,
@@ -143,7 +297,7 @@ fn get_authors_string(conn: &rusqlite::Connection, book_id: i64) -> Result<Strin
         "SELECT a.name FROM authors a 
          JOIN books_authors ba ON a.id = ba.author_id 
          WHERE ba.book_id = ?1
-         ORDER BY ba.id",
+         ORDER BY ba.author_id",
     )?;
 
     let authors: Vec<String> = stmt
@@ -185,7 +339,7 @@ fn get_shelves_string(conn: &rusqlite::Connection, book_id: i64) -> Result<Strin
 
 fn get_reading_progress(conn: &rusqlite::Connection, book_id: i64) -> Result<Option<f64>> {
     match conn.query_row(
-        "SELECT progress FROM reading_progress WHERE book_id = ?1 ORDER BY last_read DESC LIMIT 1",
+        "SELECT progress_percent FROM reading_progress WHERE book_id = ?1 ORDER BY last_read DESC LIMIT 1",
         params![book_id],
         |row| row.get(0),
     ) {

@@ -51,6 +51,7 @@ macro_rules! generate_shiori_handlers {
             commands::library::get_books,
             commands::library::get_books_by_paths,
             commands::library::get_library_stats,
+            commands::library::check_library_health,
             commands::library::get_thumbnail,
             commands::library::get_recommended_books,
             commands::library::get_next_book_in_series,
@@ -163,6 +164,8 @@ macro_rules! generate_shiori_handlers {
             commands::shelves::get_shelves_by_type,
             commands::shelves::preview_smart_shelf,
             commands::export::export_library,
+            commands::export::preview_library_metadata_import,
+            commands::export::import_library_metadata,
             // v2.0 commands
             commands::conversion::convert_file,
             commands::conversion::convert_book,

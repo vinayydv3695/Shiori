@@ -32,7 +32,7 @@ pub(crate) struct DocxFallback {
 /// docx-rs 0.4 fails on minimal-but-valid DOCX files (e.g. only
 /// [Content_Types].xml, _rels/.rels and word/document.xml). This fallback
 /// reads word/document.xml directly and converts it to simple HTML
-/// (`<w:p>` -> `<p>`, `<w:t>` -> escaped text, `<w:br>` -> `<br>`,
+/// (`<w:p>` -> `<p>`, tables retain rows/cells, `<w:t>` -> escaped text, `<w:br>` -> `<br>`,
 /// `<w:tab>` -> non-breaking spaces; other elements' tags are dropped but
 /// their text is kept), and pulls the title from docProps/core.xml.
 ///
@@ -43,11 +43,15 @@ pub(crate) fn parse_docx_zip(file_data: &[u8]) -> Option<DocxFallback> {
 
     let mut document_xml: Option<Vec<u8>> = None;
     let mut core_xml: Option<Vec<u8>> = None;
-    for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).ok()?;
+    for name in ["word/document.xml", "docProps/core.xml"] {
+        let mut entry = match archive.by_name(name) {
+            Ok(entry) => entry,
+            Err(zip::result::ZipError::FileNotFound) => continue,
+            Err(_) => return None,
+        };
         let mut buf = Vec::new();
         entry.read_to_end(&mut buf).ok()?;
-        match entry.name() {
+        match name {
             "word/document.xml" => document_xml = Some(buf),
             "docProps/core.xml" => core_xml = Some(buf),
             _ => {}
@@ -60,6 +64,49 @@ pub(crate) fn parse_docx_zip(file_data: &[u8]) -> Option<DocxFallback> {
     let title = core_xml.as_deref().and_then(docx_core_title);
 
     Some(DocxFallback { html, text, title })
+}
+
+#[cfg(test)]
+mod fallback_fidelity_tests {
+    use super::*;
+    use std::io::{Cursor, Write};
+
+    #[test]
+    fn primary_table_extraction_preserves_escaped_paragraphs() {
+        let table = Table::new(vec![TableRow::new(vec![
+            TableCell::new()
+                .add_paragraph(Paragraph::new().add_run(Run::new().add_text("A & <B>")))
+                .add_paragraph(Paragraph::new().add_run(Run::new().add_text("Second"))),
+            TableCell::new().add_paragraph(Paragraph::new().add_run(Run::new().add_text("Other"))),
+        ])]);
+        let mut html = String::new();
+        DocxAdapter::render_table(&table, &mut html);
+        assert_eq!(html, "<table><tr><td><p>A &amp; &lt;B&gt;</p><p>Second</p></td><td><p>Other</p></td></tr></table>");
+    }
+
+    #[test]
+    fn zip_fallback_preserves_table_paragraphs_and_escapes_text() {
+        let xml = br#"<w:document xmlns:w="urn:word"><w:body><w:tbl><w:tr><w:tc><w:p><w:r><w:t>A &amp; &lt;B&gt;</w:t></w:r></w:p><w:p><w:r><w:t>Second</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Other</w:t></w:r></w:p></w:tc></w:tr></w:tbl></w:body></w:document>"#;
+        let mut zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        zip.start_file(
+            "word/document.xml",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        zip.write_all(xml).unwrap();
+        let bytes = zip.finish().unwrap().into_inner();
+        let parsed = parse_docx_zip(&bytes).unwrap();
+        assert_eq!(parsed.html, "<table><tr><td><p>A &amp; &lt;B&gt;</p><p>Second</p></td><td><p>Other</p></td></tr></table>");
+        assert!(parsed.text.contains("A & <B>\nSecond\nOther"));
+    }
+
+    #[test]
+    fn zip_fallback_rejects_invalid_zip_and_missing_document() {
+        assert!(parse_docx_zip(b"not a zip").is_none());
+        let zip = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        let bytes = zip.finish().unwrap().into_inner();
+        assert!(parse_docx_zip(&bytes).is_none());
+    }
 }
 
 fn escape_html(s: &str) -> String {
@@ -82,6 +129,9 @@ fn docx_xml_to_html(xml: &[u8]) -> String {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => match e.name().as_ref() {
+                b"w:tbl" => html.push_str("<table>"),
+                b"w:tr" => html.push_str("<tr>"),
+                b"w:tc" => html.push_str("<td>"),
                 b"w:p" => html.push_str("<p>"),
                 b"w:br" => html.push_str("<br>"),
                 b"w:tab" => html.push_str("&nbsp;&nbsp;"),
@@ -92,11 +142,13 @@ fn docx_xml_to_html(xml: &[u8]) -> String {
                 b"w:tab" => html.push_str("&nbsp;&nbsp;"),
                 _ => {}
             },
-            Ok(Event::End(e)) => {
-                if e.name().as_ref() == b"w:p" {
-                    html.push_str("</p>");
-                }
-            }
+            Ok(Event::End(e)) => match e.name().as_ref() {
+                b"w:p" => html.push_str("</p>"),
+                b"w:tbl" => html.push_str("</table>"),
+                b"w:tr" => html.push_str("</tr>"),
+                b"w:tc" => html.push_str("</td>"),
+                _ => {}
+            },
             Ok(Event::Text(e)) => {
                 if let Ok(txt) = e.unescape() {
                     if !is_whitespace_only(&txt) {
@@ -278,9 +330,8 @@ impl DocxAdapter {
                         html.push_str(&format!("<p>{}</p>\n", para_html));
                     }
                 }
-                DocumentChild::Table(_table) => {
-                    // Simple table placeholder
-                    html.push_str("<div class=\"docx-table\">[Table Content]</div>\n");
+                DocumentChild::Table(table) => {
+                    Self::render_table(table, &mut html);
                 }
                 _ => {}
             }
@@ -289,6 +340,44 @@ impl DocxAdapter {
         html.push_str("</div>\n");
 
         (html, toc)
+    }
+
+    fn render_table(table: &Table, html: &mut String) {
+        html.push_str("<table>");
+        for TableChild::TableRow(row) in &table.rows {
+            html.push_str("<tr>");
+            for TableRowChild::TableCell(cell) in &row.cells {
+                html.push_str("<td>");
+                for child in &cell.children {
+                    match child {
+                        TableCellContent::Paragraph(paragraph) => {
+                            html.push_str("<p>");
+                            for child in &paragraph.children {
+                                if let ParagraphChild::Run(run) = child {
+                                    for child in &run.children {
+                                        match child {
+                                            RunChild::Text(value) => {
+                                let text = quick_xml::escape::unescape(&value.text)
+                                    .unwrap_or_else(|_| std::borrow::Cow::Borrowed(&value.text));
+                                html.push_str(&escape_html(&text))
+                                            }
+                                            RunChild::Break(_) => html.push_str("<br>"),
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                            html.push_str("</p>");
+                        }
+                        TableCellContent::Table(table) => Self::render_table(table, html),
+                        _ => {}
+                    }
+                }
+                html.push_str("</td>");
+            }
+            html.push_str("</tr>");
+        }
+        html.push_str("</table>");
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.0.30"
+version = "1.0.31"
 description = "A Modern Library and Reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -186,4 +186,3 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 wat = "=1.243.0"                  # WAT->wasm in tests (exact pin: 1.244+ needs MSRV 1.81+; MSRV 1.76 here, fits repo 1.80)
 wiremock = "0.6.5"
 filetime = "0.2"
-

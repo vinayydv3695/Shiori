@@ -16,6 +16,7 @@ import { AISettingsSection } from './AISettingsSection'
 import { CloudSyncSection } from './CloudSyncSection'
 import { DictionarySettingsSection } from './DictionarySettingsSection'
 import { Button } from '@/components/ui/button'
+import { MetadataImportSection } from './MetadataImportSection'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -2167,9 +2168,7 @@ const AdvancedSettings = ({
             <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="rounded-xl">
               {isExporting ? 'Exporting...' : 'Export Database'}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleImport} className="rounded-xl">
-              Import Database
-            </Button>
+            <MetadataImportSection />
             <Button variant="outline" size="sm" onClick={handleCleanUpDatabase} disabled={isCleaningUp} className="rounded-xl">
               {isCleaningUp ? 'Cleaning...' : 'Clean Up Database'}
             </Button>

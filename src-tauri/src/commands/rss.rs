@@ -143,6 +143,9 @@ pub async fn update_rss_feed_articles(
 ) -> crate::error::Result<usize> {
     validate::require_positive_id(feed_id, "feed_id")?;
     service
+        .reset_feed_failures(feed_id)
+        .map_err(|e| ShioriError::Other(e.to_string()))?;
+    service
         .update_feed_articles(feed_id)
         .await
         .map_err(|e| ShioriError::Other(e.to_string()))

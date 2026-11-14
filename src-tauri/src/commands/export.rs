@@ -6,6 +6,37 @@ use std::path::{Component, Path, PathBuf};
 use tauri::State;
 
 #[tauri::command]
+pub async fn preview_library_metadata_import(
+    state: State<'_, AppState>,
+    file_path: String,
+) -> Result<export_service::MetadataImportReport> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        export_service::import_library_metadata(&db, &file_path, None)
+    })
+    .await
+    .map_err(|e| {
+        crate::error::ShioriError::InvalidOperation(format!("Metadata preview task failed: {e}"))
+    })?
+}
+
+#[tauri::command]
+pub async fn import_library_metadata(
+    state: State<'_, AppState>,
+    file_path: String,
+    expected_fingerprint: String,
+) -> Result<export_service::MetadataImportReport> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        export_service::import_library_metadata(&db, &file_path, Some(&expected_fingerprint))
+    })
+    .await
+    .map_err(|e| {
+        crate::error::ShioriError::InvalidOperation(format!("Metadata import task failed: {e}"))
+    })?
+}
+
+#[tauri::command]
 pub fn export_library(state: State<AppState>, options: ExportOptions) -> Result<String> {
     let db = &state.db;
 

@@ -8,6 +8,7 @@ pub mod fb2_reader_adapter;
 pub mod format_detector;
 pub mod html_reader_adapter;
 pub mod library_service;
+pub mod library_health_service;
 pub mod library_root;
 pub mod saf;
 pub mod ingest_service;

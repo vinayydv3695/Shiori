@@ -1,7 +1,128 @@
 use crate::error::{Result, ShioriError};
 use crate::services::renderer::{BookMetadata, BookReaderAdapter, Chapter, SearchResult, TocEntry};
 use async_trait::async_trait;
-use lopdf::{content::Content, Document, Object};
+use lopdf::{Document, Object};
+
+#[cfg(test)]
+mod fidelity_tests {
+    use super::*;
+    use lopdf::{dictionary, Stream};
+
+    fn fixture(content: &[u8]) -> Document {
+        let mut doc = Document::with_version("1.5");
+        let pages = doc.new_object_id();
+        let font = doc.add_object(
+            dictionary! {"Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica"},
+        );
+        let stream = doc.add_object(Stream::new(lopdf::Dictionary::new(), content.to_vec()));
+        let page = doc.add_object(dictionary! {
+            "Type" => "Page", "Parent" => pages, "Contents" => stream,
+            "Resources" => dictionary! {"Font" => dictionary! {"F1" => font}},
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+        });
+        doc.objects.insert(
+            pages,
+            dictionary! {"Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1}.into(),
+        );
+        let outline = doc.new_object_id();
+        let item = doc.add_object(dictionary! {"Title" => Object::string_literal("Introduction"), "Parent" => outline, "Dest" => vec![page.into(), Object::Name(b"Fit".to_vec())]});
+        doc.objects.insert(
+            outline,
+            dictionary! {"Type" => "Outlines", "First" => item, "Last" => item, "Count" => 1}
+                .into(),
+        );
+        let catalog = doc
+            .add_object(dictionary! {"Type" => "Catalog", "Pages" => pages, "Outlines" => outline});
+        doc.trailer.set("Root", catalog);
+        let info = doc.add_object(dictionary! {"Title" => Object::string_literal("Embedded title"), "Author" => Object::string_literal("Writer")});
+        doc.trailer.set("Info", info);
+        doc
+    }
+
+    #[test]
+    fn metadata_text_and_page_navigation_use_loaded_document() {
+        let doc = fixture(b"BT /F1 12 Tf 72 720 Td (Actual text) Tj ET");
+        assert_eq!(
+            PdfAdapter::info_text(&doc, b"Title").as_deref(),
+            Some("Embedded title")
+        );
+        assert_eq!(
+            PdfAdapter::info_text(&doc, b"Author").as_deref(),
+            Some("Writer")
+        );
+        assert_eq!(
+            PdfAdapter::get_pdf_string(&Object::string_literal(vec![0xfe, 0xff, 0, 65])).as_deref(),
+            Some("A")
+        );
+        let mut adapter = PdfAdapter::new();
+        adapter.page_ids = doc.get_pages().values().copied().collect();
+        adapter.page_count = 1;
+        adapter.doc = Some(doc);
+        assert!(adapter
+            .get_chapter(0)
+            .unwrap()
+            .content
+            .contains("Actual text"));
+        let toc = adapter.get_toc().unwrap();
+        assert_eq!(toc[0].label, "Page 1");
+        assert_eq!(toc[0].location, "page:1");
+        assert_eq!(adapter.search("Actual").unwrap()[0].location, "page:1");
+    }
+
+    #[test]
+    fn cyclic_outline_links_are_not_traversed() {
+        let mut doc = fixture(b"");
+        let outline = doc.new_object_id();
+        doc.objects.insert(
+            outline,
+            dictionary! {"Title" => "Loop", "First" => outline, "Next" => outline}.into(),
+        );
+        let root = doc.trailer.get(b"Root").unwrap().as_reference().unwrap();
+        doc.get_object_mut(root)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("Outlines", outline);
+        let mut adapter = PdfAdapter::new();
+        adapter.page_count = 1;
+        adapter.doc = Some(doc);
+        assert_eq!(adapter.get_toc().unwrap()[0].label, "Page 1");
+    }
+
+    #[test]
+    fn blank_and_malformed_pdfs_do_not_invent_text() {
+        assert!(Document::load_mem(b"not a PDF").is_err());
+        let doc = fixture(b"");
+        let mut adapter = PdfAdapter::new();
+        adapter.page_ids = doc.get_pages().values().copied().collect();
+        adapter.page_count = 1;
+        adapter.doc = Some(doc);
+        assert!(adapter
+            .get_chapter(0)
+            .unwrap_err()
+            .to_string()
+            .contains("No extractable text"));
+        assert!(adapter.search("Page 1").unwrap().is_empty());
+        assert!(adapter.get_chapter(1).is_err());
+    }
+
+    #[test]
+    fn malformed_metadata_and_outline_keep_safe_fallbacks() {
+        let mut doc = fixture(b"");
+        doc.trailer.set("Info", 7);
+        assert!(PdfAdapter::info_text(&doc, b"Title").is_none());
+        let root = doc.trailer.get(b"Root").unwrap().as_reference().unwrap();
+        doc.get_object_mut(root)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
+            .set("Outlines", Object::Reference((999, 0)));
+        let mut adapter = PdfAdapter::new();
+        adapter.page_count = 1;
+        adapter.doc = Some(doc);
+        assert_eq!(adapter.get_toc().unwrap()[0].location, "page:1");
+    }
+}
 
 pub struct PdfAdapter {
     doc: Option<Document>,
@@ -9,10 +130,7 @@ pub struct PdfAdapter {
     metadata: Option<BookMetadata>,
     page_count: usize,
     page_ids: Vec<lopdf::ObjectId>,
-    /// Per-page extracted text (pdf-extract), computed lazily on the first
-    /// search (the only consumer) via a file-backed extractor — no second
-    /// whole-file read at load time. Empty when the PDF has no text layer
-    /// (scanned pages).
+    /// Extracted from the loaded document once, shared by chapter reads and search.
     page_texts: std::sync::OnceLock<Vec<String>>,
 }
 
@@ -36,53 +154,19 @@ impl PdfAdapter {
             .doc
             .as_ref()
             .ok_or_else(|| ShioriError::Other("PDF not loaded".into()))?;
-        let mut full_text = String::new();
-
-        if let Some(page_id) = self.page_ids.get(page_number) {
-            if let Ok(content_data) = doc.get_page_content(*page_id) {
-                if let Ok(content) = Content::decode(&content_data) {
-                    for operation in content.operations {
-                        if operation.operator == "Tj" {
-                            if let Some(obj) = operation.operands.get(0) {
-                                if let Some(text) = Self::get_pdf_text(obj) {
-                                    full_text.push_str(&text);
-                                }
-                            }
-                        } else if operation.operator == "TJ" {
-                            if let Some(Object::Array(arr)) = operation.operands.get(0) {
-                                for obj in arr {
-                                    if let Some(text) = Self::get_pdf_text(obj) {
-                                        full_text.push_str(&text);
-                                    } else if let Object::Integer(spacing) = obj {
-                                        if *spacing < -100 {
-                                            full_text.push(' ');
-                                        }
-                                    } else if let Object::Real(spacing) = obj {
-                                        if *spacing < -100.0 {
-                                            full_text.push(' ');
-                                        }
-                                    }
-                                }
-                            }
-                        } else if operation.operator == "T*" || operation.operator == "ET" {
-                            full_text.push('\n');
-                        } else if operation.operator == "TD" || operation.operator == "Td" {
-                            full_text.push('\n');
-                        }
-                    }
-                }
-            }
-        }
-
-        if full_text.trim().is_empty() {
-            Ok(format!("Page {}", page_number + 1))
-        } else {
-            Ok(full_text)
-        }
+        doc.extract_text(&[(page_number + 1) as u32])
+            .map_err(|error| ShioriError::Other(format!("PDF text extraction failed: {error}")))
     }
 
     fn get_pdf_string(obj: &Object) -> Option<String> {
         match obj {
+            Object::String(bytes, _) if bytes.starts_with(&[0xfe, 0xff]) => {
+                let units: Vec<_> = bytes[2..]
+                    .chunks_exact(2)
+                    .map(|pair| u16::from_be_bytes([pair[0], pair[1]]))
+                    .collect();
+                Some(String::from_utf16_lossy(&units))
+            }
             Object::String(bytes, _) => String::from_utf8(bytes.clone())
                 .or_else(|_| Ok::<String, ()>(bytes.iter().map(|&b| b as char).collect()))
                 .ok(),
@@ -91,17 +175,12 @@ impl PdfAdapter {
         }
     }
 
-    fn get_pdf_text(obj: &Object) -> Option<String> {
-        match obj {
-            Object::String(_, _) | Object::Name(_) => Self::get_pdf_string(obj),
-            Object::Array(arr) => Some(
-                arr.iter()
-                    .filter_map(Self::get_pdf_string)
-                    .collect::<Vec<_>>()
-                    .join(""),
-            ),
-            _ => None,
-        }
+    fn info_text(doc: &Document, key: &[u8]) -> Option<String> {
+        let info = doc.trailer.get(b"Info").ok()?;
+        let (_, info) = doc.dereference(info).ok()?;
+        let value = info.as_dict().ok()?.get(key).ok()?;
+        let (_, value) = doc.dereference(value).ok()?;
+        Self::get_pdf_string(value).filter(|text| !text.trim().is_empty())
     }
 }
 
@@ -124,8 +203,8 @@ impl BookReaderAdapter for PdfAdapter {
         let page_ids: Vec<_> = doc.get_pages().into_values().collect();
         let page_count = page_ids.len();
 
-        let title = "Unknown Title".to_string();
-        let author = None;
+        let title = Self::info_text(&doc, b"Title").unwrap_or_else(|| "Unknown Title".to_string());
+        let author = Self::info_text(&doc, b"Author");
 
         self.metadata = Some(BookMetadata {
             title,
@@ -137,6 +216,7 @@ impl BookReaderAdapter for PdfAdapter {
 
         self.page_count = page_count;
         self.page_ids = page_ids;
+        self.page_texts = std::sync::OnceLock::new();
         self.doc = Some(doc);
         self.path = path.to_string();
 
@@ -150,6 +230,7 @@ impl BookReaderAdapter for PdfAdapter {
     }
 
     fn get_toc(&self) -> Result<Vec<TocEntry>> {
+        // lopdf 0.33 traverses untrusted outline links without cycle detection.
         let toc: Vec<TocEntry> = (0..self.page_count)
             .step_by(10)
             .map(|i| TocEntry {
@@ -170,6 +251,13 @@ impl BookReaderAdapter for PdfAdapter {
             });
         }
         let content = self.extract_text_from_page(index)?;
+        if content.trim().is_empty() {
+            return Err(ShioriError::ChapterReadFailed {
+                chapter_index: index,
+                cause: "No extractable text on this PDF page; image rendering or OCR is required"
+                    .to_string(),
+            });
+        }
         Ok(Chapter {
             index,
             title: format!("Page {}", index + 1),
@@ -185,34 +273,21 @@ impl BookReaderAdapter for PdfAdapter {
     fn search(&self, query: &str) -> Result<Vec<SearchResult>> {
         let query_lower = query.to_lowercase();
         let mut results = Vec::new();
-        // Lazy, file-backed pdf-extract text — computed once, on first search.
-        let page_texts: Vec<String> = self.page_texts.get_or_init(|| {
-            let mut page_texts: Vec<String> = Vec::new();
-            match pdf_extract::extract_text_by_pages(&self.path) {
-                Ok(pages) if pages.iter().any(|p| !p.trim().is_empty()) => {
-                    page_texts = pages;
-                }
-                _ => {
-                    // by_pages empty (common for many real-world PDFs) — fall
-                    // back to the whole-document extractor as a single "page".
-                    if let Ok(all) = pdf_extract::extract_text(&self.path) {
-                        if !all.trim().is_empty() {
-                            page_texts.push(all);
-                        }
-                    }
-                }
-            }
-            page_texts
-        }).clone();
-        // Same fallback as before: lopdf per-page walk when pdf-extract
-        // produced nothing (scanned / exotic PDFs).
-        let text_pages: Vec<String> = if page_texts.is_empty() {
-            (0..self.page_count)
-                .filter_map(|n| self.extract_text_from_page(n).ok())
-                .collect()
-        } else {
-            page_texts
-        };
+        let text_pages = self.page_texts.get_or_init(|| {
+            pdf_extract::extract_text_by_pages(&self.path)
+                .ok()
+                .filter(|pages| !pages.is_empty())
+                .or_else(|| {
+                    pdf_extract::extract_text(&self.path)
+                        .ok()
+                        .map(|text| vec![text])
+                })
+                .unwrap_or_else(|| {
+                    (0..self.page_count)
+                        .map(|page| self.extract_text_from_page(page).unwrap_or_default())
+                        .collect()
+                })
+        });
         for (page_num, content) in text_pages.iter().enumerate() {
             {
                 let content_lower = content.to_lowercase();

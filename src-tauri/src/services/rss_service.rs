@@ -11,6 +11,8 @@ use super::epub_builder::{EpubBuilder, EpubMetadata};
 use crate::db::Database;
 use crate::error::ShioriError;
 
+static DAILY_EPUB_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// Upper bound for frontend-supplied LIMIT values; anything above is clamped.
 const MAX_LIMIT: i64 = 1000;
 
@@ -30,11 +32,9 @@ fn validate_feed_url(url: &str) -> Result<()> {
     let parsed = match url::Url::parse(url) {
         Ok(p) => p,
         Err(_) => {
-            return Err(ShioriError::Validation(format!(
-                "Feed URL is not a valid URL: {}",
-                url
-            ))
-            .into())
+            return Err(
+                ShioriError::Validation(format!("Feed URL is not a valid URL: {}", url)).into(),
+            )
         }
     };
 
@@ -314,7 +314,11 @@ impl RssService {
     }
 
     /// Search online feed directory (via Feedly API) for any topic or keyword
-    pub async fn search_online_feeds(&self, query: &str, count: usize) -> Result<Vec<DiscoveredFeedResult>> {
+    pub async fn search_online_feeds(
+        &self,
+        query: &str,
+        count: usize,
+    ) -> Result<Vec<DiscoveredFeedResult>> {
         let encoded_query = urlencoding::encode(query.trim());
         let api_url = format!(
             "https://cloud.feedly.com/v3/search/feeds?query={}&count={}",
@@ -338,9 +342,19 @@ impl RssService {
         let mut results = Vec::new();
         if let Some(items) = json_val.get("results").and_then(|r| r.as_array()) {
             for item in items {
-                let title = item.get("title").and_then(|t| t.as_str()).unwrap_or("Untitled Feed").to_string();
-                let description = item.get("description").and_then(|d| d.as_str()).map(|s| s.to_string());
-                let website = item.get("website").and_then(|w| w.as_str()).map(|s| s.to_string());
+                let title = item
+                    .get("title")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("Untitled Feed")
+                    .to_string();
+                let description = item
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .map(|s| s.to_string());
+                let website = item
+                    .get("website")
+                    .and_then(|w| w.as_str())
+                    .map(|s| s.to_string());
                 let visual_url = item
                     .get("visualUrl")
                     .or_else(|| item.get("coverUrl"))
@@ -361,7 +375,9 @@ impl RssService {
                     raw_feed_id.to_string()
                 };
 
-                if !feed_url.is_empty() && (feed_url.starts_with("http://") || feed_url.starts_with("https://")) {
+                if !feed_url.is_empty()
+                    && (feed_url.starts_with("http://") || feed_url.starts_with("https://"))
+                {
                     results.push(DiscoveredFeedResult {
                         title,
                         description,
@@ -393,33 +409,41 @@ impl RssService {
             .await
             .with_context(|| format!("HTTP request to '{}' failed", url))?;
 
-            if !response.status().is_success() {
-                return Err(anyhow::anyhow!("HTTP status {} for URL: {}", response.status(), url));
-            }
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "HTTP status {} for URL: {}",
+                response.status(),
+                url
+            ));
+        }
 
-            // reqwest follows redirects by default — re-validate the final URL
-            // so a redirect cannot leave http(s) for e.g. file:// or a local path.
-            if let Err(e) = validate_feed_url(response.url().as_str()) {
-                return Err(anyhow::anyhow!(
-                    "Feed URL '{}' redirected to '{}' which is not allowed: {}",
-                    url,
-                    response.url(),
-                    e
-                ));
-            }
+        // reqwest follows redirects by default — re-validate the final URL
+        // so a redirect cannot leave http(s) for e.g. file:// or a local path.
+        if let Err(e) = validate_feed_url(response.url().as_str()) {
+            return Err(anyhow::anyhow!(
+                "Feed URL '{}' redirected to '{}' which is not allowed: {}",
+                url,
+                response.url(),
+                e
+            ));
+        }
 
-            let bytes = response
-                .bytes()
-                .await
-                .with_context(|| format!("Failed to read body from {}", url))?
-                .to_vec();
-            Ok(bytes)
+        let bytes = response
+            .bytes()
+            .await
+            .with_context(|| format!("Failed to read body from {}", url))?
+            .to_vec();
+        Ok(bytes)
     }
 
     /// Extract feed URL from HTML `<link rel="alternate" type="application/rss+xml" href="...">` tags
     fn extract_feed_link_from_html(html: &str, base_url: &str) -> Option<String> {
         let lower = html.to_lowercase();
-        let link_types = ["application/rss+xml", "application/atom+xml", "application/feed+json"];
+        let link_types = [
+            "application/rss+xml",
+            "application/atom+xml",
+            "application/feed+json",
+        ];
 
         for link_type in &link_types {
             if let Some(pos) = lower.find(link_type) {
@@ -442,7 +466,11 @@ impl RssService {
                             return Some(href_val.to_string());
                         } else if href_val.starts_with('/') {
                             if let Ok(parsed_base) = url::Url::parse(base_url) {
-                                let origin = format!("{}://{}", parsed_base.scheme(), parsed_base.host_str().unwrap_or(""));
+                                let origin = format!(
+                                    "{}://{}",
+                                    parsed_base.scheme(),
+                                    parsed_base.host_str().unwrap_or("")
+                                );
                                 return Some(format!("{}{}", origin, href_val));
                             }
                         } else if let Ok(parsed_base) = url::Url::parse(base_url) {
@@ -491,7 +519,14 @@ impl RssService {
 
         // 4. Try common feed endpoint suffixes as fallback (only if not obviously HTML of a base domain)
         let base_url = url.trim_end_matches('/');
-        let suffixes = ["/feed", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"];
+        let suffixes = [
+            "/feed",
+            "/rss",
+            "/rss.xml",
+            "/feed.xml",
+            "/atom.xml",
+            "/index.xml",
+        ];
         for suffix in &suffixes {
             let candidate = format!("{}{}", base_url, suffix);
             if candidate != url {
@@ -501,11 +536,7 @@ impl RssService {
                             return Ok(feed);
                         }
                     }
-                    Err(e) => log::warn!(
-                        "Skipping feed-suffix fallback '{}': {}",
-                        candidate,
-                        e
-                    ),
+                    Err(e) => log::warn!("Skipping feed-suffix fallback '{}': {}", candidate, e),
                 }
             }
         }
@@ -523,6 +554,14 @@ impl RssService {
     }
 
     /// Update a specific feed (fetch new articles)
+    pub fn reset_feed_failures(&self, feed_id: i64) -> Result<()> {
+        self.get_connection()?.execute(
+            "UPDATE rss_feeds SET failure_count = 0 WHERE id = ?1",
+            params![feed_id],
+        )?;
+        Ok(())
+    }
+
     pub async fn update_feed_articles(&self, feed_id: i64) -> Result<usize> {
         let feed = self
             .get_feed(feed_id)?
@@ -661,7 +700,11 @@ impl RssService {
     }
 
     /// Add multiple RSS feeds in batch with parallel validation and DB insertion
-    pub async fn add_feeds_batch(&self, urls: &[String], check_interval_hours: i32) -> Result<Vec<(String, Result<i64>)>> {
+    pub async fn add_feeds_batch(
+        &self,
+        urls: &[String],
+        check_interval_hours: i32,
+    ) -> Result<Vec<(String, Result<i64>)>> {
         use futures::stream::{self, StreamExt};
 
         let urls_vec: Vec<String> = urls.iter().cloned().collect();
@@ -683,6 +726,15 @@ impl RssService {
         feed_id: Option<i64>,
         limit: Option<usize>,
     ) -> Result<Vec<RssArticle>> {
+        self.get_digest_articles(feed_id, limit, false)
+    }
+
+    fn get_digest_articles(
+        &self,
+        feed_id: Option<i64>,
+        limit: Option<usize>,
+        undelivered_only: bool,
+    ) -> Result<Vec<RssArticle>> {
         let conn = self.get_connection()?;
 
         let (query, params_vec): (String, Vec<Box<dyn rusqlite::ToSql>>) = if let Some(fid) =
@@ -703,6 +755,11 @@ impl RssService {
             )
         };
 
+        let query = if undelivered_only {
+            query.replace("is_read = 0", "is_read = 0 AND epub_book_id IS NULL")
+        } else {
+            query
+        };
         let mut stmt = conn.prepare(&query)?;
         let articles = stmt
             .query_map(
@@ -759,17 +816,18 @@ impl RssService {
 
     /// Generate daily EPUB from unread articles
     pub async fn generate_daily_epub(&self, options: DailyEpubOptions) -> Result<PathBuf> {
+        let _generation = DAILY_EPUB_LOCK.lock().await;
         // Get unread articles
         let articles = if let Some(feed_ids) = &options.feeds {
             let mut all_articles = Vec::new();
             for feed_id in feed_ids {
                 let mut articles =
-                    self.get_unread_articles(Some(*feed_id), options.max_articles)?;
+                    self.get_digest_articles(Some(*feed_id), options.max_articles, true)?;
                 all_articles.append(&mut articles);
             }
             all_articles
         } else {
-            self.get_unread_articles(None, options.max_articles)?
+            self.get_digest_articles(None, options.max_articles, true)?
         };
 
         // Check minimum articles
@@ -826,8 +884,12 @@ impl RssService {
         }
 
         // Generate file path
-        let filename = format!("daily-{}.epub", Utc::now().format("%Y%m%d-%H%M%S"));
+        let filename = format!("daily-{}.epub", uuid::Uuid::new_v4());
         let output_path = self.storage_path.join("rss").join(&filename);
+        let file_path = output_path
+            .to_str()
+            .context("RSS EPUB path is not valid UTF-8")?
+            .to_owned();
 
         // Ensure directory exists
         if let Some(parent) = output_path.parent() {
@@ -853,7 +915,7 @@ impl RssService {
             series: None,
             series_index: None,
             rating: None,
-            file_path: output_path.to_string_lossy().to_string(),
+            file_path,
             file_format: "epub".to_string(),
             file_size: std::fs::metadata(&output_path).ok().map(|m| m.len() as i64),
             file_hash: None,
@@ -884,7 +946,27 @@ impl RssService {
             managed_relpath: None,
         };
 
-        if let Ok(book_id) = crate::services::library_service::add_book(&self.db, new_book) {
+        let book_id = crate::services::library_service::add_book(&self.db, new_book)?;
+        {
+            let mut conn = self.db.get_connection()?;
+            let link_result = (|| -> Result<()> {
+                let tx = conn.transaction()?;
+                for article in &articles {
+                    tx.execute(
+                        "UPDATE rss_articles SET epub_book_id = ?1 WHERE id = ?2",
+                        rusqlite::params![book_id, article.id],
+                    )?;
+                }
+                tx.commit()?;
+                Ok(())
+            })();
+            if let Err(error) = link_result {
+                // Keep the EPUB, but remove the new library row so this batch can be retried.
+                conn.execute("DELETE FROM books WHERE id = ?1", params![book_id])
+                    .context(format!("Failed to remove unlinked RSS book after: {error}"))?;
+                return Err(error.context("Failed to link RSS articles to the generated book"));
+            }
+            drop(conn);
             // Try to assign the RSS tag
             if let Ok(conn) = self.db.get_connection() {
                 // Ensure tag exists
@@ -965,6 +1047,30 @@ impl RssService {
 mod tests {
     use super::*;
     use std::io::Read;
+
+    #[test]
+    fn test_manual_retry_reenables_failed_feed() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("rss_retry_test_{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let db = Database::new(&temp_dir.join("test.db")).unwrap();
+        let service = RssService::new(db, temp_dir.clone()).unwrap();
+        let conn = service.get_connection().unwrap();
+        conn.execute(
+            "INSERT INTO rss_feeds (url, title, failure_count) VALUES (?1, ?2, 5)",
+            params!["https://example.com/feed.xml", "Failed feed"],
+        )
+        .unwrap();
+        let feed_id = conn.last_insert_rowid();
+        drop(conn);
+        assert!(service.get_feeds_due_for_update().unwrap().is_empty());
+        service.reset_feed_failures(feed_id).unwrap();
+        let due = service.get_feeds_due_for_update().unwrap();
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].failure_count, 0);
+        drop(service);
+        std::fs::remove_dir_all(temp_dir).unwrap();
+    }
 
     #[tokio::test]
     async fn test_rss_service_creation() {
@@ -1050,8 +1156,82 @@ mod tests {
             min_articles: Some(1),
             feeds: None,
         };
-        let path = service.generate_daily_epub(options).await.unwrap();
+        // A library insert failure must leave the article unread and eligible for retry.
+        {
+            let conn = service.get_connection().unwrap();
+            conn.execute_batch(
+                "CREATE TRIGGER reject_rss_book BEFORE INSERT ON books
+                 BEGIN SELECT RAISE(ABORT, 'test library failure'); END;",
+            )
+            .unwrap();
+        }
+        assert!(service.generate_daily_epub(options.clone()).await.is_err());
+        {
+            let conn = service.get_connection().unwrap();
+            let state: (i64, Option<i64>) = conn
+                .query_row(
+                    "SELECT is_read, epub_book_id FROM rss_articles",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .unwrap();
+            assert_eq!(state, (0, None));
+            assert_eq!(std::fs::read_dir(temp_dir.join("rss")).unwrap().count(), 1);
+            conn.execute_batch("DROP TRIGGER reject_rss_book;").unwrap();
+        }
+
+        {
+            let conn = service.get_connection().unwrap();
+            conn.execute_batch(
+                "CREATE TRIGGER reject_rss_link BEFORE UPDATE OF epub_book_id ON rss_articles
+                 BEGIN SELECT RAISE(ABORT, 'test linkage failure'); END;",
+            )
+            .unwrap();
+        }
+        assert!(service.generate_daily_epub(options.clone()).await.is_err());
+        {
+            let conn = service.get_connection().unwrap();
+            let books: i64 = conn
+                .query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(books, 0);
+            let state: (i64, Option<i64>) = conn
+                .query_row(
+                    "SELECT is_read, epub_book_id FROM rss_articles",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .unwrap();
+            assert_eq!(state, (0, None));
+            assert_eq!(std::fs::read_dir(temp_dir.join("rss")).unwrap().count(), 2);
+            conn.execute_batch("DROP TRIGGER reject_rss_link;").unwrap();
+        }
+
+        let (first, second) = tokio::join!(
+            service.generate_daily_epub(options.clone()),
+            service.generate_daily_epub(options.clone()),
+        );
+        assert_ne!(first.is_ok(), second.is_ok());
+        let path = first.or(second).unwrap();
         assert!(path.exists(), "daily epub not written");
+        {
+            let conn = service.get_connection().unwrap();
+            let linked: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM rss_articles a JOIN books b ON b.id = a.epub_book_id WHERE a.is_read = 0",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(linked, 1);
+            let books: i64 = conn
+                .query_row("SELECT COUNT(*) FROM books", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(books, 1);
+        }
+        assert!(service.generate_daily_epub(options).await.is_err());
+        assert_eq!(service.get_unread_articles(None, None).unwrap().len(), 1);
+        assert_eq!(std::fs::read_dir(temp_dir.join("rss")).unwrap().count(), 3);
 
         // The generated EPUB must open and contain the article.
         let mut doc = ::epub::doc::EpubDoc::new(&path).unwrap();

@@ -52,6 +52,7 @@ interface PremiumTopbarProps {
   onToggleSidebar?: () => void
   onGoHome?: () => void
   onAutoGroupManga?: () => void
+  onOpenLibraryHealth?: () => void
   onOpenShortcuts?: () => void
   onCreateShelf?: () => void
   currentView?: CurrentView
@@ -156,6 +157,7 @@ export function PremiumTopbar({
   onOpenAdvancedFilter,
   onToggleSidebar,
   onAutoGroupManga,
+  onOpenLibraryHealth,
   onOpenShortcuts,
   onCreateShelf,
   currentView,
@@ -360,6 +362,9 @@ export function PremiumTopbar({
 
               <DropdownMenuSeparator className="my-1.5 bg-border/40" />
 
+              <DropdownMenuItem onClick={onOpenLibraryHealth} className="gap-3.5 p-3 cursor-pointer rounded-xl flex items-center group transition-colors">
+                <span className="text-xs sm:text-sm font-bold">Check library files</span>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onImportFolder} className="gap-3.5 p-3 cursor-pointer rounded-xl flex items-center group transition-colors shiori-import-dropdown-item">
                 <div className="p-2.5 bg-primary/10 group-hover:bg-primary/20 rounded-xl shrink-0 transition-colors">
                   <IconImportManga size={20} className="text-primary" />

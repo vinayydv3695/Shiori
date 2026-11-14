@@ -2063,3 +2063,14 @@ static GET_LOOSE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
     regex::Regex::new(r#"(?i)<a[^>]+href=["']([^"']+)["'][^>]*>.*?GET.*?</a>"#)
         .expect("static libgen gateway regexes are valid")
 });
+#[tauri::command]
+pub async fn check_library_health(
+    state: tauri::State<'_, crate::AppState>,
+) -> crate::error::Result<crate::services::library_health_service::LibraryHealthReport> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::services::library_health_service::check_library_health(&db)
+    })
+    .await
+    .map_err(|_| crate::error::ShioriError::Other("Library health check failed".into()))?
+}

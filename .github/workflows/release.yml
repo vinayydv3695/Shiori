@@ -273,7 +273,7 @@ jobs:
             }
           }
           # Create target output directories required by ort-sys build script on Windows
-          New-Item -ItemType Directory -Force -Path "src-tauri\target\release\examples", "src-tauri\target\release\deps", "src-tauri\target\release\build" | Out-Null
+          New-Item -ItemType Directory -Force -Path "src-tauri\target\release\examples", "src-tauri\target\release\deps", "src-tauri\target\release\build", "src-tauri\target\release\build\examples", "src-tauri\target\release\build\deps" | Out-Null
           # Enable developer mode to permit symlink creation on Windows runner
           reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d 1
 
@@ -491,7 +491,7 @@ jobs:
             }
           }
           # Create target output directories required by ort-sys build script on Windows
-          New-Item -ItemType Directory -Force -Path "src-tauri\target\release\examples", "src-tauri\target\release\deps", "src-tauri\target\release\build" | Out-Null
+          New-Item -ItemType Directory -Force -Path "src-tauri\target\release\examples", "src-tauri\target\release\deps", "src-tauri\target\release\build", "src-tauri\target\release\build\examples", "src-tauri\target\release\build\deps" | Out-Null
           # Enable developer mode to permit symlink creation on Windows runner
           reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d 1
 

@@ -175,7 +175,7 @@ tauri-plugin-updater = "2"
 discord-rich-presence = "1.1.0"
 tauri-plugin-process = "2"
 piper-rs = { version = "0.2.0", default-features = false }
-ort = { version = "2.0.0-rc.9", features = ["download-binaries"] }
+ort = { version = "2.0.0-rc.9", default-features = false, features = ["std", "ndarray", "download-binaries"] }
 
 [features]
 default = ["custom-protocol"]

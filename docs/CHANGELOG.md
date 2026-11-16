@@ -1,3 +1,21 @@
+# Release Notes (v1.0.32)
+
+## Contextual Topbar Bulk Selection, Permanent Deletion, Character Search & Remap, and Japanese Typography
+
+- **Contextual Topbar Bulk Selection Mode**:
+  - **Zero-Obstruction Topbar Morph** — Selecting books or manga volumes smoothly replaces the topbar with a dedicated contextual selection toolbar (Google Drive / Apple Photos style), keeping the library grid completely unobstructed and eliminating long cursor travel to the bottom of the screen.
+  - **Unified Bulk Operations** — One-click batch actions for Select all, Convert to EPUB, Add to Shelf, and Add to Series.
+  - **Series-Aware Breakdown** — Intelligently detects and displays distinct series counts alongside volume totals.
+  - **Dual Deletion Modes (Recycle Bin vs. Permanent)** — Fast, dedicated actions to either safely move selected books to the Recycle Bin or permanently purge files from disk (`permanent_delete_books`) with a detailed breakdown confirmation modal.
+  - **Desktop Window Continuity** — Full support for window drag regions and window minimize/maximize/close controls directly in the contextual header.
+  - **Responsive Mobile Contextual Header** — Graceful compact selection toolbar for mobile screens with notch and safe-area insets.
+
+- **Reader Character Search & Remapping**:
+  - **Misnamed Character Correction Modal** — Search and replace incorrect character entities across AniList, Fandom, Wikipedia, and custom character profiles directly from the reader character dossier.
+  - **Real-Time Dossier Sync & Persistence** — Character overrides, descriptions, avatars, and name variants update immediately in memory and persist across reading sessions.
+  - **Japanese Typography & CJK Font Fallback** — Bundled native Japanese glyph support (`NotoSansJP-Kana`) and refined font fallback chains, eliminating tofu glyph boxes (`[][][] · [][][]`) in original Japanese character names and light novel dialogue.
+  - **Reader Aesthetic Refinements** — Enhanced deckle borders, subtle reading vignettes, folio frames, and margin rhythm beads for an authentic book reading experience.
+
 # Release Notes (v1.0.31)
 
 ## Metadata Import, Library Health & Document Reliability

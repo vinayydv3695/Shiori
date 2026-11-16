@@ -61,6 +61,7 @@ macro_rules! generate_shiori_handlers {
             commands::library::delete_book,
             commands::library::restore_book,
             commands::library::permanent_delete_book,
+            commands::library::permanent_delete_books,
             commands::library::empty_trash,
             commands::library::delete_books,
             commands::library::clear_tombstone,

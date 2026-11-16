@@ -656,6 +656,50 @@ pub fn delete_books(db: &Database, ids: Vec<i64>, app_data_dir: &Path) -> Result
     Ok(())
 }
 
+pub fn permanent_delete_books(db: &Database, ids: Vec<i64>, app_data_dir: &Path) -> Result<()> {
+    validate::require_non_empty_vec(&ids, "book ids")?;
+    for &id in &ids {
+        validate::require_positive_id(id, "book id")?;
+    }
+    log::info!(
+        "[permanent_delete_books] Starting permanent deletion of {} books: {:?}",
+        ids.len(),
+        ids
+    );
+    let mut conn = db.get_connection()?;
+    let tx = conn.transaction()?;
+
+    let mut pending_removals: Vec<TombstoneRow> = Vec::new();
+    let mut deleted_count = 0;
+    for id in ids {
+        let row = tx
+            .query_row(
+                "SELECT file_hash, file_path, is_managed, managed_relpath FROM books WHERE id = ?1",
+                params![id],
+                read_tombstone_row,
+            )
+            .ok();
+        let affected = tx.execute("DELETE FROM books WHERE id = ?1", params![id])?;
+        if affected > 0 {
+            if let Some(row) = row {
+                pending_removals.push(row);
+            }
+        }
+        deleted_count += affected;
+    }
+
+    log::info!(
+        "[permanent_delete_books] Total rows permanently deleted: {}",
+        deleted_count
+    );
+    tx.commit()?;
+    log::info!("[permanent_delete_books] Transaction committed successfully");
+    for row in pending_removals {
+        tombstone_or_remove_file(&conn, db, app_data_dir, row, "user_delete")?;
+    }
+    Ok(())
+}
+
 pub fn restore_book(db: &Database, id: i64) -> Result<()> {
     log::info!("[restore_book] Attempting to restore book with id: {}", id);
     let conn = db.get_connection()?;

@@ -6,7 +6,9 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use futures::{SinkExt, StreamExt};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::http::header::{HeaderValue, CACHE_CONTROL, ORIGIN, PRAGMA, USER_AGENT};
+use tokio_tungstenite::tungstenite::http::header::{
+    HeaderValue, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, COOKIE, ORIGIN, PRAGMA, USER_AGENT,
+};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use uuid::Uuid;
 
@@ -401,20 +403,25 @@ pub fn build_ssml(text: &str, voice: Option<&str>, rate: Option<f32>, pitch: Opt
     )
 }
 
-/// Synthesizes text into MP3 audio bytes using Microsoft Edge Neural TTS
-pub async fn synthesize_edge_speech(
+/// Formats a JavaScript-compatible date string expected by Microsoft Edge Speech service.
+fn format_date_string() -> String {
+    chrono::Utc::now()
+        .format("%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)")
+        .to_string()
+}
+
+/// Single attempt to synthesize speech over Microsoft Edge WebSocket with optional timestamp skew
+async fn synthesize_edge_speech_once(
     text: &str,
     voice: Option<&str>,
     rate: Option<f32>,
     pitch: Option<f32>,
+    unix_timestamp: Option<f64>,
 ) -> Result<Vec<u8>, ShioriError> {
-    if text.trim().is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let token = generate_sec_ms_gec_v2(None);
+    let token = generate_sec_ms_gec_v2(unix_timestamp);
     let conn_id = Uuid::new_v4().simple().to_string();
     let req_id = Uuid::new_v4().simple().to_string();
+    let muid = Uuid::new_v4().simple().to_string().to_uppercase();
 
     let url_str = format!(
         "wss://{BASE_URL}/edge/v1?TrustedClientToken={TRUSTED_CLIENT_TOKEN}&ConnectionId={conn_id}&Sec-MS-GEC={token}&Sec-MS-GEC-Version={SEC_MS_GEC_VERSION}"
@@ -437,16 +444,28 @@ pub async fn synthesize_edge_speech(
     );
     headers.insert(PRAGMA, HeaderValue::from_static("no-cache"));
     headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    headers.insert(
+        ACCEPT_ENCODING,
+        HeaderValue::from_static("gzip, deflate, br, zstd"),
+    );
+    headers.insert(
+        ACCEPT_LANGUAGE,
+        HeaderValue::from_static("en-US,en;q=0.9"),
+    );
+    if let Ok(cookie_val) = HeaderValue::from_str(&format!("muid={muid};")) {
+        headers.insert(COOKIE, cookie_val);
+    }
 
     let connect_future = tokio_tungstenite::connect_async(request);
-    let (ws_stream, _) = tokio::time::timeout(Duration::from_secs(10), connect_future)
+    let (ws_stream, _) = tokio::time::timeout(Duration::from_secs(15), connect_future)
         .await
-        .map_err(|_| ShioriError::Other("Edge TTS connection timed out (10s)".to_string()))?
+        .map_err(|_| ShioriError::Other("Edge TTS connection timed out (15s)".to_string()))?
         .map_err(|e| ShioriError::Other(format!("Edge TTS handshake failed: {}", e)))?;
 
     let (mut write, mut read) = ws_stream.split();
+    let timestamp = format_date_string();
 
-    // 1. Send speech.config
+    // 1. Send speech.config with X-Timestamp
     let config_payload = serde_json::json!({
         "context": {
             "synthesis": {
@@ -463,33 +482,36 @@ pub async fn synthesize_edge_speech(
     .to_string();
 
     let config_msg = format!(
-        "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{}",
-        config_payload
+        "X-Timestamp:{timestamp}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{config_payload}\r\n"
     );
     write
         .send(Message::Text(config_msg.into()))
         .await
         .map_err(|e| ShioriError::Other(format!("Failed to send Edge TTS config: {}", e)))?;
 
-    // 2. Send SSML
+    // 2. Send SSML with X-Timestamp...Z
     let ssml = build_ssml(text, voice, rate, pitch);
     let ssml_msg = format!(
-        "X-RequestId:{req_id}\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n{ssml}"
+        "X-RequestId:{req_id}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:{timestamp}Z\r\nPath:ssml\r\n\r\n{ssml}"
     );
     write
         .send(Message::Text(ssml_msg.into()))
         .await
         .map_err(|e| ShioriError::Other(format!("Failed to send SSML: {}", e)))?;
 
-    // 3. Read audio chunks with timeout
+    // 3. Read audio chunks with diagnostic collection
     let mut audio_chunks: Vec<u8> = Vec::with_capacity(32 * 1024);
+    let mut server_messages = Vec::new();
 
     let read_loop = async {
         while let Some(msg) = read.next().await {
             match msg {
-                Ok(Message::Text(text)) => {
-                    if text.contains("Path:turn.end") {
+                Ok(Message::Text(t)) => {
+                    if t.contains("Path:turn.end") {
                         break;
+                    }
+                    if !t.contains("Path:turn.start") {
+                        server_messages.push(t);
                     }
                 }
                 Ok(Message::Binary(bin)) => {
@@ -500,9 +522,14 @@ pub async fn synthesize_edge_speech(
                         }
                     }
                 }
-                Ok(Message::Close(_)) => break,
+                Ok(Message::Close(frame)) => {
+                    if let Some(cf) = frame {
+                        log::warn!("[EdgeTTS] WebSocket closed by server: code={}, reason={}", cf.code, cf.reason);
+                    }
+                    break;
+                }
                 Err(e) => {
-                    log::warn!("Edge TTS read warning: {}", e);
+                    log::warn!("[EdgeTTS] WebSocket read error: {}", e);
                     break;
                 }
                 _ => {}
@@ -511,15 +538,65 @@ pub async fn synthesize_edge_speech(
         audio_chunks
     };
 
-    let result = tokio::time::timeout(Duration::from_secs(30), read_loop)
+    let result = tokio::time::timeout(Duration::from_secs(45), read_loop)
         .await
-        .map_err(|_| ShioriError::Other("Edge TTS audio synthesis timed out (30s)".to_string()))?;
+        .map_err(|_| ShioriError::Other("Edge TTS audio synthesis timed out (45s)".to_string()))?;
 
     if result.is_empty() {
-        return Err(ShioriError::Other("Edge TTS returned no audio data".to_string()));
+        let details = if !server_messages.is_empty() {
+            format!(" Server said: {}", server_messages.join(" | "))
+        } else {
+            String::new()
+        };
+        return Err(ShioriError::Other(format!("Edge TTS returned no audio data.{details}")));
     }
 
     Ok(result)
+}
+
+/// Synthesizes text into MP3 audio bytes using Microsoft Edge Neural TTS.
+/// Includes automatic clock skew retry (0s, -300s, +300s) to guarantee resilience.
+pub async fn synthesize_edge_speech(
+    text: &str,
+    voice: Option<&str>,
+    rate: Option<f32>,
+    pitch: Option<f32>,
+) -> Result<Vec<u8>, ShioriError> {
+    if text.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let skews = [0.0, -300.0, 300.0];
+    let mut last_err = ShioriError::Other("Edge TTS synthesis failed".to_string());
+
+    for (attempt, &skew) in skews.iter().enumerate() {
+        let ts_offset = if skew != 0.0 {
+            Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs_f64()
+                    + skew,
+            )
+        } else {
+            None
+        };
+
+        match synthesize_edge_speech_once(text, voice, rate, pitch, ts_offset).await {
+            Ok(bytes) => return Ok(bytes),
+            Err(e) => {
+                log::warn!(
+                    "[EdgeTTS] Attempt {} failed (clock skew={}s): {}. Retrying...",
+                    attempt + 1,
+                    skew,
+                    e
+                );
+                last_err = e;
+            }
+        }
+    }
+
+    Err(last_err)
 }
 
 #[tauri::command]

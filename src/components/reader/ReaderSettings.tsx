@@ -65,6 +65,14 @@ export function ReaderSettings({
     uiScale,
     marginaliaEnabled,
     setMarginaliaEnabled,
+    deckledEdgesEnabled,
+    collectorFrame,
+    focusVignette,
+    rhythmBeads,
+    setDeckledEdgesEnabled,
+    setCollectorFrame,
+    setFocusVignette,
+    setRhythmBeads,
     textAlign,
     setTheme,
     setFontFamily,
@@ -636,6 +644,86 @@ export function ReaderSettings({
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
                 <span>Wide-Margin Notes (Scriptorium)</span>
+              </button>
+            </div>
+          )}
+
+          {!isAndroid && (
+            <div className="premium-settings-section">
+              <label className="premium-settings-label">Borders & Canvas (Desktop)</label>
+
+              {/* 1. 3D Deckled Page Stack (Off by default) */}
+              <button
+                type="button"
+                onClick={() => setDeckledEdgesEnabled(!deckledEdgesEnabled)}
+                className={`premium-settings-toggle ${deckledEdgesEnabled ? 'premium-settings-toggle--active' : ''}`}
+                style={{ marginBottom: 8 }}
+              >
+                <svg className="premium-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  <line x1="8" y1="6" x2="16" y2="6" />
+                  <line x1="8" y1="10" x2="14" y2="10" />
+                </svg>
+                <span>3D Deckled Page Stack (Depth)</span>
+              </button>
+
+              {/* 2. Collector's Folio Frame (Off by default) */}
+              <div style={{ marginTop: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'block', marginBottom: 4 }}>
+                  Collector's Folio Frame
+                </span>
+                <div className="premium-settings-segment-group">
+                  {([
+                    { id: 'none' as const, label: 'None' },
+                    { id: 'victorian' as const, label: 'Victorian' },
+                    { id: 'deboss' as const, label: 'Deboss' },
+                    { id: 'minimal' as const, label: 'Minimal' },
+                  ]).map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setCollectorFrame(opt.id)}
+                      className={`premium-settings-segment-button ${collectorFrame === opt.id ? 'premium-settings-segment-button--active' : ''}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Ambient Focus Vignette (Off by default) */}
+              <button
+                type="button"
+                onClick={() => setFocusVignette(!focusVignette)}
+                className={`premium-settings-toggle ${focusVignette ? 'premium-settings-toggle--active' : ''}`}
+                style={{ marginBottom: 8 }}
+              >
+                <svg className="premium-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="4" />
+                  <line x1="12" y1="2" x2="12" y2="4" />
+                  <line x1="12" y1="20" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="4" y2="12" />
+                  <line x1="20" y1="12" x2="22" y2="12" />
+                </svg>
+                <span>Ambient Focus Vignette (Comfort)</span>
+              </button>
+
+              {/* 4. Margin Rhythm Beads (Off by default) */}
+              <button
+                type="button"
+                onClick={() => setRhythmBeads(!rhythmBeads)}
+                className={`premium-settings-toggle ${rhythmBeads ? 'premium-settings-toggle--active' : ''}`}
+              >
+                <svg className="premium-settings-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                  <line x1="12" y1="7" x2="12" y2="10" />
+                  <line x1="12" y1="14" x2="12" y2="17" />
+                </svg>
+                <span>Margin Rhythm Beads (Chapter Spine)</span>
               </button>
             </div>
           )}

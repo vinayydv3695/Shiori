@@ -15,6 +15,7 @@ export interface TrackedCharacter {
   avatarColor: string;
   nativeName?: string;
   imageUrl?: string;
+  originalExtractedName?: string;
 }
 
 export interface CharacterInteractionQuote {

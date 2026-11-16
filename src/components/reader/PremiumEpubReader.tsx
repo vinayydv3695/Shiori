@@ -48,6 +48,10 @@ import { TTSControlBar } from './TTSControlBar';
 import { Compass, Brain, Calendar } from 'lucide-react';
 import { CartographyHUD } from './CartographyHUD';
 import { VocabularyReviewModal } from './VocabularyReviewModal';
+import { ReaderBorderDeckle } from './ReaderBorderDeckle';
+import { ReaderFolioFrame } from './ReaderFolioFrame';
+import { ReaderFocusVignette } from './ReaderFocusVignette';
+import { ReaderMarginRhythmBeads } from './ReaderMarginRhythmBeads';
 import {
   detectEraFromTitle,
   getNextPovChapter,
@@ -706,7 +710,26 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
   const setExplicitResumeTarget = useReaderStore(state => state.setExplicitResumeTarget);
 
   const readingSettings = useReadingSettings();
-  const { theme, width, twoPageView, isPaginated, continuousFlow, toggleTwoPageView, pageFlipEnabled, pageFlipSpeed, animationStyle, fontSize, uiScale, margin, paperTextureIntensity, marginaliaEnabled } = readingSettings;
+  const {
+    theme,
+    width,
+    twoPageView,
+    isPaginated,
+    continuousFlow,
+    toggleTwoPageView,
+    pageFlipEnabled,
+    pageFlipSpeed,
+    animationStyle,
+    fontSize,
+    uiScale,
+    margin,
+    paperTextureIntensity,
+    marginaliaEnabled,
+    deckledEdgesEnabled,
+    collectorFrame,
+    focusVignette,
+    rhythmBeads,
+  } = readingSettings;
 
   /** Signature of everything that changes how pagination lays out. When it
    *  changes, the paginated page cache must be rebuilt (F2). Initialised to
@@ -2658,6 +2681,25 @@ export function PremiumEpubReader({ bookPath, bookId, readerContent, onClose }: 
       onTouchMove={handleHoldTouchMove}
       onTouchCancel={handleHoldTouchCancel}
     >
+      {/* Desktop Canvas & Border Innovations */}
+      {!isAndroid && focusVignette && <ReaderFocusVignette />}
+      {!isAndroid && collectorFrame !== 'none' && <ReaderFolioFrame style={collectorFrame} />}
+      {!isAndroid && deckledEdgesEnabled && (
+        <ReaderBorderDeckle
+          currentIndex={currentIndex}
+          totalChapters={metadata?.total_chapters || toc.length || 1}
+          onNavigateToChapter={(idx) => void loadChapter(idx)}
+        />
+      )}
+      {!isAndroid && rhythmBeads && (
+        <ReaderMarginRhythmBeads
+          currentIndex={currentIndex}
+          totalChapters={metadata?.total_chapters || toc.length || 1}
+          chapters={toc.map((t, idx) => ({ index: idx, title: t.label || `Chapter ${idx + 1}` }))}
+          onNavigateToChapter={(idx) => void loadChapter(idx)}
+        />
+      )}
+
       {/* Corner Bookmark Ribbon */}
       <AnimatePresence>
         {isCurrentChapterBookmarked && (

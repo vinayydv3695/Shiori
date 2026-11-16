@@ -982,6 +982,10 @@ export const api = {
     return invoke("delete_books", { ids })
   },
 
+  permanentDeleteBooks: async (ids: number[]): Promise<void> => {
+    return invoke("permanent_delete_books", { ids })
+  },
+
   restoreBook: async (id: number): Promise<void> => {
     return invoke('restore_book', { id })
   },

@@ -20,6 +20,7 @@ interface DeleteBookDialogProps {
 
 export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: DeleteBookDialogProps) => {
   const [deleting, setDeleting] = useState(false);
+  const [permanentDelete, setPermanentDelete] = useState(false);
   const toast = useToast();
   const setBooks = useLibraryStore(state => state.setBooks);
   const clearSelection = useLibraryStore(state => state.clearSelection);
@@ -36,19 +37,23 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
       clearSelection();
 
       // Database execution
-      if (isMultiple) {
+      if (permanentDelete) {
+        await api.permanentDeleteBooks(bookIds);
+      } else if (isMultiple) {
         await api.deleteBooks(bookIds);
       } else {
         await api.deleteBook(bookIds[0]);
       }
 
-      // The optimistic UI update above is sufficient and prevents resetting pagination or search state.
+      const message = permanentDelete
+        ? isMultiple
+          ? `${bookIds.length} books have been permanently deleted from disk`
+          : `"${bookTitle || 'Book'}" has been permanently deleted from disk`
+        : isMultiple
+        ? `${bookIds.length} books have been moved to the Recycle Bin`
+        : `"${bookTitle || 'Book'}" has been moved to the Recycle Bin`;
 
-      const message = isMultiple
-        ? `${bookIds.length} books have been removed from your library`
-        : `"${bookTitle || 'Book'}" has been removed from your library`;
-
-      toast.success(isMultiple ? 'Books deleted' : 'Book deleted', message);
+      toast.success(permanentDelete ? 'Permanently deleted' : isMultiple ? 'Books deleted' : 'Book deleted', message);
       onOpenChange(false);
     } catch (error) {
       logger.error('Failed to delete book(s):', error);
@@ -83,8 +88,8 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
           </div>
 
           {/* Content */}
-          <div className="p-6">
-            <p className="text-sm text-foreground mb-4">
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-foreground">
               Are you sure you want to delete{' '}
               {isMultiple ? (
                 <span className="font-semibold">{bookIds.length} books</span>
@@ -92,12 +97,29 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
                 <span className="font-semibold">"{bookTitle || 'this book'}"</span>
               )}?
             </p>
-            <p className="text-sm text-muted-foreground">
-              {enableRecycleBin 
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {permanentDelete
+                ? 'These items will NOT go to the Recycle Bin. Files and database records will be permanently erased from your disk.'
+                : enableRecycleBin 
                 ? `The ${isMultiple ? 'books' : 'book'} will be moved to the Recycle Bin and kept for 7 days before being permanently deleted.`
-                : `This action cannot be undone. The ${isMultiple ? 'books' : 'book'} will be permanently removed from your library, but the ${isMultiple ? 'files' : 'file'} will remain on your disk.`
+                : `This action cannot be undone. The ${isMultiple ? 'books' : 'book'} will be permanently removed from your library.`
               }
             </p>
+
+            <label className="flex items-start gap-2.5 p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 transition-colors cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={permanentDelete}
+                onChange={(e) => setPermanentDelete(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-border text-destructive focus:ring-destructive cursor-pointer"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-foreground">Permanently delete (skip Recycle Bin)</span>
+                <p className="text-muted-foreground text-[11px] leading-tight mt-0.5">
+                  Bypasses the Recycle Bin. Files will be deleted directly from disk. Cannot be restored.
+                </p>
+              </div>
+            </label>
           </div>
 
           {/* Footer */}
@@ -111,12 +133,17 @@ export const DeleteBookDialog = ({ open, onOpenChange, bookIds, bookTitle }: Del
               onClick={handleDelete}
               disabled={deleting}
               variant="destructive"
-              className="min-w-24"
+              className="min-w-28"
             >
               {deleting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Deleting...
+                </>
+              ) : permanentDelete ? (
+                <>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Permanently Delete
                 </>
               ) : (
                 <>

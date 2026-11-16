@@ -320,6 +320,20 @@ export function LibraryGrid({
   const handleEditBook = useCallback((id: number) => onEditBook?.(id), [onEditBook]);
   const handleDeleteBook = useCallback((id: number) => onDeleteBook?.(id), [onDeleteBook]);
 
+  const handleToggleSeriesSelection = useCallback((series: SeriesGroup) => {
+    const bookIds = series.books.map((b) => b.id).filter((id): id is number => id != null);
+    if (bookIds.length === 0) return;
+    const current = useLibraryStore.getState().selectedBookIds;
+    const allSelected = bookIds.every((id) => current.has(id));
+    const next = new Set(current);
+    if (allSelected) {
+      for (const id of bookIds) next.delete(id);
+    } else {
+      for (const id of bookIds) next.add(id);
+    }
+    useLibraryStore.setState({ selectedBookIds: next });
+  }, []);
+
   const [parentEl, setParentEl] = useState<HTMLDivElement | null>(null);
 
   // First-frame correctness: initialize width/columns from the REAL container
@@ -723,8 +737,7 @@ export function LibraryGrid({
                       ) : (
                         <SeriesCard
                           series={item.data}
-                          isSelected={false}
-                          onSelect={() => {}}
+                          onSelect={() => handleToggleSeriesSelection(item.data)}
                           onOpen={(series) => {
                             if (isFirstSeries) setIsFirstSeries(false);
                             onViewSeries?.(series);

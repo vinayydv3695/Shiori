@@ -6,7 +6,7 @@ import { isTauri } from '@/lib/tauri';
 export interface CharacterPortrait {
   imageUrl: string | null;
   nativeName?: string;
-  source?: 'anilist' | 'fandom' | 'wikipedia';
+  source?: 'anilist' | 'fandom' | 'wikipedia' | 'custom';
   description?: string;
 }
 
@@ -21,7 +21,7 @@ let anilistCooldownUntil = 0;
  * Robust fetch that routes through Tauri Rust backend when running on desktop/mobile
  * to completely eliminate browser CORS origin rejections.
  */
-async function safeFetch(url: string | URL | Request, init?: RequestInit): Promise<Response> {
+export async function safeFetch(url: string | URL | Request, init?: RequestInit): Promise<Response> {
   const customHeaders: Record<string, string> = {
     Accept: 'application/json',
     'User-Agent': 'Shiori-Reader/1.0.13 (https://github.com/vinayydv3695/Shiori)',
@@ -1447,7 +1447,91 @@ export function useCharacterPortrait(name: string, introductionLine?: string, bo
     };
   }, [name, cacheKey, introductionLine, bookTitle]);
 
+  // React to character remap/revert events immediately
+  useEffect(() => {
+    const handleOverrideChanged = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        bookId: number;
+        override?: {
+          originalName: string;
+          resolvedName: string;
+          imageUrl?: string | null;
+          nativeName?: string;
+          source?: CharacterPortrait['source'];
+          description?: string;
+        };
+        originalName?: string;
+      }>).detail;
+
+      const originalLower = (detail?.originalName || detail?.override?.originalName || '').toLowerCase();
+      const resolvedLower = (detail?.override?.resolvedName || '').toLowerCase();
+
+      if (normalized === originalLower || normalized === resolvedLower) {
+        if (detail?.override) {
+          setPortrait({
+            imageUrl: detail.override.imageUrl !== undefined ? detail.override.imageUrl : null,
+            nativeName: detail.override.nativeName,
+            source: detail.override.source,
+            description: detail.override.description,
+          });
+          setIsLoading(false);
+        } else {
+          const stored = getStoredCache();
+          if (stored[cacheKey]) {
+            setPortrait(stored[cacheKey]);
+          } else {
+            setIsLoading(true);
+            fetchCharacterPortrait(name, introductionLine, bookTitle).then((res) => {
+              setPortrait(res);
+              setIsLoading(false);
+            });
+          }
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('shiori-character-overrides-changed', handleOverrideChanged);
+      return () => window.removeEventListener('shiori-character-overrides-changed', handleOverrideChanged);
+    }
+  }, [name, normalized, cacheKey, introductionLine, bookTitle]);
+
   return { portrait, isLoading };
+}
+
+/**
+ * Manually update portrait cache for a character (used when user remaps identity)
+ */
+export function setCachedPortrait(
+  name: string,
+  bookTitle: string | undefined,
+  portrait: CharacterPortrait
+): void {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return;
+  const cacheKey = `${normalized}::${(bookTitle || '').toLowerCase()}`;
+  MEMORY_CACHE.set(cacheKey, portrait);
+  saveToStoredCache(cacheKey, portrait);
+}
+
+/**
+ * Invalidate cached portrait for a character (used when user reverts a remap)
+ */
+export function removeCachedPortrait(
+  name: string,
+  bookTitle: string | undefined
+): void {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return;
+  const cacheKey = `${normalized}::${(bookTitle || '').toLowerCase()}`;
+  MEMORY_CACHE.delete(cacheKey);
+  try {
+    const stored = getStoredCache();
+    delete stored[cacheKey];
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // Ignore quota errors
+  }
 }
 
 /**

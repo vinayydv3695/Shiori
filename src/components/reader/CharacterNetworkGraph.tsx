@@ -1189,7 +1189,7 @@ export function CharacterNetworkGraph({
           // Draw Node Name Label with Spacious Rounded Pill
           ctx.save();
           const labelFontSize = Math.max(14, Math.round(15 * Math.min(scale, 1.25)));
-          ctx.font = `600 ${labelFontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.font = `600 ${labelFontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
 
@@ -1737,7 +1737,11 @@ export function CharacterNetworkGraph({
                   {char.name}
                 </button>
                 {char.nativeName && (
-                  <p className="text-xs text-[var(--text-tertiary)] italic truncate my-0.5">
+                  <p
+                    lang="ja"
+                    style={{ fontFamily: 'var(--font-cjk, sans-serif)' }}
+                    className="text-xs text-[var(--text-tertiary)] italic truncate my-0.5 tracking-normal"
+                  >
                     {char.nativeName}
                   </p>
                 )}
@@ -1790,7 +1794,7 @@ export function CharacterNetworkGraph({
           <div
             className={`overflow-y-auto p-4 space-y-3.5 text-xs transition-[width] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
               isExpanded
-                ? 'w-full sm:w-[280px] md:w-[320px] shrink-0 border-b sm:border-b-0 sm:border-r border-[color-mix(in_srgb,var(--ui-border)_45%,transparent)]'
+                ? 'w-full sm:w-[300px] md:w-[330px] shrink-0 border-b sm:border-b-0 sm:border-r border-[color-mix(in_srgb,var(--ui-border)_45%,transparent)]'
                 : 'w-full flex-1'
             }`}
           >
@@ -2017,46 +2021,66 @@ export function CharacterNetworkGraph({
                               <div className="text-xs font-bold text-[var(--text-primary)] truncate hover:text-[var(--ui-focus)] transition-colors">
                                 {conn.otherNode.name}
                               </div>
-                              <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                              <div className="flex items-center text-[10px] text-[var(--text-tertiary)] mt-0.5 min-w-0">
                                 {(() => {
                                   const rel = getSemanticRelationship(conn.link.sampleQuotes);
                                   return (
                                     <span
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[9.5px]"
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold text-[9.5px] truncate max-w-full"
                                       style={{
                                         backgroundColor: `color-mix(in srgb, ${rel.color} 12%, var(--bg-secondary))`,
                                         color: rel.color,
                                         border: `1px solid color-mix(in srgb, ${rel.color} 25%, transparent)`,
                                       }}
+                                      title={rel.label}
                                     >
-                                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: rel.color }} />
-                                      {rel.label}
+                                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: rel.color }} />
+                                      <span className="truncate">{rel.label}</span>
                                     </span>
                                   );
                                 })()}
-                                <span>•</span>
-                                <span className="font-semibold text-[var(--text-secondary)]">
-                                  {conn.sharedScenes} {conn.sharedScenes === 1 ? 'scene' : 'scenes'}
-                                </span>
+                                {conn.link.sampleQuotes.length === 0 && (
+                                  <>
+                                    <span className="mx-1 shrink-0">•</span>
+                                    <span className="font-semibold text-[var(--text-secondary)] whitespace-nowrap truncate">
+                                      {conn.sharedScenes} {conn.sharedScenes === 1 ? 'scene' : 'scenes'}
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-1 shrink-0">
                             {conn.link.sampleQuotes.length > 0 && (
-                              <ReaderTooltip content={isCurrentActive ? 'Close scenes' : 'View shared dialogue & scenes'}>
+                              <ReaderTooltip
+                                content={
+                                  isCurrentActive
+                                    ? 'Close scenes'
+                                    : `View ${conn.sharedScenes} shared ${conn.sharedScenes === 1 ? 'scene' : 'scenes'} & dialogue`
+                                }
+                              >
                                 <button
                                   type="button"
                                   onClick={() => handleToggleScenes(conn.otherNode.id)}
-                                  className={`px-2.5 py-1 rounded-lg text-[10.5px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                                  className={`px-2 py-1 rounded-lg text-[10.5px] font-semibold flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                                     isCurrentActive
-                                      ? 'bg-[var(--ui-focus)] text-white shadow-2xs'
+                                      ? 'bg-[var(--ui-focus)] text-white shadow-2xs font-bold'
                                       : 'bg-[var(--bg-secondary)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_15%,var(--bg-secondary))] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[color-mix(in_srgb,var(--ui-border)_45%,transparent)]'
                                   }`}
                                 >
-                                  <MessageSquare size={11} />
-                                  <span>Scenes</span>
-                                  {isCurrentActive ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                                  <MessageSquare size={11} className="shrink-0" />
+                                  <span>{conn.sharedScenes}</span>
+                                  {!isExpanded && (
+                                    <span className="text-[10px] opacity-80 hidden min-[420px]:inline">
+                                      {conn.sharedScenes === 1 ? 'scene' : 'scenes'}
+                                    </span>
+                                  )}
+                                  {isCurrentActive ? (
+                                    <ChevronUp size={11} className="shrink-0" />
+                                  ) : (
+                                    <ChevronDown size={11} className="shrink-0" />
+                                  )}
                                 </button>
                               </ReaderTooltip>
                             )}

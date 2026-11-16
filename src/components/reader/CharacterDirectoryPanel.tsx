@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Search, Users, Sparkles, Loader2, BookOpen, Maximize2, X, Network, List, FileText } from 'lucide-react';
+import { Search, Users, Sparkles, Loader2, BookOpen, Maximize2, X, Network, List, FileText, Edit3, RotateCcw } from 'lucide-react';
 import { scanBookCharacters, scanBookCharacterNetwork, type TrackedCharacter, type CharacterNetworkData } from '@/lib/characterTracker';
 import { useCharacterPortrait, type CharacterPortrait } from '@/lib/characterImageService';
+import {
+  getCharacterOverrides,
+  getCharacterOverride,
+  removeCharacterOverride,
+  applyOverridesToCharacters,
+  type CharacterOverride,
+} from '@/lib/characterOverrideService';
+import { CharacterRemapModal } from './CharacterRemapModal';
 import { CharacterNetworkGraph } from './CharacterNetworkGraph';
 import { useAIStore } from '@/store/aiStore';
 import { getCharacterRecap } from '@/lib/ai/aiClient';
@@ -29,9 +37,11 @@ interface CharacterDetailModalProps {
   char: TrackedCharacter;
   portrait: CharacterPortrait;
   bookTitle?: string;
+  bookId?: number;
   onClose: () => void;
   onNavigateToFirstMention: (chapterIndex: number, characterName: string, snippet?: string) => void;
   aiEnabled: boolean;
+  onCharacterRemapped?: (originalName: string, override: CharacterOverride | null) => void;
 }
 
 /**
@@ -148,10 +158,17 @@ function CharacterDetailModal({
   char,
   portrait: initialPortrait,
   bookTitle,
+  bookId,
   onClose,
   onNavigateToFirstMention,
   aiEnabled,
+  onCharacterRemapped,
 }: CharacterDetailModalProps) {
+  const [isRemapOpen, setIsRemapOpen] = useState(false);
+  const [currentOverride, setCurrentOverride] = useState<CharacterOverride | null>(() =>
+    bookId ? getCharacterOverride(bookId, char.name) : null
+  );
+
   const { portrait: fetchedPortrait, isLoading: isPortraitLoading } = useCharacterPortrait(
     char.name,
     char.firstMention?.sentenceSnippet,
@@ -166,6 +183,12 @@ function CharacterDetailModal({
       description: initialPortrait?.description || fetchedPortrait?.description,
     };
   }, [initialPortrait, fetchedPortrait]);
+
+  const displayName = currentOverride?.resolvedName || char.name;
+  const displayNativeName = currentOverride?.nativeName || portrait.nativeName;
+  const displayImageUrl = currentOverride?.imageUrl !== undefined ? currentOverride.imageUrl : portrait.imageUrl;
+  const displaySource = currentOverride?.source || portrait.source;
+  const displayDescription = currentOverride?.description !== undefined ? currentOverride.description : portrait.description;
 
   const [aiRecapLoading, setAiRecapLoading] = useState(false);
   const [aiRecap, setAiRecap] = useState<string | null>(null);
@@ -186,23 +209,23 @@ function CharacterDetailModal({
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isRemapOpen) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isRemapOpen]);
 
   const themeVars = (READER_THEME_COLORS[readerTheme] || READER_THEME_COLORS.paper) as React.CSSProperties;
 
   const points = useMemo(() => {
-    return formatDescriptionToPoints(portrait.description);
-  }, [portrait.description]);
+    return formatDescriptionToPoints(displayDescription);
+  }, [displayDescription]);
 
   const handleAIRecap = async () => {
     if (aiRecapLoading) return;
     setAiRecapLoading(true);
     try {
-      const recap = await getCharacterRecap(char.name);
+      const recap = await getCharacterRecap(displayName);
       setAiRecap(recap);
     } catch (err) {
       useToastStore.getState().addToast({
@@ -238,11 +261,21 @@ function CharacterDetailModal({
               <Users size={14} />
               Character Dossier
             </span>
-            {portrait.source && (
+            {displaySource && (
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[color-mix(in_srgb,var(--ui-focus)_12%,var(--bg-secondary))] text-[var(--ui-focus)] border border-[color-mix(in_srgb,var(--ui-focus)_25%,transparent)] capitalize">
-                {portrait.source === 'anilist' ? 'AniList' : portrait.source === 'fandom' ? 'Fandom' : 'Wikipedia'}
+                {displaySource === 'anilist' ? 'AniList' : displaySource === 'fandom' ? 'Fandom' : displaySource === 'custom' ? 'Custom' : 'Wikipedia'}
               </span>
             )}
+            <ReaderTooltip content="Change or search correct character">
+              <button
+                type="button"
+                onClick={() => setIsRemapOpen(true)}
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] text-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_22%,transparent)] border border-[color-mix(in_srgb,var(--ui-focus)_30%,transparent)] transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <Edit3 size={11} />
+                <span>{currentOverride ? 'Change Match' : 'Fix Character'}</span>
+              </button>
+            </ReaderTooltip>
           </div>
           <ReaderTooltip content="Close (Esc)" side="bottom">
             <button
@@ -265,7 +298,7 @@ function CharacterDetailModal({
         >
           {/* Full Portrait Stage (Adaptive Box Sized to Picture Layout, NO CUTOFF) */}
           <motion.div variants={modalSectionItemVariants}>
-            {portrait.imageUrl ? (
+            {displayImageUrl ? (
               <div className="flex justify-center w-full my-1">
                 <div
                   className="relative rounded-2xl bg-gradient-to-b from-[color-mix(in_srgb,var(--ui-focus)_10%,var(--bg-secondary))] to-[var(--bg-secondary)] border border-[color-mix(in_srgb,var(--ui-border)_65%,transparent)] flex items-center justify-center p-3 shadow-inner overflow-hidden transition-all duration-300"
@@ -277,8 +310,8 @@ function CharacterDetailModal({
                   }}
                 >
                   <img
-                    src={portrait.imageUrl}
-                    alt={char.name}
+                    src={displayImageUrl}
+                    alt={displayName}
                     referrerPolicy="no-referrer"
                     onLoad={(e) => {
                       const { naturalWidth, naturalHeight } = e.currentTarget;
@@ -295,7 +328,7 @@ function CharacterDetailModal({
                 className="w-full h-32 rounded-2xl flex items-center justify-center text-3xl font-serif font-black select-none text-[var(--text-primary)] shadow-inner"
                 style={{ background: char.avatarColor }}
               >
-                {char.name.slice(0, 2).toUpperCase()}
+                {displayName.slice(0, 2).toUpperCase()}
               </div>
             )}
           </motion.div>
@@ -304,14 +337,47 @@ function CharacterDetailModal({
           <motion.div variants={modalSectionItemVariants} className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-2xl font-bold font-serif text-[var(--text-primary)] my-0 tracking-tight">
-                {char.name}
+                {displayName}
               </h3>
-              {portrait.nativeName && (
-                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] text-[var(--text-secondary)] select-none">
-                  {portrait.nativeName}
+              {displayNativeName && (
+                <span
+                  lang="ja"
+                  style={{ fontFamily: 'var(--font-cjk, sans-serif)' }}
+                  className="px-2 py-0.5 rounded-md text-xs font-semibold bg-[color-mix(in_srgb,var(--text-primary)_8%,transparent)] text-[var(--text-secondary)] select-none tracking-normal"
+                >
+                  {displayNativeName}
                 </span>
               )}
+              <ReaderTooltip content="Change or search correct character">
+                <button
+                  type="button"
+                  onClick={() => setIsRemapOpen(true)}
+                  className="p-1.5 rounded-xl text-[var(--text-tertiary)] hover:text-[var(--ui-focus)] hover:bg-[color-mix(in_srgb,var(--ui-focus)_12%,transparent)] transition-all cursor-pointer"
+                  aria-label="Change character"
+                >
+                  <Edit3 size={15} />
+                </button>
+              </ReaderTooltip>
             </div>
+            {currentOverride && (
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className="text-[10.5px] font-medium text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                  Remapped from "{char.name}"
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (bookId) removeCharacterOverride(bookId, char.name);
+                    setCurrentOverride(null);
+                    onCharacterRemapped?.(char.name, null);
+                  }}
+                  className="text-[10.5px] font-semibold text-[var(--text-tertiary)] hover:text-rose-500 underline cursor-pointer flex items-center gap-1"
+                >
+                  <RotateCcw size={10} />
+                  Revert
+                </button>
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap text-xs text-[var(--text-secondary)] font-medium">
               <span className="px-2.5 py-1 rounded-xl bg-[color-mix(in_srgb,var(--bg-secondary)_90%,var(--bg-elevated))] border border-[color-mix(in_srgb,var(--ui-border)_50%,transparent)]">
                 <strong className="text-[var(--text-primary)] font-semibold">{char.totalMentions}</strong> {char.totalMentions === 1 ? 'mention' : 'mentions'}
@@ -435,6 +501,27 @@ function CharacterDetailModal({
             Jump to First Mention (Ch. {char.firstMention.chapterIndex + 1})
           </button>
         </div>
+
+        {/* Character Remap Modal */}
+        {bookId && isRemapOpen && (
+          <CharacterRemapModal
+            isOpen={isRemapOpen}
+            onClose={() => setIsRemapOpen(false)}
+            originalName={char.name}
+            currentDisplayName={displayName}
+            bookId={bookId}
+            bookTitle={bookTitle}
+            activeOverride={currentOverride}
+            onRemapComplete={(ov) => {
+              setCurrentOverride(ov);
+              onCharacterRemapped?.(char.name, ov);
+            }}
+            onRevertComplete={() => {
+              setCurrentOverride(null);
+              onCharacterRemapped?.(char.name, null);
+            }}
+          />
+        )}
       </motion.div>
     </div>
   );
@@ -554,8 +641,17 @@ function CharacterItem({
                 {char.name}
               </button>
               {portrait.nativeName && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] text-[var(--text-tertiary)] shrink-0 select-none">
+                <span
+                  lang="ja"
+                  style={{ fontFamily: 'var(--font-cjk, sans-serif)' }}
+                  className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-[color-mix(in_srgb,var(--text-primary)_6%,transparent)] text-[var(--text-tertiary)] shrink-0 select-none tracking-normal"
+                >
                   {portrait.nativeName}
+                </span>
+              )}
+              {char.originalExtractedName && char.originalExtractedName !== char.name && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 shrink-0 select-none">
+                  Mapped
                 </span>
               )}
             </div>
@@ -666,14 +762,26 @@ export function CharacterDirectoryPanel({
     setIsLoading(true);
     scanBookCharacterNetwork(bookId, totalChapters, setScanProgress)
       .then((data) => {
-        setCharacters(data.characters);
-        setNetworkData(data);
+        const remapped = applyOverridesToCharacters(bookId, data.characters);
+        setCharacters(remapped);
+        setNetworkData({
+          ...data,
+          characters: remapped,
+        });
         setIsLoading(false);
       })
       .catch(() => {
         setIsLoading(false);
       });
   }, [bookId, totalChapters]);
+
+  useEffect(() => {
+    const handleOverrideChanged = () => {
+      setCharacters((prev) => applyOverridesToCharacters(bookId, prev));
+    };
+    window.addEventListener('shiori-character-overrides-changed', handleOverrideChanged);
+    return () => window.removeEventListener('shiori-character-overrides-changed', handleOverrideChanged);
+  }, [bookId]);
 
   const filteredCharacters = useMemo(() => {
     if (!searchQuery.trim()) return characters;
@@ -873,12 +981,37 @@ export function CharacterDirectoryPanel({
             char={selectedDetail.char}
             portrait={selectedDetail.portrait}
             bookTitle={bookTitle}
+            bookId={bookId}
             onClose={() => setSelectedDetail(null)}
             onNavigateToFirstMention={(chapIdx, charName, snippet) => {
               setIsGraphFullscreen(false);
               onNavigateToFirstMention(chapIdx, charName, snippet);
             }}
             aiEnabled={aiEnabled}
+            onCharacterRemapped={(originalName, override) => {
+              setCharacters((prev) =>
+                prev.map((c) => {
+                  if (c.name === originalName || (c.originalExtractedName && c.originalExtractedName === originalName)) {
+                    if (override) {
+                      return {
+                        ...c,
+                        name: override.resolvedName,
+                        nativeName: override.nativeName || c.nativeName,
+                        imageUrl: override.imageUrl !== undefined ? (override.imageUrl || undefined) : c.imageUrl,
+                        originalExtractedName: originalName,
+                      };
+                    } else {
+                      return {
+                        ...c,
+                        name: originalName,
+                        originalExtractedName: undefined,
+                      };
+                    }
+                  }
+                  return c;
+                })
+              );
+            }}
           />
         )}
       </AnimatePresence>

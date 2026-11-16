@@ -7,7 +7,7 @@
  */
 
 import { logger } from './logger';
-import { api, isTauri } from './tauri';
+import { api, isTauri, hasTauriOrMock } from './tauri';
 
 export interface EdgeVoice {
   id: string;
@@ -390,6 +390,10 @@ function generateRequestId(): string {
   });
 }
 
+function dateToString(): string {
+  return new Date().toString();
+}
+
 /**
  * Synthesizes text to an MP3 Audio Blob using Microsoft Edge Neural TTS.
  * In Tauri environments (Desktop and Android), routes through the Rust backend
@@ -404,7 +408,13 @@ export async function synthesizeEdgeSpeech(
   }
 
   // 1. Primary path: In Tauri (desktop Linux/Mac/Win & Android), use backend command
-  if (isTauri) {
+  const isRunningInTauri =
+    isTauri ||
+    hasTauriOrMock() ||
+    (typeof window !== 'undefined' &&
+      ('__TAURI_INTERNALS__' in window || '__TAURI__' in window));
+
+  if (isRunningInTauri) {
     try {
       const bytes = await api.synthesizeEdgeTts(
         text,
@@ -412,13 +422,16 @@ export async function synthesizeEdgeSpeech(
         options.rate,
         options.pitch
       );
-      return new Blob([new Uint8Array(bytes)], { type: 'audio/mp3' });
+      if (bytes && bytes.length > 0) {
+        return new Blob([new Uint8Array(bytes)], { type: 'audio/mp3' });
+      }
     } catch (err) {
       logger.warn('[EdgeTTS] Tauri command failed, trying direct browser fallback:', err);
     }
   }
 
   // 2. Fallback path: Direct WebSocket with Sec-MS-GEC v2 token
+  const timestamp = dateToString();
   const secMsGec = generateSecMsGecV2();
   const connId = generateRequestId().replace(/-/g, '');
   const wsUrl = `${EDGE_WS_URL}&ConnectionId=${connId}&Sec-MS-GEC=${secMsGec}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`;
@@ -455,9 +468,11 @@ export async function synthesizeEdgeSpeech(
       });
 
       const configMsg =
+        `X-Timestamp:${timestamp}\r\n` +
         `Content-Type:application/json; charset=utf-8\r\n` +
         `Path:speech.config\r\n\r\n` +
-        configPayload;
+        configPayload +
+        `\r\n`;
 
       ws.send(configMsg);
 
@@ -465,6 +480,7 @@ export async function synthesizeEdgeSpeech(
       const ssmlMsg =
         `X-RequestId:${reqId}\r\n` +
         `Content-Type:application/ssml+xml\r\n` +
+        `X-Timestamp:${timestamp}Z\r\n` +
         `Path:ssml\r\n\r\n` +
         ssml;
 

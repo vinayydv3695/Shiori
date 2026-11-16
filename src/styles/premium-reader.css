@@ -4325,3 +4325,404 @@ select {
   transform-origin: center;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESKTOP BORDER & MARGIN INNOVATIONS
+   - 3D Deckled Page Stack (Physical book thickness in margins)
+   - Collector's Folio Frame (Victorian Guilloché, Deboss, Architectural Minimal)
+   - Ambient Focus Vignette (Radial eye-comfort focus halo)
+   - Margin Rhythm Beads (Microscopic tactile chapter notches)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. 3D Deckled Page Stack ── */
+.reader-deckle-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .reader-deckle-container {
+    display: none !important;
+  }
+}
+
+.reader-deckle-stack {
+  position: absolute;
+  top: 48px;
+  bottom: 48px;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease, filter 0.2s ease;
+  user-select: none;
+}
+
+.reader-deckle-stack--left {
+  left: 0;
+  border-right: 1px solid var(--ui-border, rgba(0, 0, 0, 0.12));
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.08) 0%, transparent 100%);
+}
+
+.reader-deckle-stack--right {
+  right: 0;
+  border-left: 1px solid var(--ui-border, rgba(0, 0, 0, 0.12));
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.08) 0%, transparent 100%);
+}
+
+.reader-deckle-stack--hover {
+  filter: brightness(1.08);
+}
+
+.reader-deckle-spine-shadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  box-shadow: inset 2px 0 6px -2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.reader-deckle-spine-shadow--right {
+  box-shadow: inset -2px 0 6px -2px rgba(0, 0, 0, 0.25);
+}
+
+.reader-deckle-layers {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.reader-deckle-layer-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--text-tertiary, #888);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+.reader-deckle-tooltip {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-elevated, #2a2a2a);
+  color: var(--text-primary, #fff);
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  font-size: 11px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  z-index: 50;
+  pointer-events: none;
+  animation: deckle-fade 0.18s ease forwards;
+}
+
+.reader-deckle-tooltip--left {
+  left: calc(100% + 8px);
+}
+
+.reader-deckle-tooltip--right {
+  right: calc(100% + 8px);
+}
+
+@keyframes deckle-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+/* ── 2. Collector's Folio Frame ── */
+.reader-folio-frame {
+  position: absolute;
+  inset: 12px;
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .reader-folio-frame {
+    display: none !important;
+  }
+}
+
+/* Victorian Guilloché Flourishes */
+.reader-folio-flourish {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  color: var(--ui-border, currentColor);
+  opacity: 0.65;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.theme-sepia .reader-folio-flourish {
+  color: #9c6c38;
+  opacity: 0.8;
+}
+
+.theme-paper .reader-folio-flourish,
+.theme-paper-dark .reader-folio-flourish {
+  color: #8c765a;
+  opacity: 0.75;
+}
+
+.theme-black .reader-folio-flourish,
+.theme-dark .reader-folio-flourish {
+  color: #71717a;
+  opacity: 0.55;
+}
+
+.reader-folio-flourish--tl {
+  top: 0;
+  left: 0;
+}
+
+.reader-folio-flourish--tr {
+  top: 0;
+  right: 0;
+}
+
+.reader-folio-flourish--bl {
+  bottom: 0;
+  left: 0;
+}
+
+.reader-folio-flourish--br {
+  bottom: 0;
+  right: 0;
+}
+
+.reader-folio-inner-rule {
+  position: absolute;
+  inset: 16px;
+  border: 1px solid var(--ui-border, rgba(0, 0, 0, 0.08));
+  border-radius: 6px;
+  opacity: 0.5;
+}
+
+/* Minimal Architectural Frame */
+.reader-folio-minimal-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--text-tertiary, currentColor);
+  opacity: 0.5;
+}
+
+.reader-folio-minimal-corner--tl {
+  top: 4px;
+  left: 4px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+}
+
+.reader-folio-minimal-corner--tr {
+  top: 4px;
+  right: 4px;
+  border-top: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+.reader-folio-minimal-corner--bl {
+  bottom: 4px;
+  left: 4px;
+  border-bottom: 1.5px solid;
+  border-left: 1.5px solid;
+}
+
+.reader-folio-minimal-corner--br {
+  bottom: 4px;
+  right: 4px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+}
+
+.reader-folio-minimal-axis {
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed var(--ui-border, rgba(128, 128, 128, 0.18));
+  opacity: 0.35;
+}
+
+/* Letterpress Deboss Well */
+.reader-folio-deboss-well {
+  position: absolute;
+  inset: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--ui-border, rgba(0, 0, 0, 0.1));
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.theme-black .reader-folio-deboss-well,
+.theme-dark .reader-folio-deboss-well {
+  box-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* ── 3. Ambient Focus Vignette ── */
+.reader-focus-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.18) 100%);
+  mix-blend-mode: multiply;
+  transition: opacity 0.4s ease;
+}
+
+.theme-black .reader-focus-vignette,
+.theme-dark .reader-focus-vignette {
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(0, 0, 0, 0.55) 100%);
+  mix-blend-mode: normal;
+}
+
+.theme-sepia .reader-focus-vignette {
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(110, 80, 50, 0.22) 100%);
+}
+
+.theme-paper .reader-focus-vignette {
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(90, 75, 60, 0.18) 100%);
+}
+
+@media (max-width: 768px) {
+  .reader-focus-vignette {
+    display: none !important;
+  }
+}
+
+/* ── 4. Margin Rhythm Beads ── */
+.reader-rhythm-track {
+  position: absolute;
+  top: 60px;
+  bottom: 60px;
+  right: 14px;
+  width: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+  user-select: none;
+}
+
+@media (max-width: 1024px) {
+  .reader-rhythm-track {
+    display: none !important;
+  }
+}
+
+.reader-rhythm-spine {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  width: 1.5px;
+  background: var(--ui-border, rgba(128, 128, 128, 0.25));
+  border-radius: 9999px;
+  opacity: 0.5;
+}
+
+.reader-rhythm-beads-list {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  width: 100%;
+  align-items: center;
+  z-index: 2;
+}
+
+.reader-rhythm-bead-anchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.reader-rhythm-bead {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.18s ease;
+  background: transparent;
+}
+
+.reader-rhythm-bead:hover {
+  transform: scale(1.6);
+}
+
+.reader-rhythm-bead--unread {
+  background-color: var(--bg-elevated, #888);
+  border-color: var(--ui-border, #aaa);
+  opacity: 0.55;
+}
+
+.reader-rhythm-bead--read {
+  background-color: var(--text-tertiary, #666);
+  opacity: 0.85;
+}
+
+.reader-rhythm-bead--active {
+  background-color: var(--ui-focus, #3b82f6) !important;
+  border-color: #ffffff;
+  box-shadow: 0 0 8px var(--ui-focus, #3b82f6);
+  transform: scale(1.45);
+}
+
+.reader-rhythm-bead-pulse {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--ui-focus, #3b82f6);
+  animation: rhythm-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes rhythm-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.85;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.reader-rhythm-tooltip {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-elevated, #1f1f1f);
+  color: var(--text-primary, #ffffff);
+  border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 60;
+  animation: deckle-fade 0.16s ease forwards;
+}
+

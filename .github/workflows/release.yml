@@ -272,6 +272,10 @@ jobs:
               New-Item -Path "src-tauri\$dll" -ItemType File -Force | Out-Null
             }
           }
+          # Create target output directories required by ort-sys build script on Windows
+          New-Item -ItemType Directory -Force -Path "src-tauri\target\release\examples", "src-tauri\target\release\deps", "src-tauri\target\release\build" | Out-Null
+          # Enable developer mode to permit symlink creation on Windows runner
+          reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d 1
 
       # ── Linux system dependencies ──
       - name: Install system dependencies (Linux)
@@ -486,6 +490,10 @@ jobs:
               New-Item -Path "src-tauri\$dll" -ItemType File -Force | Out-Null
             }
           }
+          # Create target output directories required by ort-sys build script on Windows
+          New-Item -ItemType Directory -Force -Path "src-tauri\target\release\examples", "src-tauri\target\release\deps", "src-tauri\target\release\build" | Out-Null
+          # Enable developer mode to permit symlink creation on Windows runner
+          reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d 1
 
       # ── Install frontend dependencies ──
       - name: Install frontend dependencies

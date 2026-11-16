@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useRef, memo } from "react";
-import { Layers, Rss } from "lucide-react";
+import { Layers, Rss, Check } from "lucide-react";
 import { cn, formatRssOrDateTitle } from "@/lib/utils";
 import { useCoverImage } from "../common/hooks/useCoverImage";
 import type { SeriesCardProps } from "./types";
@@ -109,6 +109,12 @@ export const SeriesCard = memo(function SeriesCard({
     "edit" | "volumes" | "merge"
   >("edit");
   const toast = useToast();
+
+  const storeIsSelected = useLibraryStore((s) => {
+    if (!series?.books?.length) return false;
+    return series.books.every((b) => b.id != null && s.selectedBookIds.has(b.id));
+  });
+  const effectiveIsSelected = isSelected !== undefined ? isSelected : storeIsSelected;
 
   const handleEditSeries = () => {
     setManagementTab("edit");
@@ -235,7 +241,7 @@ export const SeriesCard = memo(function SeriesCard({
                   "relative rounded-md overflow-hidden",
                   "bg-card border border-border",
                   "transition-all duration-[150ms]",
-                  isSelected
+                  effectiveIsSelected
                     ? "ring-2 ring-primary border-primary shadow-md"
                     : "hover:border-border/80 hover:shadow-md hover:-translate-y-px",
                   "border-[color-mix(in_srgb,var(--manga-accent)_20%,transparent)]",
@@ -243,6 +249,39 @@ export const SeriesCard = memo(function SeriesCard({
               >
                 {/* ── Cover Area (2:3 ratio) ── */}
                 <div className="relative aspect-[2/3] bg-muted overflow-hidden">
+                  {/* Selection Checkbox */}
+                  <div className="absolute top-2.5 left-2.5 z-35 flex items-center gap-1.5 pointer-events-auto">
+                    <div
+                      className={cn(
+                        "transition-all duration-200 ease-out overflow-hidden flex items-center justify-center",
+                        effectiveIsSelected
+                          ? "w-5 opacity-100 scale-100"
+                          : "w-0 opacity-0 scale-75 group-hover:w-5 group-hover:opacity-100 group-hover:scale-100"
+                      )}
+                    >
+                      <AppTooltip content={effectiveIsSelected ? "Deselect series" : "Select series"} side="top">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect?.(series.id);
+                          }}
+                          aria-label={effectiveIsSelected ? "Deselect series" : "Select series"}
+                          className={cn(
+                            "w-5 h-5 rounded-md flex items-center justify-center shrink-0 cursor-pointer",
+                            "border transition-all duration-150",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            effectiveIsSelected
+                              ? "bg-primary border-primary shadow-sm text-primary-foreground"
+                              : "bg-black/55 hover:bg-black/75 border-white/50 text-white backdrop-blur-sm shadow-xs"
+                          )}
+                        >
+                          {effectiveIsSelected && <Check size={11} className="text-primary-foreground stroke-[3]" />}
+                        </button>
+                      </AppTooltip>
+                    </div>
+                  </div>
+
                   {/* Skeleton */}
                   {(coverLoading || !imgLoaded) && !imgError && (
                     <CoverSkeleton />

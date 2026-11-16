@@ -503,6 +503,58 @@ pub async fn permanent_delete_book(state: State<'_, AppState>, id: i64) -> Resul
 }
 
 #[tauri::command]
+pub async fn permanent_delete_books(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<i64>,
+) -> Result<()> {
+    validate::require_non_empty_vec(&ids, "book ids")?;
+    for &id in &ids {
+        validate::require_positive_id(id, "book id")?;
+    }
+    log::info!(
+        "[command::permanent_delete_books] Received request to permanently delete {} books: {:?}",
+        ids.len(),
+        ids
+    );
+    let db = state.db.clone();
+    let ids_clone = ids.clone();
+    let ids_for_event = ids.clone();
+    let app_data_dir = state
+        .covers_dir
+        .parent()
+        .unwrap_or(&state.covers_dir)
+        .to_path_buf();
+    let result = tokio::task::spawn_blocking(move || {
+        library_service::permanent_delete_books(&db, ids, &app_data_dir)
+    })
+    .await
+    .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?;
+
+    match &result {
+        Ok(_) => log::info!(
+            "[command::permanent_delete_books] Successfully permanently deleted {} books",
+            ids_clone.len()
+        ),
+        Err(e) => log::error!(
+            "[command::permanent_delete_books] Failed to permanently delete books: {:?}",
+            e
+        ),
+    }
+
+    if result.is_ok() {
+        let _ = app.emit(
+            "library-updated",
+            LibraryUpdatedPayload {
+                kind: "bulk-delete",
+                ids: ids_for_event,
+            },
+        );
+    }
+    result
+}
+
+#[tauri::command]
 pub fn clear_tombstone(
     state: State<AppState>,
     file_path: String,

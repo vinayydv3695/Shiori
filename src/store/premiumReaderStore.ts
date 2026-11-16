@@ -77,6 +77,7 @@ export const useReaderUIStore = create<UIState>((set) => ({
 // READING SETTINGS STATE (persisted to localStorage)
 // ────────────────────────────────────────────────────────────
 export type ReaderTheme = 'light' | 'black' | 'paper' | 'paper-dark' | 'sepia' | 'dark';
+export type CollectorFrameStyle = 'none' | 'victorian' | 'deboss' | 'minimal';
 
 interface ReadingSettings {
   // Theme
@@ -123,6 +124,12 @@ interface ReadingSettings {
   // Physical Marginalia Mode (Wide-Margin Scriptorium)
   marginaliaEnabled: boolean;
 
+  // Desktop Canvas & Border Innovations (Off by default)
+  deckledEdgesEnabled: boolean;
+  collectorFrame: CollectorFrameStyle;
+  focusVignette: boolean;
+  rhythmBeads: boolean;
+
   // Actions
   setTheme: (theme: ReaderTheme) => void;
   toggleTheme: () => void;
@@ -151,6 +158,10 @@ interface ReadingSettings {
   setUiScale: (scale: number) => void;
   setMarginaliaEnabled: (enabled: boolean) => void;
   toggleMarginalia: () => void;
+  setDeckledEdgesEnabled: (enabled: boolean) => void;
+  setCollectorFrame: (style: CollectorFrameStyle) => void;
+  setFocusVignette: (enabled: boolean) => void;
+  setRhythmBeads: (enabled: boolean) => void;
   resetToDefaults: () => void;
 }
 
@@ -179,12 +190,17 @@ const defaultSettings = {
   paperTextureIntensity: isAndroid ? 0.11 : 0.08,
   uiScale: 1.0,
   marginaliaEnabled: false,
+  deckledEdgesEnabled: false,
+  collectorFrame: 'none' as CollectorFrameStyle,
+  focusVignette: false,
+  rhythmBeads: false,
 };
 
 const READER_THEMES: ReaderTheme[] = ['light', 'black', 'paper', 'paper-dark', 'sepia', 'dark'];
 const WIDTH_OPTIONS: Array<ReadingSettings['width']> = ['narrow', 'medium', 'wide', 'full'];
 const TEXT_ALIGN_OPTIONS: Array<ReadingSettings['textAlign']> = ['left', 'justify'];
 const ANIMATION_STYLE_OPTIONS: Array<ReadingSettings['animationStyle']> = ['slide', 'fade', 'curl', 'none'];
+const COLLECTOR_FRAME_OPTIONS: CollectorFrameStyle[] = ['none', 'victorian', 'deboss', 'minimal'];
 
 const clampNumber = (value: unknown, fallback: number, min: number, max: number): number => {
   if (typeof value !== 'number' || Number.isNaN(value)) return fallback;
@@ -224,6 +240,10 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
   setKeepScreenOn: 0;
   setMarginaliaEnabled: 0;
   toggleMarginalia: 0;
+  setDeckledEdgesEnabled: 0;
+  setCollectorFrame: 0;
+  setFocusVignette: 0;
+  setRhythmBeads: 0;
   resetToDefaults: 0;
 }> => {
   const source = (raw && typeof raw === 'object') ? (raw as Partial<typeof defaultSettings>) : {};
@@ -253,6 +273,10 @@ const normalizeReadingSettingsState = (raw: unknown): Omit<ReadingSettings, keyo
     paperTextureIntensity: clampNumber(source.paperTextureIntensity, defaultSettings.paperTextureIntensity, 0, 0.2),
     uiScale: clampNumber(source.uiScale, defaultSettings.uiScale, 0.8, 1.4),
     marginaliaEnabled: typeof source.marginaliaEnabled === 'boolean' ? source.marginaliaEnabled : defaultSettings.marginaliaEnabled,
+    deckledEdgesEnabled: typeof source.deckledEdgesEnabled === 'boolean' ? source.deckledEdgesEnabled : defaultSettings.deckledEdgesEnabled,
+    collectorFrame: clampStringEnum(source.collectorFrame, defaultSettings.collectorFrame, COLLECTOR_FRAME_OPTIONS),
+    focusVignette: typeof source.focusVignette === 'boolean' ? source.focusVignette : defaultSettings.focusVignette,
+    rhythmBeads: typeof source.rhythmBeads === 'boolean' ? source.rhythmBeads : defaultSettings.rhythmBeads,
   };
 };
 
@@ -416,11 +440,19 @@ export const useReadingSettings = create<ReadingSettings>()(
 
       toggleMarginalia: () => set((state) => ({ marginaliaEnabled: !state.marginaliaEnabled })),
 
+      setDeckledEdgesEnabled: (enabled) => set({ deckledEdgesEnabled: enabled }),
+
+      setCollectorFrame: (style) => set({ collectorFrame: style }),
+
+      setFocusVignette: (enabled) => set({ focusVignette: enabled }),
+
+      setRhythmBeads: (enabled) => set({ rhythmBeads: enabled }),
+
       resetToDefaults: () => set(defaultSettings),
     }),
     {
       name: 'shiori-reading-settings',
-      version: 4,
+      version: 5,
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== 'object') {
           return defaultSettings;

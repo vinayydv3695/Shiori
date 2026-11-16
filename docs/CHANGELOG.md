@@ -1,4 +1,4 @@
-# Release Notes (v1.0.32)
+# Release Notes (v1.0.33)
 
 ## Contextual Topbar Bulk Selection, Permanent Deletion, Character Search & Remap, and Japanese Typography
 

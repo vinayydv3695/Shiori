@@ -1222,7 +1222,15 @@ pub async fn get_books_by_reading_status(
     status: String,
     limit: u32,
     offset: u32,
+    domain: Option<String>,
 ) -> Result<Vec<Book>> {
+    if let Some(domain) = domain.as_deref() {
+        validate::require_one_of(
+            domain,
+            &["books", "manga", "comics", "manga_comics", "online-manga"],
+            "domain",
+        )?;
+    }
     validate::require_one_of(
         &status,
         &["planning", "reading", "completed", "on_hold", "dropped"],
@@ -1230,7 +1238,13 @@ pub async fn get_books_by_reading_status(
     )?;
     let db = app_state.db.clone();
     tokio::task::spawn_blocking(move || {
-        library_service::get_books_by_reading_status(&db, &status, limit, offset)
+        library_service::get_books_by_reading_status_for_domain(
+            &db,
+            &status,
+            limit,
+            offset,
+            domain.as_deref(),
+        )
     })
     .await
     .map_err(|e| crate::error::ShioriError::Other(format!("Task panicked: {}", e)))?

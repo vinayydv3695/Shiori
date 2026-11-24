@@ -11,8 +11,9 @@
 
 import { logger } from '@/lib/logger';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { useMemo, useEffect, useState, useCallback } from 'react'
+import { useMemo, useEffect, useState, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
+import { listen } from '@tauri-apps/api/event'
 import {
   BookOpen, Clock, ArrowRight,
   ListOrdered, Activity, HardDrive, Heart, History, CheckCircle2, PauseCircle, BarChart2, ThumbsUp, Layers
@@ -31,6 +32,8 @@ import { formatFileSize, isMangaDomain, proxyExternalCover, cn } from '@/lib/uti
 import { groupBooksBySeries, extractSeriesTitle, type GroupedItem, type SeriesGroup } from '@/hooks/useGroupedLibrary'
 import { parseVolumeOrChapterNumber } from '@/lib/seriesSorting'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+
+const EMPTY_HOME_BOOKS: Book[] = []
 
 function getCoverUrl(path: string | null | undefined): string {
   if (!path) return '';
@@ -217,7 +220,7 @@ interface HomePageProps {
   onOpenSettings?: () => void
 }
 
-export function HomePage({ 
+export function HomePage({
   onOpenBook, 
   onViewSeries,
   onViewRSS, 
@@ -226,10 +229,10 @@ export function HomePage({
   onOpenAdvancedFilter = () => {}, 
   onOpenSettings = () => {} 
 }: HomePageProps) {
-  const isMobile = useIsMobile();
+ const isMobile = useIsMobile();
   const [libraryStats, setLibraryStats] = useState<{total_books: number, total_manga: number, total_size_bytes: number} | null>(null);
   const favoriteBookIds = useLibraryStore(s => s.favoriteBookIds)
-  const libraryBooks = useLibraryStore(s => s.books)
+ const libraryBooks = useLibraryStore(s => isAndroid ? s.books : EMPTY_HOME_BOOKS)
   const currentDomain = useUIStore(state => state.currentDomain);
   const setCurrentView = useUIStore(state => state.setCurrentView);
   const [progressMap, setProgressMap] = useState<Record<number, ReadingProgress>>({})
@@ -240,25 +243,34 @@ export function HomePage({
   const [recommendedBooks, setRecommendedBooks] = useState<Book[]>([])
   const [favoriteBooks, setFavoriteBooks] = useState<Book[]>([])
   const [lastReadBooks, setLastReadBooks] = useState<Book[]>([])
-  const [allInProgress, setAllInProgress] = useState<number>(0)
+ const [allInProgress, setAllInProgress] = useState<number>(0)
+ const homeRequest = useRef(0)
 
   const domain = currentDomain
 
   // Load all Home Data from SQLite directly
-  const loadHomeData = useCallback(async () => {
-    try {
-      const stats = await api.getLibraryStats();
-      setLibraryStats(stats);
+ const loadHomeData = useCallback(async () => {
+ const request = ++homeRequest.current
+ try {
+ const [stats, recentBooks, readingBooks, favsResolved, completed, onHold, recommended] = await Promise.all([
+ api.getLibraryStats(),
+ api.getBooksByDomain(domain, 24, 0),
+ api.getBooksByReadingStatus('reading', 50, 0, domain === 'manga_comics' ? 'manga_comics' : 'books'),
+ favoriteBookIds.size > 0 ? api.getBooksByIds(Array.from(favoriteBookIds).slice(0, 100)).catch(() => []) : Promise.resolve([]),
+ api.getBooksByReadingStatus('completed', 100, 0, domain === 'manga_comics' ? 'manga_comics' : 'books'),
+ api.getBooksByReadingStatus('on_hold', 100, 0, domain === 'manga_comics' ? 'manga_comics' : 'books'),
+ api.getRecommendedBooks(25)
+ ])
+ if (request !== homeRequest.current) return
+ setLibraryStats(stats)
 
-      // 1. Recently Added — re-filter with the same rule as every other list
-      // on this screen so one classifier governs and nothing flips between lists.
-      const recent = (await api.getBooksByDomain(domain, 24, 0) as unknown as Book[]).filter(b =>
-        domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
-      );
+ // Apply one classifier consistently across the Home lists.
+ const recent = (recentBooks as unknown as Book[]).filter(b =>
+ domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
+ );
 
       // 2. Continue Reading (Reading Status)
-      const readingBooks = await api.getBooksByReadingStatus('reading', 50, 0);
-      const domainReading = readingBooks.filter(b => 
+ const domainReading = readingBooks.filter(b =>
         domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
       ).sort((a, b) => {
         const dateA = a.last_opened ? new Date(a.last_opened).getTime() : 0
@@ -267,35 +279,27 @@ export function HomePage({
       });
 
       // 3. Favorites — one batched IPC (slice F1/F2-a); was up to 100 getBook calls.
-      const favIds = Array.from(favoriteBookIds);
-      const favsResolved = favIds.length > 0
-        ? (await api.getBooksByIds(favIds.slice(0, 100)).catch(() => [])) as Book[]
-        : [];
-      const domainFavs = favsResolved.filter(b => 
+ const domainFavs = favsResolved.filter(b =>
         domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
       );
 
       // 4. Completed, On Hold & Recommended
-      const [completed, onHold, recommended] = await Promise.all([
-        api.getBooksByReadingStatus('completed', 100, 0),
-        api.getBooksByReadingStatus('on_hold', 100, 0),
-        api.getRecommendedBooks(25)
-      ]);
       const domainRecommended = (recommended as unknown as Book[]).filter(b =>
         domain === 'manga_comics' ? isMangaDomain(b) : !isMangaDomain(b)
       );
 
       // 5. Reading Progress Map
       const bookIdsToFetch = [...domainReading, ...recent, ...domainFavs].slice(0, 50).map(b => b.id!);
-      const map: Record<number, ReadingProgress> = {};
+ const map: Record<number, ReadingProgress> = {};
       if (bookIdsToFetch.length > 0) {
         const batchResult = await api.getReadingProgressBatch(bookIdsToFetch);
         for (const [id, progress] of Object.entries(batchResult)) {
           if (progress.progressPercent > 0) {
             map[Number(id)] = progress;
-          }
-        }
-      }
+ }
+ }
+ }
+ if (request !== homeRequest.current) return
 
       // 6. Batch State Updates
       setRecentlyAdded(recent);
@@ -310,29 +314,56 @@ export function HomePage({
     } catch (err) {
       logger.error('Failed to load home data', err);
     }
-  }, [domain, favoriteBookIds, libraryBooks, isMangaDomain]);
+ }, [domain, favoriteBookIds, isMangaDomain]);
 
-  useEffect(() => {
-    loadHomeData();
-  }, [loadHomeData]);
+ useEffect(() => {
+ loadHomeData();
+ return () => { homeRequest.current++ }
+ }, [loadHomeData]);
 
-  // Series Groups extracted from the full library when in manga_comics domain
-  const librarySeriesGroups = useMemo(() => {
-    if (domain !== 'manga_comics') return [];
-    return groupBooksBySeries(libraryBooks, true)
-      .filter((item): item is { type: 'series'; data: SeriesGroup } => item.type === 'series')
-      .map(item => item.data);
-  }, [libraryBooks, domain]);
+ useEffect(() => {
+ if (isAndroid) return
+ let timer: ReturnType<typeof setTimeout> | undefined
+ let unlisten: (() => void) | undefined
+ let cancelled = false
+ void listen('library-updated', () => {
+ clearTimeout(timer)
+ timer = setTimeout(() => { void loadHomeData() }, 100)
+ }).then(stop => {
+ if (cancelled) stop()
+ else unlisten = stop
+ }).catch(err => logger.error('Failed to listen for library updates', err))
+ return () => {
+ cancelled = true
+ clearTimeout(timer)
+ unlisten?.()
+ }
+ }, [loadHomeData])
+
+ // Group only the bounded Home previews; full series details load when opened.
+ const homeSeriesBooks = useMemo(() => {
+ if (domain !== 'manga_comics') return []
+ return [...recentlyAdded, ...continueReading, ...favoriteBooks, ...completedBooks, ...onHoldBooks, ...recommendedBooks]
+ .filter((book, index, books) => books.findIndex(candidate => candidate.id === book.id) === index)
+ }, [domain, recentlyAdded, continueReading, favoriteBooks, completedBooks, onHoldBooks, recommendedBooks])
+ const librarySeriesGroups = useMemo(() => {
+ if (domain !== 'manga_comics') return [];
+ return groupBooksBySeries(homeSeriesBooks, true)
+ .filter((item): item is { type: 'series'; data: SeriesGroup } => item.type === 'series')
+ .map(item => item.data);
+ }, [homeSeriesBooks, domain]);
+ const librarySeriesByTitle = useMemo(
+ () => new Map(librarySeriesGroups.map(series => [series.title.toLowerCase(), series])),
+ [librarySeriesGroups]
+ );
 
   // Helper to resolve any book to its SeriesGroup (if it belongs to a series with >1 volume in library), or null
   const findSeriesForBook = useCallback((book: Book): SeriesGroup | null => {
     if (domain !== 'manga_comics') return null;
     const seriesTitle = extractSeriesTitle(book);
     if (!seriesTitle) return null;
-    return librarySeriesGroups.find(
-      s => s.title.toLowerCase() === seriesTitle.toLowerCase()
-    ) || null;
-  }, [domain, librarySeriesGroups]);
+ return librarySeriesByTitle.get(seriesTitle.toLowerCase()) || null;
+ }, [domain, librarySeriesByTitle]);
 
   // Transform a list of books into deduplicated GroupedItems (Series or Standalone Books)
   const groupItemsList = useCallback((books: Book[]): GroupedItem[] => {

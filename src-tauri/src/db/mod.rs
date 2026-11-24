@@ -195,6 +195,10 @@ impl Database {
         )?;
         // Composite indexes for common sort/filter queries
         conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_books_home_status_order ON books(reading_status, last_opened DESC, modified_date DESC, id DESC) WHERE in_trash = 0",
+            [],
+        )?;
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_books_added_date ON books(added_date DESC)",
             [],
         )?;

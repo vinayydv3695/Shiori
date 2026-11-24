@@ -1,3 +1,13 @@
+# Release Notes (v1.0.34)
+
+## Large-Library Desktop Home Performance
+
+- **Bounded Home Previews** — Desktop Home builds its sections and manga-series previews from bounded dashboard results instead of subscribing to and grouping the loaded library. Complete series details load when opened.
+- **Parallel Loading** — Independent dashboard requests start together, with stale-response guards for domain changes and unmounting.
+- **Targeted Refreshes** — Library pagination no longer reloads the dashboard. Actual library changes trigger a debounced refresh with listener cleanup.
+- **Indexed Status Queries** — Home filters reading-status results by domain before pagination and excludes trashed items. A partial ordering index speeds up these queries.
+- **Scale Regression Coverage** — Added synthetic 50,000-item database and populated desktop Home tests for bounded rendering, query behavior, and concurrent loading.
+
 # Release Notes (v1.0.33)
 
 ## Contextual Topbar Bulk Selection, Permanent Deletion, Character Search & Remap, and Japanese Typography

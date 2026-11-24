@@ -2420,11 +2420,24 @@ pub fn get_books_by_reading_status(
     limit: u32,
     offset: u32,
 ) -> Result<Vec<Book>> {
+    get_books_by_reading_status_for_domain(db, status, limit, offset, None)
+}
+
+pub fn get_books_by_reading_status_for_domain(
+    db: &Database,
+    status: &str,
+    limit: u32,
+    offset: u32,
+    domain: Option<&str>,
+) -> Result<Vec<Book>> {
     let conn = db.get_connection()?;
+    let filter = domain
+        .map(|domain| format!("{} AND", domain_where_clause(domain, "b.")))
+        .unwrap_or_else(|| "WHERE".to_string());
     // Order by last-read time so "Continue Reading" surfaces the most recently read book, not the most recently metadata-edited one.
     let sql = format!(
-        "SELECT {} FROM books b WHERE b.reading_status = ?1 ORDER BY b.last_opened DESC, b.modified_date DESC, b.id DESC LIMIT ?2 OFFSET ?3",
-        BOOK_COLUMNS
+        "SELECT {} FROM books b {} b.reading_status = ?1 ORDER BY b.last_opened DESC, b.modified_date DESC, b.id DESC LIMIT ?2 OFFSET ?3",
+        BOOK_COLUMNS, filter
     );
     let mut stmt = conn.prepare(&sql)?;
     let mut books: Vec<Book> = stmt

@@ -1586,8 +1586,8 @@ export const api = {
     return invoke("cancel_manga_chapter_download", { chapterId })
   },
 
-  async getBooksByReadingStatus(status: string, limit: number = 50, offset: number = 0): Promise<Book[]> {
-    return invoke("get_books_by_reading_status", { status, limit, offset })
+ async getBooksByReadingStatus(status: string, limit: number = 50, offset: number = 0, domain?: 'books' | 'manga_comics'): Promise<Book[]> {
+ return invoke("get_books_by_reading_status", { status, limit, offset, ...(domain ? { domain } : {}) })
   },
 
   async getReadingHistory(limit: number = 50, offset: number = 0): Promise<Book[]> {

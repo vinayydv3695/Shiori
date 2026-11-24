@@ -1,3 +1,10 @@
+# Release Notes (v1.0.36)
+
+## Windows MSVC Header Resolution & Build Reliability
+
+- **MSVC Header Resolution** — Resolved C1083 include failures by adding the native directory to the `INCLUDE` environment variable and providing clean unquoted `/I` and `/FI` flags without embedded quotes or shell escaping artifacts.
+- **Windows Release Builds** — Both standard installer and Microsoft Store Windows builds compile cleanly with the `msvc-compat.h` fallback for espeak's `__has_include_next` preprocessor check.
+
 # Release Notes (v1.0.35)
 
 ## Windows TTS Build Compatibility

@@ -1,3 +1,10 @@
+# Release Notes (v1.0.35)
+
+## Windows TTS Build Compatibility
+
+- **MSVC Compatibility** — Added a guarded fallback for the missing `__has_include_next` feature macro used by espeak's compatibility headers.
+- **Windows Release Builds** — Apply the compatibility header to both standard Windows and Store builds while preserving existing compiler flags. Other platforms are unchanged.
+
 # Release Notes (v1.0.34)
 
 ## Large-Library Desktop Home Performance

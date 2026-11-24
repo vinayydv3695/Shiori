@@ -307,6 +307,11 @@ jobs:
           echo "CLEAN_TAURI_KEY=$CLEAN_KEY" >> $GITHUB_ENV
 
       # ── Build with Tauri Action (build & bundle only) ──
+      - name: Configure MSVC compatibility
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./.github/ci/configure-msvc-compat.ps1
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -509,6 +514,10 @@ jobs:
           echo "CLEAN_TAURI_KEY=$CLEAN_KEY" >> $GITHUB_ENV
 
       # ── Build Tauri app (Store edition) ──
+      - name: Configure MSVC compatibility
+        shell: pwsh
+        run: ./.github/ci/configure-msvc-compat.ps1
+
       - name: Build Tauri app (Store edition)
         uses: tauri-apps/tauri-action@v0
         env:

@@ -16,6 +16,8 @@ build-options:
     LD_LIBRARY_PATH: /app/lib
 
 finish-args:
+  # Tauri single-instance IPC uses this identifier-derived session bus name.
+  - --own-name=org.io.github.vinayydv3695.shiori.SingleInstance
   # Network access (needed for reading some book metadata if fetched online)
   - --share=network
   # X11 + Wayland windowing

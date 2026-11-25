@@ -10,10 +10,8 @@ import { logger } from '@/lib/logger';
 /**
  * Consumes "Open with Shiori" intents (Android/mobile).
  *
- * - On mount: drains the backend's cold-start buffer once (`takeOpenedUrls`)
- *   and subscribes to warm-start `opened` events (`onOpened`), unlistening on
- *   unmount. The backend handles the cold-start race, so mount is the only
- *   drain point.
+ * - Subscribe before draining the authoritative backend queue; warm events
+ *   wake the same serialized drain. Unsubscribe even after late registration.
  * - URLs are ingested strictly sequentially (a few files at most, avoids
  *   hammering the backend). A ref Set guards against concurrent duplicate
  *   processing when a warm event overlaps the cold batch.
@@ -30,11 +28,15 @@ export function useOpenedFiles() {
   const loadInitialBooks = useLibraryStore(s => s.loadInitialBooks);
   const { confirmTombstones, tombstoneDialog } = useTombstoneConfirm();
   const processingRef = useRef<Set<string>>(new Set());
+  const queueRef = useRef(Promise.resolve());
 
   const showResultToast = useCallback(
     (result: IngestResult) => {
       const toast = toastForIngestResult(result);
       if (toast) addToast({ title: toast.title, variant: toast.variant });
+      if ((result.status === 'imported' || result.status === 'duplicate') && result.bookId != null) {
+        window.dispatchEvent(new CustomEvent('open-book', { detail: { bookId: result.bookId } }));
+      }
     },
     [addToast],
   );
@@ -82,31 +84,36 @@ export function useOpenedFiles() {
         processingRef.current.add(url);
         try {
           await handleUrl(url);
+        } catch (error) {
+          logger.error('[OpenedFile] processing failed:', error);
+          addToast({ title: 'Import failed', description: getErrorMessage(error), variant: 'error' });
         } finally {
           processingRef.current.delete(url);
         }
       }
     },
-    [handleUrl],
+    [handleUrl, addToast],
   );
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let cancelled = false;
 
-    api
-      .takeOpenedUrls()
-      .then(urls => {
-        if (!cancelled && urls.length > 0) return processUrls(urls);
-      })
-      .catch(error => logger.error('[OpenedFile] takeOpenedUrls failed:', error));
+    const drain = () => {
+      queueRef.current = queueRef.current.then(async () => {
+        if (cancelled) return;
+        const urls = await api.takeOpenedUrls();
+        // Finish consumed requests even if StrictMode replays the effect.
+        await processUrls(urls);
+      }).catch(error => logger.error('[OpenedFile] takeOpenedUrls failed:', error));
+    };
 
     api
-      .onOpened(urls => {
-        void processUrls(urls);
-      })
+      .onOpened(() => { drain(); })
       .then(fn => {
+        if (cancelled) { fn(); return; }
         unlisten = fn;
+        drain();
       })
       .catch(error => logger.error('[OpenedFile] onOpened subscribe failed:', error));
 

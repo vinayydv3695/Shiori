@@ -57,7 +57,7 @@ pub struct AppState {
     /// URLs delivered via `RunEvent::Opened` (mobile "Open with" intents)
     /// that arrived before the webview was ready to receive the `opened`
     /// event. The frontend drains this once on mount via `take_opened_urls`.
-    pub opened_urls: std::sync::Mutex<Vec<String>>,
+    pub opened_urls: Arc<std::sync::Mutex<Vec<String>>>,
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     pub discord: Option<services::discord_service::DiscordService>,
 }
@@ -160,6 +160,9 @@ impl ActiveDownloads {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+mod external_open;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -213,7 +216,27 @@ pub fn run() {
     }
 
     #[allow(unused_mut)]
+    let opened_urls = Arc::new(std::sync::Mutex::new(Vec::new()));
+    #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+    let event_opened_urls = opened_urls.clone();
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    if let Ok(cwd) = std::env::current_dir() {
+        external_open::enqueue(&opened_urls, std::env::args_os(), &cwd);
+    }
     let mut builder = tauri::Builder::default();
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        let queue = opened_urls.clone();
+        builder = builder.plugin(tauri_plugin_single_instance::init(move |app, args, cwd| {
+            external_open::enqueue(&queue, args.into_iter().map(Into::into), std::path::Path::new(&cwd));
+            let _ = tauri::Emitter::emit(app, "opened", Vec::<String>::new());
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }));
+    }
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
@@ -527,7 +550,7 @@ pub fn run() {
     }
 
     builder
-        .setup(|app| {
+        .setup(move |app| {
             let app_dir = app.path().app_data_dir().map_err(|e| {
                 ShioriError::Other(format!("Failed to get app data directory: {}", e))
             })?;
@@ -1000,7 +1023,7 @@ pub fn run() {
                 source_disk_cache: source_disk_cache.clone(),
                 image_disk_cache: image_disk_cache.clone(),
                 discovery_service: discovery_service.clone(),
-                opened_urls: std::sync::Mutex::new(Vec::new()),
+                opened_urls: opened_urls.clone(),
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 discord: Some(discord_service),
             });
@@ -1202,7 +1225,7 @@ pub fn run() {
         .invoke_handler(crate::generate_shiori_handlers!())
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
+        .run(move |app_handle, event| {
             // Mobile "Open with Shiori" file association: the OS delivers the
             // file(s) as `RunEvent::Opened { urls }` (tao forwards VIEW/SEND
             // intents — including cold-start intents via onActivityCreate —
@@ -1210,7 +1233,7 @@ pub fn run() {
             // mobile/macOS builds; on Linux desktop it never fires.
             //
             // Cold start: the webview isn't mounted yet, so the `opened`
-            // emit below would be lost — buffer the urls in AppState and let
+            // emit below would be lost — buffer the urls in the shared queue and let
             // the frontend drain them via `take_opened_urls` once it mounts.
             // Warm start: the webview is listening, emit immediately.
             match event {
@@ -1222,9 +1245,7 @@ pub fn run() {
                         url_strings.len(),
                         url_strings
                     );
-                    if let Some(state) = app_handle.try_state::<AppState>() {
-                        state.opened_urls.lock().unwrap().extend(url_strings.clone());
-                    }
+                    event_opened_urls.lock().unwrap().extend(url_strings.clone());
                     let _ = app_handle.emit("opened", url_strings);
                 }
                 _ => {

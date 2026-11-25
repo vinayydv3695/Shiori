@@ -1,3 +1,12 @@
+# Release Notes (v1.0.38)
+
+## External File Opening
+
+- **Linux & Windows Launches** — Forward file arguments on cold launches and through the running instance, using the existing import pipeline. Linux desktop entries now pass selected files to Shiori.
+- **Reliable Startup Delivery** — Subscribe before draining pending files, serialize processing, and retain native file-open events without depending on application-state readiness.
+- **Automatic Reader Opening** — Open imported or existing books after successful ingestion, including Android content URIs. Preserve existing duplicate detection and import validation.
+- **Regression Coverage** — Added tests for startup races, repeated notifications, multiple files, Unicode paths, Android content URIs, and Windows path handling.
+
 # Release Notes (v1.0.37)
 
 ## Windows SDK Header Discovery & Build Stabilization

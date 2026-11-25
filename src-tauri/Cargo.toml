@@ -1,6 +1,6 @@
 [package]
 name = "shiori"
-version = "1.0.37"
+version = "1.0.38"
 description = "A Modern Library and Reader"
 authors = ["vinayydv3695"]
 license = "GPL-3.0"
@@ -160,6 +160,9 @@ tokio-tungstenite = { version = "0.29.0", features = ["rustls-tls-webpki-roots"]
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 tauri-plugin-tts = "0.1"
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+tauri-plugin-single-instance = "2"
 
 [target.'cfg(target_os = "android")'.dependencies]
 tauri-plugin-android-auth = { path = "plugins/tauri-plugin-android-auth" }

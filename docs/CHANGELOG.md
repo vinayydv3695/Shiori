@@ -1,3 +1,10 @@
+# Release Notes (v1.0.37)
+
+## Windows SDK Header Discovery & Build Stabilization
+
+- **Windows SDK Header Discovery** — Removed the global `INCLUDE` environment variable overwrite in the Windows CI build step and normalized forward slashes in `/I`, preserving automatic `libclang` / `bindgen` discovery of Windows SDK UCRT headers (such as `stdio.h`) while supplying `msvc-compat.h` to MSVC and CMake.
+- **Windows Release Pipeline** — Fixed `espeak-rs-sys` binding generation across both standard Windows and Microsoft Store release builds.
+
 # Release Notes (v1.0.36)
 
 ## Windows MSVC Header Resolution & Build Reliability
